@@ -1,0 +1,41 @@
+Authintications
+
+
+Core Ecommerce:
+-Products
+-Categories
+-Cart
+-Checkout
+-Orders
+-Coupons
+-Reviews
+-Wishlist
+
+Admin Panel:
+-Manage Products
+-Manage Orders
+-Users
+-Payments
+-Analytics
+-Inventory
+
+
+Screenshots
+Homepage
+Product Listing
+Product Details
+Cart
+Checkout
+Admin Dashboard
+Orders Page
+1920x1080
+PNG
+UI نضيف
+
+
+
+
+
+
+
+
