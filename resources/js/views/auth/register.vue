@@ -78,64 +78,46 @@
                         </button>
                     </form>
 
-                    <form v-else-if="tab === 'register'" @submit.prevent="handleRegister"
-                        class="d-flex flex-column gap-4">
+                    <!-- REGISTER FORM -->
+                    <form v-if="tab === 'register'" @submit.prevent="handleRegister" class="d-flex flex-column gap-4">
+
                         <input v-model="registerForm.name" type="text"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                            placeholder="Full Name" required />
+                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5" placeholder="Full Name"
+                            required />
 
                         <input v-model="registerForm.email" type="email"
+                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5" placeholder="Email"
+                            required />
+
+                        <input v-model="registerForm.phone" type="text"
                             class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                            placeholder="Email Address" required />
+                            placeholder="Phone (optional)" />
 
-                        <input v-model="registerForm.position" type="text"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                            placeholder="Position / Job Title (optional)" />
-
-                        <div class="form-floating">
-                            <input v-model="registerForm.date_of_birth" type="date" class="form-control glass-input"
-                                id="date_of_birth" required />
-                            <label for="date_of_birth">تاريخ الميلاد</label>
-                        </div>
-
-                        <div class="position-relative">
-                            <input v-model="registerForm.country" list="country-list" type="text"
-                                class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                                placeholder="الدولة (اكتب للبحث...)" required autocomplete="off" />
-                            <datalist id="country-list">
-                                <option v-for="country in countries" :key="country.code" :value="country.name">
-                                    {{ country.name }} • {{ country.en }}
-                                </option>
-                            </datalist>
-                        </div>
+                        <!-- IMAGE UPLOAD -->
+                        <input type="file" class="form-control glass-input rounded-3 px-4 fs-5"
+                            @change="handleImageUpload" />
 
                         <div class="input-group input-group-lg">
                             <input v-model="registerForm.password" :type="showPassword ? 'text' : 'password'"
-                                class="form-control glass-input rounded-3 px-4 fs-5 border-end-0"
-                                placeholder="Password" required />
-                            <span class="input-group-text glass-input rounded-3 border-start-0 pointer"
+                                class="form-control glass-input rounded-3 px-4 fs-5 border-end-0" placeholder="Password"
+                                required />
+
+                            <span class="input-group-text glass-input border-start-0"
                                 @click="showPassword = !showPassword">
-                                <span class="fs-4">{{ showPassword ? "👁️" : "👁️‍🗨️" }}</span>
+                                👁️
                             </span>
                         </div>
 
-                        <div class="input-group input-group-lg">
-                            <input v-model="registerForm.password_confirmation"
-                                :type="showPassword ? 'text' : 'password'"
-                                class="form-control glass-input rounded-3 px-4 fs-5 border-end-0"
-                                placeholder="Confirm Password" required />
-                            <span class="input-group-text glass-input rounded-3 border-start-0 pointer"
-                                @click="showPassword = !showPassword">
-                                <span class="fs-4">{{ showPassword ? "👁️" : "👁️‍🗨️" }}</span>
-                            </span>
-                        </div>
+                        <input v-model="registerForm.password_confirmation" :type="showPassword ? 'text' : 'password'"
+                            class="form-control glass-input rounded-3 px-4 fs-5" placeholder="Confirm Password"
+                            required />
 
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5 mt-3"
+                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
                             :disabled="loading">
                             {{ loading ? "Creating..." : "Create Account" }}
                         </button>
 
-                        <p v-if="error" class="text-center text-danger mb-0">{{ error }}</p>
+                        <p v-if="error" class="text-danger text-center">{{ error }}</p>
                     </form>
 
                     <form v-else-if="tab === 'forgot'" @submit.prevent="handleForgot" class="d-flex flex-column gap-4">
@@ -212,11 +194,10 @@ const loginForm = ref({ email: "", password: "" });
 const registerForm = ref({
     name: "",
     email: "",
+    phone: "",
     password: "",
     password_confirmation: "",
-    position: "",
-    date_of_birth: "",
-    country: ""
+    image: null
 });
 
 const resetForm = ref({
@@ -302,19 +283,29 @@ const handleLogin = async () => {
         loading.value = false;
     }
 };
-
+const handleImageUpload = (e) => {
+    registerForm.value.image = e.target.files[0];
+};
+/* REGISTER */
 const handleRegister = async () => {
     loading.value = true;
     error.value = "";
 
     try {
         const formData = new FormData();
-        Object.keys(registerForm.value).forEach((key) => {
-            const val = registerForm.value[key];
-            if (val !== null && val !== undefined && val !== "") {
-                formData.append(key, val);
-            }
-        });
+
+        formData.append("name", registerForm.value.name);
+        formData.append("email", registerForm.value.email);
+        formData.append("password", registerForm.value.password);
+        formData.append("password_confirmation", registerForm.value.password_confirmation);
+
+        if (registerForm.value.phone) {
+            formData.append("phone", registerForm.value.phone);
+        }
+
+        if (registerForm.value.image) {
+            formData.append("image", registerForm.value.image);
+        }
 
         const res = await axios.post("/v1/users/register", formData, {
             headers: { "Content-Type": "multipart/form-data" }
@@ -322,18 +313,22 @@ const handleRegister = async () => {
 
         if (res.data.status === "success") {
             const token = res.data.data?.token;
-            const role = res.data.data?.user?.role;
-            successMessage.value = "Account created successfully";
-            saveTokenAndRedirect(token, role);
+
+            localStorage.setItem("auth_token", token);
+            axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+            router.push("/");
         } else {
             error.value = res.data.message || "Registration failed";
         }
+
     } catch (err) {
         error.value = err.response?.data?.message || "Error during registration";
     } finally {
         loading.value = false;
     }
 };
+
 
 const handleForgot = async () => {
     error.value = "";

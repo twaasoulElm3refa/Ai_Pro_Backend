@@ -38,7 +38,7 @@ class registerRequest extends FormRequest
             'image' => [
                 'nullable',
                 'image',
-                'max:2048',
+                'max:5120',
             ],
             'password' => [
                 'required',
@@ -58,6 +58,9 @@ class registerRequest extends FormRequest
         return [
             'name.required' => 'الاسم مطلوب.',
             'name.regex' => 'يجب أن يحتوي الاسم على أحرف و ارقام فقط (بدون رموز).',
+            'image.image' => 'الصورة يجب ان تكون صورة.',
+            'image.max' => 'حجم الصورة يجب ان يكون اقل من 2MB.',
+            'image.mimes' => 'الصورة يجب ان تكون من نوع jpeg, png, jpg, gif.',
             'email.required' => 'البريد الإلكتروني مطلوب.',
             'email.unique' => 'هذا البريد الإلكتروني مستخدم بالفعل.',
             'password.required' => 'كلمة المرور مطلوبة.',

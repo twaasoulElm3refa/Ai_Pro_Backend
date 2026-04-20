@@ -17,6 +17,21 @@ import footer from "./components/layouts/footer.vue";
 import AdminHeader from "./layouts/AdminHeader.vue";
 import AdminLayout from "./layouts/AdminLayout.vue";
 import AdminSidebar from "./layouts/AdminSidebar.vue";
+
+// ===============================
+// 🌙 Theme Init (IMPORTANT)
+// ===============================
+const theme = localStorage.getItem("theme");
+
+if (!theme) {
+    localStorage.setItem("theme", "light");
+    document.documentElement.setAttribute("data-theme", "light");
+} else {
+    document.documentElement.setAttribute("data-theme", 'light');
+}
+
+// ===============================
+
 const app = createApp(App);
 
 app.component("navbar-component", navbarComponent);

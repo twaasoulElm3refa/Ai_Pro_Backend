@@ -189,7 +189,7 @@ export default {
                 email: "ahmed@example.com",
                 role: "Admin",
                 is_active: true,
-                last_login_at: "2024-04-20 09:41",
+                last_seen: "2024-04-20 09:41",
             },
         });
 
@@ -213,7 +213,7 @@ export default {
                     ? (isDark.value ? "text-emerald-400 font-semibold" : "text-emerald-600 font-semibold")
                     : "text-red-400 font-semibold",
             },
-            { label: "آخر تسجيل دخول", value: profile.value.user.last_login_at },
+            { label: "آخر تسجيل دخول", value: profile.value.user.last_seen },
         ]);
 
         // ===================== Tabs =====================

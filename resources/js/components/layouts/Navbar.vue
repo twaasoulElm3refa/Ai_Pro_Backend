@@ -21,10 +21,10 @@
             <!-- Actions -->
             <div class="d-flex align-items-center gap-2">
 
-                <!-- Theme -->
+                <!-- Theme
                 <button class="btn-icon" @click="toggleTheme">
                     <i class="bi" :class="theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'"></i>
-                </button>
+                </button> -->
 
                 <!-- Wallet -->
                 <button class="btn-icon cart-btn position-relative" @click="goToWallet">
