@@ -66,28 +66,36 @@ class AuthController extends Controller
         }
     }
 
-    public function login(loginRequest $request)
+    public function login(LoginRequest $request)
     {
-        $request->validated();
+        try {
+            $request->validated();
+            $user = User::where('email', $request->email)->first();
 
-        $user = User::where('email', $request->email)->first();
+            if (! $user || ! Hash::check($request->password, $user->password)) {
+                return $this->unauthorized('Invalid credentials.');
+            }
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            return $this->unauthorized('Invalid credentials.');
+            if (! $user->is_active) {
+                return $this->forbidden('Account is disabled.');
+            }
+
+            $user->update(['last_seen' => now()]);
+
+            $token = $user->createToken('rag-token')->plainTextToken;
+
+            return $this->success([
+                'user' => $user,
+                'token' => $token,
+            ], 'Logged in successfully.');
+
+        } catch (\Exception $e) {
+            \Log::error('Login Error: '.$e->getMessage(), [
+                'email' => $request->email ?? null,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return $this->error('Something went wrong during login. Please try again later.', 500);
         }
-
-        if (! $user->is_active) {
-            return $this->forbidden('Account is disabled.');
-        }
-
-        $user->update(['last_seen' => now()]);
-
-        $token = $user->createToken('rag-token')->plainTextToken;
-
-        return $this->success([
-            'user' => new userResource($user),
-            'token' => $token,
-        ], 'Logged in successfully.');
     }
 
     public function profile()
@@ -244,8 +252,9 @@ class AuthController extends Controller
                     });
                 }
             );
+            $user->load('wallet');
 
-            return $this->success($wallet, 'Wallet fetched successfully.');
+            return $this->success($user, 'Wallet fetched successfully.');
 
         } catch (Throwable $e) {
 

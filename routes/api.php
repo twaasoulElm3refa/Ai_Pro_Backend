@@ -8,10 +8,10 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('users')->group(function () {
         Route::post('register', [AuthController::class, 'register'])
-            ->middleware(['throttle:3,1', 'guest']);
+            ->middleware(['throttle:3,1']);
 
         Route::post('login', [AuthController::class, 'login'])
-            ->middleware(['throttle:7,1', 'guest']);
+            ->middleware(['throttle:7,1']);
 
         Route::post('forgot-password', [AuthController::class, 'forgotPassword'])
             ->middleware(['throttle:5,1', 'guest']);

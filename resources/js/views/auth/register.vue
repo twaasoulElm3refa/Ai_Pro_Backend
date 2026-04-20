@@ -353,7 +353,9 @@ const handleReset = async () => {
         successMessage.value = "تم تغيير كلمة المرور بنجاح";
         tab.value = "login";
         resetForm.value = { email: "", otp: "", password: "", password_confirmation: "" };
+        console.log("Password reset successfully");
     } catch (err) {
+        console.error(err);
         error.value = err.response?.data?.message || "الكود غير صحيح أو حدث خطأ";
     }
 };
