@@ -26,11 +26,11 @@
                     <i class="bi" :class="theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'"></i>
                 </button>
 
-                <!-- Cart -->
+                <!-- Cart
                 <button class="btn-icon cart-btn position-relative" @click="goToCart" title="السلة">
                     <i class="bi bi-cart3"></i>
                     <span v-if="cartCount" class="badge">{{ cartCount }}</span>
-                </button>
+                </button> -->
 
                 <!-- Auth Area -->
                 <div class="d-flex gap-2 position-relative">
@@ -41,8 +41,10 @@
                             <i class="bi" :class="dropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
                         </button>
 
-                        <div v-if="dropdownOpen" class="dropdown-menu show shadow rounded mt-2 dropdown-dark"
-                            style="position:absolute; right:0; top:100%; margin-top:8px; z-index: 1000; min-width:150px;">
+                        <!-- Dropdown Menu -->
+                        <div v-if="dropdownOpen"
+                             class="dropdown-menu show shadow rounded mt-2 dropdown-dark"
+                             style="position: absolute; right: 0; top: 100%; margin-top: 8px; z-index: 1050; min-width: 180px;">
                             <a class="dropdown-item" href="/profile">الملف الشخصي</a>
                             <hr class="dropdown-divider">
                             <button class="dropdown-item text-danger" @click="logout">
@@ -104,7 +106,9 @@ const isActive = (name) => document.body.dataset.route === name
 
 const goToCart = () => window.location.href = '/cart'
 
-const toggleDropdown = () => dropdownOpen.value = !dropdownOpen.value
+const toggleDropdown = () => {
+    dropdownOpen.value = !dropdownOpen.value
+}
 
 const logout = () => {
     localStorage.removeItem('auth_token')
@@ -137,6 +141,14 @@ onMounted(() => {
     applyTheme()
 
     fetchProfile()
+    window.addEventListener('login', fetchProfile)
+
+    // إغلاق الـ dropdown لما نضغط بره
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.position-relative')) {
+            dropdownOpen.value = false
+        }
+    })
 })
 </script>
 
@@ -150,6 +162,11 @@ onMounted(() => {
     margin-left: 8rem;
     /* ~48px */
     margin-right: 8rem;
+
+    /* التعديلات المهمة هنا ↓ */
+    position: relative;
+    z-index: 1050;           /* رفع الـ header كله */
+    overflow: visible !important;
 }
 
 /* Logo */
@@ -325,5 +342,16 @@ onMounted(() => {
     transform: scale(1.06);
     box-shadow: 0 0 16px rgba(17, 24, 39, 0.35);
     /* shadow أسود خفيف */
+}
+.dropdown-menu {
+    z-index: 1060 !important;   /* أعلى من الـ header */
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* إذا كان الـ header sticky أو fixed في مكان تاني، أضف كمان: */
+.navbar-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 1050;
 }
 </style>

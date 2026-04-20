@@ -31,7 +31,7 @@
                 <div class="col-md-4 text-center text-md-end">
                     <!-- Logo -->
                     <div class="mb-3">
-                        <img src="/images/logo.png" alt="Logo" class="rounded-circle logo-glow p-1 w-50">
+                        <img src="/images/ai_logo.png" alt="Logo" class="rounded-circle logo-glow p-1 w-50">
                     </div>
 
                     <!-- Social Icons -->

@@ -80,7 +80,7 @@ class AuthController extends Controller
             return $this->forbidden('Account is disabled.');
         }
 
-        $user->update(['last_login_at' => now()]);
+        $user->update(['last_seen' => now()]);
 
         $token = $user->createToken('rag-token')->plainTextToken;
 

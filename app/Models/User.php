@@ -12,13 +12,13 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Guarded(['id'])]
-#[Hidden(['password', 'remember_token'])]
+
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable ,SoftDeletes ,HasApiTokens;
 
+    protected $guarded = [];
     /**
      * Get the attributes that should be cast.
      *

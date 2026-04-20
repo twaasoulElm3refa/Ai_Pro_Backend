@@ -1,78 +1,17 @@
 <template>
+    <!-- المحتوى الرئيسي -->
     <div class="min-vh-50 d-flex flex-column position-relative overflow-hidden">
         <!-- Animated Waves Overlay -->
         <div class="position-absolute w-100 h-100 waves"></div>
-        <!-- Navbar -->
-        <Navbar class="top-0 start-0 end-0 z-3 shadow-lg" />
-    </div>
 
+        <!-- باقي محتوى الـ Hero أو الصفحة هنا -->
+        <h1>home</h1>
+        <!-- ... باقي العناصر -->
+    </div>
 </template>
 
 <script setup>
 import Navbar from '@/components/layouts/Navbar.vue'
-
-const categories = [
-    { id: 1, icon: 'T', name: 'T-Shirts' },
-    { id: 2, icon: 'S', name: 'Shirts' },
-    { id: 3, icon: 'P', name: 'Pants' },
-    { id: 4, icon: 'J', name: 'Jackets' },
-    { id: 5, icon: 'S', name: 'Sweaters' },
-    { id: 6, icon: 'C', name: 'Coats' },
-];
-
-const featuredProducts = [
-    {
-        id: 1,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 89.99
-    },
-    {
-        id: 2,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 129.00
-    },
-    {
-        id: 3,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 349.50
-    },
-    {
-        id: 4,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 59.99
-    },
-];
-
-const bestSellingProducts = [
-    {
-        id: 1,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 89.99
-    },
-    {
-        id: 2,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 129.00
-    },
-    {
-        id: 3,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 349.50
-    },
-    {
-        id: 4,
-        name: 'product Sale',
-        image: '/images/categorey.png',
-        price: 59.99
-    },
-];
 </script>
 
 <style scoped>
