@@ -13,7 +13,7 @@
                 </a>
             </nav>
 
-            <!-- Hamburger for Mobile -->
+            <!-- Hamburger -->
             <button class="btn-icon d-md-none" @click="mobileMenu = !mobileMenu">
                 <i class="bi" :class="mobileMenu ? 'bi-x-lg' : 'bi-list'"></i>
             </button>
@@ -21,18 +21,20 @@
             <!-- Actions -->
             <div class="d-flex align-items-center gap-2">
 
-                <!-- Theme Toggle -->
-                <button class="btn-icon" @click="toggleTheme" title="تغيير الثيم">
+                <!-- Theme -->
+                <button class="btn-icon" @click="toggleTheme">
                     <i class="bi" :class="theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'"></i>
                 </button>
 
-                <!-- Cart
-                <button class="btn-icon cart-btn position-relative" @click="goToCart" title="السلة">
-                    <i class="bi bi-cart3"></i>
-                    <span v-if="cartCount" class="badge">{{ cartCount }}</span>
-                </button> -->
+                <!-- Wallet -->
+                <button class="btn-icon cart-btn position-relative" @click="goToWallet">
+                    <i class="bi bi-wallet2"></i>
+                    <span v-if="WalletBalance !== null" class="badge">
+                        {{ WalletBalance }}
+                    </span>
+                </button>
 
-                <!-- Auth Area -->
+                <!-- Auth -->
                 <div class="d-flex gap-2 position-relative">
                     <template v-if="isLoggedIn">
                         <button class="btn-user user-hover fw-bold d-flex align-items-center gap-2 shadow-gold"
@@ -41,11 +43,10 @@
                             <i class="bi" :class="dropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
                         </button>
 
-                        <!-- Dropdown Menu -->
                         <div v-if="dropdownOpen"
                              class="dropdown-menu show shadow rounded mt-2 dropdown-dark"
-                             style="position: absolute; right: 0; top: 100%; margin-top: 8px; z-index: 1050; min-width: 180px;">
-                            <a class="dropdown-item" href="/profile">الملف الشخصي</a>
+                             style="position: absolute; right: 0; top: 100%; z-index: 1050;">
+                            <a class="dropdown-item" href="/en/profile">الملف الشخصي</a>
                             <hr class="dropdown-divider">
                             <button class="dropdown-item text-danger" @click="logout">
                                 تسجيل الخروج
@@ -54,7 +55,7 @@
                     </template>
 
                     <template v-else>
-                        <a href="/auth" class="btn-user user-hover fw-bold shadow-gold text-decoration-none">
+                        <a href="/en/auth" class="btn-user user-hover fw-bold shadow-gold text-decoration-none">
                             تسجيل الدخول
                         </a>
                     </template>
@@ -63,7 +64,7 @@
             </div>
         </div>
 
-        <!-- Mobile Menu -->
+        <!-- Mobile -->
         <div v-if="mobileMenu" class="d-md-none mt-2 bg-white dark:bg-dark shadow-lg rounded p-3">
             <a v-for="link in links" :key="link.href" :href="link.href" class="d-block nav-link py-2 px-1"
                 :class="{ active: isActive(link.active) }">
@@ -80,17 +81,18 @@ import axios from 'axios'
 const theme = ref('dark')
 const isLoggedIn = ref(false)
 const userName = ref('المستخدم')
-const cartCount = ref(3)
+const WalletBalance = ref(null)
 const dropdownOpen = ref(false)
 const mobileMenu = ref(false)
 
 const links = [
-    { label: 'الرئيسية', href: '/', active: 'home' },
-    { label: 'جميع النماذج', href: '/products', active: 'products' },
-    { label: 'من نحن', href: '/who', active: 'who' },
-    { label: 'اتصل بنا', href: '/contact', active: 'contact' },
+    { label: 'الرئيسية', href: '/en', active: 'home' },
+    { label: 'جميع النماذج', href: '/en/products', active: 'products' },
+    { label: 'من نحن', href: '/en/who', active: 'who' },
+    { label: 'اتصل بنا', href: '/en/contact', active: 'contact' },
 ]
 
+// ================= Theme =================
 const toggleTheme = () => {
     theme.value = theme.value === 'dark' ? 'light' : 'dark'
     localStorage.setItem('theme', theme.value)
@@ -102,28 +104,35 @@ const applyTheme = () => {
     document.documentElement.setAttribute('data-bs-theme', theme.value)
 }
 
-const isActive = (name) => document.body.dataset.route === name
+// ================= Wallet =================
+const fetchWallet = async () => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
 
-const goToCart = () => window.location.href = '/cart'
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
-const toggleDropdown = () => {
-    dropdownOpen.value = !dropdownOpen.value
+    try {
+        const res = await axios.get('/v1/users/wallet')
+        if (res.data.status === 'success') {
+            WalletBalance.value = res.data.data.balance
+        }
+    } catch (err) {
+        console.log('Wallet error:', err)
+    }
 }
 
-const logout = () => {
-    localStorage.removeItem('auth_token')
-    axios.defaults.headers.common['Authorization'] = ''
-    isLoggedIn.value = false
-    userName.value = 'المستخدم'
-    dropdownOpen.value = false
-    window.location.href = '/'
+const goToWallet = () => {
+    const lang = localStorage.getItem('lang') || 'ar'
+    window.location.href = `/${lang}/wallet`
 }
 
+// ================= Auth =================
 const fetchProfile = async () => {
     const token = localStorage.getItem('auth_token')
     if (!token) return
 
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+
     try {
         const res = await axios.get('/v1/users/profile')
         if (res.data.status === 'success') {
@@ -131,19 +140,41 @@ const fetchProfile = async () => {
             isLoggedIn.value = true
         }
     } catch (err) {
-        console.log('Failed to fetch profile:', err)
+        console.log('Profile error:', err)
     }
 }
 
+const logout = () => {
+    localStorage.removeItem('auth_token')
+    axios.defaults.headers.common['Authorization'] = ''
+    isLoggedIn.value = false
+    userName.value = 'المستخدم'
+    WalletBalance.value = null
+    dropdownOpen.value = false
+    window.location.href = '/'
+}
+
+// ================= UI =================
+const toggleDropdown = () => {
+    dropdownOpen.value = !dropdownOpen.value
+}
+
+const isActive = (name) => document.body.dataset.route === name
+
+// ================= Lifecycle =================
 onMounted(() => {
     const savedTheme = localStorage.getItem('theme') || 'dark'
     theme.value = savedTheme
     applyTheme()
 
     fetchProfile()
-    window.addEventListener('login', fetchProfile)
+    fetchWallet()
 
-    // إغلاق الـ dropdown لما نضغط بره
+    window.addEventListener('login', () => {
+        fetchProfile()
+        fetchWallet()
+    })
+
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.position-relative')) {
             dropdownOpen.value = false
@@ -172,7 +203,7 @@ onMounted(() => {
 /* Logo */
 .logo {
     width: 120px;
-    height: 60px;
+    height: 80px;
     object-fit: cover;
 }
 

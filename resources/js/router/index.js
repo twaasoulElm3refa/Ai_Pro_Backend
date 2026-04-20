@@ -1,26 +1,38 @@
 import { createRouter, createWebHistory } from "vue-router";
 import Home from "../views/home/home.vue";
 import Register from "../views/auth/register.vue";
-import Profile from "../views/home/profile.vue";
+import Profile from "../views/home/user/profile.vue";
 import GoogleCallback from "../views/auth/GoogleCallback.vue";
 import Contact from "../views/home/contact.vue";
+import wallet from "../views/home/user/wallet.vue";
 
 const routes = [
     {
         path: "/",
+        redirect: () => {
+            const lang = localStorage.getItem("lang") || "ar"
+            return `/${lang}`
+        },
+    },
+    {
+        path: "/:lang/",
         component: Home,
         meta: { hideNavbar: false, hideFooter: false },
     },
     {
-        path: "/profile",
+        path: "/:lang/profile",
         component: Profile,
     },
     {
-        path: "/contact",
+        path: "/:lang/wallet",
+        component: wallet,
+    },
+    {
+        path: "/:lang/contact",
         component: Contact,
     },
     {
-        path: "/auth",
+        path: "/:lang/auth",
         component: Register,
         meta: { hideNavbar: true, hideFooter: true },
     },
