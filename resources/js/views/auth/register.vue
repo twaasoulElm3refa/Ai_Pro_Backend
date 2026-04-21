@@ -7,9 +7,7 @@
                 <div class="text-center">
                     <img src="/images/ai_logo.png" alt="NEXTLEVEL Logo" class="height-auto logo-glow" />
                     <h1 class="display-3 fw-black mb-3">AI PRO</h1>
-                    <p class="lead fs-4 fw-medium opacity-90">
-                        Build. Learn. Evolve with AI
-                    </p>
+                    <p class="lead fs-4 fw-medium opacity-90">Build. Learn. Evolve with AI</p>
                 </div>
             </div>
 
@@ -17,33 +15,34 @@
                 <div class="glass-card rounded-4 shadow-glow p-4 p-md-5 w-100"
                     style="max-width: 480px; backdrop-filter: blur(16px)">
 
-                    <div class="position-relative mb-4" style="border-bottom: 1px solid rgba(255, 255, 255, 0.15)">
+                    <!-- ── Tabs ── -->
+                    <div class="position-relative mb-4" style="border-bottom: 1px solid rgba(255,255,255,0.15)">
                         <ul class="nav nav-pills nav-fill">
                             <li class="nav-item">
                                 <button class="nav-link px-0 fs-5 fw-semibold position-relative"
-                                    :class="{ 'active-tab': tab === 'login' }" @click.prevent="tab = 'login'">
-                                    Login
-                                </button>
+                                    :class="{ 'active-tab': tab === 'login' }"
+                                    @click.prevent="tab = 'login'">Login</button>
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link px-0 fs-5 fw-semibold position-relative"
-                                    :class="{ 'active-tab': tab === 'register' }" @click.prevent="tab = 'register'">
-                                    Register
-                                </button>
+                                    :class="{ 'active-tab': tab === 'register' }"
+                                    @click.prevent="tab = 'register'">Register</button>
                             </li>
                         </ul>
                         <div class="position-absolute rounded-pill underline"
-                            :style="{ left: tab === 'login' ? '0%' : '50%', width: '50%' }">
-                        </div>
+                            :style="{ left: tab === 'login' ? '0%' : '50%', width: '50%' }"></div>
                     </div>
 
+                    <!-- ── Success Message ── -->
                     <transition name="fade">
                         <p v-if="successMessage" class="text-center text-success mb-4 fw-medium">
                             {{ successMessage }}
                         </p>
                     </transition>
 
+                    <!-- ── Login Form ── -->
                     <form v-if="tab === 'login'" @submit.prevent="handleLogin" class="d-flex flex-column gap-4">
+
                         <input v-model="loginForm.email" type="email"
                             class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
                             placeholder="Email Address" required />
@@ -69,64 +68,94 @@
                             </a>
                         </p>
 
-                        <p v-if="error" class="text-center text-danger mb-0">{{ error }}</p>
-
                         <button @click.prevent="handleGoogleLogin"
                             class="btn btn-google btn-lg d-flex align-items-center justify-content-center gap-2 mt-3">
-                            <img src="/images/google_logo.png" alt="Google" style="width: 35px; height: 36px" />
+                            <img src="/images/google_logo.png" alt="Google" style="width:35px;height:36px" />
                             Continue with Google
                         </button>
                     </form>
 
-                    <!-- REGISTER FORM -->
-                    <form v-if="tab === 'register'" @submit.prevent="handleRegister" class="d-flex flex-column gap-4">
-
-                        <input v-model="registerForm.name" type="text"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5" placeholder="Full Name"
-                            required />
+                    <!-- ── Register Form (Step 1: OTP) ── -->
+                    <form v-else-if="tab === 'register' && registerStep === 1"
+                        @submit.prevent="handleSendOtp" class="d-flex flex-column gap-4">
 
                         <input v-model="registerForm.email" type="email"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5" placeholder="Email"
-                            required />
+                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
+                            placeholder="Email" required />
+
+                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                            :disabled="loading">
+                            {{ loading ? "جاري الإرسال..." : "إرسال كود التفعيل" }}
+                        </button>
+                    </form>
+
+                    <!-- ── Register Form (Step 2: Verify OTP) ── -->
+                    <form v-else-if="tab === 'register' && registerStep === 2"
+                        @submit.prevent="handleVerifyOtp" class="d-flex flex-column gap-4">
+
+                        <p class="text-center text-white-50 mb-0">
+                            تم إرسال كود على <strong class="text-white">{{ registerForm.email }}</strong>
+                        </p>
+
+                        <input v-model="registerForm.otp" type="text"
+                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5 text-center ls-widest"
+                            placeholder="أدخل كود التفعيل" maxlength="6" required />
+
+                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                            :disabled="loading">
+                            {{ loading ? "جاري التحقق..." : "تحقق من الكود" }}
+                        </button>
+
+                        <p class="text-center mb-0">
+                            <a href="#" class="text-glow fw-medium fs-6" @click.prevent="handleSendOtp">
+                                إعادة إرسال الكود
+                            </a>
+                        </p>
+                    </form>
+
+                    <!-- ── Register Form (Step 3: Fill Data) ── -->
+                    <form v-else-if="tab === 'register' && registerStep === 3"
+                        @submit.prevent="handleRegister" class="d-flex flex-column gap-4">
+
+                        <input v-model="registerForm.name" type="text"
+                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
+                            placeholder="Full Name" required />
 
                         <input v-model="registerForm.phone" type="text"
                             class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
                             placeholder="Phone (optional)" />
 
-                        <!-- IMAGE UPLOAD -->
                         <input type="file" class="form-control glass-input rounded-3 px-4 fs-5"
                             @change="handleImageUpload" />
 
                         <div class="input-group input-group-lg">
                             <input v-model="registerForm.password" :type="showPassword ? 'text' : 'password'"
-                                class="form-control glass-input rounded-3 px-4 fs-5 border-end-0" placeholder="Password"
-                                required />
-
+                                class="form-control glass-input rounded-3 px-4 fs-5 border-end-0"
+                                placeholder="Password" required />
                             <span class="input-group-text glass-input border-start-0"
-                                @click="showPassword = !showPassword">
-                                👁️
-                            </span>
+                                @click="showPassword = !showPassword">👁️</span>
                         </div>
 
                         <input v-model="registerForm.password_confirmation" :type="showPassword ? 'text' : 'password'"
-                            class="form-control glass-input rounded-3 px-4 fs-5" placeholder="Confirm Password"
-                            required />
+                            class="form-control glass-input rounded-3 px-4 fs-5"
+                            placeholder="Confirm Password" required />
 
                         <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
                             :disabled="loading">
                             {{ loading ? "Creating..." : "Create Account" }}
                         </button>
-
-                        <p v-if="error" class="text-danger text-center">{{ error }}</p>
                     </form>
 
+                    <!-- ── Forgot Password Form ── -->
                     <form v-else-if="tab === 'forgot'" @submit.prevent="handleForgot" class="d-flex flex-column gap-4">
+
                         <input v-model="forgotEmail" type="email"
                             class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
                             placeholder="Email Address" required />
 
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5">
-                            إرسال الكود
+                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                            :disabled="loading">
+                            {{ loading ? "جاري الإرسال..." : "إرسال الكود" }}
                         </button>
 
                         <p class="text-center mt-3">
@@ -136,7 +165,9 @@
                         </p>
                     </form>
 
+                    <!-- ── Reset Password Form ── -->
                     <form v-else-if="tab === 'reset'" @submit.prevent="handleReset" class="d-flex flex-column gap-4">
+
                         <input v-model="resetForm.email" type="email"
                             class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
                             placeholder="Email" required />
@@ -153,19 +184,21 @@
                             class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
                             placeholder="Confirm Password" required />
 
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5">
-                            تغيير كلمة المرور
+                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                            :disabled="loading">
+                            {{ loading ? "جاري التغيير..." : "تغيير كلمة المرور" }}
                         </button>
                     </form>
 
+                    <!-- ── Bottom Switch Link ── -->
                     <div class="text-center mt-4 text-white fs-6">
                         <span v-if="tab === 'register'">
                             Already have an account?
-                            <a href="#" class="text-glow fw-medium" @click.prevent="tab = 'login'">Login</a>
+                            <a href="#" class="text-glow fw-medium" @click.prevent="switchToLogin">Login</a>
                         </span>
                         <span v-else-if="tab === 'login'">
                             Don't have an account?
-                            <a href="#" class="text-glow fw-medium" @click.prevent="tab = 'register'">Register</a>
+                            <a href="#" class="text-glow fw-medium" @click.prevent="switchToRegister">Register</a>
                         </span>
                     </div>
 
@@ -177,197 +210,123 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import axios from "axios";
-import { useRouter } from "vue-router";
+import authService from "@/services/auth/authService";
 
-const router = useRouter();
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
 
-const tab = ref("login");
-const showPassword = ref(false);
-const loading = ref(false);
-const error = ref("");
+const tab            = ref("login");
+const registerStep   = ref(1);   // 1 = email → 2 = OTP → 3 = full form
+const showPassword   = ref(false);
+const loading        = ref(false);
 const successMessage = ref("");
-const forgotEmail = ref("");
+const forgotEmail    = ref("");
 
-const loginForm = ref({ email: "", password: "" });
+const loginForm = ref({
+    email: "",
+    password: "",
+});
 
 const registerForm = ref({
     name: "",
     email: "",
+    otp: "",
     phone: "",
     password: "",
     password_confirmation: "",
-    image: null
+    image: null,
 });
 
 const resetForm = ref({
     email: "",
     otp: "",
     password: "",
-    password_confirmation: ""
+    password_confirmation: "",
 });
 
-const countries = ref([
-    { name: "أفغانستان", en: "Afghanistan", code: "AF" },
-    { name: "مصر", en: "Egypt", code: "EG" },
-    { name: "السعودية", en: "Saudi Arabia", code: "SA" },
-    { name: "الإمارات العربية المتحدة", en: "United Arab Emirates", code: "AE" },
-]);
+// ─────────────────────────────────────────────
+//  Helpers
+// ─────────────────────────────────────────────
 
-const saveTokenAndRedirect = (token, role) => {
-    if (!token) {
-        error.value = "No token received";
-        return;
-    }
-
-    const normalizedRole = (role || "user").toString().toLowerCase().trim();
-
-    localStorage.setItem("auth_token", token);
-    localStorage.setItem("user_role", normalizedRole);
-
-    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-    if (normalizedRole === "admin") {
-        router.push("/admin");
-    } else {
-        router.push("/");
-    }
-};
-
-onMounted(async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get("token");
-    const roleFromUrl = urlParams.get("role");
-    const errorMsg = urlParams.get("error");
-
-    if (errorMsg) {
-        error.value = decodeURIComponent(errorMsg);
-        return;
-    }
-
-    if (token) {
-        const cleanUrl = new URL(window.location.href);
-        cleanUrl.search = "";
-        window.history.replaceState({}, document.title, cleanUrl.toString());
-
-        localStorage.setItem("auth_token", token);
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-        try {
-            const res = await axios.get("/v1/users/profile");
-            const role = res.data.data?.role || res.data.data?.user?.role || roleFromUrl || "user";
-            saveTokenAndRedirect(token, role);
-        } catch {
-            saveTokenAndRedirect(token, roleFromUrl || "user");
-        }
-    }
-});
-
-const handleLogin = async () => {
+const withLoading = async (fn) => {
     loading.value = true;
-    error.value = "";
-
     try {
-        const res = await axios.post("/v1/users/login", loginForm.value);
-
-        if (res.data.status === "success") {
-            const token = res.data.data?.token;
-            const role = res.data.data?.user?.role;
-            saveTokenAndRedirect(token, role);
-        } else {
-            error.value = res.data.message || "Login failed";
-        }
-    } catch (err) {
-        error.value = err.response?.data?.message || "Error during login";
+        await fn();
     } finally {
         loading.value = false;
     }
 };
+
+const switchToLogin = () => {
+    tab.value = "login";
+    registerStep.value = 1;
+};
+
+const switchToRegister = () => {
+    tab.value = "register";
+    registerStep.value = 1;
+};
+
+// ─────────────────────────────────────────────
+//  Handlers
+// ─────────────────────────────────────────────
+
+const handleLogin = () =>
+    withLoading(() => authService.login(loginForm.value));
+
+// Register – Step 1
+const handleSendOtp = () =>
+    withLoading(async () => {
+        await authService.sendOtp(registerForm.value.email);
+        registerStep.value = 2;
+        successMessage.value = "تم إرسال كود التفعيل على إيميلك";
+        setTimeout(() => (successMessage.value = ""), 4000);
+    });
+
+// Register – Step 2
+const handleVerifyOtp = () =>
+    withLoading(async () => {
+        await authService.verifyOtp(registerForm.value.email, registerForm.value.otp);
+        registerStep.value = 3;
+    });
+
+// Register – Step 3
+const handleRegister = () =>
+    withLoading(() => authService.register(registerForm.value));
+
 const handleImageUpload = (e) => {
-    registerForm.value.image = e.target.files[0];
-};
-/* REGISTER */
-const handleRegister = async () => {
-    loading.value = true;
-    error.value = "";
-
-    try {
-        const formData = new FormData();
-
-        formData.append("name", registerForm.value.name);
-        formData.append("email", registerForm.value.email);
-        formData.append("password", registerForm.value.password);
-        formData.append("password_confirmation", registerForm.value.password_confirmation);
-
-        if (registerForm.value.phone) {
-            formData.append("phone", registerForm.value.phone);
-        }
-
-        if (registerForm.value.image) {
-            formData.append("image", registerForm.value.image);
-        }
-
-        const res = await axios.post("/v1/users/register", formData, {
-            headers: { "Content-Type": "multipart/form-data" }
-        });
-
-        if (res.data.status === "success") {
-            const token = res.data.data?.token;
-
-            localStorage.setItem("auth_token", token);
-            axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-            router.push("/");
-        } else {
-            error.value = res.data.message || "Registration failed";
-        }
-
-    } catch (err) {
-        error.value = err.response?.data?.message || "Error during registration";
-    } finally {
-        loading.value = false;
-    }
+    registerForm.value.image = e.target.files[0] ?? null;
 };
 
-
-const handleForgot = async () => {
-    error.value = "";
-    successMessage.value = "";
-
-    try {
-        await axios.post("/v1/users/forgot-password", { email: forgotEmail.value });
-        successMessage.value = "تم إرسال الكود على الإيميل";
+const handleForgot = () =>
+    withLoading(async () => {
+        await authService.forgotPassword(forgotEmail.value);
         resetForm.value.email = forgotEmail.value;
+        successMessage.value = "تم إرسال الكود على الإيميل";
         tab.value = "reset";
-    } catch (err) {
-        error.value = err.response?.data?.message || "حصل خطأ أثناء إرسال الكود";
-    }
-};
+        setTimeout(() => (successMessage.value = ""), 4000);
+    });
 
-const handleReset = async () => {
-    error.value = "";
-    successMessage.value = "";
-
-    try {
-        await axios.post("/v1/users/reset-password", resetForm.value);
+const handleReset = () =>
+    withLoading(async () => {
+        await authService.resetPassword(resetForm.value);
         successMessage.value = "تم تغيير كلمة المرور بنجاح";
         tab.value = "login";
         resetForm.value = { email: "", otp: "", password: "", password_confirmation: "" };
-        console.log("Password reset successfully");
-    } catch (err) {
-        console.error(err);
-        error.value = err.response?.data?.message || "الكود غير صحيح أو حدث خطأ";
-    }
-};
+        setTimeout(() => (successMessage.value = ""), 4000);
+    });
 
 const handleGoogleLogin = async () => {
-    try {
-        const res = await axios.get("/v1/users/google-login");
-        window.location.href = res.data.url;
-    } catch (err) {
-        error.value = err.response?.data?.message || "فشل الاتصال بجوجل";
-    }
+    const url = await authService.getGoogleAuthUrl();
+    window.location.href = url;
 };
+
+// ─────────────────────────────────────────────
+//  Lifecycle
+// ─────────────────────────────────────────────
+
+onMounted(() => authService.handleGoogleCallback());
 </script>
 
 <style scoped>

@@ -21,11 +21,6 @@
             <!-- Actions -->
             <div class="d-flex align-items-center gap-2">
 
-                <!-- Theme
-                <button class="btn-icon" @click="toggleTheme">
-                    <i class="bi" :class="theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'"></i>
-                </button> -->
-
                 <!-- Wallet -->
                 <button class="btn-icon cart-btn position-relative" @click="goToWallet">
                     <i class="bi bi-wallet2"></i>
@@ -45,7 +40,7 @@
 
                         <div v-if="dropdownOpen"
                              class="dropdown-menu show shadow rounded mt-2 dropdown-dark"
-                             style="position: absolute; right: 0; top: 100%; z-index: 1050;">
+                             style="position:absolute; right:0; top:100%; z-index:1050;">
                             <a class="dropdown-item" href="/en/profile">الملف الشخصي</a>
                             <hr class="dropdown-divider">
                             <button class="dropdown-item text-danger" @click="logout">
@@ -75,112 +70,92 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { ref, onMounted } from "vue";
+import api from "@/services/ApiClient";
 
-const theme = ref('dark')
-const isLoggedIn = ref(false)
-const userName = ref('المستخدم')
-const WalletBalance = ref(null)
-const dropdownOpen = ref(false)
-const mobileMenu = ref(false)
+const theme = ref("dark");
+const isLoggedIn = ref(false);
+const userName = ref("المستخدم");
+const WalletBalance = ref(null);
+const dropdownOpen = ref(false);
+const mobileMenu = ref(false);
 
 const links = [
-    { label: 'الرئيسية', href: '/en', active: 'home' },
-    { label: 'جميع النماذج', href: '/en/products', active: 'products' },
-    { label: 'من نحن', href: '/en/who', active: 'who' },
-    { label: 'اتصل بنا', href: '/en/contact', active: 'contact' },
-]
-
-// ================= Theme =================
-const toggleTheme = () => {
-    theme.value = theme.value === 'dark' ? 'light' : 'dark'
-    localStorage.setItem('theme', theme.value)
-    applyTheme()
-}
-
-const applyTheme = () => {
-    document.documentElement.setAttribute('data-theme', theme.value)
-    document.documentElement.setAttribute('data-bs-theme', theme.value)
-}
+    { label: "الرئيسية", href: "/en", active: "home" },
+    { label: "جميع النماذج", href: "/en/products", active: "products" },
+    { label: "من نحن", href: "/en/who", active: "who" },
+    { label: "اتصل بنا", href: "/en/contact", active: "contact" },
+];
 
 // ================= Wallet =================
 const fetchWallet = async () => {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return
-
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
 
     try {
-        const res = await axios.get('/v1/users/wallet')
-        if (res.data.status === 'success') {
-            WalletBalance.value = res.data.data.balance
+        const res = await api.get("/users/wallet");
+
+        if (res.data.status === "success") {
+            WalletBalance.value = res.data.data.balance;
         }
     } catch (err) {
-        console.log('Wallet error:', err)
+        console.log("Wallet error:", err);
     }
-}
+};
 
 const goToWallet = () => {
-    const lang = localStorage.getItem('lang') || 'ar'
-    window.location.href = `/${lang}/wallet`
-}
+    const lang = localStorage.getItem("lang") || "ar";
+    window.location.href = `/${lang}/wallet`;
+};
 
-// ================= Auth =================
+// ================= Profile =================
 const fetchProfile = async () => {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return
-
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
     try {
-        const res = await axios.get('/v1/users/profile')
-        if (res.data.status === 'success') {
-            userName.value = res.data.data.user.name || 'المستخدم'
-            isLoggedIn.value = true
+        const res = await api.get("/users/profile");
+        if (res.data.status === "success") {
+            userName.value = res.data.data.user.name || "المستخدم";
+            isLoggedIn.value = true;
         }
     } catch (err) {
-        console.log('Profile error:', err)
+        console.log("Profile error:", err);
     }
-}
+};
 
+// ================= Logout =================
 const logout = () => {
-    localStorage.removeItem('auth_token')
-    axios.defaults.headers.common['Authorization'] = ''
-    isLoggedIn.value = false
-    userName.value = 'المستخدم'
-    WalletBalance.value = null
-    dropdownOpen.value = false
-    window.location.href = '/'
-}
+    localStorage.removeItem("auth_token");
+    isLoggedIn.value = false;
+    userName.value = "المستخدم";
+    WalletBalance.value = null;
+    dropdownOpen.value = false;
+    window.location.href = "/";
+};
 
 // ================= UI =================
 const toggleDropdown = () => {
-    dropdownOpen.value = !dropdownOpen.value
-}
+    dropdownOpen.value = !dropdownOpen.value;
+};
 
-const isActive = (name) => document.body.dataset.route === name
+const isActive = (name) => document.body.dataset.route === name;
 
 // ================= Lifecycle =================
 onMounted(() => {
-    const savedTheme = localStorage.getItem('theme') || 'dark'
-    theme.value = savedTheme
-    applyTheme()
+    fetchProfile();
+    fetchWallet();
 
-    fetchProfile()
-    fetchWallet()
+    window.addEventListener("login", () => {
+        fetchProfile();
+        fetchWallet();
+    });
 
-    window.addEventListener('login', () => {
-        fetchProfile()
-        fetchWallet()
-    })
-
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.position-relative')) {
-            dropdownOpen.value = false
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".position-relative")) {
+            dropdownOpen.value = false;
         }
-    })
-})
+    });
+});
 </script>
 
 <style scoped>

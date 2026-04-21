@@ -2,7 +2,6 @@ import axios from "axios";
 import toastr from "toastr";
 import "toastr/build/toastr.min.css";
 
-// 🔥 إعداد toastr مرة واحدة
 toastr.options = {
     closeButton: true,
     progressBar: true,
@@ -14,6 +13,7 @@ const api = axios.create({
     baseURL: "http://localhost:8000/api/v1",
     headers: {
         Accept: "application/json",
+        'x-api-key': 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y'
     },
 });
 
@@ -34,8 +34,6 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         const status = error.response?.status;
-
-        // 🧠 لو مفيش response (network error)
         if (!error.response) {
             toastr.error("في مشكلة في الاتصال بالسيرفر");
             return Promise.reject(error);

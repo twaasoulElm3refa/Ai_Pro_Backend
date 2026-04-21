@@ -19,8 +19,11 @@ return new class extends Migration
             $table->string('image')->nullable();
             $table->boolean('is_active')->nullable();
             $table->string('email')->unique();
+            $table->string('otp_code')->nullable();
+            $table->timestamp('otp_expires_at')->nullable();
             $table->timestamp('last_seen')->nullable();
             $table->timestamp('email_verified_at')->nullable();
+            $table->boolean('is_verified')->default(false);
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();

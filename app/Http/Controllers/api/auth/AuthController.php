@@ -23,49 +23,6 @@ class AuthController extends Controller
 {
     use authApiResponse;
 
-    public function register(registerRequest $request)
-    {
-        try {
-            $user = DB::transaction(function () use ($request) {
-                $data = $request->validated();
-
-                return User::create([
-                    'name' => $data['name'],
-                    'email' => $data['email'],
-                    'image' => $data['image'],
-                    'password' => Hash::make($data['password']),
-                    'role' => 'user',
-                    'is_active' => true,
-                    'last_seen' => null,
-                ]);
-            });
-            if ($request->hasFile('image')) {
-                $user->image = $request->image->store('users', 'public');
-                $user->save();
-            }
-            $token = $user->createToken('rag-token')->plainTextToken;
-
-            $user->update([
-                'last_seen' => now(),
-            ]);
-
-            return $this->success([
-                'token' => $token,
-                'user' => new userResource($user),
-            ], 'Registered successfully.');
-
-        } catch (Throwable $e) {
-            Log::error('Register Error', [
-                'message' => $e->getMessage(),
-            ]);
-
-            return $this->error(
-                'Registration failed. Please try again later.',
-                500
-            );
-        }
-    }
-
     public function login(LoginRequest $request)
     {
         try {
@@ -94,6 +51,7 @@ class AuthController extends Controller
                 'email' => $request->email ?? null,
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->error('Something went wrong during login. Please try again later.', 500);
         }
     }
