@@ -1,6 +1,6 @@
 <template>
     <AdminLayout>
-        <h1>Add Product</h1>
+        <h1>Settings</h1>
     </AdminLayout>
 </template>
 

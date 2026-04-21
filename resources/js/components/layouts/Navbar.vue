@@ -124,13 +124,31 @@ const fetchProfile = async () => {
 };
 
 // ================= Logout =================
-const logout = () => {
-    localStorage.removeItem("auth_token");
-    isLoggedIn.value = false;
-    userName.value = "المستخدم";
-    WalletBalance.value = null;
-    dropdownOpen.value = false;
-    window.location.href = "/";
+const logout = async () => {
+    try {
+        await api.post("/users/logout");
+
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("auth_token");
+
+        isLoggedIn.value = false;
+        userName.value = "المستخدم";
+        WalletBalance.value = null;
+        dropdownOpen.value = false;
+
+        window.location.href = "/";
+    } catch (error) {
+        console.log("Logout error:", error);
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("auth_token");
+
+        isLoggedIn.value = false;
+        userName.value = "المستخدم";
+        WalletBalance.value = null;
+        dropdownOpen.value = false;
+
+        window.location.href = "/";
+    }
 };
 
 // ================= UI =================

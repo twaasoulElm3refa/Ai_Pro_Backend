@@ -5,15 +5,14 @@ namespace App\Http\Controllers\api\auth;
 use App\Http\Controllers\concerns\authApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\loginRequest;
-use App\Http\Requests\registerRequest;
 use App\Http\Resources\userResource;
+use App\Mail\OtpMail;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -42,7 +41,7 @@ class AuthController extends Controller
             $token = $user->createToken('rag-token')->plainTextToken;
 
             return $this->success([
-                'user' => $user,
+                'user' => new userResource($user),
                 'token' => $token,
             ], 'Logged in successfully.');
 
@@ -56,15 +55,11 @@ class AuthController extends Controller
         }
     }
 
-    public function profile()
+    public function logout(Request $request)
     {
-        $user = auth()->user();
+        $request->user()->currentAccessToken()->delete();
 
-        if (! $user) {
-            return $this->unauthorized('Unauthenticated.');
-        }
-
-        return $this->success(['user' => new userResource($user)], 'Profile fetched successfully.');
+        return $this->success([], 'Logged out successfully.');
     }
 
     public function forgotPassword(Request $request)
@@ -91,10 +86,7 @@ class AuthController extends Controller
             ]
         );
 
-        Mail::raw("كود استرجاع كلمة المرور هو: $otp", function ($message) use ($user) {
-            $message->to($user->email)
-                ->subject('Reset Password OTP');
-        });
+        Mail::to($user->email)->send(new OtpMail($otp));
 
         return response()->json([
             'message' => 'تم إرسال كود التحقق على الإيميل',
@@ -132,99 +124,14 @@ class AuthController extends Controller
         ]);
     }
 
-    public function updateProfile(Request $request)
+    public function clearProfileCache($userId = null)
     {
-        $user = $request->user();
+        $userId = $userId ?? auth()->id();
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
-        ]);
-
-        $user->update($validated);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Profile updated successfully.',
-            'data' => [
-                'user' => new userResource($user),
-            ],
-        ]);
-    }
-
-    public function updatePassword(Request $request)
-    {
-        $user = $request->user();
-
-        $validated = $request->validate([
-            'current_password' => 'required|string',
-            'new_password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()],
-            'confirm_password' => 'required|string|same:new_password',
-        ]);
-
-        // Check current password
-        if (! Hash::check($validated['current_password'], $user->password)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Current password is incorrect.',
-            ], 403);
+        if (! $userId) {
+            return;
         }
 
-        $user->password = Hash::make($validated['new_password']);
-        $user->save();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Password updated successfully.',
-        ]);
-    }
-
-    public function wallet()
-    {
-        try {
-            $user = auth()->user();
-
-            $wallet = Cache::remember(
-                "wallet_user_{$user->id}",
-                now()->addMinutes(10),
-                function () use ($user) {
-
-                    return DB::transaction(function () use ($user) {
-
-                        $wallet = Cache::remember(
-                            "wallet_user_{$user->id}",
-                            now()->addMinutes(10),
-                            function () use ($user) {
-
-                                return Wallet::firstOrCreate(
-                                    ['user_id' => $user->id],
-                                    [
-                                        'balance' => 0,
-                                        'uuid' => Str::uuid(),
-                                    ]
-                                )->toArray();
-                            }
-                        );
-
-                        return $wallet;
-                    });
-                }
-            );
-            $user->load('wallet');
-
-            return $this->success($user, 'Wallet fetched successfully.');
-
-        } catch (Throwable $e) {
-
-            \Log::error('Wallet Error', [
-                'user_id' => auth()->id(),
-                'message' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Something went wrong',
-            ], 500);
-        }
+        Cache::forget("user_profile_{$userId}");
     }
 }

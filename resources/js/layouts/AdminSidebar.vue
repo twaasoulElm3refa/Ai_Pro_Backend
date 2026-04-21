@@ -3,8 +3,8 @@
 
         <!-- Logo -->
         <div class="sidebar-logo">
-            <img src="/images/logo.png" alt="Site Logo" />
-            <span class="logo-text">Admin</span>
+            <img src="/images/ai_logo.png" class="w-50" alt="Site Logo" />
+            <span class="logo-text">AI PRO</span>
         </div>
 
         <div class="sidebar-spacer"></div>
@@ -28,51 +28,6 @@
             </div>
         </div>
 
-        <!-- CATEGORIES -->
-        <div class="sidebar-group">
-            <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: categoriesActive }"
-                @click="toggle('categories')">
-                Categories
-                <span :class="['arrow', { open: open.categories }]"></span>
-            </button>
-
-
-            <div v-if="open.categories" class="dropdown">
-                <RouterLink to="/admin/categories" class="sidebar-btn dropdown-item mt-2">All Categories</RouterLink>
-                <RouterLink to="/admin/categories/create" class="sidebar-btn dropdown-item">Add Category</RouterLink>
-            </div>
-        </div>
-
-        <!-- BRANDS -->
-        <div class="sidebar-group">
-            <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: brandsActive }"
-                @click="toggle('brands')">
-                Brands
-                <span :class="['arrow', { open: open.brands }]"></span>
-            </button>
-
-
-            <div v-if="open.brands" class="dropdown">
-                <RouterLink to="/admin/brands" class="sidebar-btn dropdown-item mt-2">All Brands</RouterLink>
-                <RouterLink to="/admin/brands/create" class="sidebar-btn dropdown-item">Add Brand</RouterLink>
-            </div>
-        </div>
-
-        <!-- PRODUCTS -->
-        <div class="sidebar-group">
-            <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: productsActive }"
-                @click="toggle('products')">
-                Products
-                <span :class="['arrow', { open: open.products }]"></span>
-            </button>
-
-
-            <div v-if="open.products" class="dropdown">
-                <RouterLink to="/admin/products" class="sidebar-btn dropdown-item mt-2">All Products</RouterLink>
-                <RouterLink to="/admin/products/create" class="sidebar-btn dropdown-item">Add Product</RouterLink>
-            </div>
-        </div>
-
         <!-- Settings -->
         <RouterLink to="/admin/settings" class="sidebar-btn " :class="{ activeParent: settingsActive }">
             Settings
@@ -90,9 +45,6 @@ const route = useRoute()
 
 const open = reactive({
     users: route.path.startsWith('/admin/users'),
-    categories: route.path.startsWith('/admin/categories'),
-    brands: route.path.startsWith('/admin/brands'),
-    products: route.path.startsWith('/admin/products'),
 })
 
 const toggle = (key) => {
@@ -102,18 +54,6 @@ const toggle = (key) => {
 /* Parent Active States */
 const usersActive = computed(() =>
     route.path.startsWith('/admin/users')
-)
-
-const categoriesActive = computed(() =>
-    route.path.startsWith('/admin/categories')
-)
-
-const brandsActive = computed(() =>
-    route.path.startsWith('/admin/brands')
-)
-
-const productsActive = computed(() =>
-    route.path.startsWith('/admin/products')
 )
 
 const settingsActive = computed(() =>
@@ -149,9 +89,9 @@ const settingsActive = computed(() =>
 }
 
 .logo-text {
-    color: #D4AF37;
+    color: #000000;
     font-weight: bold;
-    font-size: 1.3rem;
+    font-size: 1.6rem;
 }
 
 /* ===== Buttons ===== */
@@ -175,7 +115,7 @@ const settingsActive = computed(() =>
 
 .router-link-active {
     background: rgba(212, 175, 55, 0.25) !important;
-    color: #D4AF37 !important;
+    color: #000000 !important;
 }
 
 /* Dropdown */

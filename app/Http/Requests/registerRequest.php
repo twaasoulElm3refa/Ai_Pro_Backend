@@ -40,6 +40,11 @@ class registerRequest extends FormRequest
                 'image',
                 'max:5120',
             ],
+            'phone'=> [
+                'nullable',
+                'string',
+                'max:255',
+            ],
             'password' => [
                 'required',
                 'confirmed',
