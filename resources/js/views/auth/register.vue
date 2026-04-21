@@ -210,7 +210,7 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import authService from "@/services/auth/AuthService";
+import authService from "@/services/auth/Authservice";
 
 // ─────────────────────────────────────────────
 //  State
