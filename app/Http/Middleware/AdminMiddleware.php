@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Http\Controllers\api\admin\apiResponse;
+use App\Http\Controllers\concerns\ApiResponse as ConcernsApiResponse;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AdminMiddleware
 {
-    use apiResponse;
+    use ConcernsApiResponse;
     /**
      * Handle an incoming request.
      *
@@ -20,7 +20,7 @@ class AdminMiddleware
     {
         $user = auth()->user();
         if (!$user || $user->role !== 'admin') {
-            return $this->unauthorized();
+            return $this->unauthorized('You are not an admin.');
         }
         return $next($request);
     }

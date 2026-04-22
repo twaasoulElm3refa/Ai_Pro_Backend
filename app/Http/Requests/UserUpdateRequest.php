@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
-class UserRequest extends FormRequest
+class UserUpdateRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -25,16 +25,9 @@ class UserRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'role' => 'required|in:admin,user',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'required|email',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'phone' => 'nullable|string|max:255',
-            'password' => [
-                'required',
-                'confirmed',
-                Password::min(8)
-                    ->letters()
-                    ->numbers()
-            ],
         ];
     }
 
@@ -45,12 +38,6 @@ class UserRequest extends FormRequest
             'email.required' => 'البريد الإلكتروني مطلوب.',
             'email.unique' => 'هذا البريد الإلكتروني مستخدم بالفعل.',
             'phone.max' => 'رقم الهاتف يجب ان يكون اقل من 255 حرف.',
-            'password.required' => 'كلمة المرور مطلوبة.',
-            'password.confirmed' => 'كلمتا المرور غير متطابقتين.',
-            'password.min' => 'كلمة المرور يجب ان تكون 8 احرف على الاقل.',
-            'password.letters' => 'كلمة المرور يجب ان تحتوي على حروف.',
-            'password.mixedCase' => 'كلمة المرور يجب ان تحتوي على حروف كبيرة وصغيرة.',
-            'password.numbers' => 'كلمة المرور يجب ان تحتوي على ارقام.',
         ];
     }
 }

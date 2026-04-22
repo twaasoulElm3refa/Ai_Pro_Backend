@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\api\admin\AdminUserController;
 use App\Http\Controllers\api\admin\auth\AdminAuthController;
 use App\Http\Controllers\api\auth\AuthController;
 use App\Http\Controllers\api\auth\GoogleAuthController;
 use App\Http\Controllers\api\auth\ProfileController;
 use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\WalletController;
+use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ApiKeyMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -46,4 +48,14 @@ Route::prefix('v1')->group(function () {
 
 Route::prefix('admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login']);
+
+    Route::prefix('users')->middleware(['auth:sanctum',AdminMiddleware::class])->group(function () {
+        Route::get('/', [AdminUserController::class, 'index']);
+        Route::get('/{id}', [AdminUserController::class, 'show']);
+        Route::post('/', [AdminUserController::class, 'store']);
+        Route::post('/{id}', [AdminUserController::class, 'update']);
+        Route::delete('/{id}', [AdminUserController::class, 'destroy']);
+    });
 });
+
+
