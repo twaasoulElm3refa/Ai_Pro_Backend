@@ -26,6 +26,7 @@ class UserUpdateRequest extends FormRequest
             'name' => 'required|string|max:255',
             'role' => 'required|in:admin,user',
             'email' => 'required|email',
+            'is_active' => 'required|boolean',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'phone' => 'nullable|string|max:255',
         ];

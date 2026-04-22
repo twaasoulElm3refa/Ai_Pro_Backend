@@ -7,9 +7,12 @@ import Contact from "../views/home/contact.vue";
 import wallet from "../views/home/user/wallet.vue";
 import login from "../views/admin/auth/login.vue";
 import admin from "../views/admin/index.vue";
-import addUser from "../views/admin/users/add.vue";
-import users from "../views/admin/users/all.vue";
+import addUser from "../views/admin/users/add_user.vue";
+import show_users from "../views/admin/users/show_user.vue";
+import edit_user from "../views/admin/users/edit_user.vue";
+import users from "../views/admin/users/all_users.vue";
 import settings from "../views/admin/settings/settings.vue";
+import show_user from "../views/admin/users/show_user.vue";
 
 const routes = [
     {
@@ -67,6 +70,16 @@ const routes = [
     {
         path: "/admin/users/add",
         component: addUser,
+        meta: { hideNavbar: true, hideFooter: true },
+    },
+    {
+        path: "/admin/users/edit/:id",
+        component: edit_user,
+        meta: { hideNavbar: true, hideFooter: true },
+    },
+    {
+        path: "/admin/users/show/:id",
+        component: show_users,
         meta: { hideNavbar: true, hideFooter: true },
     },
     {
