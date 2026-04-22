@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class userSeeder extends Seeder
 {
@@ -13,10 +13,14 @@ class userSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory()->count(100)->create();
 
-        User::factory()->count(10)->state([
-            'role' => 'admin'
-        ])->create();
+        User::create([
+            'name' => 'admin',
+            'role' => 'admin',
+            'email' => 'admin@admin.com',
+            'is_active' => 1,
+            'is_verified' => 1,
+            'password' => Hash::make('Ai_pro_2026')
+        ]);
     }
 }

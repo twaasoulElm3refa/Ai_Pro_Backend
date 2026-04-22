@@ -16,23 +16,43 @@
 
         <!-- USERS -->
         <div class="sidebar-group">
-            <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: usersActive }" @click="toggle('users')">
+            <button class="sidebar-btn dropdown-toggle"
+                :class="{ activeParent: usersActive }"
+                @click="toggle('users')">
+
                 Users
                 <span :class="['arrow', { open: open.users }]"></span>
             </button>
 
-
             <div v-if="open.users" class="dropdown">
-                <RouterLink to="/admin/users" class="sidebar-btn dropdown-item mt-2">All Users</RouterLink>
-                <RouterLink to="/admin/users/add" class="sidebar-btn dropdown-item">Add User</RouterLink>
+                <RouterLink to="/admin/users" class="sidebar-btn dropdown-item mt-2">
+                    All Users
+                </RouterLink>
+                <RouterLink to="/admin/users/add" class="sidebar-btn dropdown-item">
+                    Add User
+                </RouterLink>
             </div>
         </div>
 
-        <!-- Settings -->
-        <RouterLink to="/admin/settings" class="sidebar-btn " :class="{ activeParent: settingsActive }">
-            Settings
-        </RouterLink>
+        <!-- SETTINGS (Dropdown بدل Link) -->
+        <div class="sidebar-group">
+            <button class="sidebar-btn dropdown-toggle"
+                :class="{ activeParent: settingsActive }"
+                @click="toggle('settings')">
 
+                Settings
+                <span :class="['arrow', { open: open.settings }]"></span>
+            </button>
+
+            <div v-if="open.settings" class="dropdown">
+                <RouterLink to="/admin/contacts" class="sidebar-btn dropdown-item mt-2">
+                    Contacts
+                </RouterLink>
+                <RouterLink to="/admin/footer" class="sidebar-btn dropdown-item">
+                    Footer
+                </RouterLink>
+            </div>
+        </div>
 
     </aside>
 </template>
@@ -45,21 +65,22 @@ const route = useRoute()
 
 const open = reactive({
     users: route.path.startsWith('/admin/users'),
+    settings: route.path.startsWith('/admin/contacts') || route.path.startsWith('/admin/footer'),
 })
 
 const toggle = (key) => {
     open[key] = !open[key]
 }
 
-/* Parent Active States */
+/* Active States */
 const usersActive = computed(() =>
     route.path.startsWith('/admin/users')
 )
 
 const settingsActive = computed(() =>
-    route.path.startsWith('/admin/settings')
+    route.path.startsWith('/admin/contacts') ||
+    route.path.startsWith('/admin/footer')
 )
-
 </script>
 
 <style scoped>

@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\api\admin\AdminUserController;
 use App\Http\Controllers\api\admin\auth\AdminAuthController;
+use App\Http\Controllers\api\admin\contact\ContactController;
+use App\Http\Controllers\api\admin\footer\FooterController;
 use App\Http\Controllers\api\auth\AuthController;
 use App\Http\Controllers\api\auth\GoogleAuthController;
 use App\Http\Controllers\api\auth\ProfileController;
@@ -15,11 +17,11 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('users')->group(function () {
         Route::post('send-otp', [RegisterController::class, 'sendOtp'])
-        ->middleware(['throttle:6,1']);
+            ->middleware(['throttle:6,1']);
         Route::post('verify-otp', [RegisterController::class, 'verifyOtp'])
-        ->middleware(['throttle:6,1']);
+            ->middleware(['throttle:6,1']);
         Route::post('register', [RegisterController::class, 'register'])
-        ->middleware(['throttle:6,1']);
+            ->middleware(['throttle:6,1']);
         Route::post('login', [AuthController::class, 'login'])
             ->middleware(['throttle:7,1']);
 
@@ -45,17 +47,28 @@ Route::prefix('v1')->group(function () {
     });
 });
 
-
 Route::prefix('admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login']);
 
-    Route::prefix('users')->middleware(['auth:sanctum',AdminMiddleware::class])->group(function () {
+    Route::prefix('users')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
         Route::get('/', [AdminUserController::class, 'index']);
         Route::get('/{id}', [AdminUserController::class, 'show']);
         Route::post('/', [AdminUserController::class, 'store']);
         Route::post('/{id}', [AdminUserController::class, 'update']);
         Route::delete('/{id}', [AdminUserController::class, 'destroy']);
     });
+
+    Route::prefix('contacts')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {});
+
+    Route::prefix('footer')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
+        Route::get('/', [FooterController::class, 'index']);
+        Route::post('/', [FooterController::class, 'update']);
+    });
+
+    Route::prefix('contact')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
+        Route::get('/', [ContactController::class, 'index']);
+        Route::get('/{id}', [ContactController::class, 'show']);
+        Route::post('/{id}', [ContactController::class, 'update']);
+        Route::delete('/{id}',[ContactController::class,'destroy']);
+    });
 });
-
-

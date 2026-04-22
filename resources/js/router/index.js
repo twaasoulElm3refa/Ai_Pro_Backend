@@ -11,7 +11,8 @@ import addUser from "../views/admin/users/add_user.vue";
 import show_users from "../views/admin/users/show_user.vue";
 import edit_user from "../views/admin/users/edit_user.vue";
 import users from "../views/admin/users/all_users.vue";
-import settings from "../views/admin/settings/settings.vue";
+import footer from "../views/admin/settings/footer/footer.vue";
+import contacts from "../views/admin/settings/contacts/contacts.vue";
 import show_user from "../views/admin/users/show_user.vue";
 
 const routes = [
@@ -83,8 +84,13 @@ const routes = [
         meta: { hideNavbar: true, hideFooter: true },
     },
     {
-        path: "/admin/settings",
-        component: settings,
+        path: "/admin/footer",
+        component: footer,
+        meta: { hideNavbar: true, hideFooter: true },
+    },
+    {
+        path: "/admin/contacts",
+        component: contacts,
         meta: { hideNavbar: true, hideFooter: true },
     },
 ];

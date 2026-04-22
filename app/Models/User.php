@@ -49,4 +49,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(WalletTransaction::class,'user_id');
     }
+
+    public function Contact()
+    {
+        return $this->hasMany(ContactUs::class,'user_id');
+    }
 }
