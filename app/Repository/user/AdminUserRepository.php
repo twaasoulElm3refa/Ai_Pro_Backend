@@ -28,7 +28,7 @@ class AdminUserRepository implements UserAdminUserRepositoryInterface
                 return User::with([
                     'wallet:id,user_id,balance',
                     'payment:id,user_id,amount',
-                    'walletTransaction:id,user_id,type,amount',
+                    'walletTransaction:id,user_id,type,points',
                 ])->withTrashed()
                     ->when($trashed, function ($q) {
                         $q->onlyTrashed();
