@@ -22,7 +22,7 @@ const adminAuthService = {
         localStorage.removeItem("user_role");
         localStorage.removeItem("user_data");
 
-        window.location.href = "/admin/auth";
+        window.location.href = "/login";
     },
 
     isAuthenticated() {

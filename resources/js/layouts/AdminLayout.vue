@@ -1,9 +1,9 @@
 <template>
     <div class="admin-layout">
-        <AdminSidebar />
+        <AdminSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
 
         <div class="admin-content">
-            <AdminHeader />
+            <AdminHeader @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
             <main class="admin-main">
                 <slot />
@@ -13,8 +13,11 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import AdminHeader from '@/layouts/AdminHeader.vue'
 import AdminSidebar from '@/layouts/AdminSidebar.vue'
+
+const sidebarOpen = ref(false)
 </script>
 
 <style scoped>
@@ -28,6 +31,7 @@ import AdminSidebar from '@/layouts/AdminSidebar.vue'
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 /* Main content base */
@@ -35,6 +39,12 @@ import AdminSidebar from '@/layouts/AdminSidebar.vue'
     padding: 24px;
     min-height: calc(100vh - 60px);
     transition: background 0.4s ease, color 0.4s ease;
+}
+
+@media (max-width: 1023px) {
+    .admin-main {
+        padding: 16px;
+    }
 }
 
 /* ================= DARK MODE ================= */

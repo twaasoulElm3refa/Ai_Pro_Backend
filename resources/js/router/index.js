@@ -5,15 +5,13 @@ import Profile from "../views/home/user/profile.vue";
 import GoogleCallback from "../views/auth/GoogleCallback.vue";
 import Contact from "../views/home/contact.vue";
 import wallet from "../views/home/user/wallet.vue";
-import login from "../views/admin/auth/login.vue";
-import admin from "../views/admin/index.vue";
-import addUser from "../views/admin/users/add_user.vue";
-import show_users from "../views/admin/users/show_user.vue";
-import edit_user from "../views/admin/users/edit_user.vue";
-import users from "../views/admin/users/all_users.vue";
-import footer from "../views/admin/settings/footer/footer.vue";
-import contacts from "../views/admin/settings/contacts/contacts.vue";
-import show_user from "../views/admin/users/show_user.vue";
+
+const adminMeta = {
+    hideNavbar: true,
+    hideFooter: true,
+    requiresAuth: true,
+    role: "admin",
+};
 
 const routes = [
     {
@@ -55,43 +53,64 @@ const routes = [
     // admin
     {
         path: "/admin/auth",
-        component: login,
+        alias: "/login",
+        component: () => import("../views/admin/auth/login.vue"),
         meta: { hideNavbar: true, hideFooter: true },
     },
     {
         path: "/admin",
-        component: admin,
-        meta: { hideNavbar: true, hideFooter: true },
+        component: () => import("../views/admin/index.vue"),
+        meta: adminMeta,
     },
     {
         path: "/admin/users",
-        component: users,
-        meta: { hideNavbar: true, hideFooter: true },
+        component: () => import("../views/admin/users/all_users.vue"),
+        meta: adminMeta,
     },
     {
         path: "/admin/users/add",
-        component: addUser,
-        meta: { hideNavbar: true, hideFooter: true },
+        component: () => import("../views/admin/users/add_user.vue"),
+        meta: adminMeta,
     },
     {
         path: "/admin/users/edit/:id",
-        component: edit_user,
-        meta: { hideNavbar: true, hideFooter: true },
+        component: () => import("../views/admin/users/edit_user.vue"),
+        meta: adminMeta,
     },
     {
         path: "/admin/users/show/:id",
-        component: show_users,
-        meta: { hideNavbar: true, hideFooter: true },
+        component: () => import("../views/admin/users/show_user.vue"),
+        meta: adminMeta,
     },
     {
         path: "/admin/footer",
-        component: footer,
-        meta: { hideNavbar: true, hideFooter: true },
+        component: () => import("../views/admin/settings/footer/footer.vue"),
+        meta: adminMeta,
     },
     {
         path: "/admin/contacts",
-        component: contacts,
-        meta: { hideNavbar: true, hideFooter: true },
+        component: () => import("../views/admin/settings/contacts/contacts.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/profile",
+        component: () => import("../views/admin/profile/ProfilePage.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/profile/edit",
+        component: () => import("../views/admin/profile/EditProfilePage.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/password",
+        component: () => import("../views/admin/profile/ChangePasswordPage.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/logout",
+        component: () => import("../views/admin/profile/LogoutPage.vue"),
+        meta: adminMeta,
     },
 ];
 
@@ -104,15 +123,23 @@ router.beforeEach((to, from, next) => {
     const token = localStorage.getItem("auth_token");
     const role = localStorage.getItem("user_role");
 
-    if (to.path === "/admin/auth") {
+    if (to.path === "/admin/auth" || to.path === "/login") {
+        if (token && role === "admin") {
+            return next("/admin");
+        }
         return next();
     }
 
-    if (to.path.startsWith("/admin")) {
-        if (token && role === "admin") {
+    if (to.meta.requiresAuth) {
+        if (!token) {
+            return next("/login");
+        }
+
+        if (!to.meta.role || role === to.meta.role) {
             return next();
         }
-        return next("/en/auth");
+
+        return next("/login");
     }
 
     if (to.path === "/en/auth") {

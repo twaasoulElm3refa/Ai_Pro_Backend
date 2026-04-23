@@ -9,6 +9,8 @@ toastr.options = {
     timeOut: "3000",
 };
 
+let redirectingToLogin = false;
+
 const api = axios.create({
     baseURL: "http://localhost:8000/api",
     headers: {
@@ -48,9 +50,14 @@ api.interceptors.response.use(
                 toastr.error("يجب تسجيل الدخول");
 
                 localStorage.removeItem("auth_token");
-                setTimeout(() => {
-                    window.location.href = "/login";
-                }, 1500);
+                localStorage.removeItem("user_role");
+                localStorage.removeItem("user_data");
+                if (!redirectingToLogin) {
+                    redirectingToLogin = true;
+                    setTimeout(() => {
+                        window.location.href = "/login";
+                    }, 1500);
+                }
                 break;
 
             case 403:
