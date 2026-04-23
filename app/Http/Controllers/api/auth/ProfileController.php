@@ -4,7 +4,7 @@ namespace App\Http\Controllers\api\auth;
 
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\UserResource;
+use App\Http\Resources\userResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
