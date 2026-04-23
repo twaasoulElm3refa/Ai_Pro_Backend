@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Repository\user\AdminUserRepositoryInterface as UserAdminUserRepositoryInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AdminUserRepository implements UserAdminUserRepositoryInterface
 {
@@ -13,8 +14,16 @@ class AdminUserRepository implements UserAdminUserRepositoryInterface
 
     public function index()
     {
-        return User::select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
+        $start = microtime(true);
+
+        $result = User::select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
             ->paginate(10);
+
+        Log::info('users_query_time_ms', [
+            'ms' => round((microtime(true) - $start) * 1000, 2),
+        ]);
+
+        return $result;
     }
 
     public function show($id)
