@@ -19,7 +19,7 @@ class AdminUserController extends Controller
         private UserAdminUserRepositoryInterface $userRepo
     ) {}
 
-    public function index(Request $request)
+    public function index()
     {
         try {
             $users = $this->userRepo->index();

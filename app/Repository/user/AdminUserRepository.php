@@ -13,18 +13,8 @@ class AdminUserRepository implements UserAdminUserRepositoryInterface
 
     public function index()
     {
-        $page = request('page', 1);
-
-        $cacheKey = "users_page_{$page}";
-
-        return Cache::tags(['users'])->remember(
-            $cacheKey,
-            $this->cacheTime,
-            function () {
-                return User::select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
-                    ->paginate(10);
-            }
-        );
+        return User::select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
+            ->paginate(10);
     }
 
     public function show($id)
