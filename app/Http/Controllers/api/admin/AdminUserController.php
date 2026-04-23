@@ -22,7 +22,7 @@ class AdminUserController extends Controller
     public function index(Request $request)
     {
         try {
-            $users = $this->userRepo->index($request->all());
+            $users = $this->userRepo->index();
 
             return $this->success($users, 'Users fetched successfully.');
 

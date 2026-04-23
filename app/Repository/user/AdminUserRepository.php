@@ -21,12 +21,7 @@ class AdminUserRepository implements UserAdminUserRepositoryInterface
             $cacheKey,
             $this->cacheTime,
             function () {
-                return User::with([
-                    'wallet:id,user_id,balance',
-                    'payment:id,user_id,amount',
-                    'walletTransaction:id,user_id,type,points',
-                ])
-                    ->select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
+                return User::select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
                     ->paginate(10);
             }
         );
