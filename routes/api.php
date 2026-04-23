@@ -48,7 +48,14 @@ Route::prefix('v1')->group(function () {
 });
 
 Route::prefix('admin')->group(function () {
+
     Route::post('/login', [AdminAuthController::class, 'login']);
+    Route::prefix('')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
+        Route::get('/profile', [AdminAuthController::class, 'profile']);
+        Route::post('/profile', [AdminAuthController::class, 'updateProfile']);
+        Route::post('/password', [AdminAuthController::class, 'updatePassword']);
+        Route::post('/logout', [AdminAuthController::class, 'logout']);
+    });
 
     Route::prefix('users')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
         Route::get('/', [AdminUserController::class, 'index']);
@@ -57,8 +64,6 @@ Route::prefix('admin')->group(function () {
         Route::post('/{id}', [AdminUserController::class, 'update']);
         Route::delete('/{id}', [AdminUserController::class, 'destroy']);
     });
-
-    Route::prefix('contacts')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {});
 
     Route::prefix('footer')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
         Route::get('/', [FooterController::class, 'index']);
@@ -69,6 +74,6 @@ Route::prefix('admin')->group(function () {
         Route::get('/', [ContactController::class, 'index']);
         Route::get('/{id}', [ContactController::class, 'show']);
         Route::post('/{id}', [ContactController::class, 'update']);
-        Route::delete('/{id}',[ContactController::class,'destroy']);
+        Route::delete('/{id}', [ContactController::class, 'destroy']);
     });
 });
