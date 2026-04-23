@@ -8,7 +8,6 @@ use App\Http\Requests\UserRequest;
 use App\Http\Requests\UserUpdateRequest;
 use App\Http\Resources\UserResource;
 use App\Repository\user\AdminUserRepositoryInterface as UserAdminUserRepositoryInterface;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class AdminUserController extends Controller

@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Repository\user\AdminUserRepositoryInterface as UserAdminUserRepositoryInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class AdminUserRepository implements UserAdminUserRepositoryInterface
 {
@@ -14,16 +13,38 @@ class AdminUserRepository implements UserAdminUserRepositoryInterface
 
     public function index()
     {
-        $start = microtime(true);
+        $page = request()->get('page', 1);
 
-        $result = User::select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
-            ->paginate(10);
+        $cacheKey = "users_page_{$page}";
 
-        Log::info('users_query_time_ms', [
-            'ms' => round((microtime(true) - $start) * 1000, 2),
-        ]);
+        return Cache::tags(['users'])->remember(
+            $cacheKey,
+            $this->cacheTime,
+            function () {
 
-        return $result;
+                $start = microtime(true);
+
+                $data = User::with([
+                    'wallet:id,user_id,balance',
+                    'payment:id,user_id,amount',
+                    'walletTransaction:id,user_id,type,points',
+                ])
+                    ->select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
+                    ->paginate(10);
+
+                $end = microtime(true);
+
+                $duration = round(($end - $start) * 1000, 2); // milliseconds
+
+                logger()->info('Users Query Execution Time', [
+                    'time_ms' => $duration,
+                    'page' => request()->get('page', 1),
+                    'cached' => ! empty($data),
+                ]);
+
+                return $data;
+            }
+        );
     }
 
     public function show($id)

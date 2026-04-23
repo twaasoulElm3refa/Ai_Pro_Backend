@@ -50,6 +50,7 @@ Route::prefix('v1')->group(function () {
 Route::prefix('admin')->group(function () {
 
     Route::post('/login', [AdminAuthController::class, 'login']);
+
     Route::prefix('')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
         Route::get('/profile', [AdminAuthController::class, 'profile']);
         Route::post('/profile', [AdminAuthController::class, 'updateProfile']);
