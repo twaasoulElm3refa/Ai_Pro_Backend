@@ -27,7 +27,18 @@ class ProfileController extends Controller
             $cacheKey = "user_profile_{$user->id}";
 
             $profile = Cache::remember($cacheKey, 600, function () use ($user) {
-                return new UserResource($user);
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'role' => $user->role,
+                    'phone' => $user->phone,
+                    'image' => $user->image,
+                    'is_active' => $user->is_active,
+                    'email' => $user->email,
+                    'last_seen' => $user->last_seen,
+                    'email_verified_at' => $user->email_verified_at,
+                    'created_at' => $user->created_at,
+                ];
             });
 
             return $this->success(
@@ -106,7 +117,8 @@ class ProfileController extends Controller
             $this->clearProfileCache($user->id);
             $user->tokens()->delete();
             $user->delete();
-            return $this->success([],'Account deleted successfully.');
+
+            return $this->success([], 'Account deleted successfully.');
 
         } catch (Throwable $e) {
             return $this->error('Something went wrong while deleting account.', 500);
