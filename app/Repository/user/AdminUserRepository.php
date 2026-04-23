@@ -11,39 +11,21 @@ class AdminUserRepository implements UserAdminUserRepositoryInterface
 {
     private $cacheTime = 60;
 
-    public function index($filters)
+    public function index()
     {
-        $page = $filters['page'] ?? 1;
-        $search = $filters['search'] ?? null;
-        $status = $filters['status'] ?? null;
-        $trashed = $filters['trashed'] ?? false;
+        $page = request('page', 1);
 
-        $cacheKey = "users_page_{$page}_search_{$search}_status_{$status}_trashed_{$trashed}";
+        $cacheKey = "users_page_{$page}";
 
         return Cache::tags(['users'])->remember(
             $cacheKey,
             $this->cacheTime,
-            function () use ($search, $status, $trashed) {
-
+            function () {
                 return User::with([
                     'wallet:id,user_id,balance',
                     'payment:id,user_id,amount',
                     'walletTransaction:id,user_id,type,points',
-                ])->withTrashed()
-                    ->when($trashed, function ($q) {
-                        $q->onlyTrashed();
-                    })
-
-                    ->when($search, function ($q) use ($search) {
-                        $q->where(function ($q) use ($search) {
-                            $q->where('name', 'like', "%{$search}%")
-                                ->orWhere('email', 'like', "%{$search}%");
-                        });
-                    })
-
-                    ->when($status, function ($q) use ($status) {
-                        $q->where('status', $status);
-                    })
+                ])
                     ->select('id', 'name', 'email', 'role', 'is_active', 'last_seen', 'deleted_at')
                     ->paginate(10);
             }
@@ -97,6 +79,7 @@ class AdminUserRepository implements UserAdminUserRepositoryInterface
             $user->update($data);
             $this->clearCache();
             DB::commit();
+
             return $user->fresh();
         } catch (\Throwable $th) {
             DB::rollBack();
