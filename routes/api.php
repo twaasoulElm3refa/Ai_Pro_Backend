@@ -4,6 +4,7 @@ use App\Http\Controllers\api\admin\AdminUserController;
 use App\Http\Controllers\api\admin\auth\AdminAuthController;
 use App\Http\Controllers\api\admin\contact\ContactController;
 use App\Http\Controllers\api\admin\footer\FooterController;
+use App\Http\Controllers\api\admin\tools\MainToolController;
 use App\Http\Controllers\api\auth\AuthController;
 use App\Http\Controllers\api\auth\GoogleAuthController;
 use App\Http\Controllers\api\auth\ProfileController;
@@ -47,6 +48,7 @@ Route::prefix('v1')->group(function () {
     });
 });
 
+
 Route::prefix('admin')->group(function () {
 
     Route::post('/login', [AdminAuthController::class, 'login']);
@@ -77,4 +79,13 @@ Route::prefix('admin')->group(function () {
         Route::post('/{id}', [ContactController::class, 'update']);
         Route::delete('/{id}', [ContactController::class, 'destroy']);
     });
+
+    Route::prefix('tools')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
+        Route::get('/', [MainToolController::class, 'index']);
+        Route::get('/{id}', [MainToolController::class, 'show']);
+        Route::post('/', [MainToolController::class, 'store']);
+        Route::post('/{id}', [MainToolController::class, 'update']);
+        Route::delete('/{id}', [MainToolController::class, 'destroy']);
+    });
+
 });

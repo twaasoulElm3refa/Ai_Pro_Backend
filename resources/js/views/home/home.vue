@@ -1,494 +1,608 @@
 <template>
-    <!-- المحتوى الرئيسي -->
-    <div class="min-vh-50 d-flex flex-column position-relative overflow-hidden">
-        <!-- Animated Waves Overlay -->
-        <div class="position-absolute w-100 h-100 waves"></div>
+    <div class="admin-tools-page" :data-theme="theme">
 
-        <!-- باقي محتوى الـ Hero أو الصفحة هنا -->
-        <h1>home</h1>
-        <!-- ... باقي العناصر -->
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-number">{{ pagination.total }}</span>
+                <span class="stat-label">إجمالي الأدوات</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <span class="stat-number">{{ pagination.last_page }}</span>
+                <span class="stat-label">عدد الصفحات</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <span class="stat-number">{{ pagination.per_page }}</span>
+                <span class="stat-label">لكل صفحة</span>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="loading" class="loading-state">
+            <div class="spinner"></div>
+            <p>جارٍ تحميل الأدوات...</p>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="error-state">
+            <span class="error-icon">⚠️</span>
+            <p>{{ error }}</p>
+            <button @click="fetchTools" class="retry-btn">إعادة المحاولة</button>
+        </div>
+
+        <!-- Tools Grid -->
+        <div v-else class="tools-grid">
+            <div v-for="tool in tools" :key="tool.id" class="tool-card" @mouseenter="hoveredId = tool.id"
+                @mouseleave="hoveredId = null">
+                <!-- Card Glow Effect -->
+                <div class="card-glow" :class="{ active: hoveredId === tool.id }"></div>
+
+                <!-- Tool Image -->
+                <div class="tool-image-wrapper">
+                    <img :src="`${BASE_URL}/storage/${tool.image}`" :alt="tool.name" class="tool-image"
+                        @error="handleImageError($event)" />
+                    <div class="image-overlay">
+                        <span class="tool-id">#{{ tool.id }}</span>
+                    </div>
+                </div>
+
+                <!-- Card Content -->
+                <div class="card-content">
+                    <h3 class="tool-name">{{ tool.name }}</h3>
+                    <p class="tool-description">{{ tool.description }}</p>
+                    <div class="tool-meta">
+                        <span class="meta-date">📅 {{ formatDate(tool.created_at) }}</span>
+                    </div>
+                </div>
+
+                <!-- Card Actions -->
+                <div class="card-actions">
+                    <button class="action-btn edit-btn" title="تعديل" @click="show">
+                       عرض
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="!loading && !error && pagination.last_page > 1" class="pagination">
+            <button class="page-btn" :class="{ disabled: !pagination.prev_page_url }"
+                :disabled="!pagination.prev_page_url" @click="changePage(pagination.current_page - 1)">
+                ← السابق
+            </button>
+
+            <button v-for="page in pagination.last_page" :key="page" class="page-btn page-number"
+                :class="{ active: page === pagination.current_page }" @click="changePage(page)">
+                {{ page }}
+            </button>
+
+            <button class="page-btn" :class="{ disabled: !pagination.next_page_url }"
+                :disabled="!pagination.next_page_url" @click="changePage(pagination.current_page + 1)">
+                التالي →
+            </button>
+        </div>
+
     </div>
 </template>
 
 <script setup>
-import Navbar from '@/components/layouts/Navbar.vue'
+import { ref, reactive, onMounted } from 'vue'
+
+// ─── Config ───────────────────────────────────────────────
+const BASE_URL = 'http://127.0.0.1:8000'
+const API_URL = `${BASE_URL}/api/admin/tools`
+
+// ─── State ────────────────────────────────────────────────
+const theme = ref(localStorage.getItem('theme') || 'dark')
+const tools = ref([])
+const loading = ref(true)
+const error = ref(null)
+const hoveredId = ref(null)
+
+const pagination = reactive({
+    current_page: 1,
+    last_page: 1,
+    per_page: 10,
+    total: 0,
+    next_page_url: null,
+    prev_page_url: null,
+})
+
+// ─── Helpers ──────────────────────────────────────────────
+const toggleTheme = () => {
+    theme.value = theme.value === 'dark' ? 'light' : 'dark'
+    localStorage.setItem('theme', theme.value)
+}
+
+const formatDate = (iso) => {
+    return new Date(iso).toLocaleDateString('ar-EG', {
+        year: 'numeric', month: 'short', day: 'numeric'
+    })
+}
+
+const handleImageError = (e) => {
+    e.target.src = 'https://placehold.co/400x220/1e293b/FBBF24?text=No+Image'
+}
+
+// ─── API ──────────────────────────────────────────────────
+const fetchTools = async (page = 1) => {
+    loading.value = true
+    error.value = null
+    try {
+        const token = localStorage.getItem('auth_token') // adjust key as needed
+        const res = await fetch(`${API_URL}?page=${page}`, {
+            headers: {
+                'Accept': 'application/json',
+                'x-api-key': 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            }
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const json = await res.json()
+        const d = json.data
+
+        tools.value = d.data
+        pagination.current_page = d.current_page
+        pagination.last_page = d.last_page
+        pagination.per_page = d.per_page
+        pagination.total = d.total
+        pagination.next_page_url = d.next_page_url
+        pagination.prev_page_url = d.prev_page_url
+    } catch (e) {
+        error.value = 'فشل تحميل الأدوات: ' + e.message
+    } finally {
+        loading.value = false
+    }
+}
+
+const changePage = (page) => {
+    if (page < 1 || page > pagination.last_page) return
+    fetchTools(page)
+}
+
+onMounted(() => fetchTools())
+
+const show = () => {
+    window.location.href = '/en/tool/show'
+}
 </script>
 
 <style scoped>
-.z-3 {
-    z-index: 1030 !important;
+/* ── Google Font ── */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+
+/* ── Root ── */
+.admin-tools-page {
+    font-family: 'Cairo', sans-serif;
+    direction: rtl;
+    min-height: 100vh;
+    padding: 2rem;
+    transition: background 0.4s ease, color 0.4s ease;
 }
 
-.overflow-auto {
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(100, 116, 139, 0.4) transparent;
+/* ═══════════════════════════════════════
+   THEME TOKENS
+═══════════════════════════════════════ */
+[data-theme='dark'] {
+    --bg: #0F172A;
+    --surface: rgba(30, 41, 59, 0.55);
+    --surface-h: rgba(30, 41, 59, 0.80);
+    --border: rgba(212, 175, 55, 0.30);
+    --border-h: #FBBF24;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --gold: #FBBF24;
+    --gold-dim: rgba(212, 175, 55, 0.15);
+    --gold-glow: rgba(251, 191, 36, 0.40);
+    --accent: #FBBF24;
+    --accent-text: #0F172A;
+    --danger: #f87171;
+    --badge-bg: rgba(251, 191, 36, 0.12);
+    --badge-color: #FBBF24;
 }
 
-.overflow-auto::-webkit-scrollbar {
-    height: 8px;
+[data-theme='light'] {
+    --bg: #f8fafc;
+    --surface: rgba(255, 255, 255, 0.95);
+    --surface-h: #ffffff;
+    --border: #e2e8f0;
+    --border-h: #111827;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --gold: #111827;
+    --gold-dim: rgba(0, 0, 0, 0.05);
+    --gold-glow: rgba(0, 0, 0, 0.12);
+    --accent: #111827;
+    --accent-text: #ffffff;
+    --danger: #ef4444;
+    --badge-bg: #f1f5f9;
+    --badge-color: #334155;
 }
 
-.overflow-auto::-webkit-scrollbar-thumb {
-    background: rgba(100, 116, 139, 0.4);
+.admin-tools-page {
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* ═══════════════════════════════════════
+   PAGE HEADER
+═══════════════════════════════════════ */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+}
+
+.page-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    background: var(--badge-bg);
+    color: var(--badge-color);
+    border: 1px solid var(--border);
+    margin-bottom: 0.4rem;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 900;
+    margin: 0 0 0.25rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.page-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.theme-toggle {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-toggle:hover {
+    border-color: var(--border-h);
+    transform: rotate(20deg);
+}
+
+.add-btn {
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
     border-radius: 10px;
+    padding: 0.55rem 1.25rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.3s;
 }
 
-/* Button base (will be overridden per theme) */
-.btn-glow {
-    border: none;
-    font-weight: bold;
-    transition: all 0.35s ease;
+.add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px var(--gold-glow);
 }
 
-/* Text glow – only used in dark */
-.text-glow {
-    background: linear-gradient(90deg, #D4AF37, #FBBF24, #EAB308);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.55));
-}
-
-/* Waves – very subtle in light mode */
-.waves {
-    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%23D4AF37" fill-opacity="0.06" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,138.7C960,139,1056,117,1152,122.7C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') bottom no-repeat;
-    background-size: cover;
-    animation: wave 28s linear infinite alternate;
-    opacity: 0.35;
-    transition: opacity 0.5s ease, filter 0.5s ease;
-}
-
-@keyframes wave {
-    0% {
-        transform: translateX(0);
-    }
-
-    100% {
-        transform: translateX(-25%);
-    }
-}
-
-.category-divider {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100vw;
-    transform: translateX(-50%);
-    border: none;
-    border-top: 3px solid #D4AF37;
-    /* سماكة جيدة */
-    box-shadow: 0 0 3px #D4AF37;
-    /* ظل خفيف يبرز الخط */
-    z-index: 10;
-    /* خلي الخط فوق أي عناصر تانية */
-    transition: border-color 0.4s ease;
-}
-
-
-
-/* Category card base */
-.category-card {
-    width: 130px;
-    min-width: 120px;
-    height: 110px;
-    padding: 0.75rem 1rem;
-    border: 1px solid;
+/* ═══════════════════════════════════════
+   STATS BAR
+═══════════════════════════════════════ */
+.stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 14px;
-    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.12), inset 0 0 12px rgba(0, 0, 0, 0.04);
-    transition: all 0.35s ease;
-    backdrop-filter: blur(8px);
+    padding: 1rem 2rem;
+    margin-bottom: 2rem;
+    width: fit-content;
+    backdrop-filter: blur(10px);
+}
+
+.stat-item {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
-    position: relative;
+    padding: 0 1.5rem;
 }
 
-.category-icon {
-    position: absolute;
-    top: -28px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 56px;
-    height: 56px;
-    border: 2px solid;
-    border-radius: 50%;
+.stat-number {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--gold);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.stat-divider {
+    width: 1px;
+    height: 36px;
+    background: var(--border);
+}
+
+/* ═══════════════════════════════════════
+   LOADING / ERROR
+═══════════════════════════════════════ */
+.loading-state,
+.error-state {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 1.9rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    opacity: 0;
-    transition: all 0.35s ease;
-    z-index: 3;
+    gap: 1rem;
+    padding: 4rem;
+    color: var(--text-muted);
 }
 
-.category-card:hover .category-icon {
-    opacity: 1;
-    top: -32px;
-    transform: translateX(-50%) scale(1.12);
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
 
-/* Featured / Best-selling card base */
-.featured-card {
-    width: 240px;
-    min-width: 220px;
-    height: 320px;
-    padding: 1.25rem;
-    border: 1px solid;
-    border-radius: 16px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1), inset 0 0 12px rgba(0, 0, 0, 0.03);
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    backdrop-filter: blur(8px);
-    overflow: hidden;
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.error-icon {
+    font-size: 2.5rem;
+}
+
+.retry-btn {
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1.5rem;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+/* ═══════════════════════════════════════
+   TOOLS GRID
+═══════════════════════════════════════ */
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+/* ── Card ── */
+.tool-card {
     position: relative;
-}
-
-.featured-card:hover {
-    transform: translateY(-12px) scale(1.06);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
-}
-
-.product-image-wrapper {
-    width: 100%;
-    height: 220px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
     overflow: hidden;
-    border-radius: 12px;
-    background: rgba(0, 0, 0, 0.06);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    backdrop-filter: blur(10px);
 }
 
-.product-image {
+.tool-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: var(--border-h);
+    background: var(--surface-h);
+    box-shadow: 0 20px 50px var(--gold-glow);
+}
+
+/* Glow */
+.card-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, var(--gold-dim) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.card-glow.active {
+    opacity: 1;
+}
+
+/* Image */
+.tool-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: var(--gold-dim);
+}
+
+.tool-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 0.5s ease;
 }
 
-.featured-card:hover .product-image {
-    transform: scale(1.10);
+.tool-card:hover .tool-image {
+    transform: scale(1.08);
 }
 
-/* Hero image hover */
-.hero-image {
-    transition: transform 0.6s ease;
+.image-overlay {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
 }
 
-.hero-image:hover {
-    transform: scale(1.03);
+.tool-id {
+    background: var(--badge-bg);
+    color: var(--badge-color);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    backdrop-filter: blur(8px);
 }
 
-/* ==========================================================================
-   DARK MODE (default – your original look)
-   ========================================================================== */
-
-[data-theme='dark'] .waves {
-    opacity: 0.35;
-}
-
-[data-theme='dark'] .category-divider {
-    border-top-color: rgba(251, 191, 36, 0.35);
-}
-
-.exclusive-picks {
-    text-align: center;
-    margin-top: 2rem;
-    margin-bottom: 0.5rem;
-    font-size: 1.25rem;
-    /* fs-4 */
-    transition: color 0.3s ease;
-}
-
-/* Light mode */
-[data-theme='light'] .exclusive-picks {
-    color: #ffffff;
-    /* light black / gray-900 */
-}
-
-/* Dark mode */
-[data-theme='dark'] .exclusive-picks {
-    color: #FBBF24;
-    /* gold */
-}
-
-[data-theme='dark'] .category-card {
+/* Content */
+.card-content {
     position: relative;
-    /* تأكد إنه موجود */
-    z-index: 5;
-
-    background: rgba(30, 41, 59, 0.38);
-    border-color: rgba(212, 175, 55, 0.45);
-    box-shadow: 0 5px 18px rgba(212, 175, 55, 0.22), inset 0 0 12px rgba(212, 175, 55, 0.07);
+    z-index: 1;
+    padding: 1.1rem 1.25rem 0.75rem;
 }
 
-[data-theme='dark'] .category-card:hover {
-    z-index: 15;
-    transform: translateY(-8px) scale(1.06);
-    box-shadow: 0 16px 40px rgba(212, 175, 55, 0.48), inset 0 0 18px rgba(212, 175, 55, 0.18);
-    border-color: #FBBF24;
-    background: rgba(30, 41, 59, 0.55);
+.tool-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+    color: var(--text);
+    line-height: 1.4;
 }
 
-[data-theme='dark'] .category-icon {
-    background: rgba(212, 175, 55, 0.18);
-    border-color: rgba(212, 175, 55, 0.55);
-    color: #FBBF24;
+.tool-description {
+    font-size: 0.83rem;
+    color: var(--text-muted);
+    margin: 0 0 0.75rem;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-[data-theme='dark'] .category-card:hover .category-icon {
-    background: rgba(212, 175, 55, 0.38);
-    border-color: #FBBF24;
-    box-shadow: 0 0 20px rgba(251, 191, 36, 0.65);
+.tool-meta {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
-[data-theme='dark'] .category-name {
-    color: #e2e8f0;
+.meta-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
 }
 
-[data-theme='dark'] .featured-card {
+/* Actions */
+.card-actions {
     position: relative;
-    z-index: 5;
-    background: rgba(30, 41, 59, 0.35);
-    border-color: rgba(212, 175, 55, 0.4);
+    z-index: 1;
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem 1.1rem;
+    border-top: 1px solid var(--border);
+    margin-top: 0.25rem;
 }
 
-.add-to-cart-btn {
-    font-weight: bold;
-    padding: 0.5rem 1rem;
-    /* px-4 py-2 */
-    border: none;
-    border-radius: 6px;
-    transition: all 0.35s ease;
+.action-btn {
+    flex: 1;
+    padding: 0.45rem 0.75rem;
+    border-radius: 8px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
     cursor: pointer;
+    border: 1px solid;
+    transition: all 0.3s;
 }
 
-/* Light Mode */
-[data-theme='light'] .add-to-cart-btn {
-    background: #111827;
-    /* أسود */
-    color: #ffffff;
+.edit-btn {
+    background: var(--gold-dim);
+    color: var(--gold);
+    border-color: var(--border);
 }
 
-[data-theme='light'] .add-to-cart-btn:hover {
-    transform: scale(1.08);
-    background: #000000;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+.edit-btn:hover {
+    background: var(--gold);
+    color: var(--accent-text);
+    border-color: var(--gold);
+    transform: translateY(-2px);
 }
 
-/* Dark Mode */
-[data-theme='dark'] .add-to-cart-btn {
-    background: #FBBF24;
-    /* gold */
-    color: #0F172A;
-    /* dark text on gold */
+.delete-btn {
+    background: transparent;
+    color: var(--danger);
+    border-color: var(--border);
 }
 
-[data-theme='dark'] .add-to-cart-btn:hover {
-    transform: scale(1.08);
-    background: #FFD700;
-    /* brighter gold */
-    box-shadow: 0 8px 20px rgba(255, 223, 0, 0.4);
+.delete-btn:hover {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: var(--danger);
+    transform: translateY(-2px);
 }
 
-[data-theme='dark'] .featured-card:hover {
-    position: relative;
-    z-index: 5;
-    border-color: #FBBF24;
-    background: rgba(30, 41, 59, 0.5);
+/* ═══════════════════════════════════════
+   PAGINATION
+═══════════════════════════════════════ */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 2.5rem;
+    flex-wrap: wrap;
 }
 
-[data-theme='dark'] .btn-glow {
-    background: linear-gradient(135deg, #FBBF64, #f59e0b);
-    color: #0f172a;
-    box-shadow: 0 10px 30px rgba(251, 191, 100, 0.25);
+.page-btn {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-[data-theme='dark'] .btn-glow:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 15px 35px rgba(251, 191, 100, 0.5);
-    background: linear-gradient(135deg, #fcd34d, #fbbf24);
+.page-btn:hover:not(.disabled):not(.active) {
+    border-color: var(--border-h);
+    transform: translateY(-2px);
 }
 
-/* ==========================================================================
-   LIGHT MODE – pure black & white + soft grays
-   ========================================================================== */
-
-[data-theme='light'] .waves {
-    opacity: 0.08;
-    filter: brightness(0.4) grayscale(1);
+.page-btn.active {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
 }
 
-[data-theme='light'] .category-divider {
-    border-top-color: rgba(0, 0, 0, 0.12);
-}
-
-[data-theme='light'] .category-card {
-    background: rgba(255, 255, 255, 0.92);
-    border-color: #d1d5db;
-    /* gray-300 */
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme='light'] .category-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
-    border-color: #111827;
-    /* gray-900 */
-}
-
-[data-theme='light'] .category-icon {
-    background: #f3f4f6;
-    /* gray-100 */
-    border-color: #9ca3af;
-    /* gray-400 */
-    color: #111827;
-}
-
-[data-theme='light'] .category-card:hover .category-icon {
-    background: #e5e7eb;
-    /* gray-200 */
-    border-color: #111827;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-}
-
-[data-theme='light'] .category-name {
-    color: #1f2937;
-}
-
-/* gray-800 */
-
-[data-theme='light'] .featured-card {
-    background: white;
-    border-color: #e5e7eb;
-}
-
-[data-theme='light'] .featured-card:hover {
-    border-color: #111827;
-}
-
-[data-theme='light'] .product-image-wrapper {
-    background: #f9fafb;
-}
-
-[data-theme='light'] .text-glow,
-[data-theme='light'] .text-glow * {
-    background: none !important;
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: #111827 !important;
-    /* 👈 السطر المهم */
-    color: #111827 !important;
-    filter: none !important;
-    text-shadow: none !important;
-}
-
-
-/* Light mode button – black */
-[data-theme='light'] .btn-glow {
-    background: #111827;
-    color: white;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme='light'] .btn-glow:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
-    background: #1f2937;
-    /* gray-800 hover */
-}
-
-/* Text colors in light mode */
-[data-theme='light'] .text-light {
-    color: #111827 !important;
-}
-
-.must-have-styles {
-    text-align: center;
-    margin-top: 0.5rem;
-    margin-bottom: 0.5rem;
-    font-weight: bold;
-    font-size: 3.5rem;
-    /* display-5 */
-    transition: color 0.3s ease;
-}
-
-.top-trending-styles {
-    text-align: center;
-    margin-top: 0.5rem;
-    margin-bottom: 0.5rem;
-    font-weight: bold;
-    font-size: 3.5rem;
-    /* display-5 */
-    transition: color 0.3s ease;
-}
-
-/* Light mode */
-[data-theme='light'] .top-trending-styles {
-    color: #111827;
-    /* أسود فاتح */
-    background: none !important;
-    /* نتأكد إن text-glow ما يأثرش */
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: unset !important;
-    filter: none !important;
-}
-
-/* Dark mode – يفضل text-glow كما هو */
-
-/* Light mode */
-[data-theme='light'] .must-have-styles {
-    color: #111827;
-    /* أسود فاتح */
-    background: none !important;
-    /* نتأكد إن text-glow ما يأثرش */
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: unset !important;
-    filter: none !important;
-}
-
-/* Dark mode – نتركه زي ما هو (text-glow) */
-
-
-[data-theme='light'] h1,
-[data-theme='light'] h2,
-[data-theme='light'] h3 {
-    color: #111827;
-}
-
-[data-theme='light'] p {
-    color: #374151;
-}
-
-/* gray-700 */
-
-[data-theme='light'] .text-muted {
-    color: #6b7280;
-    /* gray-500 */
-}
-
-[data-theme='light'] .text-muted a {
-    color: #6b7280;
-    /* gray-500 */
-
-}
-
-.favorites-picks {
-    text-align: center;
-    margin-top: 2rem;
-    margin-bottom: 0.5rem;
-    font-size: 1.25rem;
-    /* fs-4 */
-    transition: color 0.3s ease;
-}
-
-/* Light mode */
-[data-theme='light'] .favorites-picks {
-    color: #111827;
-    /* light black / gray-900 */
-}
-
-/* Dark mode */
-[data-theme='dark'] .favorites-picks {
-    color: #FBBF24;
-    /* gold */
+.page-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }
 </style>

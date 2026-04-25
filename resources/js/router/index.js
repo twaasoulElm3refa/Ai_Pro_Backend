@@ -5,6 +5,7 @@ import Profile from "../views/home/user/profile.vue";
 import GoogleCallback from "../views/auth/GoogleCallback.vue";
 import Contact from "../views/home/contact.vue";
 import wallet from "../views/home/user/wallet.vue";
+import show from "../views/home/show.vue";
 
 const adminMeta = {
     hideNavbar: true,
@@ -24,6 +25,11 @@ const routes = [
     {
         path: "/:lang/",
         component: Home,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/tool/show",
+        component: show,
         meta: { hideNavbar: false, hideFooter: false },
     },
     {
@@ -59,57 +65,92 @@ const routes = [
     },
     {
         path: "/admin",
+        name: "admin.dashboard",
         component: () => import("../views/admin/index.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/users",
+        name: "admin.users.index",
         component: () => import("../views/admin/users/all_users.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/users/add",
+        name: "admin.users.create",
         component: () => import("../views/admin/users/add_user.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/users/edit/:id",
+        name: "admin.users.edit",
         component: () => import("../views/admin/users/edit_user.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/users/show/:id",
+        name: "admin.users.show",
         component: () => import("../views/admin/users/show_user.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/footer",
+        name: "admin.footer",
         component: () => import("../views/admin/settings/footer/footer.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/contacts",
+        name: "admin.contacts",
         component: () => import("../views/admin/settings/contacts/contacts.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/profile",
+        name: "admin.profile",
         component: () => import("../views/admin/profile/ProfilePage.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/profile/edit",
+        name: "admin.profile.edit",
         component: () => import("../views/admin/profile/EditProfilePage.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/password",
+        name: "admin.password",
         component: () => import("../views/admin/profile/ChangePasswordPage.vue"),
         meta: adminMeta,
     },
     {
         path: "/admin/logout",
+        name: "admin.logout",
         component: () => import("../views/admin/profile/LogoutPage.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/tools",
+        name: "admin.tools.index",
+        component: () => import("../views/admin/tools/ToolsList.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/tools/create",
+        name: "admin.tools.create",
+        component: () => import("../views/admin/tools/ToolCreate.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/tools/:id/edit",
+        name: "admin.tools.edit",
+        component: () => import("../views/admin/tools/ToolEdit.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/tools/:id",
+        name: "admin.tools.show",
+        component: () => import("../views/admin/tools/ToolShow.vue"),
         meta: adminMeta,
     },
 ];
