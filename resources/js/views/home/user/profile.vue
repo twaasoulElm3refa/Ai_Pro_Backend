@@ -1,11 +1,11 @@
 <template>
-    <div :class="['min-h-screen py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']">
+    <div :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']">
         <div :class="['max-w-3xl mx-auto rounded-2xl shadow-2xl border p-6 transition-colors duration-300',
             isDark ? 'bg-slate-950 text-white border-slate-800' : 'bg-white text-slate-900 border-slate-200']">
 
             <!-- Header -->
             <div class="mb-6">
-                <h1 class="text-2xl font-bold" :class="isDark ? 'text-emerald-400' : 'text-emerald-600'">
+                <h1 class="text-2xl font-bold" :class="isDark ? 'text-[#5da3cc]' : 'text-[#074377]'">
                     ملفي الشخصي
                 </h1>
             </div>
@@ -16,8 +16,8 @@
                     'py-3 px-4 text-sm font-medium transition-colors',
                     currentTab === tab.id
                         ? isDark
-                            ? 'border-b-2 border-emerald-500 text-emerald-400'
-                            : 'border-b-2 border-emerald-600 text-emerald-600'
+                            ? 'border-b-2 border-[#5da3cc] text-[#5da3cc]'
+                            : 'border-b-2 border-[#074377] text-[#074377]'
                         : isDark
                             ? 'text-slate-400 hover:text-white'
                             : 'text-slate-500 hover:text-slate-900'
@@ -34,13 +34,13 @@
                         <img v-if="profile.user.image" :src="getImageUrl(profile.user.image)" alt="avatar"
                             class="w-full h-full object-cover" />
                         <div v-else
-                            class="w-full h-full bg-emerald-500 flex items-center justify-center text-white text-xl font-bold">
+                            class="w-full h-full bg-[#074377] flex items-center justify-center text-white text-xl font-bold">
                             {{ avatarInitials }}
                         </div>
                     </div>
                     <div>
                         <p class="font-semibold text-base">{{ profile.user.name }}</p>
-                        <p class="text-sm" :class="isDark ? 'text-emerald-400' : 'text-emerald-600'">
+                        <p class="text-sm" :class="isDark ? 'text-[#5da3cc]' : 'text-[#074377]'">
                             {{ profile.user.role }}
                         </p>
                     </div>
@@ -82,23 +82,22 @@
                     <div class="flex items-center gap-4">
                         <!-- Preview -->
                         <div class="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 shadow">
-
                             <img v-if="imagePreview || profile.user.image"
                                 :src="imagePreview || getImageUrl(profile.user.image)"
                                 class="w-full h-full object-cover" alt="preview" />
                             <div v-else
-                                class="w-full h-full bg-emerald-500 flex items-center justify-center text-white font-bold text-lg">
+                                class="w-full h-full bg-[#074377] flex items-center justify-center text-white font-bold text-lg">
                                 {{ avatarInitials }}
                             </div>
                         </div>
                         <label :class="['cursor-pointer text-sm px-4 py-2 rounded-lg border transition',
                             isDark
-                                ? 'border-slate-600 text-slate-300 hover:border-emerald-500 hover:text-emerald-400'
-                                : 'border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-600']">
+                                ? 'border-slate-600 text-slate-300 hover:border-[#074377] hover:text-[#074377]'
+                                : 'border-slate-300 text-slate-600 hover:border-[#074377] hover:text-[#074377]']">
                             اختر صورة
                             <input type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
                         </label>
-                        <span v-if="editData.image" class="text-xs text-emerald-400 truncate max-w-[140px]">
+                        <span v-if="editData.image" class="text-xs text-[#074377] dark:text-[#5da3cc] truncate max-w-[140px]">
                             {{ editData.image.name }}
                         </span>
                     </div>
@@ -106,7 +105,7 @@
 
                 <div class="flex gap-2">
                     <button @click="updateProfile" :disabled="profileLoading"
-                        class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
+                        class="bg-[#074377] hover:bg-[#0a5a99] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
                         {{ profileLoading ? 'جاري الحفظ...' : 'حفظ التغييرات' }}
                     </button>
 
@@ -124,7 +123,7 @@
                 <PasswordInput label="تأكيد كلمة المرور" v-model="passwordData.confirm_password" :isDark="isDark" />
 
                 <button @click="updatePassword" :disabled="passwordLoading"
-                    class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition text-white font-medium px-6 py-2.5 rounded-lg shadow-md disabled:opacity-60">
+                    class="bg-[#074377] hover:bg-[#0a5a99] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded-lg shadow-md disabled:opacity-60">
                     {{ passwordLoading ? 'جاري التحديث...' : 'تحديث كلمة المرور' }}
                 </button>
             </div>
@@ -134,7 +133,7 @@
                 <div v-if="statusMessage" :class="['mt-6 p-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all',
                     statusIsError
                         ? 'bg-red-500/10 border border-red-500/30 text-red-400'
-                        : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400']">
+                        : 'bg-[#074377]/10 border border-[#074377]/30 text-[#074377] dark:text-[#5da3cc]']">
                     <span>{{ statusIsError ? '✗' : '✓' }}</span>
                     {{ statusMessage }}
                 </div>
@@ -159,7 +158,7 @@ export default {
             computed: {
                 inputClass() {
                     return [
-                        "w-full border rounded-lg px-3 py-2 pr-10 focus:outline-none focus:border-emerald-500 transition-colors",
+                        "w-full border rounded-lg px-3 py-2 pr-10 focus:outline-none focus:border-[#074377] transition-colors",
                         this.isDark
                             ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500"
                             : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400",
@@ -248,7 +247,7 @@ export default {
                 label: "الحالة",
                 value: profile.value.user.is_active ? "نشط ✓" : "غير نشط",
                 class: profile.value.user.is_active
-                    ? isDark.value ? "text-emerald-400 font-semibold" : "text-emerald-600 font-semibold"
+                    ? isDark.value ? "text-[#5da3cc] font-semibold" : "text-[#074377] font-semibold"
                     : "text-red-400 font-semibold",
             },
             { label: "آخر تسجيل دخول", value: profile.value.user.last_seen },
@@ -256,7 +255,7 @@ export default {
 
         const inputClass = computed(() =>
             [
-                "w-full border rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500 transition-colors",
+                "w-full border rounded-lg px-3 py-2 focus:outline-none focus:border-[#074377] transition-colors",
                 isDark.value
                     ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500"
                     : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400",
@@ -313,11 +312,10 @@ export default {
 
         const getImageUrl = (path) => {
             if (!path) return "";
-
             if (path.startsWith("http")) return path;
-
             return `http://localhost:8000/storage/${path}`;
         };
+
         const updateProfile = async () => {
             if (!editData.value.name || !editData.value.email) {
                 showStatus("يرجى ملء الاسم والبريد الإلكتروني", true);
@@ -336,7 +334,6 @@ export default {
                     headers: { "Content-Type": "multipart/form-data" },
                 });
 
-                // تحديث البيانات محلياً من الـ response
                 const updated = data.data?.user ?? data.data;
                 if (updated) {
                     profile.value.user = { ...profile.value.user, ...updated };
@@ -364,6 +361,7 @@ export default {
                 profileLoading.value = false;
             }
         };
+
         const updatePassword = async () => {
             const { current_password, new_password, confirm_password } = passwordData.value;
 
@@ -439,5 +437,19 @@ export default {
 .fade-enter-from,
 .fade-leave-to {
     opacity: 0;
+}
+
+/* Optional: Define CSS variables for easier maintenance */
+:root {
+    --primary-color: #074377;
+    --primary-hover: #0a5a99;
+    --primary-light: #5da3cc;
+    --primary-bg: rgba(7, 67, 119, 0.1);
+    --primary-border: rgba(7, 67, 119, 0.3);
+}
+
+/* Dark mode adjustments via class */
+.dark {
+    --primary-light: #5da3cc;
 }
 </style>

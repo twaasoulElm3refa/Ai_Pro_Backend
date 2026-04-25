@@ -11,6 +11,7 @@ use App\Http\Controllers\api\auth\GoogleAuthController;
 use App\Http\Controllers\api\auth\ProfileController;
 use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\WalletController;
+use App\Http\Controllers\api\home\HomeController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ApiKeyMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +51,11 @@ Route::prefix('v1')->group(function () {
             Route::delete('delete-account', [ProfileController::class, 'deleteAccount']);
 
         });
+    });
+
+    Route::prefix('tools')->middleware(['auth:sanctum'])->group(function () {
+        Route::get('/', [HomeController::class, 'index']);
+        Route::get('/{id}', [HomeController::class, 'show']);
     });
 });
 

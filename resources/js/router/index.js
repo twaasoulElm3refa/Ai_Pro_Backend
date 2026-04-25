@@ -28,7 +28,7 @@ const routes = [
         meta: { hideNavbar: false, hideFooter: false },
     },
     {
-        path: "/:lang/tool/show",
+        path: "/:lang/tool/:slug",
         component: show,
         meta: { hideNavbar: false, hideFooter: false },
     },
@@ -163,6 +163,17 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const token = localStorage.getItem("auth_token");
     const role = localStorage.getItem("user_role");
+
+    // ✅ Sync language with localStorage
+    if (to.params.lang) {
+        const currentLang = localStorage.getItem("language");
+
+        if (currentLang !== to.params.lang) {
+            localStorage.setItem("language", to.params.lang);
+        }
+    }
+
+    // =========================
 
     if (to.path === "/admin/auth" || to.path === "/login") {
         if (token && role === "admin") {

@@ -77,9 +77,6 @@
                                     <h2 class="truncate text-lg font-bold text-slate-900 dark:text-white">{{ tool.name }}</h2>
                                     <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">#{{ tool.id }}</p>
                                 </div>
-                                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-                                    Sort {{ tool.sort_order ?? 0 }}
-                                </span>
                             </div>
 
                             <p class="line-clamp-3 min-h-[4.5rem] text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -88,7 +85,6 @@
 
                             <div class="flex items-center justify-between text-xs text-slate-400">
                                 <span>{{ formatDate(tool.created_at) }}</span>
-                                <span>{{ tool.slug || "No slug" }}</span>
                             </div>
 
                             <div class="grid grid-cols-3 gap-2 pt-2">

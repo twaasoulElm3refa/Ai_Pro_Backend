@@ -1,5 +1,3 @@
-ترتيب الlogin signup 
-
 Dashboard 
 
 فى profile  اليوزر هنضيف المحادثات و اسماء الادوات 

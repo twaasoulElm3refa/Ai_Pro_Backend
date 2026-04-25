@@ -21,7 +21,7 @@ export default {
     },
 
     created() {
-        this.initTheme();       // 👈 هنا الإضافة
+        this.initTheme();
         this.setupAxios();
     },
 

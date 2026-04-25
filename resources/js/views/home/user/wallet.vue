@@ -26,21 +26,25 @@
                 </div>
             </div>
 
-            <!-- User Info Row -->
+            <!-- User Info -->
             <div class="user-row">
                 <div class="avatar">
-                    <!-- عرض الصورة إذا وجدت، وإلا عرض الحرف الأول -->
-                    <img v-if="walletData.data.image" :src="getImageUrl(walletData.data.image)" alt="صورة المستخدم"
+                    <img v-if="walletData.data.image"
+                        :src="getImageUrl(walletData.data.image)"
                         class="avatar-image" />
                     <span v-else>
                         {{ getInitials(walletData.data.name) }}
                     </span>
                 </div>
+
                 <div class="user-details">
                     <h3>{{ walletData.data.name }}</h3>
                     <p>{{ walletData.data.email }}</p>
                 </div>
-                <span class="role-badge">{{ walletData.data.role }}</span>
+
+                <span class="role-badge">
+                    {{ walletData.data.role }}
+                </span>
             </div>
 
             <!-- Info Grid -->
@@ -49,36 +53,44 @@
                     <span class="info-label">رقم المحفظة</span>
                     <span class="info-value">{{ walletData.data.wallet.uuid }}...</span>
                 </div>
+
                 <div class="info-item">
                     <span class="info-label">تاريخ الإنشاء</span>
                     <span class="info-value">{{ formatDate(walletData.data.wallet.created_at) }}</span>
                 </div>
+
                 <div class="info-item">
-                    <span class="info-label">آخر عمليه شحن</span>
+                    <span class="info-label">آخر عملية</span>
                     <span class="info-value">{{ formatLastSeen(walletData.data.wallet.updated_at) }}</span>
                 </div>
+
                 <div class="info-item">
                     <span class="info-label">الحالة</span>
-                    <span class="status-badge" :class="{ active: walletData.data.wallet.is_active }">
+                    <span class="status-badge"
+                        :class="{ active: walletData.data.wallet.is_active }">
                         {{ walletData.data.wallet.is_active ? 'نشطة' : 'غير نشطة' }}
                     </span>
                 </div>
             </div>
 
-            <!-- Action Buttons -->
+            <!-- Actions -->
             <div class="actions">
-                <button class="btn-charge" @click="chargeWallet" :disabled="isCharging">
-                    {{ isCharging ? 'جاري الشحن...' : 'شحن الرصيد' }}
+                <button class="btn-charge"
+                    @click="chargeWallet"
+                    :disabled="isCharging">
+                    {{ isCharging ? 'جاري...' : 'شحن الرصيد' }}
                 </button>
             </div>
         </div>
 
-        <!-- Error State -->
+        <!-- Error -->
         <div v-else-if="error" class="error-state">
             <div class="error-icon">!</div>
             <h3>حدث خطأ</h3>
             <p>{{ error }}</p>
-            <button @click="fetchWallet" class="retry-btn">إعادة المحاولة</button>
+            <button @click="fetchWallet" class="retry-btn">
+                إعادة المحاولة
+            </button>
         </div>
     </div>
 </template>
@@ -87,7 +99,6 @@
 import walletService from '../../../services/profile/walletService';
 
 export default {
-    name: 'Wallet',
     data() {
         return {
             walletData: null,
@@ -105,356 +116,237 @@ export default {
             this.error = null;
 
             try {
-                const response = await walletService.getWallet();
-                this.walletData = response;
-            } catch (error) {
-                console.error('Error fetching wallet:', error);
-                this.error = error.response?.data?.message || 'فشل في تحميل بيانات المحفظة';
+                const res = await walletService.getWallet();
+                this.walletData = res;
+            } catch (e) {
+                this.error = e.response?.data?.message || 'فشل في تحميل البيانات';
             } finally {
                 this.loading = false;
             }
         },
-        getImageUrl(imagePath) {
-            if (!imagePath) return '';
-            if (imagePath.startsWith('http')) {
-                return imagePath;
-            }
-            if (imagePath.startsWith('/storage') || imagePath.startsWith('storage')) {
-                return imagePath;
-            }
-            return `/storage/${imagePath}`;
+
+        getImageUrl(path) {
+            if (!path) return '';
+            if (path.startsWith('http')) return path;
+            return `/storage/${path}`;
         },
 
         chargeWallet() {
             this.isCharging = true;
             setTimeout(() => {
                 this.isCharging = false;
-                alert('هذه الميزة غير متاحة حالياً - قريباً إن شاء الله');
-            }, 1000);
+                alert('قريباً');
+            }, 800);
         },
 
-        formatBalance(balance) {
-            return new Intl.NumberFormat('ar-EG').format(balance);
+        formatBalance(b) {
+            return new Intl.NumberFormat('ar-EG').format(b);
         },
 
-        formatDate(date) {
-            if (!date) return '—';
-            return new Date(date).toLocaleDateString('ar-EG');
+        formatDate(d) {
+            if (!d) return '—';
+            return new Date(d).toLocaleDateString('ar-EG');
         },
 
-        formatLastSeen(lastSeen) {
-            if (!lastSeen) return '—';
-            const now = new Date();
-            const seen = new Date(lastSeen);
-            const diff = Math.floor((now - seen) / 1000 / 60);
+        formatLastSeen(d) {
+            if (!d) return '—';
+            const diff = (Date.now() - new Date(d)) / 60000;
 
             if (diff < 1) return 'الآن';
-            if (diff < 60) return `منذ ${diff} دقيقة`;
+            if (diff < 60) return `منذ ${Math.floor(diff)} دقيقة`;
             if (diff < 1440) return `منذ ${Math.floor(diff / 60)} ساعة`;
-            return this.formatDate(lastSeen);
+
+            return this.formatDate(d);
         },
 
         getInitials(name) {
-            return name ? name.charAt(0).toUpperCase() : '?';
+            return name ? name[0].toUpperCase() : '?';
         }
     }
 };
 </script>
 
 <style scoped>
+@import url('https://fonts.cdnfonts.com/css/year-of-the-camel');
+
 .wallet-page {
-    padding: 24px;
-    background: #ffffff;
-    min-height: 100vh;
+    padding: 16px;
+    background: #fff;
+    min-height: 70vh;
+    font-family: 'Year of the Camel', sans-serif;
 }
 
-/* Loading State */
+/* Loading */
 .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px 20px;
-    color: #666;
+    text-align: center;
+    padding: 40px;
 }
 
 .spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid #f0f0f0;
-    border-top: 3px solid #1a1a1a;
+    width: 28px;
+    height: 28px;
+    border: 2px solid #eee;
+    border-top: 2px solid #074377;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-bottom: 16px;
+    animation: spin 0.7s linear infinite;
+    margin: auto;
 }
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
-/* Wallet Wrapper */
+/* Wrapper */
 .wallet-wrapper {
-    max-width: 800px;
-    margin: 0 auto;
+    max-width: 600px;
+    margin: auto;
 }
 
 /* Header */
 .wallet-header {
-    margin-bottom: 32px;
+    margin-bottom: 20px;
 }
 
 .wallet-header h2 {
-    font-size: 28px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0 0 8px 0;
+    font-size: 20px;
+    color: #074377;
 }
 
 .wallet-header p {
-    font-size: 14px;
+    font-size: 12px;
     color: #888;
-    margin: 0;
 }
 
-/* Balance Card */
+/* Balance */
 .balance-card {
-    background: #1a1a1a;
-    border-radius: 24px;
-    padding: 32px;
-    margin-bottom: 24px;
+    background: #074377;
+    border-radius: 16px;
+    padding: 20px;
     text-align: center;
+    margin-bottom: 16px;
 }
 
 .balance-label {
-    font-size: 14px;
-    color: #aaa;
-    margin-bottom: 12px;
-    letter-spacing: 0.5px;
+    font-size: 12px;
+    color: #cfd8dc;
 }
 
 .balance-value {
-    font-size: 48px;
-    font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 12px;
+    font-size: 30px;
+    font-weight: bold;
+    color: white;
 }
 
 .balance-value span {
-    font-size: 16px;
-    font-weight: 400;
-    color: #aaa;
-    margin-right: 8px;
+    font-size: 12px;
+    margin-right: 4px;
 }
 
 .wallet-id {
-    font-size: 12px;
-    color: #888;
-    font-family: monospace;
+    font-size: 10px;
+    color: #ccc;
 }
 
-/* User Row */
+/* User */
 .user-row {
-    background: #f8f8f8;
-    border-radius: 16px;
-    padding: 20px;
+    background: #f7f9fb;
+    border-radius: 12px;
+    padding: 12px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
+    gap: 10px;
+    margin-bottom: 16px;
 }
 
 .avatar {
-    width: 56px;
-    height: 56px;
-    background: #1a1a1a;
+    width: 42px;
+    height: 42px;
+    background: #074377;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    font-weight: 600;
     color: white;
 }
 
-.user-details {
-    flex: 1;
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
 }
 
+/* User text */
 .user-details h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0 0 4px 0;
-}
-
-.user-details p {
-    font-size: 13px;
-    color: #888;
+    font-size: 14px;
     margin: 0;
 }
 
-.role-badge {
-    background: #e8e8e8;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #1a1a1a;
-    text-transform: capitalize;
+.user-details p {
+    font-size: 11px;
+    color: #777;
 }
 
-/* Info Grid */
+/* Badge */
+.role-badge {
+    font-size: 10px;
+    background: #e3eef5;
+    color: #074377;
+    padding: 3px 8px;
+    border-radius: 10px;
+}
+
+/* Grid */
 .info-grid {
-    background: #f8f8f8;
-    border-radius: 16px;
-    padding: 20px;
+    background: #f7f9fb;
+    border-radius: 12px;
+    padding: 12px;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    margin-bottom: 24px;
-}
-
-.info-item {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    margin-bottom: 16px;
 }
 
 .info-label {
-    font-size: 12px;
+    font-size: 10px;
     color: #888;
-    letter-spacing: 0.3px;
 }
 
 .info-value {
-    font-size: 14px;
-    font-weight: 500;
-    color: #1a1a1a;
+    font-size: 12px;
+    color: #074377;
 }
 
 .status-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 500;
-    background: #e8e8e8;
-    color: #666;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: #ddd;
 }
 
 .status-badge.active {
-    background: #1a1a1a;
+    background: #074377;
     color: white;
 }
 
-/* Actions */
-.actions {
-    display: flex;
-    gap: 12px;
-}
-
+/* Button */
 .btn-charge {
-    flex: 1;
-    background: #1a1a1a;
+    width: 100%;
+    background: #074377;
     color: white;
     border: none;
-    border-radius: 12px;
-    padding: 14px 24px;
-    font-size: 15px;
-    font-weight: 500;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 13px;
     cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.btn-charge:hover:not(:disabled) {
-    background: #333;
-    transform: translateY(-1px);
-}
-
-.btn-charge:active:not(:disabled) {
-    transform: translateY(0);
 }
 
 .btn-charge:disabled {
     opacity: 0.6;
-    cursor: not-allowed;
 }
 
-/* Error State */
+/* Error */
 .error-state {
     text-align: center;
-    padding: 60px 20px;
-    max-width: 400px;
-    margin: 0 auto;
-}
-
-.error-icon {
-    width: 56px;
-    height: 56px;
-    background: #f5f5f5;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    font-weight: bold;
-    color: #e53935;
-    margin: 0 auto 20px;
-}
-
-.error-state h3 {
-    font-size: 20px;
-    color: #1a1a1a;
-    margin: 0 0 8px 0;
-}
-
-.error-state p {
-    color: #888;
-    margin: 0 0 24px 0;
-}
-
-.retry-btn {
-    background: #1a1a1a;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 24px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.retry-btn:hover {
-    background: #333;
-}
-
-/* Responsive */
-@media (max-width: 600px) {
-    .wallet-page {
-        padding: 16px;
-    }
-
-    .balance-value {
-        font-size: 36px;
-    }
-
-    .info-grid {
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-
-    .user-row {
-        flex-wrap: wrap;
-    }
-
-    .role-badge {
-        margin-right: auto;
-    }
+    padding: 40px;
 }
 </style>

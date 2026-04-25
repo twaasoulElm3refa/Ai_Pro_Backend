@@ -38,14 +38,16 @@ class TranslateToolJob implements ShouldQueue
                 $metaName = $tool->meta_name ? $tr->translate($tool->meta_name) : null;
                 $metaDesc = $tool->meta_description ? $tr->translate($tool->meta_description) : null;
 
-                $tool->translations()->create(
+                $tool->translations()->updateOrCreate(
                     [
                         'locale' => $locale,
+                    ],
+                    [
                         'name' => $name,
                         'description' => $desc,
                         'meta_title' => $metaName,
                         'meta_description' => $metaDesc,
-                    ],
+                    ]
                 );
 
             } catch (\Throwable $e) {

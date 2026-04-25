@@ -13,6 +13,7 @@ const api = axios.create({
     baseURL: "http://localhost:8000/api/v1",
     headers: {
         Accept: "application/json",
+        'Accept-Language': localStorage.getItem("language") || "ar",
         'x-api-key': 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y'
     },
 });
@@ -49,7 +50,7 @@ api.interceptors.response.use(
 
                 localStorage.removeItem("auth_token");
                 setTimeout(() => {
-                    window.location.href = "/login";
+                    window.location.href = "/en/auth";
                 }, 1500);
                 break;
 
