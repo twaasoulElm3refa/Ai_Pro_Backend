@@ -17,15 +17,19 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
 
     Route::prefix('users')->group(function () {
-        Route::post('send-otp', [RegisterController::class, 'sendOtp'])
-            ->middleware(['throttle:6,1']);
-        Route::post('verify-otp', [RegisterController::class, 'verifyOtp'])
-            ->middleware(['throttle:6,1']);
+        // ── Register (مرة واحدة بدون OTP)
         Route::post('register', [RegisterController::class, 'register'])
-            ->middleware(['throttle:6,1']);
-        Route::post('login', [AuthController::class, 'login'])
-            ->middleware(['throttle:7,1']);
+            ->middleware('throttle:6,1');
 
+        // ── Login + OTP Verification
+        Route::post('login', [AuthController::class, 'login'])
+            ->middleware('throttle:7,1');
+        Route::post('verify-otp', [AuthController::class, 'verifyLoginOtp'])
+            ->middleware('throttle:6,1');
+        Route::post('resend-otp', [AuthController::class, 'resendOtp'])
+            ->middleware('throttle:5,1');
+
+        // ── Forgot / Reset Password
         Route::post('forgot-password', [AuthController::class, 'forgotPassword'])
             ->middleware(['throttle:5,1', 'guest']);
         Route::post('reset-password', [AuthController::class, 'resetPassword'])

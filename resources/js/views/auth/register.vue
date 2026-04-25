@@ -3,6 +3,8 @@
         <div class="position-absolute w-100 h-100 waves"></div>
 
         <div class="auth-container position-relative z-2 d-flex flex-column flex-lg-row w-100 h-100">
+
+            <!-- ── Left Panel ── -->
             <div class="d-none d-lg-flex col-lg-5 align-items-center justify-content-center p-5 position-relative">
                 <div class="text-center">
                     <img src="/images/ai_logo.png" alt="NEXTLEVEL Logo" class="height-auto logo-glow" />
@@ -11,196 +13,288 @@
                 </div>
             </div>
 
+            <!-- ── Right Panel ── -->
             <div class="col-12 col-lg-7 d-flex align-items-center justify-content-center p-4 p-md-5">
                 <div class="glass-card rounded-4 shadow-glow p-4 p-md-5 w-100"
                     style="max-width: 480px; backdrop-filter: blur(16px)">
 
-                    <!-- ── Tabs ── -->
-                    <div class="position-relative mb-4" style="border-bottom: 1px solid rgba(255,255,255,0.15)">
-                        <ul class="nav nav-pills nav-fill">
-                            <li class="nav-item">
-                                <button class="nav-link px-0 fs-5 fw-semibold position-relative"
-                                    :class="{ 'active-tab': tab === 'login' }"
-                                    @click.prevent="tab = 'login'">Login</button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link px-0 fs-5 fw-semibold position-relative"
-                                    :class="{ 'active-tab': tab === 'register' }"
-                                    @click.prevent="tab = 'register'">Register</button>
-                            </li>
-                        </ul>
-                        <div class="position-absolute rounded-pill underline"
-                            :style="{ left: tab === 'login' ? '0%' : '50%', width: '50%' }"></div>
+                    <!-- ════════════════════════════════════════
+                         OTP Screen (تظهر بعد Login لو not verified)
+                    ════════════════════════════════════════ -->
+                    <div v-if="showOtpScreen">
+                        <h4 class="text-center fw-bold mb-2">تحقق من إيميلك</h4>
+                        <p class="text-center text-white-50 mb-4 fs-6">
+                            تم إرسال كود على
+                            <strong class="text-white">{{ pendingEmail }}</strong>
+                        </p>
+
+                        <div class="d-flex flex-column gap-4">
+                            <input
+                                v-model="otpCode"
+                                type="text"
+                                maxlength="6"
+                                class="form-control form-control-lg glass-input rounded-3 px-4 fs-5 text-center"
+                                placeholder="أدخل كود التفعيل"
+                            />
+
+                            <button
+                                class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                                :disabled="loading"
+                                @click="handleVerifyLoginOtp"
+                            >
+                                {{ loading ? "جاري التحقق..." : "تحقق وسجّل الدخول" }}
+                            </button>
+
+                            <p class="text-center mb-0">
+                                <a href="#" class="text-glow fw-medium fs-6"
+                                    @click.prevent="handleResendOtp">
+                                    إعادة إرسال الكود
+                                </a>
+                            </p>
+
+                            <p class="text-center mb-0">
+                                <a href="#" class="text-glow fw-medium fs-6"
+                                    @click.prevent="backToLogin">
+                                    رجوع لتسجيل الدخول
+                                </a>
+                            </p>
+                        </div>
                     </div>
 
-                    <!-- ── Success Message ── -->
-                    <transition name="fade">
-                        <p v-if="successMessage" class="text-center text-success mb-4 fw-medium">
-                            {{ successMessage }}
-                        </p>
-                    </transition>
+                    <!-- ════════════════════════════════════════
+                         Normal Auth Flow
+                    ════════════════════════════════════════ -->
+                    <div v-else>
 
-                    <!-- ── Login Form ── -->
-                    <form v-if="tab === 'login'" @submit.prevent="handleLogin" class="d-flex flex-column gap-4">
+                        <!-- ── Tabs ── -->
+                        <div class="position-relative mb-4"
+                            style="border-bottom: 1px solid rgba(255,255,255,0.15)">
+                            <ul class="nav nav-pills nav-fill">
+                                <li class="nav-item">
+                                    <button class="nav-link px-0 fs-5 fw-semibold position-relative"
+                                        :class="{ 'active-tab': tab === 'login' }"
+                                        @click.prevent="tab = 'login'">
+                                        Login
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link px-0 fs-5 fw-semibold position-relative"
+                                        :class="{ 'active-tab': tab === 'register' }"
+                                        @click.prevent="tab = 'register'">
+                                        Register
+                                    </button>
+                                </li>
+                            </ul>
+                            <div class="position-absolute rounded-pill underline"
+                                :style="{ left: tab === 'login' ? '0%' : '50%', width: '50%' }">
+                            </div>
+                        </div>
 
-                        <input v-model="loginForm.email" type="email"
-                            class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                            placeholder="Email Address" required />
+                        <!-- ── Login Form ── -->
+                        <form v-if="tab === 'login'"
+                            @submit.prevent="handleLogin"
+                            class="d-flex flex-column gap-4">
 
-                        <div class="input-group input-group-lg">
-                            <input v-model="loginForm.password" :type="showPassword ? 'text' : 'password'"
-                                class="form-control glass-input rounded-3 py-3 px-4 fs-5 border-end-0"
-                                placeholder="Password" required />
-                            <span class="input-group-text glass-input rounded-3 border-start-0 pointer"
-                                @click="showPassword = !showPassword">
-                                <span class="fs-4">{{ showPassword ? "👁️" : "👁️‍🗨️" }}</span>
+                            <input
+                                v-model="loginForm.email"
+                                type="email"
+                                class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
+                                placeholder="Email Address"
+                                required
+                            />
+
+                            <div class="input-group input-group-lg">
+                                <input
+                                    v-model="loginForm.password"
+                                    :type="showPassword ? 'text' : 'password'"
+                                    class="form-control glass-input rounded-3 py-3 px-4 fs-5 border-end-0"
+                                    placeholder="Password"
+                                    required
+                                />
+                                <span
+                                    class="input-group-text glass-input rounded-3 border-start-0 pointer"
+                                    @click="showPassword = !showPassword">
+                                    <span class="fs-4">{{ showPassword ? "👁️" : "👁️‍🗨️" }}</span>
+                                </span>
+                            </div>
+
+                            <button
+                                type="submit"
+                                class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5 mt-2"
+                                :disabled="loading">
+                                {{ loading ? "Loading..." : "Login" }}
+                            </button>
+
+                            <p class="text-end mb-0">
+                                <a href="#" class="text-glow fw-medium fs-6"
+                                    @click.prevent="tab = 'forgot'">
+                                    هل نسيت كلمة المرور؟
+                                </a>
+                            </p>
+
+                            <button
+                                @click.prevent="handleGoogleLogin"
+                                class="btn btn-google btn-lg d-flex align-items-center justify-content-center gap-2 mt-3">
+                                <img src="/images/google_logo.png" alt="Google"
+                                    style="width:35px;height:36px" />
+                                Continue with Google
+                            </button>
+                        </form>
+
+                        <!-- ── Register Form (مرة واحدة بدون OTP) ── -->
+                        <form v-else-if="tab === 'register'"
+                            @submit.prevent="handleRegister"
+                            class="d-flex flex-column gap-4">
+
+                            <input
+                                v-model="registerForm.name"
+                                type="text"
+                                class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
+                                placeholder="Full Name"
+                                required
+                            />
+
+                            <input
+                                v-model="registerForm.email"
+                                type="email"
+                                class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
+                                placeholder="Email Address"
+                                required
+                            />
+
+                            <input
+                                v-model="registerForm.phone"
+                                type="text"
+                                class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
+                                placeholder="Phone (optional)"
+                            />
+
+                            <input
+                                type="file"
+                                class="form-control glass-input rounded-3 px-4 fs-5"
+                                accept="image/*"
+                                @change="handleImageUpload"
+                            />
+
+                            <div class="input-group input-group-lg">
+                                <input
+                                    v-model="registerForm.password"
+                                    :type="showPassword ? 'text' : 'password'"
+                                    class="form-control glass-input rounded-3 px-4 fs-5 border-end-0"
+                                    placeholder="Password"
+                                    required
+                                />
+                                <span
+                                    class="input-group-text glass-input border-start-0"
+                                    @click="showPassword = !showPassword">
+                                    {{ showPassword ? "👁️" : "👁️‍🗨️" }}
+                                </span>
+                            </div>
+
+                            <input
+                                v-model="registerForm.password_confirmation"
+                                :type="showPassword ? 'text' : 'password'"
+                                class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
+                                placeholder="Confirm Password"
+                                required
+                            />
+
+                            <button
+                                type="submit"
+                                class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                                :disabled="loading">
+                                {{ loading ? "Creating..." : "Create Account" }}
+                            </button>
+                        </form>
+
+                        <!-- ── Forgot Password Form ── -->
+                        <form v-else-if="tab === 'forgot'"
+                            @submit.prevent="handleForgot"
+                            class="d-flex flex-column gap-4">
+
+                            <input
+                                v-model="forgotEmail"
+                                type="email"
+                                class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
+                                placeholder="Email Address"
+                                required
+                            />
+
+                            <button
+                                type="submit"
+                                class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                                :disabled="loading">
+                                {{ loading ? "جاري الإرسال..." : "إرسال الكود" }}
+                            </button>
+
+                            <p class="text-center mt-3">
+                                <a href="#" class="text-glow" @click.prevent="tab = 'login'">
+                                    رجوع لتسجيل الدخول
+                                </a>
+                            </p>
+                        </form>
+
+                        <!-- ── Reset Password Form ── -->
+                        <form v-else-if="tab === 'reset'"
+                            @submit.prevent="handleReset"
+                            class="d-flex flex-column gap-4">
+
+                            <input
+                                v-model="resetForm.email"
+                                type="email"
+                                class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
+                                placeholder="Email"
+                                required
+                            />
+
+                            <input
+                                v-model="resetForm.otp"
+                                type="text"
+                                class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
+                                placeholder="OTP Code"
+                                required
+                            />
+
+                            <input
+                                v-model="resetForm.password"
+                                type="password"
+                                class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
+                                placeholder="New Password"
+                                required
+                            />
+
+                            <input
+                                v-model="resetForm.password_confirmation"
+                                type="password"
+                                class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
+                                placeholder="Confirm Password"
+                                required
+                            />
+
+                            <button
+                                type="submit"
+                                class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
+                                :disabled="loading">
+                                {{ loading ? "جاري التغيير..." : "تغيير كلمة المرور" }}
+                            </button>
+                        </form>
+
+                        <!-- ── Bottom Switch Link ── -->
+                        <div class="text-center mt-4 text-white fs-6">
+                            <span v-if="tab === 'register'">
+                                Already have an account?
+                                <a href="#" class="text-glow fw-medium"
+                                    @click.prevent="tab = 'login'">Login</a>
+                            </span>
+                            <span v-else-if="tab === 'login'">
+                                Don't have an account?
+                                <a href="#" class="text-glow fw-medium"
+                                    @click.prevent="tab = 'register'">Register</a>
                             </span>
                         </div>
 
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5 mt-2"
-                            :disabled="loading">
-                            {{ loading ? "Loading..." : "Login" }}
-                        </button>
-
-                        <p class="text-end mb-0">
-                            <a href="#" class="text-glow fw-medium fs-6" @click.prevent="tab = 'forgot'">
-                                هل نسيت كلمة المرور؟
-                            </a>
-                        </p>
-
-                        <button @click.prevent="handleGoogleLogin"
-                            class="btn btn-google btn-lg d-flex align-items-center justify-content-center gap-2 mt-3">
-                            <img src="/images/google_logo.png" alt="Google" style="width:35px;height:36px" />
-                            Continue with Google
-                        </button>
-                    </form>
-
-                    <!-- ── Register Form (Step 1: OTP) ── -->
-                    <form v-else-if="tab === 'register' && registerStep === 1"
-                        @submit.prevent="handleSendOtp" class="d-flex flex-column gap-4">
-
-                        <input v-model="registerForm.email" type="email"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                            placeholder="Email" required />
-
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
-                            :disabled="loading">
-                            {{ loading ? "جاري الإرسال..." : "إرسال كود التفعيل" }}
-                        </button>
-                    </form>
-
-                    <!-- ── Register Form (Step 2: Verify OTP) ── -->
-                    <form v-else-if="tab === 'register' && registerStep === 2"
-                        @submit.prevent="handleVerifyOtp" class="d-flex flex-column gap-4">
-
-                        <p class="text-center text-white-50 mb-0">
-                            تم إرسال كود على <strong class="text-white">{{ registerForm.email }}</strong>
-                        </p>
-
-                        <input v-model="registerForm.otp" type="text"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5 text-center ls-widest"
-                            placeholder="أدخل كود التفعيل" maxlength="6" required />
-
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
-                            :disabled="loading">
-                            {{ loading ? "جاري التحقق..." : "تحقق من الكود" }}
-                        </button>
-
-                        <p class="text-center mb-0">
-                            <a href="#" class="text-glow fw-medium fs-6" @click.prevent="handleSendOtp">
-                                إعادة إرسال الكود
-                            </a>
-                        </p>
-                    </form>
-
-                    <!-- ── Register Form (Step 3: Fill Data) ── -->
-                    <form v-else-if="tab === 'register' && registerStep === 3"
-                        @submit.prevent="handleRegister" class="d-flex flex-column gap-4">
-
-                        <input v-model="registerForm.name" type="text"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                            placeholder="Full Name" required />
-
-                        <input v-model="registerForm.phone" type="text"
-                            class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                            placeholder="Phone (optional)" />
-
-                        <input type="file" class="form-control glass-input rounded-3 px-4 fs-5"
-                            @change="handleImageUpload" />
-
-                        <div class="input-group input-group-lg">
-                            <input v-model="registerForm.password" :type="showPassword ? 'text' : 'password'"
-                                class="form-control glass-input rounded-3 px-4 fs-5 border-end-0"
-                                placeholder="Password" required />
-                            <span class="input-group-text glass-input border-start-0"
-                                @click="showPassword = !showPassword">👁️</span>
-                        </div>
-
-                        <input v-model="registerForm.password_confirmation" :type="showPassword ? 'text' : 'password'"
-                            class="form-control glass-input rounded-3 px-4 fs-5"
-                            placeholder="Confirm Password" required />
-
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
-                            :disabled="loading">
-                            {{ loading ? "Creating..." : "Create Account" }}
-                        </button>
-                    </form>
-
-                    <!-- ── Forgot Password Form ── -->
-                    <form v-else-if="tab === 'forgot'" @submit.prevent="handleForgot" class="d-flex flex-column gap-4">
-
-                        <input v-model="forgotEmail" type="email"
-                            class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                            placeholder="Email Address" required />
-
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
-                            :disabled="loading">
-                            {{ loading ? "جاري الإرسال..." : "إرسال الكود" }}
-                        </button>
-
-                        <p class="text-center mt-3">
-                            <a href="#" class="text-glow" @click.prevent="tab = 'login'">
-                                رجوع لتسجيل الدخول
-                            </a>
-                        </p>
-                    </form>
-
-                    <!-- ── Reset Password Form ── -->
-                    <form v-else-if="tab === 'reset'" @submit.prevent="handleReset" class="d-flex flex-column gap-4">
-
-                        <input v-model="resetForm.email" type="email"
-                            class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                            placeholder="Email" required />
-
-                        <input v-model="resetForm.otp" type="text"
-                            class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                            placeholder="OTP Code" required />
-
-                        <input v-model="resetForm.password" type="password"
-                            class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                            placeholder="New Password" required />
-
-                        <input v-model="resetForm.password_confirmation" type="password"
-                            class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                            placeholder="Confirm Password" required />
-
-                        <button type="submit" class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
-                            :disabled="loading">
-                            {{ loading ? "جاري التغيير..." : "تغيير كلمة المرور" }}
-                        </button>
-                    </form>
-
-                    <!-- ── Bottom Switch Link ── -->
-                    <div class="text-center mt-4 text-white fs-6">
-                        <span v-if="tab === 'register'">
-                            Already have an account?
-                            <a href="#" class="text-glow fw-medium" @click.prevent="switchToLogin">Login</a>
-                        </span>
-                        <span v-else-if="tab === 'login'">
-                            Don't have an account?
-                            <a href="#" class="text-glow fw-medium" @click.prevent="switchToRegister">Register</a>
-                        </span>
                     </div>
+                    <!-- end normal auth flow -->
 
                 </div>
             </div>
@@ -216,12 +310,15 @@ import authService from "@/services/auth/Authservice";
 //  State
 // ─────────────────────────────────────────────
 
-const tab            = ref("login");
-const registerStep   = ref(1);   // 1 = email → 2 = OTP → 3 = full form
-const showPassword   = ref(false);
-const loading        = ref(false);
-const successMessage = ref("");
-const forgotEmail    = ref("");
+const tab          = ref("login");
+const showPassword = ref(false);
+const loading      = ref(false);
+const forgotEmail  = ref("");
+
+// OTP Screen State
+const showOtpScreen = ref(false);
+const pendingEmail  = ref("");
+const otpCode       = ref("");
 
 const loginForm = ref({
     email: "",
@@ -231,7 +328,6 @@ const loginForm = ref({
 const registerForm = ref({
     name: "",
     email: "",
-    otp: "",
     phone: "",
     password: "",
     password_confirmation: "",
@@ -258,64 +354,75 @@ const withLoading = async (fn) => {
     }
 };
 
-const switchToLogin = () => {
-    tab.value = "login";
-    registerStep.value = 1;
-};
-
-const switchToRegister = () => {
-    tab.value = "register";
-    registerStep.value = 1;
+const backToLogin = () => {
+    showOtpScreen.value = false;
+    pendingEmail.value  = "";
+    otpCode.value       = "";
+    tab.value           = "login";
 };
 
 // ─────────────────────────────────────────────
 //  Handlers
 // ─────────────────────────────────────────────
 
-const handleLogin = () =>
-    withLoading(() => authService.login(loginForm.value));
-
-// Register – Step 1
-const handleSendOtp = () =>
-    withLoading(async () => {
-        await authService.sendOtp(registerForm.value.email);
-        registerStep.value = 2;
-        successMessage.value = "تم إرسال كود التفعيل على إيميلك";
-        setTimeout(() => (successMessage.value = ""), 4000);
-    });
-
-// Register – Step 2
-const handleVerifyOtp = () =>
-    withLoading(async () => {
-        await authService.verifyOtp(registerForm.value.email, registerForm.value.otp);
-        registerStep.value = 3;
-    });
-
-// Register – Step 3
+// Register – مرة واحدة بدون OTP
 const handleRegister = () =>
-    withLoading(() => authService.register(registerForm.value));
+    withLoading(async () => {
+        await authService.register(registerForm.value);
+        // toastr بيتعمل جوا authService
+        tab.value = "login";
+        registerForm.value = {
+            name: "", email: "", phone: "",
+            password: "", password_confirmation: "", image: null,
+        };
+    });
 
-const handleImageUpload = (e) => {
-    registerForm.value.image = e.target.files[0] ?? null;
-};
+// Login
+const handleLogin = () =>
+    withLoading(async () => {
+        const result = await authService.login(loginForm.value);
 
+        if (result?.requiresVerification) {
+            // الحساب not verified → ورّي شاشة OTP
+            pendingEmail.value  = result.email;
+            showOtpScreen.value = true;
+        }
+        // لو verified → authService بيعمل redirect تلقائي
+    });
+
+// Verify OTP بعد Login
+const handleVerifyLoginOtp = () =>
+    withLoading(async () => {
+        await authService.verifyLoginOtp(pendingEmail.value, otpCode.value);
+        // redirect بيتعمل جوا authService
+    });
+
+// Resend OTP
+const handleResendOtp = () =>
+    withLoading(async () => {
+        await authService.resendOtp(pendingEmail.value);
+        // toastr بيتعمل جوا authService
+    });
+
+// Forgot Password
 const handleForgot = () =>
     withLoading(async () => {
         await authService.forgotPassword(forgotEmail.value);
         resetForm.value.email = forgotEmail.value;
-        successMessage.value = "تم إرسال الكود على الإيميل";
-        tab.value = "reset";
-        setTimeout(() => (successMessage.value = ""), 4000);
+        tab.value             = "reset";
     });
 
+// Reset Password
 const handleReset = () =>
     withLoading(async () => {
         await authService.resetPassword(resetForm.value);
-        successMessage.value = "تم تغيير كلمة المرور بنجاح";
-        tab.value = "login";
+        tab.value  = "login";
         resetForm.value = { email: "", otp: "", password: "", password_confirmation: "" };
-        setTimeout(() => (successMessage.value = ""), 4000);
     });
+
+const handleImageUpload = (e) => {
+    registerForm.value.image = e.target.files[0] ?? null;
+};
 
 const handleGoogleLogin = async () => {
     const url = await authService.getGoogleAuthUrl();
