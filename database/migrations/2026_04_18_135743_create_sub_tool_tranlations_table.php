@@ -16,9 +16,14 @@ return new class extends Migration
             $table->id();
             $table->foreignIdFor(SubTools::class ,'sub_tool_id')->constrained()->cascadeOnDelete();
             $table->string('locale');
+
             $table->string('name')->nullable();
             $table->string('prompt_placeholder')->nullable();
             $table->string('description')->nullable();
+
+            $table->string('meta_name')->nullable();
+            $table->text('meta_description')->nullable();
+
             $table->timestamps();
             $table->unique(['sub_tool_id', 'locale']);
         });

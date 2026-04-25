@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\ApiKeyMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->api(ApiKeyMiddleware::class);
+        $middleware->api(AcceptLanguage::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

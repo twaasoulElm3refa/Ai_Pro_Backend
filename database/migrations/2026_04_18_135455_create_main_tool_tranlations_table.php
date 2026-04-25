@@ -14,10 +14,16 @@ return new class extends Migration
     {
         Schema::create('main_tool_tranlations', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(MainTools::class ,'main_tool_id')->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(MainTools::class)->constrained()->cascadeOnDelete();
             $table->string('locale');
-            $table->string('name')->nullable();
-            $table->string('description')->nullable();
+
+            $table->string('name');
+            $table->text('description')->nullable();
+
+            $table->string('meta_title')->nullable();
+            $table->text('meta_description')->nullable();
+
+            $table->string('seo_keywords')->nullable();
             $table->timestamps();
             $table->unique(['main_tool_id', 'locale']);
         });

@@ -15,11 +15,17 @@ return new class extends Migration
         Schema::create('sub_tools', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(MainTools::class,'main_tool_id')->constrained()->cascadeOnDelete();
+
             $table->string('name')->unique();
+            $table->string('meta_name')->nullable();
+
             $table->string('description')->nullable();
+            $table->text('meta_description')->nullable();
+
             $table->string('image')->nullable();
             $table->string('slug')->unique();
             $table->string('prompt_placeholder')->nullable();
+
             $table->boolean('is_active')->default(true);
             $table->integer('sort_order')->default(0);
             $table->timestamps();

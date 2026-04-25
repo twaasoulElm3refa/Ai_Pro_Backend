@@ -5,6 +5,7 @@ use App\Http\Controllers\api\admin\auth\AdminAuthController;
 use App\Http\Controllers\api\admin\contact\ContactController;
 use App\Http\Controllers\api\admin\footer\FooterController;
 use App\Http\Controllers\api\admin\tools\MainToolController;
+use App\Http\Controllers\api\admin\tools\SubToolController;
 use App\Http\Controllers\api\auth\AuthController;
 use App\Http\Controllers\api\auth\GoogleAuthController;
 use App\Http\Controllers\api\auth\ProfileController;
@@ -90,6 +91,14 @@ Route::prefix('admin')->group(function () {
         Route::post('/', [MainToolController::class, 'store']);
         Route::post('/{id}', [MainToolController::class, 'update']);
         Route::delete('/{id}', [MainToolController::class, 'destroy']);
+    });
+
+     Route::prefix('subtools')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
+        Route::get('/{id}', [SubToolController::class, 'index']);
+        Route::get('/show/{id}', [SubToolController::class, 'show']);
+        Route::post('/{id}', [SubToolController::class, 'store']);
+        Route::post('/update/{id}', [SubToolController::class, 'update']);
+        Route::delete('/delete/{id}', [SubToolController::class, 'destroy']);
     });
 
 });

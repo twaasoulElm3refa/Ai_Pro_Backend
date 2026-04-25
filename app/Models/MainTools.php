@@ -18,12 +18,12 @@ class MainTools extends Model
 
     public function translations()
     {
-        return $this->hasMany(MainToolTranlation::class,'main_tool_id');
+        return $this->hasMany(MainToolTranlation::class,'main_tools_id');
     }
 
     public function translation()
     {
-        return $this->hasOne(MainToolTranlation::class,'main_tool_id')
+        return $this->hasOne(MainToolTranlation::class,'main_tools_id')
                ->where('locale',app()->getLocale());
     }
 }

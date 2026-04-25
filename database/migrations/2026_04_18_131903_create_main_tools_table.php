@@ -14,7 +14,11 @@ return new class extends Migration
         Schema::create('main_tools', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
-            $table->string('description')->nullable();
+            $table->string('meta_name')->nullable();
+
+            $table->text('description')->nullable();
+            $table->text('meta_description')->nullable();
+
             $table->string('image')->nullable();
             $table->string('slug')->unique();
             $table->boolean('is_active')->default(true);

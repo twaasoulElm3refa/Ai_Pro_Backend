@@ -4,21 +4,17 @@ namespace App\Http\Controllers\api\admin\tools;
 
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\ToolRequest;
-use App\Http\Requests\ToolUpdateRequest;
-use App\Jobs\TranslateToolJob;
-use App\Repository\tools\MainToolInterface;
-use App\Services\SeoService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-class MainToolController extends Controller
+class SubToolController extends Controller
 {
     use ApiResponse;
 
     private $toolRepository;
 
-    public function __construct(MainToolInterface $toolRepository)
+    public function __construct(SubToolInterface $toolRepository)
     {
         $this->toolRepository = $toolRepository;
     }
@@ -55,7 +51,7 @@ class MainToolController extends Controller
         }
     }
 
-    public function store(ToolRequest $request)
+    public function store(SubToolRequest $request)
     {
         try {
             $data = $request->validated();
@@ -63,14 +59,8 @@ class MainToolController extends Controller
                 $data['image'] = $request->file('image')->store('tools', 'public');
             }
             $data['slug'] = Str::slug($data['name']).'-'.Str::random(6);
-            $seo = app(SeoService::class)->generateMeta(
-                $data['name'] ?? '',
-                $data['description'] ?? ''
-            );
-            $data = array_merge($data, $seo);
             $tool = $this->toolRepository->store($data);
 
-            TranslateToolJob::dispatch($tool->id);
             return $this->success($tool, 'Tool created successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Store Error', [
@@ -82,7 +72,7 @@ class MainToolController extends Controller
         }
     }
 
-    public function update(ToolUpdateRequest $request, $id)
+    public function update(SubToolUpdateRequest $request, $id)
     {
         try {
             $data = $request->validated();
@@ -90,7 +80,6 @@ class MainToolController extends Controller
                 $data['image'] = $request->file('image')->store('tools', 'public');
             }
             $tool = $this->toolRepository->update($data, $id);
-
             return $this->success($tool, 'Tool updated successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Update Error', [
