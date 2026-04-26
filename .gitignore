@@ -21,3 +21,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/resources/js/layouts/AdminSidebar.vue
+/resources/js/services/AdminApiClient.js
+/resources/js/services/ApiClient.js

@@ -9,6 +9,7 @@ use App\Http\Requests\ToolUpdateRequest;
 use App\Jobs\TranslateToolJob;
 use App\Repository\tools\MainToolInterface;
 use App\Services\SeoService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -27,7 +28,6 @@ class MainToolController extends Controller
     {
         try {
             $tools = $this->toolRepository->index();
-
             return $this->success($tools, 'Tools fetched successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Index Error', [
@@ -69,7 +69,6 @@ class MainToolController extends Controller
             );
             $data = array_merge($data, $seo);
             $tool = $this->toolRepository->store($data);
-
             TranslateToolJob::dispatch($tool->id);
             return $this->success($tool, 'Tool created successfully.');
         } catch (\Throwable $th) {
@@ -117,4 +116,5 @@ class MainToolController extends Controller
             return $this->error('Something went wrong.');
         }
     }
+
 }

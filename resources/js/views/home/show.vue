@@ -1,807 +1,462 @@
 <template>
-  <div class="chat-page" :data-theme="theme">
+    <section class="home-tools-page min-h-screen px-4 py-12 sm:px-6 lg:px-10">
+        <div class="mx-auto max-w-7xl">
 
-    <!-- Sidebar -->
-    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
-      <div class="sidebar-header">
-        <div class="brand" v-if="!sidebarCollapsed">
-          <span class="brand-icon">✦</span>
-          <span class="brand-name">NovaMind</span>
-        </div>
-        <button class="icon-btn collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
-          {{ sidebarCollapsed ? '▶' : '◀' }}
-        </button>
-      </div>
+            <!-- HEADER -->
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div class="max-w-3xl">
+                    <span class="badge">Tool Overview</span>
+                    <h1 class="mt-6 text-4xl font-bold sm:text-5xl text-main">
+                        {{ loading ? "Loading tool..." : tool.title }}
+                    </h1>
+                    <p class="mt-4 text-base sm:text-lg text-muted">
+                        {{ tool.description }}
+                    </p>
+                </div>
 
-      <button class="new-chat-btn" @click="startNewChat">
-        <span class="btn-icon">✦</span>
-        <span v-if="!sidebarCollapsed">محادثة جديدة</span>
-      </button>
-
-      <div class="history-section" v-if="!sidebarCollapsed">
-        <p class="history-label">المحادثات السابقة</p>
-        <div
-          v-for="(session, idx) in chatHistory"
-          :key="idx"
-          class="history-item"
-          :class="{ active: idx === activeSession }"
-          @click="loadSession(idx)"
-        >
-          <span class="history-icon">💬</span>
-          <span class="history-title">{{ session.title }}</span>
-        </div>
-      </div>
-
-      <div class="sidebar-footer" v-if="!sidebarCollapsed">
-        <button class="icon-btn theme-btn" @click="toggleTheme">
-          {{ theme === 'dark' ? '☀️' : '🌙' }}
-          <span>{{ theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن' }}</span>
-        </button>
-      </div>
-    </aside>
-
-    <!-- Main Chat -->
-    <main class="chat-main">
-
-      <!-- Top Bar -->
-      <header class="chat-topbar">
-        <div class="model-selector">
-          <span class="model-dot"></span>
-          <select v-model="selectedModel" class="model-select">
-            <option value="nova-pro">Nova Pro</option>
-            <option value="nova-fast">Nova Fast</option>
-            <option value="nova-think">Nova Think</option>
-          </select>
-        </div>
-        <div class="topbar-actions">
-          <button class="icon-btn" title="مشاركة">⬆</button>
-          <button class="icon-btn" title="إعدادات">⚙</button>
-        </div>
-      </header>
-
-      <!-- Messages Area -->
-      <div class="messages-area" ref="messagesArea">
-
-        <!-- Empty State -->
-        <div v-if="messages.length === 0" class="empty-state">
-          <div class="empty-logo">✦</div>
-          <h2 class="empty-title">كيف يمكنني مساعدتك اليوم؟</h2>
-          <p class="empty-sub">ابدأ بكتابة سؤالك أو اختر أحد الاقتراحات</p>
-
-          <div class="suggestions-grid">
-            <div
-              v-for="s in suggestions"
-              :key="s.text"
-              class="suggestion-card"
-              @click="useSuggestion(s.text)"
-            >
-              <span class="suggestion-icon">{{ s.icon }}</span>
-              <span class="suggestion-text">{{ s.text }}</span>
+                <button type="button" class="back-button" @click="router.push(`/${route.params.lang}`)">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Back</span>
+                </button>
             </div>
-          </div>
-        </div>
 
-        <!-- Messages -->
-        <div
-          v-for="(msg, idx) in messages"
-          :key="idx"
-          class="message-wrapper"
-          :class="msg.role"
-        >
-          <div class="message-avatar">
-            <span v-if="msg.role === 'assistant'">✦</span>
-            <span v-else>👤</span>
-          </div>
-          <div class="message-bubble" :class="msg.role">
-            <!-- Typing indicator -->
-            <div v-if="msg.typing" class="typing-indicator">
-              <span></span><span></span><span></span>
+            <!-- LOADING -->
+            <div v-if="loading" class="mt-10 space-y-6">
+                <div class="tool-card h-72 animate-pulse"></div>
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                    <div v-for="i in 3" :key="i" class="tool-card h-52 animate-pulse"></div>
+                </div>
             </div>
-            <div v-else class="message-text" v-html="renderText(msg.content)"></div>
-            <div class="message-time">{{ msg.time }}</div>
-          </div>
+
+            <!-- CONTENT -->
+            <div v-else class="mt-10 space-y-10">
+
+                <!-- MAIN TOOL HERO -->
+                <article class="tool-hero-card">
+                    <div class="tool-hero-image-wrap">
+                        <img
+                            v-if="tool.imageUrl"
+                            :src="tool.imageUrl"
+                            :alt="tool.title"
+                            class="tool-hero-img"
+                        />
+                        <div v-else class="tool-hero-fallback">
+                            <i class="bi bi-grid-3x3-gap-fill"></i>
+                        </div>
+                    </div>
+
+                    <div class="tool-hero-info">
+                        <h2 class="tool-hero-title">{{ tool.title }}</h2>
+                        <p class="tool-hero-desc">{{ tool.description }}</p>
+                    </div>
+                </article>
+
+                <!-- SUBTOOLS -->
+                <div>
+                    <div class="subtools-header">
+                        <div>
+                            <h2 class="section-title">Related Subtools</h2>
+                            <p class="section-sub">Connected experiences you can chat with</p>
+                        </div>
+                        <span class="count-badge">{{ subtools.length }}</span>
+                    </div>
+
+                    <TransitionGroup
+                        v-if="subtools.length"
+                        name="subtool-card"
+                        tag="div"
+                        class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+                    >
+                        <article
+                            v-for="subtool in subtools"
+                            :key="subtool.id"
+                            class="subtool-card"
+                        >
+                            <!-- TOP ROW -->
+                            <div class="subtool-top">
+                                <div class="subtool-icon">
+                                    <i class="bi bi-cpu"></i>
+                                </div>
+                                <span :class="['status-chip', subtool.is_active ? 'active' : 'inactive']">
+                                    {{ subtool.is_active ? "Active" : "Inactive" }}
+                                </span>
+                            </div>
+
+                            <!-- TITLE & SLUG -->
+                            <h3 class="subtool-title">{{ subtool.title }}</h3>
+                            <p class="subtool-slug">{{ subtool.slug }}</p>
+
+                            <!-- DESCRIPTION -->
+                            <p class="subtool-desc">{{ subtool.description }}</p>
+
+                            <!-- FOOTER -->
+                            <div class="subtool-footer">
+                                <div class="subtool-meta">
+                                    <p v-if="subtool.promptPlaceholder" class="meta-text">
+                                        <i class="bi bi-chat-dots"></i>
+                                        {{ subtool.promptPlaceholder }}
+                                    </p>
+                                    <p v-if="subtool.providerName" class="meta-text">
+                                        <i class="bi bi-server"></i>
+                                        {{ subtool.providerName }}
+                                    </p>
+                                </div>
+
+                                <button
+                                    class="chat-button"
+                                    @click="router.push(`/${route.params.lang}/subtool/${subtool.slug}/chat`)"
+                                >
+                                    <i class="bi bi-chat-fill"></i>
+                                    Chat
+                                </button>
+                            </div>
+                        </article>
+                    </TransitionGroup>
+
+                    <div v-else class="empty-box mt-6">
+                        <i class="bi bi-inbox text-2xl mb-2 block"></i>
+                        No related subtools found
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-
-      <!-- Input Area -->
-      <div class="input-area">
-        <div class="input-wrapper" :class="{ focused: inputFocused }">
-          <textarea
-            ref="inputRef"
-            v-model="userInput"
-            class="chat-input"
-            placeholder="اكتب رسالتك هنا..."
-            rows="1"
-            dir="auto"
-            @keydown.enter.exact.prevent="sendMessage"
-            @keydown.shift.enter="addNewLine"
-            @focus="inputFocused = true"
-            @blur="inputFocused = false"
-            @input="autoResize"
-          ></textarea>
-
-          <button
-            class="send-btn"
-            :class="{ active: userInput.trim() }"
-            :disabled="!userInput.trim() || isTyping"
-            @click="sendMessage"
-          >
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-        <p class="input-hint">اضغط Enter للإرسال، Shift+Enter لسطر جديد</p>
-      </div>
-
-    </main>
-  </div>
+    </section>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import homeService from "@/services/home/homeService";
 
-// ── State ─────────────────────────────────────────────────
-const theme            = ref(localStorage.getItem('theme') || 'dark')
-const sidebarCollapsed = ref(false)
-const selectedModel    = ref('nova-pro')
-const userInput        = ref('')
-const inputFocused     = ref(false)
-const isTyping         = ref(false)
-const messages         = ref([])
-const messagesArea     = ref(null)
-const inputRef         = ref(null)
-const activeSession    = ref(0)
+const route = useRoute();
+const router = useRouter();
 
-const chatHistory = ref([
-  { title: 'كيفية تعلم البرمجة', messages: [] },
-  { title: 'أفضل مطاعم القاهرة',  messages: [] },
-  { title: 'خطة تسويق المنتج',    messages: [] },
-])
+const loading = ref(true);
+const rawTool = ref({});
 
-const suggestions = [
-  { icon: '💡', text: 'اشرح لي كيف يعمل الذكاء الاصطناعي' },
-  { icon: '✍️', text: 'اكتب لي بريد إلكتروني احترافي' },
-  { icon: '🔧', text: 'ساعدني في إصلاح كود برمجي' },
-  { icon: '🌍', text: 'ترجم هذا النص إلى الإنجليزية' },
-]
+const fallbackText = {
+    title: "Untitled Tool",
+    description: "No description available",
+};
 
-// ── Helpers ───────────────────────────────────────────────
-const toggleTheme = () => {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark'
-  localStorage.setItem('theme', theme.value)
-}
+const mapMainTool = (payload = {}) => {
+    const translation = payload?.translation;
+    return {
+        ...payload,
+        title: translation?.name || fallbackText.title,
+        description: translation?.description || fallbackText.description,
+        imageUrl: payload?.image ? `http://localhost:8000/storage/${payload.image}` : "",
+    };
+};
 
-const getTime = () =>
-  new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+const mapSubtool = (payload = {}) => {
+    return {
+        id: payload?.id,
+        slug: payload?.slug || "-",
+        title: payload?.name || "Untitled",
+        description: payload?.description || "No description",
+        promptPlaceholder: payload?.prompt_placeholder || "",
+        is_active: Boolean(payload?.is_active),
+        providerName: payload?.provider?.name || "",
+    };
+};
 
-const scrollToBottom = async () => {
-  await nextTick()
-  if (messagesArea.value)
-    messagesArea.value.scrollTop = messagesArea.value.scrollHeight
-}
+const tool = computed(() => mapMainTool(rawTool.value));
+const subtools = computed(() => (rawTool.value?.sub_tools || []).map(mapSubtool));
 
-const autoResize = () => {
-  const el = inputRef.value
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 180) + 'px'
-}
+const loadTool = async () => {
+    loading.value = true;
+    try {
+        const response = await homeService.showTool(route.params.slug);
+        rawTool.value = response?.data || {};
+    } catch (e) {
+        rawTool.value = {};
+    } finally {
+        loading.value = false;
+    }
+};
 
-const addNewLine = () => { userInput.value += '\n'; autoResize() }
-
-const renderText = (text) =>
-  text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br>')
-
-// ── Actions ───────────────────────────────────────────────
-const startNewChat = () => {
-  messages.value = []
-  userInput.value = ''
-}
-
-const loadSession = (idx) => {
-  activeSession.value = idx
-  messages.value = chatHistory.value[idx].messages
-}
-
-const useSuggestion = (text) => {
-  userInput.value = text
-  inputRef.value?.focus()
-}
-
-const sendMessage = async () => {
-  const text = userInput.value.trim()
-  if (!text || isTyping.value) return
-
-  // Push user message
-  messages.value.push({ role: 'user', content: text, time: getTime() })
-  userInput.value = ''
-  if (inputRef.value) { inputRef.value.style.height = 'auto' }
-  await scrollToBottom()
-
-  // Push typing indicator
-  isTyping.value = true
-  const typingMsg = { role: 'assistant', content: '', time: '', typing: true }
-  messages.value.push(typingMsg)
-  await scrollToBottom()
-
-  // Simulate AI response
-  await new Promise(r => setTimeout(r, 1200 + Math.random() * 800))
-
-  const reply = generateReply(text)
-  const lastIdx = messages.value.length - 1
-  messages.value[lastIdx] = {
-    role: 'assistant',
-    content: reply,
-    time: getTime(),
-    typing: false,
-  }
-  isTyping.value = false
-  await scrollToBottom()
-}
-
-// Mock reply generator (replace with real API call)
-const generateReply = (input) => {
-  const replies = [
-    `شكراً على سؤالك! **"${input.slice(0, 30)}..."**\n\nهذا موضوع مثير للاهتمام. يمكنني مساعدتك في فهمه بشكل أعمق. هل تريد أن أشرح لك بالتفصيل؟`,
-    `بناءً على ما ذكرته، يمكنني القول:\n\n- النقطة الأولى: تحليل شامل\n- النقطة الثانية: توصيات عملية\n- النقطة الثالثة: خطوات تنفيذية\n\nهل تحتاج مزيداً من التفاصيل؟`,
-    `سؤال ممتاز! دعني أوضح لك:\n\nالإجابة المختصرة هي **نعم**، والسبب في ذلك يعود إلى عدة عوامل مهمة يمكننا مناقشتها.`,
-    `فهمت ما تقصده. \`النتيجة\` التي ستحصل عليها ستعتمد على المدخلات التي توفرها. هل يمكنك إعطائي مزيداً من التفاصيل؟`,
-  ]
-  return replies[Math.floor(Math.random() * replies.length)]
-}
-
-onMounted(() => inputRef.value?.focus())
+onMounted(loadTool);
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap');
-
-/* ── Reset & Root ── */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-.chat-page {
-  display: flex;
-  height: 100vh;
-  font-family: 'Cairo', sans-serif;
-  direction: rtl;
-  overflow: hidden;
-  transition: background 0.4s ease;
+.home-tools-page {
+    background: #f8fafc;
 }
 
-/* ═══════════════════════════════════════
-   THEME TOKENS
-═══════════════════════════════════════ */
-[data-theme='dark'] {
-  --bg:           #0D1117;
-  --sidebar-bg:   #161B22;
-  --surface:      #1C2128;
-  --surface-h:    #21262D;
-  --border:       rgba(255,255,255,0.08);
-  --border-h:     rgba(255,255,255,0.18);
-  --text:         #e6edf3;
-  --text-muted:   #7d8590;
-  --text-dim:     #484f58;
-  --gold:         #FBBF24;
-  --gold-dim:     rgba(251,191,36,0.12);
-  --gold-glow:    rgba(251,191,36,0.25);
-  --user-bubble:  #1f6feb;
-  --user-text:    #ffffff;
-  --ai-bubble:    #1C2128;
-  --ai-text:      #e6edf3;
-  --input-bg:     #1C2128;
-  --scrollbar:    #30363d;
-  --send-bg:      #FBBF24;
-  --send-text:    #0D1117;
-  --placeholder:  #484f58;
+/* TEXT */
+.text-main { color: #074377; }
+.text-muted { color: #6b7280; }
+
+/* BADGE */
+.badge {
+    background: #074377;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
-[data-theme='light'] {
-  --bg:           #f6f8fa;
-  --sidebar-bg:   #ffffff;
-  --surface:      #ffffff;
-  --surface-h:    #f6f8fa;
-  --border:       #d0d7de;
-  --border-h:     #8c959f;
-  --text:         #1f2328;
-  --text-muted:   #6e7781;
-  --text-dim:     #9198a1;
-  --gold:         #0969da;
-  --gold-dim:     rgba(9,105,218,0.08);
-  --gold-glow:    rgba(9,105,218,0.20);
-  --user-bubble:  #0969da;
-  --user-text:    #ffffff;
-  --ai-bubble:    #ffffff;
-  --ai-text:      #1f2328;
-  --input-bg:     #ffffff;
-  --scrollbar:    #d0d7de;
-  --send-bg:      #0969da;
-  --send-text:    #ffffff;
-  --placeholder:  #9198a1;
+/* BACK BUTTON */
+.back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #074377;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+    white-space: nowrap;
+    align-self: flex-start;
+}
+.back-button:hover { background: #053660; }
+
+/* ─── HERO CARD ─────────────────────────────── */
+.tool-hero-card {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 28px;
 }
 
-/* ═══════════════════════════════════════
-   SIDEBAR
-═══════════════════════════════════════ */
-.sidebar {
-  width: 260px;
-  min-width: 260px;
-  background: var(--sidebar-bg);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: 1rem;
-  gap: 0.75rem;
-  transition: width 0.3s ease, min-width 0.3s ease;
-  overflow: hidden;
+.tool-hero-image-wrap {
+    flex-shrink: 0;
+    width: 180px;
+    height: 140px;
+    border-radius: 14px;
+    overflow: hidden;
 }
 
-.sidebar.collapsed {
-  width: 64px;
-  min-width: 64px;
-  padding: 1rem 0.6rem;
+.tool-hero-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.tool-hero-fallback {
+    width: 100%;
+    height: 100%;
+    background: #eef3fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    color: #074377;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.tool-hero-info {
+    flex: 1;
 }
 
-.brand-icon {
-  font-size: 1.4rem;
-  color: var(--gold);
+.tool-hero-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #074377;
 }
 
-.brand-name {
-  font-size: 1.1rem;
-  font-weight: 900;
-  color: var(--text);
-  letter-spacing: -0.02em;
+.tool-hero-desc {
+    margin-top: 8px;
+    font-size: 15px;
+    color: #6b7280;
+    line-height: 1.6;
 }
 
-.icon-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-muted);
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 0.7rem;
-  transition: all 0.2s;
-}
-.icon-btn:hover {
-  border-color: var(--border-h);
-  color: var(--text);
-  background: var(--surface-h);
+/* ─── SUBTOOLS SECTION ─────────────────────── */
+.subtools-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-.new-chat-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  background: var(--gold-dim);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--gold);
-  font-family: 'Cairo', sans-serif;
-  font-weight: 700;
-  font-size: 0.85rem;
-  padding: 0.55rem 0.9rem;
-  cursor: pointer;
-  transition: all 0.25s;
-  white-space: nowrap;
-}
-.new-chat-btn:hover {
-  background: var(--gold);
-  color: var(--send-text);
-  border-color: var(--gold);
-  box-shadow: 0 4px 16px var(--gold-glow);
+.section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #074377;
 }
 
-.btn-icon { font-size: 0.9rem; }
-
-.history-section { flex: 1; overflow-y: auto; }
-.history-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text-dim);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 0.5rem;
-  padding: 0 0.25rem;
+.section-sub {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-top: 2px;
 }
 
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.6rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-.history-item:hover { background: var(--surface-h); color: var(--text); }
-.history-item.active { background: var(--gold-dim); color: var(--gold); }
-
-.history-icon { font-size: 0.8rem; flex-shrink: 0; }
-.history-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.count-badge {
+    background: #074377;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
 }
 
-.sidebar-footer { margin-top: auto; }
-
-.theme-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.6rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  justify-content: flex-start;
-  border-radius: 8px;
-}
-.theme-btn span { font-size: 0.82rem; }
-
-/* ═══════════════════════════════════════
-   MAIN CHAT
-═══════════════════════════════════════ */
-.chat-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  overflow: hidden;
+/* ─── SUBTOOL CARD ─────────────────────────── */
+.subtool-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-/* Topbar */
-.chat-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  flex-shrink: 0;
+.subtool-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(7, 67, 119, 0.1);
 }
 
-.model-selector {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.subtool-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-.model-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: #3fb950;
-  box-shadow: 0 0 6px #3fb950;
-  flex-shrink: 0;
+.subtool-icon {
+    width: 40px;
+    height: 40px;
+    background: #eef3fa;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #074377;
+    font-size: 18px;
 }
 
-.model-select {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-family: 'Cairo', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.3rem 0.75rem;
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.2s;
-}
-.model-select:hover { border-color: var(--border-h); }
-
-.topbar-actions {
-  display: flex;
-  gap: 0.4rem;
+.status-chip {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
 }
 
-/* ═══════════════════════════════════════
-   MESSAGES
-═══════════════════════════════════════ */
-.messages-area {
-  flex: 1;
-  overflow-y: auto;
-  padding: 2rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar) transparent;
-}
-.messages-area::-webkit-scrollbar { width: 5px; }
-.messages-area::-webkit-scrollbar-thumb {
-  background: var(--scrollbar);
-  border-radius: 10px;
+.status-chip.active {
+    background: #d1fae5;
+    color: #065f46;
 }
 
-/* Empty State */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  text-align: center;
-  padding: 3rem 1rem;
-  animation: fadeIn 0.5s ease;
+.status-chip.inactive {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
-.empty-logo {
-  font-size: 3rem;
-  color: var(--gold);
-  margin-bottom: 1rem;
-  animation: pulse 2.5s ease-in-out infinite;
+.subtool-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #074377;
+    margin: 0;
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.1); opacity: 0.8; }
+.subtool-slug {
+    font-size: 11px;
+    color: #9ca3af;
+    margin: 0;
 }
 
-.empty-title {
-  font-size: 1.6rem;
-  font-weight: 900;
-  color: var(--text);
-  margin-bottom: 0.5rem;
+.subtool-desc {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.55;
+    flex: 1;
 }
 
-.empty-sub {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  margin-bottom: 2rem;
+/* FOOTER */
+.subtool-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
 }
 
-.suggestions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  max-width: 520px;
-  width: 100%;
+.subtool-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow: hidden;
 }
 
-.suggestion-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem;
-  cursor: pointer;
-  text-align: right;
-  transition: all 0.25s;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.suggestion-card:hover {
-  border-color: var(--border-h);
-  background: var(--surface-h);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+.meta-text {
+    font-size: 11px;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.suggestion-icon { font-size: 1.3rem; }
-.suggestion-text { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
-
-/* Message rows */
-.message-wrapper {
-  display: flex;
-  gap: 0.75rem;
-  max-width: 820px;
-  width: 100%;
-  animation: slideUp 0.3s ease;
+/* CHAT BUTTON */
+.chat-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #074377;
+    color: #fff;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.15s;
+    flex-shrink: 0;
 }
 
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+.chat-button:hover {
+    background: #053660;
+    transform: scale(1.04);
 }
 
-.message-wrapper.user {
-  flex-direction: row-reverse;
-  align-self: flex-end;
-}
-.message-wrapper.assistant {
-  align-self: flex-start;
-}
-
-.message-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--gold-dim);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  flex-shrink: 0;
-  color: var(--gold);
+/* EMPTY */
+.empty-box {
+    border: 1px dashed #e5e7eb;
+    padding: 40px;
+    text-align: center;
+    color: #9ca3af;
+    border-radius: 14px;
+    background: #fff;
 }
 
-.message-bubble {
-  max-width: 72%;
-  padding: 0.75rem 1rem;
-  border-radius: 16px;
-  position: relative;
+/* TRANSITION */
+.subtool-card-enter-active,
+.subtool-card-leave-active {
+    transition: all 0.3s ease;
+}
+.subtool-card-enter-from,
+.subtool-card-leave-to {
+    opacity: 0;
+    transform: translateY(10px);
 }
 
-.message-bubble.user {
-  background: var(--user-bubble);
-  color: var(--user-text);
-  border-radius: 16px 4px 16px 16px;
-}
-
-.message-bubble.assistant {
-  background: var(--ai-bubble);
-  color: var(--ai-text);
-  border: 1px solid var(--border);
-  border-radius: 4px 16px 16px 16px;
-}
-
-.message-text {
-  font-size: 0.9rem;
-  line-height: 1.7;
-  word-break: break-word;
-}
-
-.message-text :deep(strong) { font-weight: 700; }
-.message-text :deep(code) {
-  background: rgba(0,0,0,0.15);
-  border-radius: 4px;
-  padding: 0.1em 0.4em;
-  font-size: 0.85em;
-  font-family: monospace;
-}
-
-.message-time {
-  font-size: 0.65rem;
-  color: rgba(255,255,255,0.5);
-  margin-top: 0.4rem;
-  text-align: left;
-}
-
-.message-bubble.assistant .message-time {
-  color: var(--text-dim);
-}
-
-/* Typing Indicator */
-.typing-indicator {
-  display: flex;
-  gap: 5px;
-  padding: 0.25rem 0;
-  align-items: center;
-}
-
-.typing-indicator span {
-  width: 7px; height: 7px;
-  background: var(--text-muted);
-  border-radius: 50%;
-  animation: bounce 1.2s ease-in-out infinite;
-}
-.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes bounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-  40% { transform: translateY(-6px); opacity: 1; }
-}
-
-/* ═══════════════════════════════════════
-   INPUT AREA
-═══════════════════════════════════════ */
-.input-area {
-  padding: 1rem 1.5rem 1.25rem;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.input-wrapper {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.6rem;
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 0.6rem 0.6rem 0.6rem 1rem;
-  transition: border-color 0.25s, box-shadow 0.25s;
-}
-
-.input-wrapper.focused {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--gold-dim);
-}
-
-.chat-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text);
-  font-family: 'Cairo', sans-serif;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  resize: none;
-  max-height: 180px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar) transparent;
-}
-
-.chat-input::placeholder { color: var(--placeholder); }
-
-.send-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: none;
-  background: var(--border);
-  color: var(--text-dim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: not-allowed;
-  transition: all 0.25s;
-  flex-shrink: 0;
-}
-
-.send-btn svg {
-  width: 16px; height: 16px;
-}
-
-.send-btn.active {
-  background: var(--send-bg);
-  color: var(--send-text);
-  cursor: pointer;
-  box-shadow: 0 4px 14px var(--gold-glow);
-}
-
-.send-btn.active:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 20px var(--gold-glow);
-}
-
-.input-hint {
-  text-align: center;
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  margin-top: 0.5rem;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-/* ── Responsive ── */
+/* RESPONSIVE */
 @media (max-width: 640px) {
-  .sidebar { display: none; }
-  .suggestions-grid { grid-template-columns: 1fr; }
-  .message-bubble { max-width: 88%; }
+    .tool-hero-card {
+        flex-direction: column;
+    }
+    .tool-hero-image-wrap {
+        width: 100%;
+        height: 180px;
+    }
 }
 </style>
-
-
-

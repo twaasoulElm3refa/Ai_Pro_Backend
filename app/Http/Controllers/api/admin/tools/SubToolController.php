@@ -4,7 +4,10 @@ namespace App\Http\Controllers\api\admin\tools;
 
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\SubToolRequest;
+use App\Http\Requests\SubToolUpdateRequest;
+use App\Repository\tools\SubToolInterface;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -22,7 +25,7 @@ class SubToolController extends Controller
     public function index()
     {
         try {
-            $tools = $this->toolRepository->index();
+            $tools = $this->toolRepository->index(request('id'));
 
             return $this->success($tools, 'Tools fetched successfully.');
         } catch (\Throwable $th) {
@@ -59,8 +62,9 @@ class SubToolController extends Controller
                 $data['image'] = $request->file('image')->store('tools', 'public');
             }
             $data['slug'] = Str::slug($data['name']).'-'.Str::random(6);
+            $data['main_tool_id'] = request('id');
             $tool = $this->toolRepository->store($data);
-
+            $this->clearToolsCache();
             return $this->success($tool, 'Tool created successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Store Error', [
@@ -80,6 +84,8 @@ class SubToolController extends Controller
                 $data['image'] = $request->file('image')->store('tools', 'public');
             }
             $tool = $this->toolRepository->update($data, $id);
+            $this->clearToolsCache();
+
             return $this->success($tool, 'Tool updated successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Update Error', [
@@ -95,7 +101,7 @@ class SubToolController extends Controller
     {
         try {
             $this->toolRepository->destroy($id);
-
+            $this->clearToolsCache();
             return $this->success(null, 'Tool deleted successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Destroy Error', [
@@ -105,5 +111,13 @@ class SubToolController extends Controller
 
             return $this->error('Something went wrong.');
         }
+    }
+
+    /**
+     * 🔥 Clear tools cache
+     */
+    private function clearToolsCache(): void
+    {
+        Cache::tags(['tools'])->flush();
     }
 }

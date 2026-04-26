@@ -7,6 +7,21 @@ const homeService = {
         const response = await api.get("/tools");
         return unwrap(response);
     },
+
+    async showTool(slug) {
+        const response = await api.get(`/tools/${slug}`);
+        return unwrap(response);
+    },
+
+    async showSubtool(slug) {
+        const response = await api.get(`/tools/subtool/${slug}`);
+        return unwrap(response);
+    },
+
+    async sendChatMessage(slug, message, history = []) {
+        const response = await api.post(`/subtool/${slug}/chat`, { message, history });
+        return unwrap(response);
+    },
 };
 
 export default homeService;

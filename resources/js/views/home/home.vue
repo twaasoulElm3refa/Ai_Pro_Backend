@@ -4,7 +4,8 @@
 
             <!-- HEADER -->
             <div class="text-left">
-                <span class="inline-flex items-center rounded-full border border-black/10 bg-black px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-xl">
+                <span
+                    class="inline-flex items-center rounded-full border border-black/10 bg-black px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-xl">
                     Tools Directory
                 </span>
 
@@ -13,7 +14,8 @@
                 </h1>
 
                 <p class="mt-2 text-sm leading-6 text-neutral-600 sm:text-base">
-                    Browse the latest tools, jump into details fast, and explore each experience through a clean catalog.
+                    Browse the latest tools, jump into details fast, and explore each experience through a clean
+                    catalog.
                 </p>
             </div>
 
@@ -22,11 +24,7 @@
 
                 <!-- LOADING -->
                 <div v-if="loading" class="tools-layout">
-                    <div
-                        v-for="item in skeletonCount"
-                        :key="item"
-                        class="tool-card tool-skeleton"
-                    >
+                    <div v-for="item in skeletonCount" :key="item" class="tool-card tool-skeleton">
                         <div class="skeleton-image"></div>
                         <div class="skeleton-line skeleton-line-lg"></div>
                         <div class="skeleton-line"></div>
@@ -35,25 +33,12 @@
                 </div>
 
                 <!-- TOOLS -->
-                <TransitionGroup
-                    v-else-if="tools.length"
-                    name="tool-card"
-                    tag="div"
-                    class="tools-layout"
-                >
-                    <article
-                        v-for="tool in tools"
-                        :key="tool.id"
-                        class="tool-card group cursor-pointer"
-                        @click="goToTool(tool.slug)"
-                    >
+                <TransitionGroup v-else-if="tools.length" name="tool-card" tag="div" class="tools-layout">
+                    <article v-for="tool in tools" :key="tool.id" class="tool-card group cursor-pointer"
+                        @click="goToTool(tool.slug)">
                         <!-- IMAGE -->
                         <div class="relative overflow-hidden rounded-2xl">
-                            <img
-                                v-if="tool.imageUrl"
-                                :src="tool.imageUrl"
-                                class="tool-image"
-                            />
+                            <img v-if="tool.imageUrl" :src="tool.imageUrl" class="tool-image" />
 
                             <div v-else class="tool-image tool-image-fallback">
                                 <i class="bi bi-grid-3x3-gap-fill text-2xl"></i>
@@ -82,10 +67,7 @@
                                     {{ tool.slug }}
                                 </span>
 
-                                <button
-                                    class="show-btn"
-                                    @click.stop="goToTool(tool.slug)"
-                                >
+                                <button class="show-btn" @click.stop="goToTool(tool.slug)">
                                     Show →
                                 </button>
                             </div>
@@ -158,7 +140,7 @@ onMounted(fetchTools);
     margin-top: 2%;
     background: #f8f9fb;
     padding: 10px 0;
-    min-height: 65vh;
+    min-height: 85vh;
     box-sizing: border-box;
 }
 
@@ -172,8 +154,8 @@ onMounted(fetchTools);
 
 /* CARD (CLEAN WHITE PREMIUM) */
 .tool-card {
-    flex: 1 0 280px;
-    max-width: 100%;
+    flex: 1 0 calc(50% - 10px);
+    max-width: calc(50% - 10px);
     background: #ffffff;
     border-radius: 16px;
     padding: 10px;
@@ -189,14 +171,6 @@ onMounted(fetchTools);
 .tool-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
-}
-
-@media (min-width: 640px) {
-    .tool-card { max-width: calc(50% - 5px); }
-}
-
-@media (min-width: 1024px) {
-    .tool-card { max-width: calc(25% - 7.5px); }
 }
 
 /* IMAGE */
@@ -272,7 +246,7 @@ onMounted(fetchTools);
 .show-btn:hover {
     transform: translateY(-2px);
     background: #000;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
 }
 
 /* SKELETON */
@@ -294,12 +268,24 @@ onMounted(fetchTools);
     width: 100%;
 }
 
-.skeleton-line-lg { width: 75%; }
-.skeleton-line-sm { width: 50%; }
+.skeleton-line-lg {
+    width: 75%;
+}
+
+.skeleton-line-sm {
+    width: 50%;
+}
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
 }
 
 /* ANIMATION */

@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
@@ -36,8 +37,6 @@ class AuthController extends Controller
             if (! $user->is_active) {
                 return $this->forbidden('Account is disabled.');
             }
-
-            // ── لو الحساب مش متحقق منه → نبعت OTP
             if (! $user->is_verified) {
                 $this->authService->sendOtp($user->email);
 
@@ -46,18 +45,15 @@ class AuthController extends Controller
                     'email'                 => $user->email,
                 ], 'Account not verified. OTP sent to your email.');
             }
-
-            // ── Verified → سجل دخول على طول
             $user->update(['last_seen' => now()]);
             $token = $user->createToken('rag-token')->plainTextToken;
-
             return $this->success([
                 'user'  => new userResource($user),
                 'token' => $token,
             ], 'Logged in successfully.');
 
         } catch (\Exception $e) {
-            \Log::error('Login Error: ' . $e->getMessage(), [
+            Log::error('Login Error: ' . $e->getMessage(), [
                 'email' => $request->email ?? null,
             ]);
             return $this->error('Something went wrong. Please try again.', 500);

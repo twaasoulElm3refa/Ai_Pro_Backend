@@ -53,9 +53,10 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    Route::prefix('tools')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('tools')->middleware(['auth:sanctum','throttle:15,1'])->group(function () {
         Route::get('/', [HomeController::class, 'index']);
-        Route::get('/{id}', [HomeController::class, 'show']);
+        Route::get('/{slug}', [HomeController::class, 'show']);
+        Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);
     });
 });
 

@@ -6,6 +6,7 @@ import GoogleCallback from "../views/auth/GoogleCallback.vue";
 import Contact from "../views/home/contact.vue";
 import wallet from "../views/home/user/wallet.vue";
 import show from "../views/home/show.vue";
+import chat from "../views/home/chat.vue";
 
 const adminMeta = {
     hideNavbar: true,
@@ -31,6 +32,11 @@ const routes = [
         path: "/:lang/tool/:slug",
         component: show,
         meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/subtool/:slug/chat",
+        component: chat,
+        meta: { hideNavbar: false, hideFooter: true },
     },
     {
         path: "/:lang/profile",
