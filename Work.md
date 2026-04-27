@@ -1,9 +1,5 @@
-Dashboard 
-
 فى profile  اليوزر هنضيف المحادثات و اسماء الادوات 
 
-النقاط بتاعته 
-
-و تفعيل الدفع على الموقع
 
 
+cdn caching for users for fast performance 
