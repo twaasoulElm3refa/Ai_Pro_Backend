@@ -202,7 +202,7 @@ const loadSubtool = async () => {
             name:              data.name              || data.translation?.name        || "أداة ذكاء اصطناعي",
             description:       data.description       || data.translation?.description || "",
             promptPlaceholder: data.prompt_placeholder || "",
-            imageUrl:          data.image ? `http://localhost:8000/storage/${data.image}` : "",
+            imageUrl:          data.image ? `/storage/${data.image}` : "",
         };
     } catch {
         subtool.value = {

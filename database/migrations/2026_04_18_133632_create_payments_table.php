@@ -14,17 +14,23 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(User::class,'user_id')->constrained()->cascadeOnDelete();
-            $table->string('transaction_id')->unique();
-            $table->string('order_id')->unique();
-            $table->string('currency')->default('USD');
-            $table->decimal('amount');
-            $table->integer('points');
-            $table->enum('status',['pending','success','failed'])->default('pending');
-            $table->timestamp('paid_at')->nullable();
+            $table->foreignIdFor(User::class, 'user_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->string('payment_method')->nullable();
+            $table->string('type')->nullable();
+            $table->string('transaction_id')->nullable()->unique();
+            $table->string('status')->nullable();
+            $table->string('currency', 10)->nullable();
+            $table->string('payment_status')->nullable();
+            $table->decimal('amount', 8, 2)->nullable()->default(0);
+            $table->string('paypal_order_id')->nullable()->unique();
+            $table->string('description')->nullable();
+            $table->string('idempotency_key')->unique();
+            $table->string('payer_email')->nullable();
+            $table->boolean('mail_sent')->default(false);
             $table->json('gateway_response')->nullable();
+            $table->timestamp('paid_at')->nullable();
+            $table->index(['status', 'created_at']);
             $table->timestamps();
-            $table->index(['user_id', 'status']);
         });
     }
 

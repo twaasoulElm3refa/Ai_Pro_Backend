@@ -14,6 +14,7 @@ use Throwable;
 class WalletController extends Controller
 {
     use ApiResponse;
+
     public function wallet()
     {
         try {
@@ -46,6 +47,7 @@ class WalletController extends Controller
                 }
             );
             $user->load('wallet');
+            $this->clearProfileCache($user->id);
 
             return $this->success($user, 'Wallet fetched successfully.');
 
@@ -63,4 +65,8 @@ class WalletController extends Controller
         }
     }
 
+    private function clearProfileCache($userId)
+    {
+        Cache::forget("user_profile_{$userId}");
+    }
 }

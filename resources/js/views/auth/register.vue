@@ -169,12 +169,12 @@
                                 placeholder="Phone (optional)"
                             />
 
-                            <input
+                            <!-- <input
                                 type="file"
                                 class="form-control glass-input rounded-3 px-4 fs-5"
                                 accept="image/*"
                                 @change="handleImageUpload"
-                            />
+                            /> -->
 
                             <div class="input-group input-group-lg">
                                 <input

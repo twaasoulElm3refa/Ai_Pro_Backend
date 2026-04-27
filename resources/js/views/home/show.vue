@@ -32,7 +32,7 @@
             <div v-else class="mt-10 space-y-10">
 
                 <!-- MAIN TOOL HERO -->
-                <article class="tool-hero-card">
+                <!-- <article class="tool-hero-card">
                     <div class="tool-hero-image-wrap">
                         <img
                             v-if="tool.imageUrl"
@@ -49,7 +49,7 @@
                         <h2 class="tool-hero-title">{{ tool.title }}</h2>
                         <p class="tool-hero-desc">{{ tool.description }}</p>
                     </div>
-                </article>
+                </article> -->
 
                 <!-- SUBTOOLS -->
                 <div>
@@ -145,7 +145,7 @@ const mapMainTool = (payload = {}) => {
         ...payload,
         title: translation?.name || fallbackText.title,
         description: translation?.description || fallbackText.description,
-        imageUrl: payload?.image ? `http://localhost:8000/storage/${payload.image}` : "",
+        imageUrl: payload?.image ? `/storage/${payload.image}` : "",
     };
 };
 

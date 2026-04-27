@@ -12,6 +12,8 @@ use App\Http\Controllers\api\auth\ProfileController;
 use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\WalletController;
 use App\Http\Controllers\api\home\HomeController;
+use App\Http\Controllers\api\payment\DepositController;
+use App\Http\Controllers\api\webhook\WebhookController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ApiKeyMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -58,6 +60,16 @@ Route::prefix('v1')->group(function () {
         Route::get('/{slug}', [HomeController::class, 'show']);
         Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);
     });
+
+
+    Route::prefix('deposit')->middleware('auth:sanctum')->group(function () {
+        Route::post('/pay', [DepositController::class, 'create']);
+    });
+    Route::get('/wallet/success', [DepositController::class, 'success'])->name('wallet.success')->withoutMiddleware(ApiKeyMiddleware::class);
+    Route::get('/wallet/cancel',  [DepositController::class, 'cancel'])->name('wallet.cancel')->withoutMiddleware(ApiKeyMiddleware::class);
+    Route::post('/paypal/webhook', [WebhookController::class, 'handle'])->name('paypal.webhook')->withoutMiddleware(ApiKeyMiddleware::class);
+    Route::get('/wallet/order-status/{id}', [DepositController::class, 'orderStatus'])->withoutMiddleware(ApiKeyMiddleware::class);
+
 });
 
 

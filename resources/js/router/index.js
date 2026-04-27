@@ -7,6 +7,10 @@ import Contact from "../views/home/contact.vue";
 import wallet from "../views/home/user/wallet.vue";
 import show from "../views/home/show.vue";
 import chat from "../views/home/chat.vue";
+import charge from "../views/home/user/charge.vue";
+import WaitingDeposit from '../views/home/WaitingDeposit.vue'
+import success from '../views/home/successDeposit.vue'
+import failed from '../views/home/failedDeposit.vue'
 
 const adminMeta = {
     hideNavbar: true,
@@ -45,6 +49,26 @@ const routes = [
     {
         path: "/:lang/wallet",
         component: wallet,
+    },
+    {
+        path: "/:lang/Deposit/waiting",
+        component: WaitingDeposit,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/en/deposit/success",
+        component: success,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/failed",
+        component: failed,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/wallet/charge/:uuid",
+        name: "charge-wallet",
+        component: charge,
     },
     {
         path: "/:lang/contact",

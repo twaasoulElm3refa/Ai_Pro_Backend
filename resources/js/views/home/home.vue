@@ -105,7 +105,7 @@ const normalizeTool = (tool) => {
     return {
         id: tool.id,
         slug: tool.slug,
-        imageUrl: tool.image ? `http://localhost:8000/storage/${tool.image}` : "",
+        imageUrl: tool.image ? `/storage/${tool.image}` : "",
         is_active: tool.is_active,
         sort_order: tool.sort_order,
         title: t?.name,

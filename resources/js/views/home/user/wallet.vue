@@ -18,20 +18,18 @@
             <div class="balance-card">
                 <div class="balance-label">الرصيد الحالي</div>
                 <div class="balance-value">
-                    {{ formatBalance(walletData.data.wallet.balance) }}
-                    <span>EGP</span>
+                    {{ formatBalance(walletData?.data?.wallet?.balance ?? 0) }}
+                    <span>Points</span>
                 </div>
                 <div class="wallet-id">
-                    {{ walletData.data.wallet.uuid.slice(0, 8) }}...
+                    {{ walletData?.data?.wallet?.uuid?.slice(0, 8) || '—' }}...
                 </div>
             </div>
 
             <!-- User Info -->
             <div class="user-row">
                 <div class="avatar">
-                    <img v-if="walletData.data.image"
-                        :src="getImageUrl(walletData.data.image)"
-                        class="avatar-image" />
+                    <img v-if="walletData.data.image" :src="getImageUrl(walletData.data.image)" class="avatar-image" />
                     <span v-else>
                         {{ getInitials(walletData.data.name) }}
                     </span>
@@ -51,33 +49,30 @@
             <div class="info-grid">
                 <div class="info-item">
                     <span class="info-label">رقم المحفظة</span>
-                    <span class="info-value">{{ walletData.data.wallet.uuid }}...</span>
+                    <span class="info-value">{{ walletData?.data?.wallet?.uuid || '—' }}...</span>
                 </div>
 
                 <div class="info-item">
                     <span class="info-label">تاريخ الإنشاء</span>
-                    <span class="info-value">{{ formatDate(walletData.data.wallet.created_at) }}</span>
+                    <span class="info-value">{{ formatDate(walletData?.data?.wallet?.created_at) }}</span>
                 </div>
 
                 <div class="info-item">
                     <span class="info-label">آخر عملية</span>
-                    <span class="info-value">{{ formatLastSeen(walletData.data.wallet.updated_at) }}</span>
+                    <span class="info-value">{{ formatLastSeen(walletData?.data?.wallet?.updated_at) }}</span>
                 </div>
 
                 <div class="info-item">
                     <span class="info-label">الحالة</span>
-                    <span class="status-badge"
-                        :class="{ active: walletData.data.wallet.is_active }">
-                        {{ walletData.data.wallet.is_active ? 'نشطة' : 'غير نشطة' }}
+                    <span class="status-badge" :class="{ active: walletData?.data?.wallet?.is_active }">
+                        {{ walletData?.data?.wallet?.is_active ? 'نشطة' : 'غير نشطة' }}
                     </span>
                 </div>
             </div>
 
             <!-- Actions -->
             <div class="actions">
-                <button class="btn-charge"
-                    @click="chargeWallet"
-                    :disabled="isCharging">
+                <button class="btn-charge" @click="chargeWallet(walletData.data.wallet.uuid)" :disabled="isCharging">
                     {{ isCharging ? 'جاري...' : 'شحن الرصيد' }}
                 </button>
             </div>
@@ -107,9 +102,11 @@ export default {
             isCharging: false
         };
     },
+
     mounted() {
         this.fetchWallet();
     },
+
     methods: {
         async fetchWallet() {
             this.loading = true;
@@ -131,25 +128,35 @@ export default {
             return `/storage/${path}`;
         },
 
-        chargeWallet() {
+        chargeWallet(uuid) {
+            if (!uuid) return;
+
             this.isCharging = true;
-            setTimeout(() => {
+
+            try {
+                this.$router.push({
+                    name: 'charge-wallet',
+                    params: { uuid }
+                });
+            } catch (e) {
+                console.error('Router error:', e);
+            } finally {
                 this.isCharging = false;
-                alert('قريباً');
-            }, 800);
+            }
         },
 
         formatBalance(b) {
-            return new Intl.NumberFormat('ar-EG').format(b);
+            return new Intl.NumberFormat('en').format(b || 0);
         },
 
         formatDate(d) {
             if (!d) return '—';
-            return new Date(d).toLocaleDateString('ar-EG');
+            return new Date(d).toLocaleDateString('en');
         },
 
         formatLastSeen(d) {
             if (!d) return '—';
+
             const diff = (Date.now() - new Date(d)) / 60000;
 
             if (diff < 1) return 'الآن';
@@ -193,7 +200,9 @@ export default {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Wrapper */
