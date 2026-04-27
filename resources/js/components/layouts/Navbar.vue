@@ -102,7 +102,7 @@ const fetchWallet = async () => {
     try {
         const res = await api.get("/users/wallet");
         if (res.data.status === "success") {
-            WalletBalance.value = res.data.data.wallet.balance ?? 0;
+            WalletBalance.value = res.data.data?.wallet?.balance ?? 0;
         }
     } catch (err) {
         console.log("Wallet error:", err);

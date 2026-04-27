@@ -72,7 +72,7 @@
 
             <!-- Actions -->
             <div class="actions">
-                <button class="btn-charge" @click="chargeWallet(walletData.data.wallet.uuid)" :disabled="isCharging">
+                <button class="btn-charge" @click="chargeWallet(walletData?.data?.wallet?.uuid)" :disabled="isCharging">
                     {{ isCharging ? 'جاري...' : 'شحن الرصيد' }}
                 </button>
             </div>

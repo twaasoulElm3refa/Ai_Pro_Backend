@@ -8,6 +8,7 @@ use App\Http\Requests\loginRequest;
 use App\Http\Resources\userResource;
 use App\Mail\OtpMail;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Repository\Register\AuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {

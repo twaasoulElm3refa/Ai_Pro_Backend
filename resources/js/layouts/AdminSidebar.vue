@@ -74,6 +74,27 @@
                 </span>
             </RouterLink>
 
+            <!-- PAYMENTS -->
+            <div v-if="sidebarItems.payments" class="sidebar-group">
+                <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: paymentsActive }" @click="toggle('payments')">
+                    <span class="sidebar-link-content">
+                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none">
+                            <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.8" />
+                            <path d="M3 10h18" stroke="currentColor" stroke-width="1.8" />
+                            <path d="M7 15h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                        </svg>
+                        <span>Payments</span>
+                    </span>
+                    <span class="arrow" :class="{ open: openMenus.payments }"></span>
+                </button>
+
+                <div v-if="openMenus.payments" class="dropdown">
+                    <RouterLink to="/admin/payments" class="sidebar-btn dropdown-item mt-2" @click="$emit('close')">
+                        All Payments
+                    </RouterLink>
+                </div>
+            </div>
+
             <!-- SETTINGS -->
             <div v-if="sidebarItems.settings" class="sidebar-group">
 
@@ -168,6 +189,7 @@ const sidebarItems = reactive({
     dashboard: true,
     users: true,
     tools: true,
+    payments: true,
     settings: true,
     adminSettings: true,
     logout: true,
@@ -175,9 +197,10 @@ const sidebarItems = reactive({
 
 // dropdown states
 const openMenus = reactive({
-    users: false,
-    settings: false,
-    adminSettings: false,
+    users: route.path.startsWith('/admin/users'),
+    payments: route.path.startsWith('/admin/payments'),
+    settings: route.path.startsWith('/admin/contacts') || route.path.startsWith('/admin/footer'),
+    adminSettings: route.path.startsWith('/admin/profile') || route.path.startsWith('/admin/password'),
 })
 
 const toggle = (key) => {
@@ -192,6 +215,10 @@ const usersActive = computed(() =>
 const settingsActive = computed(() =>
     route.path.startsWith('/admin/contacts') ||
     route.path.startsWith('/admin/footer')
+)
+
+const paymentsActive = computed(() =>
+    route.path.startsWith('/admin/payments')
 )
 
 const adminSettingsActive = computed(() =>
@@ -235,7 +262,7 @@ const toggleSidebarItem = (key) => {
     position: fixed;
     inset: 0;
     z-index: 35;
-    background: rgba(15, 23, 42, 0.55);
+    background: rgba(7, 67, 119, 0.25);
     backdrop-filter: blur(3px);
 }
 
@@ -253,7 +280,7 @@ const toggleSidebarItem = (key) => {
 }
 
 .logo-text {
-    color: #000000;
+    color: #074377;
     font-weight: bold;
     font-size: 1.6rem;
 }
@@ -310,8 +337,8 @@ const toggleSidebarItem = (key) => {
 /* Active link */
 
 .router-link-active {
-    background: rgba(212, 175, 55, 0.25) !important;
-    color: #000000 !important;
+    background: rgba(7, 67, 119, 0.08) !important;
+    color: #074377 !important;
 }
 
 /* Dropdown */
@@ -371,29 +398,28 @@ const toggleSidebarItem = (key) => {
 /* ================= DARK THEME ================= */
 
 [data-theme="dark"] .admin-sidebar {
-    background: linear-gradient(180deg,
-            rgba(2, 6, 23, 0.98),
-            rgba(15, 23, 42, 0.98));
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
 }
 
 [data-theme="dark"] .sidebar-btn {
-    background: rgba(30, 41, 59, 0.5);
-    color: #e5e7eb;
+    background: #f8fafc;
+    color: #1e293b;
 }
 
 [data-theme="dark"] .sidebar-btn:hover {
-    background: rgba(212, 175, 55, 0.18);
-    color: #D4AF37;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
     transform: translateX(5px);
 }
 
 [data-theme="dark"] .dropdown-item {
-    background: rgba(30, 41, 59, 0.35);
+    background: #f1f5f9;
 }
 
 [data-theme="dark"] .sidebar-icon {
-    background: rgba(15, 23, 42, 0.9);
-    color: #f8fafc;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
 }
 
 [data-theme="dark"] .danger-item {
@@ -402,25 +428,25 @@ const toggleSidebarItem = (key) => {
 }
 
 [data-theme='dark'] .activeParent {
-    background: rgba(212, 175, 55, 0.35) !important;
-    color: #D4AF37 !important;
+    background: #074377 !important;
+    color: #ffffff !important;
 }
 
 /* ================= LIGHT THEME ================= */
 
 [data-theme="light"] .admin-sidebar {
     background: #ffffff;
-    border-right: 1px solid #eee;
+    border-right: 1px solid #e5e7eb;
 }
 
 [data-theme="light"] .sidebar-btn {
     background: #f8fafc;
-    color: #111;
+    color: #1e293b;
 }
 
 [data-theme="light"] .sidebar-btn:hover {
-    background: #111;
-    color: #fff;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
     transform: translateX(5px);
 }
 
@@ -429,8 +455,8 @@ const toggleSidebarItem = (key) => {
 }
 
 [data-theme="light"] .sidebar-icon {
-    background: #e2e8f0;
-    color: #111827;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
 }
 
 [data-theme="light"] .danger-item {
@@ -439,8 +465,8 @@ const toggleSidebarItem = (key) => {
 }
 
 [data-theme='light'] .activeParent {
-    background: #111 !important;
-    color: #fff !important;
+    background: #074377 !important;
+    color: #ffffff !important;
 }
 
 .dropdown-toggle::after {

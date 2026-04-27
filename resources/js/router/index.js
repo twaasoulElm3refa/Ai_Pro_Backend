@@ -183,6 +183,24 @@ const routes = [
         component: () => import("../views/admin/tools/ToolShow.vue"),
         meta: adminMeta,
     },
+    {
+        path: "/admin/payments",
+        name: "admin.payments.index",
+        component: () => import("../views/admin/payments/PaymentsIndex.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/payments/:id",
+        name: "admin.payments.show",
+        component: () => import("../views/admin/payments/PaymentShow.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/statistics",
+        name: "admin.statistics",
+        component: () => import("../views/admin/statistics/Statistics.vue"),
+        meta: adminMeta,
+    },
 ];
 
 const router = createRouter({

@@ -15,7 +15,7 @@ class userSeeder extends Seeder
     {
 
         User::create([
-            'name' => 'admin',
+            'name' => 'Ai Pro_Admin',
             'role' => 'admin',
             'email' => 'admin@admin.com',
             'is_active' => 1,

@@ -5,9 +5,11 @@ namespace App\Http\Controllers\api\auth;
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\userResource;
+use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Throwable;
 
@@ -23,9 +25,14 @@ class ProfileController extends Controller
             if (! $user) {
                 return $this->unauthorized('Unauthenticated.');
             }
-
+            Wallet::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'balance' => 0,
+                    'uuid' => Str::uuid(),
+                ]
+            );
             $cacheKey = "user_profile_{$user->id}";
-
             $profile = Cache::remember($cacheKey, 600, function () use ($user) {
                 return [
                     'id' => $user->id,
@@ -40,7 +47,6 @@ class ProfileController extends Controller
                     'created_at' => $user->created_at,
                 ];
             });
-
             return $this->success(
                 ['user' => $profile],
                 'Profile fetched successfully.'

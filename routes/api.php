@@ -3,7 +3,9 @@
 use App\Http\Controllers\api\admin\AdminUserController;
 use App\Http\Controllers\api\admin\auth\AdminAuthController;
 use App\Http\Controllers\api\admin\contact\ContactController;
+use App\Http\Controllers\api\admin\dashboard\AdminDashboardController;
 use App\Http\Controllers\api\admin\footer\FooterController;
+use App\Http\Controllers\api\admin\payment\AdminPaymentController;
 use App\Http\Controllers\api\admin\tools\MainToolController;
 use App\Http\Controllers\api\admin\tools\SubToolController;
 use App\Http\Controllers\api\auth\AuthController;
@@ -61,7 +63,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);
     });
 
-
     Route::prefix('deposit')->middleware('auth:sanctum')->group(function () {
         Route::post('/pay', [DepositController::class, 'create']);
     });
@@ -82,6 +83,7 @@ Route::prefix('admin')->group(function () {
         Route::post('/profile', [AdminAuthController::class, 'updateProfile']);
         Route::post('/password', [AdminAuthController::class, 'updatePassword']);
         Route::post('/logout', [AdminAuthController::class, 'logout']);
+        Route::get('/statistics', [AdminDashboardController::class, 'index']);
     });
 
     Route::prefix('users')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
@@ -112,7 +114,7 @@ Route::prefix('admin')->group(function () {
         Route::delete('/{id}', [MainToolController::class, 'destroy']);
     });
 
-     Route::prefix('subtools')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
+    Route::prefix('subtools')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
         Route::get('/{id}', [SubToolController::class, 'index']);
         Route::get('/show/{id}', [SubToolController::class, 'show']);
         Route::post('/{id}', [SubToolController::class, 'store']);
@@ -120,4 +122,10 @@ Route::prefix('admin')->group(function () {
         Route::delete('/delete/{id}', [SubToolController::class, 'destroy']);
     });
 
+    Route::prefix('payments')->middleware(['auth:sanctum', AdminMiddleware::class])->group(function () {
+        Route::get('/', [AdminPaymentController::class, 'index']);
+        Route::get('/{id}', [AdminPaymentController::class, 'show']);
+        Route::post('/{id}', [AdminPaymentController::class, 'update']);
+        Route::delete('/{id}', [AdminPaymentController::class, 'destroy']);
+    });
 });

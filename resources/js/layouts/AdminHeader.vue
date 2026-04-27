@@ -119,11 +119,11 @@ const logout = async () => {
 }
 
 [data-theme='dark'] .user-name {
-    color: #FBBF24;
+    color: #074377;
 }
 
 [data-theme='light'] .user-name {
-    color: #111827;
+    color: #074377;
 }
 
 .admin-header {
@@ -157,12 +157,12 @@ const logout = async () => {
 
 /* dark */
 [data-theme='dark'] .role {
-    color: #FBBF24;
+    color: #074377;
 }
 
 /* light */
 [data-theme='light'] .role {
-    color: #111827;
+    color: #074377;
 }
 
 
@@ -229,67 +229,68 @@ const logout = async () => {
 
 /* ================= DARK MODE ================= */
 [data-theme='dark'] .admin-header {
-    background: rgba(15, 23, 42, 0.95);
-    color: #FBBF24;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    background: #ffffff;
+    color: #074377;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 6px 18px rgba(148, 163, 184, 0.14);
 }
 
 [data-theme='dark'] .btn-icon {
-    background: rgba(212, 175, 55, 0.25);
-    color: #FBBF24;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
 }
 
 [data-theme='dark'] .menu-btn {
-    background: rgba(212, 175, 55, 0.2);
-    color: #FBBF24;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
 }
 
 [data-theme='dark'] .btn-icon:hover {
-    background: rgba(212, 175, 55, 0.45);
+    background: rgba(7, 67, 119, 0.16);
     transform: rotate(15deg) scale(1.1);
-    box-shadow: 0 0 18px rgba(251, 191, 36, 0.55);
+    box-shadow: 0 0 18px rgba(7, 67, 119, 0.2);
 }
 
 [data-theme='dark'] .logout-btn {
-    background: #ef4444;
+    background: #074377;
     color: white;
 }
 
 [data-theme='dark'] .logout-btn:hover {
-    background: #dc2626;
+    background: #063760;
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.45);
+    box-shadow: 0 8px 20px rgba(7, 67, 119, 0.24);
 }
 
 /* ================= LIGHT MODE ================= */
 [data-theme='light'] .admin-header {
     background: #ffffff;
-    color: #111827;
+    color: #074377;
     border-bottom: 1px solid #e5e7eb;
 }
 
 [data-theme='light'] .btn-icon {
-    background: #111827;
-    color: white;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
 }
 
 [data-theme='light'] .menu-btn {
-    background: #f1f5f9;
-    color: #111827;
+    background: rgba(7, 67, 119, 0.08);
+    color: #074377;
 }
 
 [data-theme='light'] .btn-icon:hover {
-    background: #1f2937;
+    background: rgba(7, 67, 119, 0.16);
     transform: rotate(-15deg) scale(1.1);
 }
 
 [data-theme='light'] .logout-btn {
-    background: #111827;
+    background: #074377;
     color: white;
 }
 
 [data-theme='light'] .logout-btn:hover {
-    background: #000000;
+    background: #063760;
     transform: translateY(-2px);
 }
 
