@@ -219,37 +219,47 @@ class PayPalWalletServices implements PaymentInterface
 
     private function onCaptureCompleted(array $resource): void
     {
-        $paypalOrderId = $resource['supplementary_data']['related_ids']['order_id']
+        $paypalOrderId =
+            $resource['supplementary_data']['related_ids']['order_id']
             ?? $resource['supplementary_data']['related_ids']['paypal_order_id']
             ?? null;
 
         $captureId = $resource['id'] ?? null;
 
-        Log::info('PayPalWalletServices: onCaptureCompleted called', [
+        Log::info('🔥 PayPal CAPTURE COMPLETED', [
             'paypal_order_id' => $paypalOrderId,
             'capture_id' => $captureId,
+            'resource' => $resource,
         ]);
 
         DB::transaction(function () use ($paypalOrderId, $captureId, $resource) {
+
             $order = null;
 
+            // ✅ 1. محاولة بالـ paypal_order_id
             if ($paypalOrderId) {
                 $order = Payment::where('paypal_order_id', $paypalOrderId)
                     ->lockForUpdate()
                     ->first();
             }
 
+            // ✅ 2. محاولة بالـ capture_id
             if (! $order && $captureId) {
                 $order = Payment::where('transaction_id', $captureId)
                     ->lockForUpdate()
                     ->first();
             }
 
+            // ✅ 3. fallback بالـ custom_id
             if (! $order) {
 
-                $customId = $resource['custom_id'] ?? null;
+                $customId =
+                    $resource['custom_id']
+                    ?? $resource['purchase_units'][0]['custom_id']
+                    ?? null;
 
                 if ($customId && str_starts_with($customId, 'wallet_topup:')) {
+
                     $orderId = str_replace('wallet_topup:', '', $customId);
 
                     $order = Payment::where('id', $orderId)
@@ -258,19 +268,30 @@ class PayPalWalletServices implements PaymentInterface
                 }
             }
 
-            // دي أهم حماية في الموضوع كله
-            if ($order->type !== 'wallet_deposit') {
-                Log::warning('PayPalWalletServices: Ignoring non-wallet order', [
-                    'order_id' => $order->id,
-                    'type' => $order->type,
+            // 💣 أهم حماية (يمنع الكراش)
+            if (! $order) {
+                Log::error('❌ Order NOT FOUND after all attempts', [
                     'paypal_order_id' => $paypalOrderId,
+                    'capture_id' => $captureId,
+                    'resource' => $resource,
                 ]);
 
                 return;
             }
 
+            // 🔥 تأكد إنه wallet deposit
+            if ($order->type !== 'wallet_deposit') {
+                Log::warning('⚠️ Ignoring non-wallet order', [
+                    'order_id' => $order->id,
+                    'type' => $order->type,
+                ]);
+
+                return;
+            }
+
+            // 🔥 منع التكرار
             if ($order->wallet_credited || $order->status === 'completed') {
-                Log::info('PayPalWalletServices: Duplicate capture ignored', [
+                Log::info('⚠️ Duplicate capture ignored', [
                     'order_id' => $order->id,
                     'capture_id' => $captureId,
                 ]);
@@ -278,14 +299,18 @@ class PayPalWalletServices implements PaymentInterface
                 return;
             }
 
+            // ✅ شحن المحفظة
             $wallet = Wallet::firstOrCreate(
                 ['user_id' => $order->user_id],
                 ['balance' => 0]
             );
+
             $before = $wallet->balance;
             $points = (int) ($order->amount * 10);
-            $wallet->increment('balance', (float) $points);
 
+            $wallet->increment('balance', $points);
+
+            // ✅ تحديث الأوردر
             $order->update([
                 'status' => 'completed',
                 'transaction_id' => $captureId,
@@ -294,9 +319,11 @@ class PayPalWalletServices implements PaymentInterface
                 'paid_at' => now(),
             ]);
 
-            Log::info('PayPalWalletServices: Wallet credited successfully', [
+            Log::info('✅ Wallet credited', [
                 'order_id' => $order->id,
             ]);
+
+            // ✅ تسجيل العملية
             WalletTransaction::create([
                 'user_id' => $order->user_id,
                 'wallet_id' => $wallet->id,
@@ -306,6 +333,8 @@ class PayPalWalletServices implements PaymentInterface
                 'balance_after' => $wallet->balance,
                 'slug' => $order->idempotency_key,
             ]);
+
+            // ✅ إرسال الإيميل
             if (! $order->mail_sent) {
                 Mail::to($order->user->email)->queue(
                     new DepositSuccessMail(
@@ -314,14 +343,13 @@ class PayPalWalletServices implements PaymentInterface
                     )
                 );
 
-                $order->update([
-                    'mail_sent' => true,
-                ]);
+                $order->update(['mail_sent' => true]);
 
-                Log::info('PayPalWalletServices: Success email sent', [
+                Log::info('📧 Success email sent', [
                     'order_id' => $order->id,
                 ]);
             }
+
         });
     }
 
