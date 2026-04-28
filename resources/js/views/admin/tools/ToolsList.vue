@@ -165,7 +165,7 @@ const deleteModal = reactive({
 
 const mapTool = (tool) => ({
     ...tool,
-    image_url: tool?.image ? `http://localhost:8000/storage/${tool.image}` : "",
+    image_url: tool?.image ? `/storage/${tool.image}` : "",
 });
 
 const filteredTools = computed(() => {

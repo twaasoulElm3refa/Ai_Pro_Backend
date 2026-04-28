@@ -12,7 +12,7 @@ toastr.options = {
 let redirectingToLogin = false;
 
 const api = axios.create({
-    baseURL: "http://localhost:8000/api",
+    baseURL: "/api",
     headers: {
         Accept: "application/json",
         'x-api-key': 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y'

@@ -7,7 +7,7 @@
             <!-- ── Left Panel ── -->
             <div class="d-none d-lg-flex col-lg-5 align-items-center justify-content-center p-5 position-relative">
                 <div class="text-center">
-                    <img src="/images/ai_logo.png" alt="NEXTLEVEL Logo" class="height-auto logo-glow" />
+                    <img src="/images/Ai_logo.png" alt="NEXTLEVEL Logo" class="height-auto logo-glow" />
                     <h1 class="display-3 fw-black mb-3">AI PRO</h1>
                     <p class="lead fs-4 fw-medium opacity-90">Build. Learn. Evolve with AI</p>
                 </div>

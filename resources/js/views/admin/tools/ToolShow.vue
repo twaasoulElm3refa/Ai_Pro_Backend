@@ -268,7 +268,7 @@ const formatDate = (value) => {
 
 const mapSubtool = (payload = {}) => ({
     ...payload,
-    image_url: payload?.image ? `http://localhost:8000/storage/${payload.image}` : "",
+    image_url: payload?.image ? `/storage/${payload.image}` : "",
 });
 
 const toolDetails = computed(() => [
@@ -321,7 +321,7 @@ const loadTool = async () => {
         const payload = response?.data || {};
         tool.value = {
             ...payload,
-            image_url: payload?.image ? `http://localhost:8000/storage/${payload.image}` : "",
+            image_url: payload?.image ? `/storage/${payload.image}` : "",
         };
     } catch (error) {
         console.error("Failed to fetch tool:", error);

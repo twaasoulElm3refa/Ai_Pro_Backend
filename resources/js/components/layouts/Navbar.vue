@@ -3,7 +3,7 @@
         <div class="nb-inner">
             <a class="nb-logo" href="/">
                 <div class="nb-logo-mark">
-                    <img src="/images/ai_logo.png" alt="AiPro Logo" />
+                    <img src="/images/Ai_logo.png" alt="AiPro Logo" />
                 </div>
 
                 <span class="nb-logo-text">
