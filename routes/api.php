@@ -13,11 +13,14 @@ use App\Http\Controllers\api\auth\GoogleAuthController;
 use App\Http\Controllers\api\auth\ProfileController;
 use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\WalletController;
+use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\HomeController;
+use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\payment\DepositController;
 use App\Http\Controllers\api\webhook\WebhookController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ApiKeyMiddleware;
+use App\Http\Middleware\ConversationOwnerMiddleware;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -62,6 +65,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/', [HomeController::class, 'index']);
         Route::get('/{slug}', [HomeController::class, 'show']);
         Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);
+    });
+
+    Route::prefix('conversation')->middleware(['auth:sanctum', 'throttle:45,1'])->group(function () {
+        Route::get('/', [ConversationController::class, 'conversation']);
+        Route::get('/{uuid}', [ConversationController::class, 'conversationDetails']);
+        Route::post('/{slug}', [ConversationController::class, 'createConversation']);
+        Route::delete('/{uuid}', [ConversationController::class, 'conversationDelete'])->middleware(ConversationOwnerMiddleware::class);
+    });
+
+    Route::prefix('message')->middleware(['auth:sanctum', 'throttle:45,1'])->group(function () {
+        Route::post('/send', [MessageController::class, 'sendMessage']);
     });
 
     Route::prefix('deposit')->middleware('auth:sanctum')->group(function () {
@@ -129,4 +143,5 @@ Route::prefix('admin')->group(function () {
         Route::post('/{id}', [AdminPaymentController::class, 'update']);
         Route::delete('/{id}', [AdminPaymentController::class, 'destroy']);
     });
+    // 60 Api For Now
 });

@@ -38,7 +38,7 @@ const routes = [
         meta: { hideNavbar: false, hideFooter: false },
     },
     {
-        path: "/:lang/subtool/:slug/chat",
+        path: "/:lang/subtool/:slug/chat/:uuid?",
         component: chat,
         meta: { hideNavbar: false, hideFooter: true },
     },

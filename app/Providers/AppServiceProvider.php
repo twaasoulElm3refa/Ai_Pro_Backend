@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Observers\UserObserver;
+use App\Repository\Conversation\ConversationInterface;
+use App\Repository\Conversation\ConversationRepository;
+use App\Repository\Messages\MessageInterface;
+use App\Repository\Messages\MessageRepository;
 use App\Repository\payment\AdminPaymentInterface;
 use App\Repository\payment\AdminPaymentRepository;
 use App\Repository\Register\UserRepository;
@@ -28,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MainToolInterface::class, MainToolRepository::class);
         $this->app->bind(SubToolInterface::class, SubToolRepository::class);
         $this->app->bind(AdminPaymentInterface::class, AdminPaymentRepository::class);
+        $this->app->bind(ConversationInterface::class, ConversationRepository::class);
+        $this->app->bind(MessageInterface::class, MessageRepository::class);
     }
 
     /**
