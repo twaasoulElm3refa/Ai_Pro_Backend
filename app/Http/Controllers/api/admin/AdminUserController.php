@@ -6,7 +6,7 @@ use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserRequest;
 use App\Http\Requests\UserUpdateRequest;
-use App\Http\Resources\UserResource;
+use App\Http\Resources\userResource;
 use App\Repository\user\AdminUserRepositoryInterface as UserAdminUserRepositoryInterface;
 use Illuminate\Support\Facades\Log;
 
