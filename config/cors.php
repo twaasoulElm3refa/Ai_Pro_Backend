@@ -8,6 +8,7 @@ return [
 
     'allowed_origins' => [
         'https://pro.aiarabic.com',
+        'https://cageless-unstumbling-chadwick.ngrok-free.dev'
     ],
 
     'allowed_origins_patterns' => [],
