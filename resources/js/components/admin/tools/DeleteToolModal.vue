@@ -8,17 +8,17 @@
             leave-from-class="opacity-100"
             leave-to-class="opacity-0"
         >
-            <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
-                <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+            <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-[#154677]/20 px-4 backdrop-blur-md">
+                <div class="w-full max-w-md rounded-[1.75rem] border border-[#154677]/10 bg-white p-6 shadow-[0_28px_50px_rgba(21,70,119,0.16)] dark:border-slate-800 dark:bg-[#154677]">
                     <div class="flex items-start gap-4">
-                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-300">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2ba6de]/10 text-[#154677] dark:bg-white/10 dark:text-white">
                             <i class="bi bi-trash3 text-xl"></i>
                         </div>
                         <div class="min-w-0 flex-1">
-                            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">Delete tool</h3>
-                            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                            <h3 class="text-lg font-bold text-[#154677] dark:text-slate-100">Delete tool</h3>
+                            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-300">
                                 This will remove
-                                <span class="font-semibold text-slate-800 dark:text-slate-200">{{ toolName || "this tool" }}</span>.
+                                <span class="font-semibold text-[#154677] dark:text-white">{{ toolName || "this tool" }}</span>.
                                 This action cannot be undone.
                             </p>
                         </div>
@@ -27,14 +27,14 @@
                     <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                            class="theme-button-soft inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                             @click="$emit('cancel')"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-70"
+                            class="theme-button-danger inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70"
                             :disabled="loading"
                             @click="$emit('confirm')"
                         >

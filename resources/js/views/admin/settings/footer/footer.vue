@@ -369,7 +369,7 @@ onMounted(() => {
     padding: 7px 12px;
     border-radius: 999px;
     background: rgba(79, 70, 229, 0.1);
-    color: #4f46e5;
+    color: #154677;
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -397,7 +397,7 @@ onMounted(() => {
     padding: 0 18px;
     border: none;
     border-radius: 16px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #154677, #2ba6de);
     color: #fff;
     display: inline-flex;
     align-items: center;
@@ -451,7 +451,7 @@ onMounted(() => {
 .glow-1 {
     width: 220px;
     height: 220px;
-    background: #6366f1;
+    background: #2ba6de;
     top: -70px;
     right: -60px;
 }
@@ -538,7 +538,7 @@ onMounted(() => {
 }
 
 .meta-value {
-    color: #111827;
+    color: #154677;
     font-size: 15px;
     font-weight: 800;
 }
@@ -585,7 +585,7 @@ onMounted(() => {
 }
 
 .info-value.link {
-    color: #4f46e5;
+    color: #154677;
     text-decoration: none;
 }
 
@@ -673,7 +673,7 @@ onMounted(() => {
     margin: 0;
     font-size: 28px;
     font-weight: 900;
-    color: #111827;
+    color: #154677;
 }
 
 .modal-subtitle {
@@ -689,7 +689,7 @@ onMounted(() => {
     border: none;
     border-radius: 14px;
     background: #f3f4f6;
-    color: #111827;
+    color: #154677;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -731,12 +731,12 @@ onMounted(() => {
     padding: 0 16px;
     outline: none;
     font-size: 14px;
-    color: #111827;
+    color: #154677;
     transition: 0.2s ease;
 }
 
 .form-group input:focus {
-    border-color: #6366f1;
+    border-color: #2ba6de;
     background: #fff;
     box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1);
 }
@@ -805,7 +805,7 @@ onMounted(() => {
 
 .btn-secondary {
     background: #f3f4f6;
-    color: #111827;
+    color: #154677;
 }
 
 .btn-secondary:hover {
@@ -813,7 +813,7 @@ onMounted(() => {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #154677, #2ba6de);
     color: #fff;
     box-shadow: 0 18px 35px rgba(99, 102, 241, 0.25);
 }

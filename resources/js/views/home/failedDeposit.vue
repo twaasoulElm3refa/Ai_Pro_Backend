@@ -143,7 +143,7 @@ export default {
     font-family: 'Cairo', sans-serif;
     direction: rtl;
     background: #ffffff;
-    color: #111111;
+    color: #154677;
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -174,13 +174,13 @@ export default {
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #111;
+    background: #154677;
     opacity: 0;
     animation: fall-down 4s ease-in infinite;
 }
 
 .particle:nth-child(even) {
-    background: #555;
+    background: #2ba6de;
     width: 3px;
     height: 3px;
 }
@@ -221,7 +221,7 @@ export default {
     left: 10%;
     right: 10%;
     height: 2px;
-    background: linear-gradient(90deg, transparent, #111, #555, transparent);
+    background: linear-gradient(90deg, transparent, #154677, #2ba6de, transparent);
     border-radius: 0 0 4px 4px;
 }
 
@@ -246,7 +246,7 @@ export default {
     border-radius: 100px;
     padding: 6px 16px 6px 10px;
     font-size: 12px;
-    color: #444;
+    color: #154677;
     margin-bottom: 20px;
     animation: fade-in 0.5s ease 0.5s both;
 }
@@ -255,7 +255,7 @@ export default {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #111;
+    background: #154677;
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
     animation: blink 1s ease-in-out infinite;
 }
@@ -318,7 +318,7 @@ export default {
     position: absolute;
     inset: 10px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #222, #444);
+    background: linear-gradient(135deg, #154677, #154677);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -347,7 +347,7 @@ h1 {
     font-size: 26px;
     font-weight: 900;
     margin-bottom: 10px;
-    color: #111;
+    color: #154677;
     animation: fade-up 0.5s ease 0.5s both;
 }
 
@@ -408,18 +408,18 @@ h1 {
 
 .info-label {
     font-size: 12px;
-    color: #999;
+    color: #94a3b8;
     margin-bottom: 2px;
 }
 
 .info-val {
     font-size: 14px;
     font-weight: 700;
-    color: #111;
+    color: #154677;
 }
 
 .info-val.red {
-    color: #111;
+    color: #154677;
 }
 
 .divider {
@@ -435,7 +435,7 @@ h1 {
     gap: 12px;
     width: 100%;
     padding: 16px 24px;
-    background: #111;
+    background: #154677;
     border-radius: 14px;
     color: #fff;
     font-family: 'Cairo', sans-serif;
@@ -448,7 +448,7 @@ h1 {
 }
 
 .btn-retry:hover {
-    background: #333;
+    background: #154677;
     transform: translateY(-2px);
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
 }
@@ -479,7 +479,7 @@ h1 {
     background: transparent;
     border: 1.5px solid #ccc;
     border-radius: 14px;
-    color: #444;
+    color: #154677;
     font-family: 'Cairo', sans-serif;
     font-size: 14px;
     font-weight: 600;
@@ -492,7 +492,7 @@ h1 {
 .btn-support:hover {
     background: #f2f2f2;
     border-color: #aaa;
-    color: #111;
+    color: #154677;
 }
 
 .sec-link {
@@ -506,6 +506,6 @@ h1 {
 }
 
 .sec-link:hover {
-    color: #333;
+    color: #154677;
 }
 </style>

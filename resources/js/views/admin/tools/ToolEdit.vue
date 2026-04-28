@@ -3,15 +3,15 @@
         <section class="mx-auto max-w-6xl space-y-6">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <span class="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-600 dark:bg-amber-500/10 dark:text-amber-300">
+                    <span class="inline-flex items-center rounded-full bg-[#2ba6de]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#2ba6de] dark:bg-[#2ba6de]/10 dark:text-[#2ba6de]">
                         Edit Tool
                     </span>
-                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">Update tool</h1>
+                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-[#154677] dark:text-white">Update tool</h1>
                     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Refresh metadata, image, or ordering without leaving the admin flow.</p>
                 </div>
             </div>
 
-            <div v-if="loading" class="animate-pulse rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+            <div v-if="loading" class="animate-pulse rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-[#154677]">
                 <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                     <div class="space-y-4">
                         <div class="h-12 rounded-2xl bg-slate-200 dark:bg-slate-800"></div>

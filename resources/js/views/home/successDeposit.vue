@@ -110,7 +110,7 @@ export default {
     position: absolute;
     width: 4px;
     height: 4px;
-    background: #111;
+    background: #154677;
     border-radius: 50%;
     animation: float 4s infinite;
 }
@@ -152,13 +152,13 @@ export default {
 .paypal-dot {
     width: 8px;
     height: 8px;
-    background: black;
+    background: #154677;
     border-radius: 50%;
 }
 
 /* icon */
 .icon-circle {
-    background: #111;
+    background: #154677;
     width: 80px;
     height: 80px;
     border-radius: 50%;
@@ -192,7 +192,7 @@ export default {
 .btn-downloads {
     width: 100%;
     padding: 14px;
-    background: black;
+    background: #154677;
     color: white;
     border-radius: 12px;
     margin-top: 20px;
@@ -202,7 +202,7 @@ export default {
 }
 
 .btn-downloads:hover {
-    background: #333;
+    background: #154677;
 }
 
 .sec-link {

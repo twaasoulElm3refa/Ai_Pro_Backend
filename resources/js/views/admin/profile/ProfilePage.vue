@@ -3,13 +3,13 @@
         <section class="mx-auto max-w-6xl space-y-6">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <p class="text-sm font-semibold uppercase tracking-wide text-amber-500">Admin Profile</p>
-                    <h1 class="mt-1 text-3xl font-bold text-slate-950 dark:text-white">Account overview</h1>
+                    <p class="text-sm font-semibold uppercase tracking-wide text-[#2ba6de]">Admin Profile</p>
+                    <h1 class="mt-1 text-3xl font-bold text-[#154677] dark:text-white">Account overview</h1>
                 </div>
 
                 <RouterLink
                     to="/admin/profile/edit"
-                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#154677] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2ba6de] focus:outline-none focus:ring-4 focus:ring-slate-300"
                 >
                     <i class="bi bi-pencil-square"></i>
                     Edit Profile
@@ -24,29 +24,29 @@
             <div v-else class="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
                 <article class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-1 hover:shadow-lg dark:bg-slate-900 dark:ring-slate-800">
                     <div class="flex flex-col items-center text-center">
-                        <div class="grid h-24 w-24 place-items-center rounded-full bg-amber-100 text-3xl font-bold text-amber-700 ring-4 ring-white dark:bg-amber-500/15 dark:text-amber-300 dark:ring-slate-900">
+                        <div class="grid h-24 w-24 place-items-center rounded-full bg-[#2ba6de]/15 text-3xl font-bold text-[#154677] ring-4 ring-white dark:bg-[#2ba6de]/15 dark:text-[#2ba6de] dark:ring-slate-900">
                             {{ initials }}
                         </div>
-                        <h2 class="mt-4 text-2xl font-bold text-slate-950 dark:text-white">{{ admin.name || "Admin" }}</h2>
+                        <h2 class="mt-4 text-2xl font-bold text-[#154677] dark:text-white">{{ admin.name || "Admin" }}</h2>
                         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ admin.email }}</p>
-                        <span class="mt-4 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20">
+                        <span class="mt-4 rounded-full bg-[#2ba6de]/10 px-3 py-1 text-sm font-semibold text-[#154677] ring-1 ring-[#2ba6de]/20 dark:bg-[#2ba6de]/100/10 dark:text-[#2ba6de] dark:ring-[#2ba6de]/20">
                             {{ admin.role || "admin" }}
                         </span>
                     </div>
                 </article>
 
                 <article class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 transition hover:shadow-lg dark:bg-slate-900 dark:ring-slate-800">
-                    <div class="flex items-center justify-between border-b border-slate-200 pb-4 dark:border-slate-800">
-                        <h3 class="text-lg font-bold text-slate-950 dark:text-white">Profile details</h3>
-                        <RouterLink to="/admin/password" class="text-sm font-semibold text-amber-600 transition hover:text-amber-700">
+                    <div class="flex items-center justify-between border-b border-[#154677]/10 pb-4 dark:border-slate-800">
+                        <h3 class="text-lg font-bold text-[#154677] dark:text-white">Profile details</h3>
+                        <RouterLink to="/admin/password" class="text-sm font-semibold text-[#2ba6de] transition hover:text-[#154677]">
                             Change password
                         </RouterLink>
                     </div>
 
                     <dl class="mt-5 grid gap-4 sm:grid-cols-2">
-                        <div v-for="item in profileItems" :key="item.label" class="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-100 dark:bg-slate-950/60 dark:ring-slate-800">
+                        <div v-for="item in profileItems" :key="item.label" class="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-100 dark:bg-[#154677]/60 dark:ring-slate-800">
                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ item.label }}</dt>
-                            <dd class="mt-2 break-words text-sm font-semibold text-slate-950 dark:text-slate-100">{{ item.value || "-" }}</dd>
+                            <dd class="mt-2 break-words text-sm font-semibold text-[#154677] dark:text-slate-100">{{ item.value || "-" }}</dd>
                         </div>
                     </dl>
                 </article>

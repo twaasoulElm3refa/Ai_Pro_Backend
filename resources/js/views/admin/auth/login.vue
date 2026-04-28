@@ -5,9 +5,9 @@
       <div class="brand">
         <div class="brand-icon">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <rect width="28" height="28" rx="8" fill="#1a1a2e"/>
-            <path d="M7 14L14 7L21 14L14 21L7 14Z" fill="#e8c97e" opacity="0.9"/>
-            <circle cx="14" cy="14" r="3" fill="#1a1a2e"/>
+            <rect width="28" height="28" rx="8" fill="#154677"/>
+            <path d="M7 14L14 7L21 14L14 21L7 14Z" fill="#2ba6de" opacity="0.9"/>
+            <circle cx="14" cy="14" r="3" fill="#154677"/>
           </svg>
         </div>
         <h1 class="brand-title">لوحة التحكم</h1>
@@ -118,7 +118,7 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0d0d1a;
+  background: linear-gradient(135deg, #f8fbff, #eef7fc);
   font-family: 'Cairo', 'Segoe UI', sans-serif;
   direction: rtl;
   position: relative;
@@ -133,7 +133,7 @@ async function handleLogin() {
 .orb-1 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(232, 201, 126, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(43, 166, 222, 0.06) 0%, transparent 70%);
   top: -150px;
   right: -100px;
 }
@@ -148,7 +148,7 @@ async function handleLogin() {
 .login-card {
   position: relative;
   z-index: 1;
-  background: #13132b;
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 20px;
   padding: 48px 40px;
@@ -168,13 +168,13 @@ async function handleLogin() {
 .brand-title {
   font-size: 22px;
   font-weight: 700;
-  color: #f0ece0;
+  color: #154677;
   margin: 0 0 6px;
   letter-spacing: 0.5px;
 }
 .brand-sub {
   font-size: 13px;
-  color: rgba(240, 236, 224, 0.4);
+  color: rgba(21, 70, 119, 0.4);
   margin: 0;
 }
 
@@ -192,7 +192,7 @@ async function handleLogin() {
 .field-label {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(240, 236, 224, 0.6);
+  color: rgba(21, 70, 119, 0.6);
   letter-spacing: 0.3px;
 }
 
@@ -207,19 +207,19 @@ async function handleLogin() {
   transition: border-color 0.2s, background 0.2s;
 }
 .input-wrap.focused {
-  border-color: rgba(232, 201, 126, 0.5);
-  background: rgba(232, 201, 126, 0.04);
+  border-color: rgba(43, 166, 222, 0.5);
+  background: rgba(43, 166, 222, 0.04);
 }
 .input-wrap.filled:not(.focused) {
   border-color: rgba(255,255,255,0.13);
 }
 .input-icon {
-  color: rgba(240, 236, 224, 0.3);
+  color: rgba(21, 70, 119, 0.3);
   flex-shrink: 0;
   transition: color 0.2s;
 }
 .focused .input-icon {
-  color: rgba(232, 201, 126, 0.7);
+  color: rgba(43, 166, 222, 0.7);
 }
 
 .input-wrap input {
@@ -227,14 +227,14 @@ async function handleLogin() {
   background: transparent;
   border: none;
   outline: none;
-  color: #f0ece0;
+  color: #154677;
   font-size: 14px;
   font-family: inherit;
   padding: 14px 0;
   min-width: 0;
 }
 .input-wrap input::placeholder {
-  color: rgba(240, 236, 224, 0.2);
+  color: rgba(21, 70, 119, 0.2);
 }
 .input-wrap input:disabled {
   opacity: 0.5;
@@ -245,21 +245,21 @@ async function handleLogin() {
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(240, 236, 224, 0.3);
+  color: rgba(21, 70, 119, 0.3);
   padding: 0;
   display: flex;
   align-items: center;
   transition: color 0.2s;
   flex-shrink: 0;
 }
-.toggle-pass:hover { color: rgba(240, 236, 224, 0.6); }
+.toggle-pass:hover { color: rgba(21, 70, 119, 0.6); }
 
 .submit-btn {
   margin-top: 8px;
   width: 100%;
   padding: 15px;
-  background: #e8c97e;
-  color: #1a1a2e;
+  background: #2ba6de;
+  color: #154677;
   border: none;
   border-radius: 12px;
   font-size: 15px;
@@ -292,7 +292,7 @@ async function handleLogin() {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(26,26,46,0.3);
-  border-top-color: #1a1a2e;
+  border-top-color: #154677;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

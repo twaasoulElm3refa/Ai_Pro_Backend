@@ -233,8 +233,8 @@ async function handlePay() {
 }
 
 .preset-btn.active {
-    border: 2px solid #378ADD;
-    color: #185FA5;
+    border: 2px solid #2ba6de;
+    color: #2ba6de;
     background: #E6F1FB;
 }
 
@@ -273,7 +273,7 @@ async function handlePay() {
 }
 
 .amount-wrap input:focus {
-    border-color: #378ADD;
+    border-color: #2ba6de;
 }
 
 .input-group input[type="text"] {
@@ -303,7 +303,7 @@ hr {
 }
 
 .paypal-text {
-    color: #003087;
+    color: #154677;
     font-weight: 500;
 }
 
@@ -311,7 +311,7 @@ hr {
     width: 100%;
     padding: 12px;
     margin-top: 1.25rem;
-    background: #185FA5;
+    background: #2ba6de;
     color: #fff;
     border: none;
     border-radius: 8px;

@@ -294,6 +294,7 @@ class PayPalWalletServices implements PaymentInterface
                 'points'     => $points,
                 'balance_before' => $before,
                 'balance_after'  => $wallet->balance,
+                'slug'       => $order->idempotency_key,
             ]);
             if (!$order->mail_sent) {
                 Mail::to($order->user->email)->queue(

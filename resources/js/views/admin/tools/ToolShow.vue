@@ -6,7 +6,7 @@
                     <span class="inline-flex items-center rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
                         Tool Details
                     </span>
-                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
+                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-[#154677] dark:text-white">
                         {{ loadingTool ? "Loading tool..." : tool.name || "Tool" }}
                     </h1>
                     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -17,14 +17,14 @@
                 <div class="flex flex-wrap gap-3">
                     <RouterLink
                         :to="{ name: 'admin.tools.index' }"
-                        class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#154677]/10 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
                     >
                         <i class="bi bi-arrow-left"></i>
                         Back to Tools
                     </RouterLink>
                     <RouterLink
                         :to="{ name: 'admin.tools.edit', params: { id: route.params.id } }"
-                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#154677] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2ba6de] dark:bg-[#2ba6de] dark:text-[#154677] dark:hover:bg-[#2ba6de]"
                     >
                         <i class="bi bi-pencil-square"></i>
                         Edit Tool
@@ -33,12 +33,12 @@
             </div>
 
             <div v-if="loadingTool" class="grid gap-6 xl:grid-cols-[1fr_1.25fr]">
-                <div class="h-80 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"></div>
-                <div class="h-80 animate-pulse rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"></div>
+                <div class="h-80 animate-pulse rounded-2xl border border-[#154677]/10 bg-white dark:border-slate-800 dark:bg-[#154677]"></div>
+                <div class="h-80 animate-pulse rounded-2xl border border-[#154677]/10 bg-white dark:border-slate-800 dark:bg-[#154677]"></div>
             </div>
 
             <div v-else class="grid gap-6 xl:grid-cols-[1fr_1.25fr]">
-                <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+                <article class="overflow-hidden rounded-2xl border border-[#154677]/10 bg-white shadow-sm shadow-[#154677]/10 dark:border-slate-800 dark:bg-[#154677] dark:shadow-none">
                     <div class="h-80 bg-slate-100 dark:bg-slate-900">
                         <img v-if="tool.image_url" :src="tool.image_url" :alt="tool.name" class="h-full w-full object-cover" />
                         <div v-else class="flex h-full items-center justify-center text-slate-400 dark:text-slate-600">
@@ -47,15 +47,15 @@
                     </div>
                 </article>
 
-                <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+                <article class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10 dark:border-slate-800 dark:bg-[#154677] dark:shadow-none">
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <div v-for="item in toolDetails" :key="item.label" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+                        <div v-for="item in toolDetails" :key="item.label" class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ item.label }}</p>
-                            <p class="mt-2 break-words text-sm font-semibold text-slate-900 dark:text-slate-100">{{ item.value }}</p>
+                            <p class="mt-2 break-words text-sm font-semibold text-[#154677] dark:text-slate-100">{{ item.value }}</p>
                         </div>
                     </div>
 
-                    <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
+                    <div class="mt-6 rounded-2xl border border-[#154677]/10 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Description</p>
                         <p class="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                             {{ tool.description || "No description has been added for this tool." }}
@@ -64,16 +64,16 @@
                 </article>
             </div>
 
-            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+            <section class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10 dark:border-slate-800 dark:bg-[#154677] dark:shadow-none">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
-                        <h2 class="text-2xl font-semibold text-slate-950 dark:text-white">Subtools</h2>
+                        <h2 class="text-2xl font-semibold text-[#154677] dark:text-white">Subtools</h2>
                         <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Create, edit, and remove subtools linked to this main tool.</p>
                     </div>
 
                     <button
                         type="button"
-                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#154677] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2ba6de] dark:bg-[#2ba6de] dark:text-[#154677] dark:hover:bg-[#2ba6de]"
                         @click="startCreate"
                     >
                         <i class="bi bi-plus-lg"></i>
@@ -84,21 +84,21 @@
                 <div class="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                     <div>
                         <div v-if="loadingSubtools" class="grid gap-4 md:grid-cols-2">
-                            <div v-for="item in 4" :key="item" class="h-48 animate-pulse rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"></div>
+                            <div v-for="item in 4" :key="item" class="h-48 animate-pulse rounded-2xl border border-[#154677]/10 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"></div>
                         </div>
 
                         <div v-else-if="subtools.length" class="grid gap-4 md:grid-cols-2">
                             <article
                                 v-for="subtool in subtools"
                                 :key="subtool.id"
-                                class="rounded-2xl border border-slate-200 bg-slate-50 p-5 transition duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
+                                class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-5 transition duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
                             >
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
-                                        <h3 class="truncate text-lg font-semibold text-slate-950 dark:text-white">{{ subtool.name }}</h3>
+                                        <h3 class="truncate text-lg font-semibold text-[#154677] dark:text-white">{{ subtool.name }}</h3>
                                         <p class="mt-1 text-xs uppercase tracking-wide text-slate-400">{{ subtool.slug || "No slug" }}</p>
                                     </div>
-                                    <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="subtool.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'">
+                                    <span class="rounded-full px-3 py-1 text-xs font-semibold" :class="subtool.is_active ? 'bg-emerald-100 text-[#154677] dark:bg-[#2ba6de]/100/10 dark:text-[#2ba6de]' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'">
                                         {{ subtool.is_active ? "Active" : "Inactive" }}
                                     </span>
                                 </div>
@@ -107,7 +107,7 @@
                                     {{ subtool.description || "No description available." }}
                                 </p>
 
-                                <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
+                                <div class="mt-4 rounded-2xl border border-[#154677]/10 bg-white p-4 text-sm dark:border-slate-800 dark:bg-[#154677]">
                                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Prompt Placeholder</p>
                                     <p class="mt-2 text-slate-600 dark:text-slate-300">{{ subtool.prompt_placeholder || "-" }}</p>
                                 </div>
@@ -115,7 +115,7 @@
                                 <div class="mt-5 flex flex-wrap gap-2">
                                     <button
                                         type="button"
-                                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-950"
+                                        class="inline-flex items-center gap-2 rounded-xl border border-[#154677]/10 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white dark:border-slate-700 dark:text-slate-200 dark:hover:bg-[#154677]"
                                         @click="viewSubtool(subtool.id)"
                                     >
                                         <i class="bi bi-eye"></i>
@@ -123,7 +123,7 @@
                                     </button>
                                     <button
                                         type="button"
-                                        class="inline-flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+                                        class="inline-flex items-center gap-2 rounded-xl bg-[#2ba6de]/10 px-3 py-2 text-sm font-semibold text-[#154677] transition hover:bg-[#2ba6de]/15 dark:bg-[#2ba6de]/10 dark:text-[#2ba6de] dark:hover:bg-[#2ba6de]/20"
                                         @click="startEdit(subtool)"
                                     >
                                         <i class="bi bi-pencil-square"></i>
@@ -131,7 +131,7 @@
                                     </button>
                                     <button
                                         type="button"
-                                        class="inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+                                        class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-semibold text-[#154677] transition hover:bg-slate-200 dark:bg-slate-1000/10 dark:text-slate-200 dark:hover:bg-slate-1000/20"
                                         @click="removeSubtool(subtool)"
                                     >
                                         <i class="bi bi-trash3"></i>
@@ -142,18 +142,18 @@
                         </div>
 
                         <div v-else class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900">
-                            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+                            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm dark:bg-[#154677] dark:text-slate-300">
                                 <i class="bi bi-diagram-3"></i>
                             </div>
-                            <h3 class="mt-4 text-lg font-semibold text-slate-900 dark:text-white">No subtools yet</h3>
+                            <h3 class="mt-4 text-lg font-semibold text-[#154677] dark:text-white">No subtools yet</h3>
                             <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Create the first subtool for this main tool to start building its workflow.</p>
                         </div>
                     </div>
 
-                    <aside class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
+                    <aside class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-950 dark:text-white">{{ editor.mode === "edit" ? "Edit Subtool" : "Create Subtool" }}</h3>
+                                <h3 class="text-lg font-semibold text-[#154677] dark:text-white">{{ editor.mode === "edit" ? "Edit Subtool" : "Create Subtool" }}</h3>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
                                     {{ editor.mode === "edit" ? "Update the selected subtool." : "Add a new subtool for this main tool." }}
                                 </p>
@@ -161,7 +161,7 @@
                             <button
                                 v-if="editor.mode === 'edit'"
                                 type="button"
-                                class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-white dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-950"
+                                class="rounded-xl border border-[#154677]/10 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-white dark:border-slate-700 dark:text-slate-300 dark:hover:bg-[#154677]"
                                 @click="resetEditor"
                             >
                                 Reset
@@ -171,35 +171,35 @@
                         <form class="mt-5 space-y-4" @submit.prevent="submitSubtool">
                             <div>
                                 <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Name</label>
-                                <input v-model.trim="editor.form.name" type="text" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800" />
-                                <p v-if="editor.errors.name" class="mt-2 text-sm text-red-500">{{ editor.errors.name }}</p>
+                                <input v-model.trim="editor.form.name" type="text" class="w-full rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#154677] dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800" />
+                                <p v-if="editor.errors.name" class="mt-2 text-sm text-[#154677]">{{ editor.errors.name }}</p>
                             </div>
 
                             <div>
                                 <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Description</label>
-                                <textarea v-model.trim="editor.form.description" rows="4" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"></textarea>
-                                <p v-if="editor.errors.description" class="mt-2 text-sm text-red-500">{{ editor.errors.description }}</p>
+                                <textarea v-model.trim="editor.form.description" rows="4" class="w-full rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#154677] dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"></textarea>
+                                <p v-if="editor.errors.description" class="mt-2 text-sm text-[#154677]">{{ editor.errors.description }}</p>
                             </div>
 
                             <div>
                                 <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Prompt Placeholder</label>
-                                <input v-model.trim="editor.form.prompt_placeholder" type="text" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800" />
-                                <p v-if="editor.errors.prompt_placeholder" class="mt-2 text-sm text-red-500">{{ editor.errors.prompt_placeholder }}</p>
+                                <input v-model.trim="editor.form.prompt_placeholder" type="text" class="w-full rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#154677] dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800" />
+                                <p v-if="editor.errors.prompt_placeholder" class="mt-2 text-sm text-[#154677]">{{ editor.errors.prompt_placeholder }}</p>
                             </div>
 
                             <div>
                                 <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Image</label>
-                                <input type="file" accept="image/*" class="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm file:mr-4 file:rounded-xl file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-white dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:file:bg-amber-500 dark:file:text-slate-950" @change="onFileChange" />
-                                <p v-if="editor.errors.image" class="mt-2 text-sm text-red-500">{{ editor.errors.image }}</p>
+                                <input type="file" accept="image/*" class="block w-full rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 text-sm file:mr-4 file:rounded-xl file:border-0 file:bg-[#154677] file:px-3 file:py-2 file:text-white dark:border-slate-700 dark:bg-[#154677] dark:text-white dark:file:bg-[#2ba6de] dark:file:text-[#154677]" @change="onFileChange" />
+                                <p v-if="editor.errors.image" class="mt-2 text-sm text-[#154677]">{{ editor.errors.image }}</p>
                             </div>
 
-                            <div v-if="editor.previewUrl" class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
+                            <div v-if="editor.previewUrl" class="overflow-hidden rounded-2xl border border-[#154677]/10 bg-white dark:border-slate-700 dark:bg-[#154677]">
                                 <img :src="editor.previewUrl" alt="Subtool preview" class="h-44 w-full object-cover" />
                             </div>
 
                             <button
                                 type="submit"
-                                class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#154677] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2ba6de] disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[#2ba6de] dark:text-[#154677] dark:hover:bg-[#2ba6de]"
                                 :disabled="submittingSubtool"
                             >
                                 <span v-if="submittingSubtool" class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white dark:border-slate-950/30 dark:border-t-slate-950"></span>
@@ -207,9 +207,9 @@
                             </button>
                         </form>
 
-                        <div v-if="selectedSubtool" class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
+                        <div v-if="selectedSubtool" class="mt-6 rounded-2xl border border-[#154677]/10 bg-white p-4 dark:border-slate-700 dark:bg-[#154677]">
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Selected Subtool</p>
-                            <h4 class="mt-3 text-base font-semibold text-slate-900 dark:text-white">{{ selectedSubtool.name }}</h4>
+                            <h4 class="mt-3 text-base font-semibold text-[#154677] dark:text-white">{{ selectedSubtool.name }}</h4>
                             <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{{ selectedSubtool.description || "No description available." }}</p>
                         </div>
                     </aside>

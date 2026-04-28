@@ -48,16 +48,17 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware(['auth:sanctum', 'throttle:15,1'])->group(function () {
             Route::get('wallet', [WalletController::class, 'wallet']);
+            Route::get('wallet/transactions', [WalletController::class, 'walletTransactions']);
+            Route::get('wallet/transaction/{slug}', [WalletController::class, 'walletTransactionDetails']);
             Route::get('profile', [ProfileController::class, 'profile']);
             Route::post('update-profile', [ProfileController::class, 'updateProfile']);
             Route::post('password', [ProfileController::class, 'updatePassword']);
             Route::post('logout', [AuthController::class, 'logout']);
             Route::delete('delete-account', [ProfileController::class, 'deleteAccount']);
-
         });
     });
 
-    Route::prefix('tools')->middleware(['auth:sanctum','throttle:15,1'])->group(function () {
+    Route::prefix('tools')->middleware(['throttle:15,1'])->group(function () {
         Route::get('/', [HomeController::class, 'index']);
         Route::get('/{slug}', [HomeController::class, 'show']);
         Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);

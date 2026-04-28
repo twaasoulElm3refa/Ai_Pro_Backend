@@ -185,12 +185,12 @@ onMounted(loadTool);
 }
 
 /* TEXT */
-.text-main { color: #074377; }
+.text-main { color: #154677; }
 .text-muted { color: #6b7280; }
 
 /* BADGE */
 .badge {
-    background: #074377;
+    background: #154677;
     color: #fff;
     padding: 6px 14px;
     border-radius: 999px;
@@ -204,7 +204,7 @@ onMounted(loadTool);
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #074377;
+    background: #154677;
     color: #fff;
     padding: 10px 18px;
     border-radius: 999px;
@@ -216,7 +216,7 @@ onMounted(loadTool);
     white-space: nowrap;
     align-self: flex-start;
 }
-.back-button:hover { background: #053660; }
+.back-button:hover { background: #2ba6de; }
 
 /* ─── HERO CARD ─────────────────────────────── */
 .tool-hero-card {
@@ -251,7 +251,7 @@ onMounted(loadTool);
     align-items: center;
     justify-content: center;
     font-size: 36px;
-    color: #074377;
+    color: #154677;
 }
 
 .tool-hero-info {
@@ -261,7 +261,7 @@ onMounted(loadTool);
 .tool-hero-title {
     font-size: 22px;
     font-weight: 700;
-    color: #074377;
+    color: #154677;
 }
 
 .tool-hero-desc {
@@ -281,7 +281,7 @@ onMounted(loadTool);
 .section-title {
     font-size: 20px;
     font-weight: 700;
-    color: #074377;
+    color: #154677;
 }
 
 .section-sub {
@@ -291,7 +291,7 @@ onMounted(loadTool);
 }
 
 .count-badge {
-    background: #074377;
+    background: #154677;
     color: #fff;
     width: 32px;
     height: 32px;
@@ -334,7 +334,7 @@ onMounted(loadTool);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #074377;
+    color: #154677;
     font-size: 18px;
 }
 
@@ -352,13 +352,13 @@ onMounted(loadTool);
 
 .status-chip.inactive {
     background: #fee2e2;
-    color: #991b1b;
+    color: #154677;
 }
 
 .subtool-title {
     font-size: 15px;
     font-weight: 700;
-    color: #074377;
+    color: #154677;
     margin: 0;
 }
 
@@ -410,7 +410,7 @@ onMounted(loadTool);
     display: flex;
     align-items: center;
     gap: 6px;
-    background: #074377;
+    background: #154677;
     color: #fff;
     border: none;
     padding: 9px 16px;
@@ -424,7 +424,7 @@ onMounted(loadTool);
 }
 
 .chat-button:hover {
-    background: #053660;
+    background: #2ba6de;
     transform: scale(1.04);
 }
 

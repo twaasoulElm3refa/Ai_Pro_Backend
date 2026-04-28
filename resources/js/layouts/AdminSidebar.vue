@@ -76,7 +76,8 @@
 
             <!-- PAYMENTS -->
             <div v-if="sidebarItems.payments" class="sidebar-group">
-                <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: paymentsActive }" @click="toggle('payments')">
+                <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: paymentsActive }"
+                    @click="toggle('payments')">
                     <span class="sidebar-link-content">
                         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none">
                             <rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.8" />
@@ -156,9 +157,22 @@
 
         </div>
 
-        <!-- Logout -->
-        <div class="sidebar-bottom" v-if="sidebarItems.logout">
-            <RouterLink to="/admin/logout" class="sidebar-btn danger-item logout-btn">
+        <!-- Bottom -->
+        <div class="sidebar-bottom">
+
+            <!-- Visit Site -->
+            <a href="/ar" target="_blank" class="sidebar-btn">
+                <span class="sidebar-link-content">
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none">
+                        <path d="M14 3h7v7M21 3l-9 9" stroke="currentColor" stroke-width="1.8" />
+                        <path d="M5 5v14h14" stroke="currentColor" stroke-width="1.8" />
+                    </svg>
+                    <span>Visit Site</span>
+                </span>
+            </a>
+
+            <!-- Logout -->
+            <RouterLink v-if="sidebarItems.logout" to="/admin/logout" class="sidebar-btn danger-item logout-btn">
                 <span class="sidebar-link-content">
                     <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="1.8" />
@@ -167,6 +181,7 @@
                     <span>Logout</span>
                 </span>
             </RouterLink>
+
         </div>
 
     </aside>
@@ -297,6 +312,7 @@ const toggleSidebarItem = (key) => {
     padding: 12px 16px;
     border-radius: 12px;
     border: none;
+    margin-top: 5px;
     font-weight: 600;
     font-size: 0.95rem;
     cursor: pointer;

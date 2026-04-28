@@ -381,7 +381,7 @@ async function handleSubmit() {
   padding: 7px 12px;
   border-radius: 999px;
   background: rgba(99, 102, 241, 0.1);
-  color: #4f46e5;
+  color: #154677;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -413,7 +413,7 @@ async function handleSubmit() {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.75);
   border: 1px solid rgba(226, 232, 240, 0.9);
-  color: #111827;
+  color: #154677;
   text-decoration: none;
   font-weight: 700;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
@@ -455,7 +455,7 @@ async function handleSubmit() {
 .glow-1 {
   width: 220px;
   height: 220px;
-  background: #6366f1;
+  background: #2ba6de;
   top: -70px;
   right: -60px;
 }
@@ -486,7 +486,7 @@ async function handleSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #4f46e5, #8b5cf6);
+  background: linear-gradient(135deg, #154677, #2ba6de);
   color: #fff;
   box-shadow: 0 16px 30px rgba(99, 102, 241, 0.25);
   flex-shrink: 0;
@@ -501,7 +501,7 @@ async function handleSubmit() {
   margin: 0;
   font-size: 24px;
   font-weight: 900;
-  color: #111827;
+  color: #154677;
 }
 
 .card-text {
@@ -551,13 +551,13 @@ async function handleSubmit() {
 }
 
 .input-wrap:focus-within {
-  border-color: #6366f1;
+  border-color: #2ba6de;
   background: #fff;
   box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.1);
 }
 
 .input-wrap.invalid {
-  border-color: #ef4444;
+  border-color: #154677;
   box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.08);
 }
 
@@ -583,7 +583,7 @@ async function handleSubmit() {
   background: transparent;
   padding: 0 16px 0 0;
   font-size: 15px;
-  color: #111827;
+  color: #154677;
 }
 
 .form-input::placeholder {
@@ -598,7 +598,7 @@ async function handleSubmit() {
   border: none;
   border-radius: 12px;
   background: #eef2ff;
-  color: #4f46e5;
+  color: #154677;
   font-weight: 800;
   font-size: 12px;
   cursor: pointer;
@@ -611,7 +611,7 @@ async function handleSubmit() {
 
 .error-text {
   margin-top: 8px;
-  color: #dc2626;
+  color: #154677;
   font-size: 12px;
   font-weight: 700;
 }
@@ -645,7 +645,7 @@ async function handleSubmit() {
 }
 
 .role-card.active {
-  border-color: #6366f1;
+  border-color: #2ba6de;
   box-shadow:
     0 18px 35px rgba(99, 102, 241, 0.14),
     0 0 0 4px rgba(99, 102, 241, 0.08);
@@ -678,14 +678,14 @@ async function handleSubmit() {
 
 .role-badge.user {
   background: #dbeafe;
-  color: #1d4ed8;
+  color: #154677;
 }
 
 .role-check {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #4f46e5;
+  background: #154677;
   color: #fff;
   display: flex;
   align-items: center;
@@ -701,7 +701,7 @@ async function handleSubmit() {
   margin: 0;
   font-size: 18px;
   font-weight: 900;
-  color: #111827;
+  color: #154677;
 }
 
 .role-desc {
@@ -783,7 +783,7 @@ async function handleSubmit() {
 
 .btn-light {
   background: rgba(255, 255, 255, 0.92);
-  color: #111827;
+  color: #154677;
   border: 1px solid #e5e7eb;
 }
 
@@ -794,7 +794,7 @@ async function handleSubmit() {
 
 .btn-primary {
   min-width: 180px;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  background: linear-gradient(135deg, #154677, #2ba6de);
   color: #fff;
   box-shadow: 0 18px 35px rgba(99, 102, 241, 0.25);
 }

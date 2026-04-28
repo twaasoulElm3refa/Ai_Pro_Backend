@@ -1,8 +1,10 @@
 <template>
-    <div class="d-flex align-items-center justify-content-center min-vh-100">
-        <div class="text-center">
-            <h2>جارٍ تسجيل الدخول عبر Google...</h2>
-            <p v-if="error" class="text-danger mt-3">{{ error }}</p>
+    <div class="google-callback d-flex align-items-center justify-content-center min-vh-100 px-4">
+        <div class="callback-card text-center">
+            <div class="spinner-ring mx-auto mb-4"></div>
+            <h2 class="callback-title">Signing you in with Google...</h2>
+            <p v-if="!error" class="callback-subtitle mt-3">Please wait while we complete your sign-in.</p>
+            <p v-else class="callback-error mt-3">{{ error }}</p>
         </div>
     </div>
 </template>
@@ -46,3 +48,50 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+.google-callback {
+    background: linear-gradient(135deg, #f8fbff, #eef7fc);
+}
+
+.callback-card {
+    width: min(100%, 30rem);
+    padding: 2.5rem 2rem;
+    border-radius: 1.75rem;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(21, 70, 119, 0.1);
+    box-shadow: 0 28px 50px rgba(21, 70, 119, 0.1);
+}
+
+.spinner-ring {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 999px;
+    border: 4px solid rgba(43, 166, 222, 0.18);
+    border-top-color: #154677;
+    animation: spin 0.8s linear infinite;
+}
+
+.callback-title {
+    color: #154677;
+    font-weight: 700;
+}
+
+.callback-subtitle {
+    color: #5f7288;
+}
+
+.callback-error {
+    color: #154677;
+    background: rgba(21, 70, 119, 0.08);
+    border: 1px solid rgba(21, 70, 119, 0.12);
+    border-radius: 1rem;
+    padding: 0.875rem 1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+</style>

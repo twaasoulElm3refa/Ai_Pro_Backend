@@ -2,8 +2,8 @@
     <AdminLayout>
         <section class="mx-auto max-w-3xl space-y-6">
             <div>
-                <p class="text-sm font-semibold uppercase tracking-wide text-amber-500">Admin Settings</p>
-                <h1 class="mt-1 text-3xl font-bold text-slate-950 dark:text-white">Update profile</h1>
+                <p class="text-sm font-semibold uppercase tracking-wide text-[#2ba6de]">Admin Settings</p>
+                <h1 class="mt-1 text-3xl font-bold text-[#154677] dark:text-white">Update profile</h1>
             </div>
 
             <div v-if="loading" class="h-80 animate-pulse rounded-xl bg-white shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800"></div>
@@ -15,11 +15,11 @@
                         <input
                             v-model.trim="form.name"
                             type="text"
-                            class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 shadow-sm outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                            :class="{ 'border-red-400 focus:border-red-500 focus:ring-red-500/15': errors.name }"
+                            class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-[#154677] shadow-sm outline-none transition focus:border-[#2ba6de] focus:ring-4 focus:ring-[#2ba6de]/15 dark:border-slate-700 dark:bg-[#154677] dark:text-white"
+                            :class="{ 'border-[#2ba6de] focus:border-[#2ba6de] focus:ring-[#2ba6de]/15': errors.name }"
                             autocomplete="name"
                         />
-                        <p v-if="errors.name" class="mt-2 text-sm font-medium text-red-600">{{ errors.name }}</p>
+                        <p v-if="errors.name" class="mt-2 text-sm font-medium text-[#154677]">{{ errors.name }}</p>
                     </label>
 
                     <label class="block">
@@ -27,21 +27,21 @@
                         <input
                             v-model.trim="form.email"
                             type="email"
-                            class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 shadow-sm outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                            :class="{ 'border-red-400 focus:border-red-500 focus:ring-red-500/15': errors.email }"
+                            class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-[#154677] shadow-sm outline-none transition focus:border-[#2ba6de] focus:ring-4 focus:ring-[#2ba6de]/15 dark:border-slate-700 dark:bg-[#154677] dark:text-white"
+                            :class="{ 'border-[#2ba6de] focus:border-[#2ba6de] focus:ring-[#2ba6de]/15': errors.email }"
                             autocomplete="email"
                         />
-                        <p v-if="errors.email" class="mt-2 text-sm font-medium text-red-600">{{ errors.email }}</p>
+                        <p v-if="errors.email" class="mt-2 text-sm font-medium text-[#154677]">{{ errors.email }}</p>
                     </label>
                 </div>
 
                 <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <RouterLink to="/admin/profile" class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                    <RouterLink to="/admin/profile" class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-[#2ba6de]">
                         Cancel
                     </RouterLink>
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#154677] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2ba6de] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                         :disabled="submitting"
                     >
                         <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>

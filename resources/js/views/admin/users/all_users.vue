@@ -264,8 +264,8 @@ function initials(name = "") {
 }
 
 const palette = [
-    "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b",
-    "#10b981", "#3b82f6", "#ef4444", "#14b8a6",
+    "#2ba6de", "#2ba6de", "#2ba6de", "#2ba6de",
+    "#2ba6de", "#2ba6de", "#154677", "#2ba6de",
 ];
 
 function avatarColor(name = "") {
@@ -380,7 +380,7 @@ async function deleteUser(id) {
     font-size: .75rem;
     font-weight: 600;
     letter-spacing: .08em;
-    color: #6366f1;
+    color: #2ba6de;
     text-transform: uppercase;
     margin-bottom: .3rem;
 }
@@ -412,7 +412,7 @@ async function deleteUser(id) {
 .badge-count {
     font-size: 1.6rem;
     font-weight: 800;
-    color: #6366f1;
+    color: #2ba6de;
     line-height: 1;
 }
 
@@ -529,7 +529,7 @@ async function deleteUser(id) {
 .user-name {
     display: block;
     font-weight: 700;
-    color: #1f2937;
+    color: #2ba6de;
     font-size: .9rem;
 }
 
@@ -564,7 +564,7 @@ async function deleteUser(id) {
 
 .role-admin {
     background: #fee2e2;
-    color: #dc2626;
+    color: #154677;
 }
 
 .role-user {
@@ -574,12 +574,12 @@ async function deleteUser(id) {
 
 .role-moderator {
     background: #fef3c7;
-    color: #d97706;
+    color: #2ba6de;
 }
 
 .role-default {
     background: #ede9fe;
-    color: #7c3aed;
+    color: #2ba6de;
 }
 
 /* ── Wallet ── */
@@ -591,12 +591,12 @@ async function deleteUser(id) {
 
 .wallet-icon {
     font-size: .9rem;
-    color: #f59e0b;
+    color: #2ba6de;
 }
 
 .wallet-balance {
     font-weight: 700;
-    color: #1f2937;
+    color: #2ba6de;
 }
 
 /* ── Last Seen ── */
@@ -614,7 +614,7 @@ async function deleteUser(id) {
     padding: .4rem .9rem;
     border-radius: 10px;
     background: #ede9fe;
-    color: #6366f1;
+    color: #2ba6de;
     border: none;
     font-size: .8rem;
     font-weight: 700;
@@ -736,12 +736,12 @@ async function deleteUser(id) {
 .page-btn:hover:not(:disabled) {
     background: #ede9fe;
     border-color: #c4b5fd;
-    color: #6366f1;
+    color: #2ba6de;
 }
 
 .page-btn.active {
-    background: #6366f1;
-    border-color: #6366f1;
+    background: #2ba6de;
+    border-color: #2ba6de;
     color: #fff;
 }
 
@@ -789,17 +789,17 @@ async function deleteUser(id) {
 
 /* View */
 .btn-view {
-    color: #3b82f6;
+    color: #2ba6de;
 }
 
 .btn-view:hover {
-    color: #1d4ed8;
+    color: #154677;
     transform: scale(1.1);
 }
 
 /* Edit */
 .btn-edit {
-    color: #f59e0b;
+    color: #2ba6de;
     background-color: #1a1d2e;
     padding: 5px 10px;
     margin-left: 6px;
@@ -807,20 +807,20 @@ async function deleteUser(id) {
 }
 
 .btn-edit:hover {
-    color: #d97706;
+    color: #2ba6de;
     transform: scale(1.1);
 }
 
 .status-badge.active {
     background-color: rgba(34, 197, 94, 0.15);
-    color: #22c55e;
+    color: #2ba6de;
     padding: 6px 10px;
     border-radius: 20%;
 }
 
 .status-badge.inactive {
     background-color: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
+    color: #154677;
     padding: 6px 10px;
     border-radius: 20%;
 }

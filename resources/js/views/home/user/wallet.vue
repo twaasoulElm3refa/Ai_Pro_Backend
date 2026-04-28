@@ -1,361 +1,1141 @@
 <template>
     <div class="wallet-page">
-        <!-- Loading State -->
-        <div v-if="loading" class="loading-state">
-            <div class="spinner"></div>
-            <p>جاري التحميل...</p>
-        </div>
-
-        <!-- Wallet Content -->
-        <div v-else-if="walletData" class="wallet-wrapper">
-            <!-- Header -->
-            <div class="wallet-header">
-                <h2>محفظتي</h2>
-                <p>إدارة رصيدك ومعاملاتك</p>
-            </div>
-
-            <!-- Balance Card -->
-            <div class="balance-card">
-                <div class="balance-label">الرصيد الحالي</div>
-                <div class="balance-value">
-                    {{ formatBalance(walletData?.data?.wallet?.balance ?? 0) }}
-                    <span>Points</span>
-                </div>
-                <div class="wallet-id">
-                    {{ walletData?.data?.wallet?.uuid?.slice(0, 8) || '—' }}...
-                </div>
-            </div>
-
-            <!-- User Info -->
-            <div class="user-row">
-                <div class="avatar">
-                    <img v-if="walletData.data.image" :src="getImageUrl(walletData.data.image)" class="avatar-image" />
-                    <span v-else>
-                        {{ getInitials(walletData.data.name) }}
-                    </span>
+        <div class="wallet-shell">
+            <header class="wallet-header">
+                <div>
+                    <span class="wallet-kicker">Fintech Dashboard</span>
+                    <h1>My Wallet</h1>
+                    <p>Track your balance, review transaction flow, and inspect wallet activity in one place.</p>
                 </div>
 
-                <div class="user-details">
-                    <h3>{{ walletData.data.name }}</h3>
-                    <p>{{ walletData.data.email }}</p>
-                </div>
-
-                <span class="role-badge">
-                    {{ walletData.data.role }}
-                </span>
-            </div>
-
-            <!-- Info Grid -->
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="info-label">رقم المحفظة</span>
-                    <span class="info-value">{{ walletData?.data?.wallet?.uuid || '—' }}...</span>
-                </div>
-
-                <div class="info-item">
-                    <span class="info-label">تاريخ الإنشاء</span>
-                    <span class="info-value">{{ formatDate(walletData?.data?.wallet?.created_at) }}</span>
-                </div>
-
-                <div class="info-item">
-                    <span class="info-label">آخر عملية</span>
-                    <span class="info-value">{{ formatLastSeen(walletData?.data?.wallet?.updated_at) }}</span>
-                </div>
-
-                <div class="info-item">
-                    <span class="info-label">الحالة</span>
-                    <span class="status-badge" :class="{ active: walletData?.data?.wallet?.is_active }">
-                        {{ walletData?.data?.wallet?.is_active ? 'نشطة' : 'غير نشطة' }}
-                    </span>
-                </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="actions">
-                <button class="btn-charge" @click="chargeWallet(walletData?.data?.wallet?.uuid)" :disabled="isCharging">
-                    {{ isCharging ? 'جاري...' : 'شحن الرصيد' }}
+                <button class="charge-button" @click="chargeWallet" :disabled="!wallet?.uuid || isCharging">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    <span>{{ isCharging ? "Preparing..." : "Charge Wallet" }}</span>
                 </button>
+            </header>
+
+            <section class="balance-grid">
+                <article class="balance-card">
+                    <div class="balance-card__glow"></div>
+                    <div class="balance-card__content">
+                        <p class="balance-card__label">Current Balance</p>
+                        <div class="balance-card__value">
+                            {{ formatPoints(wallet?.balance) }}
+                            <span>Points</span>
+                        </div>
+                        <div class="balance-card__meta">
+                            <span>Wallet ID</span>
+                            <strong>{{ shortUuid }}</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="summary-card">
+                    <div class="summary-card__row">
+                        <div>
+                            <p class="summary-card__label">Credits on this page</p>
+                            <h3>{{ formatPoints(summary.credits) }}</h3>
+                        </div>
+                        <span class="summary-chip">Credit</span>
+                    </div>
+
+                    <div class="summary-card__row">
+                        <div>
+                            <p class="summary-card__label">Debits on this page</p>
+                            <h3>{{ formatPoints(summary.debits) }}</h3>
+                        </div>
+                        <span class="summary-chip summary-chip--soft">Debit</span>
+                    </div>
+
+                    <div class="summary-card__footer">
+                        <div>
+                            <span class="summary-card__small">Transactions Loaded</span>
+                            <strong>{{ pagination.total || transactions.length }}</strong>
+                        </div>
+                        <div>
+                            <span class="summary-card__small">Last update</span>
+                            <strong>{{ formatDate(wallet?.updated_at) }}</strong>
+                        </div>
+                    </div>
+                </article>
+            </section>
+
+            <section class="wallet-tabs">
+                <button
+                    type="button"
+                    class="wallet-tab"
+                    :class="{ 'is-active': activeTab === 'wallet' }"
+                    @click="activeTab = 'wallet'"
+                >
+                    Wallet
+                </button>
+                <button
+                    type="button"
+                    class="wallet-tab"
+                    :class="{ 'is-active': activeTab === 'transactions' }"
+                    @click="activeTab = 'transactions'"
+                >
+                    Transactions
+                </button>
+            </section>
+
+            <Transition name="wallet-tab-switch" mode="out-in">
+                <section v-if="activeTab === 'wallet'" key="wallet" class="wallet-panel">
+                    <div v-if="loadingWallet" class="panel-grid">
+                        <div v-for="item in 4" :key="item" class="panel-skeleton"></div>
+                    </div>
+
+                    <div v-else-if="wallet" class="panel-grid">
+                        <article class="info-card">
+                            <span class="info-card__label">Account Holder</span>
+                            <h3>{{ wallet.user?.name || "Unknown user" }}</h3>
+                            <p>{{ wallet.user?.email || "No email available" }}</p>
+                        </article>
+
+                        <article class="info-card">
+                            <span class="info-card__label">Wallet Status</span>
+                            <h3>{{ wallet.is_active ? "Active" : "Inactive" }}</h3>
+                            <p>{{ wallet.is_active ? "Ready for credits and debits." : "Wallet activity is paused." }}</p>
+                        </article>
+
+                        <article class="info-card">
+                            <span class="info-card__label">Created At</span>
+                            <h3>{{ formatDate(wallet.created_at) }}</h3>
+                            <p>Wallet creation timestamp</p>
+                        </article>
+
+                        <article class="info-card">
+                            <span class="info-card__label">Updated At</span>
+                            <h3>{{ formatDate(wallet.updated_at) }}</h3>
+                            <p>Most recent wallet refresh</p>
+                        </article>
+                    </div>
+
+                    <div v-else class="empty-state">
+                        <div class="empty-state__icon"><i class="bi bi-wallet2"></i></div>
+                        <h3>Wallet data is unavailable</h3>
+                        <p>We could not load the wallet profile right now.</p>
+                        <button class="inline-action" @click="fetchWallet">Try Again</button>
+                    </div>
+                </section>
+
+                <section v-else key="transactions" class="wallet-panel">
+                    <div class="transactions-header">
+                        <div>
+                            <h2>Transaction Activity</h2>
+                            <p>Review credits, debits, and wallet balance movement over time.</p>
+                        </div>
+                    </div>
+
+                    <div v-if="loadingTransactions" class="transactions-list">
+                        <div v-for="item in 5" :key="item" class="transaction-skeleton"></div>
+                    </div>
+
+                    <template v-else>
+                        <div v-if="transactions.length" class="transactions-list">
+                            <button
+                                v-for="transaction in transactions"
+                                :key="transaction.slug || transaction.id"
+                                type="button"
+                                class="transaction-card"
+                                @click="openTransactionDetails(transaction.slug)"
+                            >
+                                <div class="transaction-card__left">
+                                    <span class="type-badge" :class="transaction.type === 'credit' ? 'credit' : 'debit'">
+                                        {{ transaction.type || "unknown" }}
+                                    </span>
+                                    <div>
+                                        <h3>{{ formatSignedPoints(transaction.points, transaction.type) }}</h3>
+                                        <p>
+                                            {{ formatPoints(transaction.balance_before) }}
+                                            <i class="bi bi-arrow-left-right"></i>
+                                            {{ formatPoints(transaction.balance_after) }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="transaction-card__right">
+                                    <strong>{{ formatDateTime(transaction.created_at) }}</strong>
+                                    <span>#{{ transaction.id }}</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div v-else class="empty-state">
+                            <div class="empty-state__icon"><i class="bi bi-receipt"></i></div>
+                            <h3>No transactions yet</h3>
+                            <p>Your wallet activity will appear here once credits or debits are recorded.</p>
+                        </div>
+
+                        <div v-if="pagination.lastPage > 1" class="pagination-bar">
+                            <button
+                                type="button"
+                                class="pagination-button"
+                                :disabled="pagination.currentPage <= 1 || loadingTransactions"
+                                @click="changePage(pagination.currentPage - 1)"
+                            >
+                                Previous
+                            </button>
+
+                            <div class="pagination-meta">
+                                <span>Page {{ pagination.currentPage }} of {{ pagination.lastPage }}</span>
+                                <strong>{{ pagination.total }} transactions</strong>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="pagination-button"
+                                :disabled="pagination.currentPage >= pagination.lastPage || loadingTransactions"
+                                @click="changePage(pagination.currentPage + 1)"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </template>
+                </section>
+            </Transition>
+
+            <div v-if="error" class="error-banner">
+                <i class="bi bi-exclamation-circle"></i>
+                <span>{{ error }}</span>
             </div>
         </div>
 
-        <!-- Error -->
-        <div v-else-if="error" class="error-state">
-            <div class="error-icon">!</div>
-            <h3>حدث خطأ</h3>
-            <p>{{ error }}</p>
-            <button @click="fetchWallet" class="retry-btn">
-                إعادة المحاولة
-            </button>
-        </div>
+        <Teleport to="body">
+            <Transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div v-if="detailsModalOpen" class="details-overlay" @click.self="closeTransactionDetails">
+                    <div class="details-modal">
+                        <div class="details-modal__header">
+                            <div>
+                                <p class="details-modal__kicker">Transaction Details</p>
+                                <h2>{{ selectedTransaction?.slug || "Wallet Transaction" }}</h2>
+                            </div>
+                            <button type="button" class="details-close" @click="closeTransactionDetails">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <div v-if="loadingDetails" class="details-skeletons">
+                            <div v-for="item in 4" :key="item" class="details-skeleton"></div>
+                        </div>
+
+                        <template v-else-if="selectedTransaction">
+                            <div class="details-grid">
+                                <article class="details-item">
+                                    <span>Type</span>
+                                    <strong>{{ selectedTransaction.type || "-" }}</strong>
+                                </article>
+                                <article class="details-item">
+                                    <span>Points</span>
+                                    <strong>{{ formatSignedPoints(selectedTransaction.points, selectedTransaction.type) }}</strong>
+                                </article>
+                                <article class="details-item">
+                                    <span>Balance Before</span>
+                                    <strong>{{ formatPoints(selectedTransaction.balance_before) }}</strong>
+                                </article>
+                                <article class="details-item">
+                                    <span>Balance After</span>
+                                    <strong>{{ formatPoints(selectedTransaction.balance_after) }}</strong>
+                                </article>
+                                <article class="details-item">
+                                    <span>User</span>
+                                    <strong>{{ selectedTransaction.user?.name || wallet?.user?.name || "-" }}</strong>
+                                </article>
+                                <article class="details-item">
+                                    <span>Email</span>
+                                    <strong>{{ selectedTransaction.user?.email || wallet?.user?.email || "-" }}</strong>
+                                </article>
+                            </div>
+
+                            <div class="details-summary">
+                                <div>
+                                    <span>Transaction Date</span>
+                                    <strong>{{ formatDateTime(selectedTransaction.created_at) }}</strong>
+                                </div>
+                                <div>
+                                    <span>Reference</span>
+                                    <strong>{{ selectedTransaction.slug || "-" }}</strong>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>
 
-<script>
-import walletService from '../../../services/profile/walletService';
+<script setup>
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import walletService from "@/services/profile/walletService";
 
-export default {
-    data() {
-        return {
-            walletData: null,
-            loading: true,
-            error: null,
-            isCharging: false
-        };
-    },
+const router = useRouter();
+const route = useRoute();
 
-    mounted() {
-        this.fetchWallet();
-    },
+const wallet = ref(null);
+const transactions = ref([]);
+const loadingWallet = ref(true);
+const loadingTransactions = ref(true);
+const loadingDetails = ref(false);
+const error = ref("");
+const isCharging = ref(false);
+const activeTab = ref("wallet");
+const detailsModalOpen = ref(false);
+const selectedTransaction = ref(null);
 
-    methods: {
-        async fetchWallet() {
-            this.loading = true;
-            this.error = null;
+const pagination = ref({
+    currentPage: 1,
+    lastPage: 1,
+    total: 0,
+});
 
-            try {
-                const res = await walletService.getWallet();
-                this.walletData = res;
-            } catch (e) {
-                this.error = e.response?.data?.message || 'فشل في تحميل البيانات';
-            } finally {
-                this.loading = false;
-            }
+const summary = computed(() => {
+    return transactions.value.reduce(
+        (acc, transaction) => {
+            const value = Number(transaction.points || 0);
+            if (transaction.type === "credit") acc.credits += value;
+            if (transaction.type === "debit") acc.debits += value;
+            return acc;
         },
+        { credits: 0, debits: 0 }
+    );
+});
 
-        getImageUrl(path) {
-            if (!path) return '';
-            if (path.startsWith('http')) return path;
-            return `/storage/${path}`;
-        },
+const shortUuid = computed(() => {
+    if (!wallet.value?.uuid) return "No wallet reference";
+    return `${wallet.value.uuid.slice(0, 12)}...`;
+});
 
-        chargeWallet(uuid) {
-            if (!uuid) return;
+const mapTransactionsPayload = (payload = {}) => {
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
 
-            this.isCharging = true;
+    transactions.value = rows;
+    pagination.value = {
+        currentPage: payload.current_page || 1,
+        lastPage: payload.last_page || 1,
+        total: payload.total || rows.length,
+    };
+};
 
-            try {
-                this.$router.push({
-                    name: 'charge-wallet',
-                    params: { uuid }
-                });
-            } catch (e) {
-                console.error('Router error:', e);
-            } finally {
-                this.isCharging = false;
-            }
-        },
+const fetchWallet = async () => {
+    loadingWallet.value = true;
+    error.value = "";
 
-        formatBalance(b) {
-            return new Intl.NumberFormat('en').format(b || 0);
-        },
-
-        formatDate(d) {
-            if (!d) return '—';
-            return new Date(d).toLocaleDateString('en');
-        },
-
-        formatLastSeen(d) {
-            if (!d) return '—';
-
-            const diff = (Date.now() - new Date(d)) / 60000;
-
-            if (diff < 1) return 'الآن';
-            if (diff < 60) return `منذ ${Math.floor(diff)} دقيقة`;
-            if (diff < 1440) return `منذ ${Math.floor(diff / 60)} ساعة`;
-
-            return this.formatDate(d);
-        },
-
-        getInitials(name) {
-            return name ? name[0].toUpperCase() : '?';
-        }
+    try {
+        const response = await walletService.getWallet();
+        wallet.value = response?.data || null;
+    } catch (err) {
+        error.value = err.response?.data?.message || "Failed to load wallet data.";
+    } finally {
+        loadingWallet.value = false;
     }
 };
+
+const fetchTransactions = async (page = 1) => {
+    loadingTransactions.value = true;
+    error.value = "";
+
+    try {
+        const response = await walletService.getTransactions(page);
+        mapTransactionsPayload(response?.data || {});
+    } catch (err) {
+        transactions.value = [];
+        pagination.value = { currentPage: 1, lastPage: 1, total: 0 };
+        error.value = err.response?.data?.message || "Failed to load wallet transactions.";
+    } finally {
+        loadingTransactions.value = false;
+    }
+};
+
+const changePage = (page) => {
+    if (page < 1 || page > pagination.value.lastPage || loadingTransactions.value) return;
+    fetchTransactions(page);
+};
+
+const openTransactionDetails = async (slug) => {
+    if (!slug) return;
+
+    detailsModalOpen.value = true;
+    loadingDetails.value = true;
+
+    try {
+        const response = await walletService.getTransactionDetails(slug);
+        selectedTransaction.value = response?.data || null;
+    } catch (err) {
+        selectedTransaction.value = null;
+        error.value = err.response?.data?.message || "Failed to load transaction details.";
+    } finally {
+        loadingDetails.value = false;
+    }
+};
+
+const closeTransactionDetails = () => {
+    detailsModalOpen.value = false;
+    selectedTransaction.value = null;
+};
+
+const chargeWallet = () => {
+    if (!wallet.value?.uuid) return;
+
+    isCharging.value = true;
+    router.push({
+        name: "charge-wallet",
+        params: {
+            lang: route.params.lang,
+            uuid: wallet.value.uuid,
+        },
+    }).finally(() => {
+        isCharging.value = false;
+    });
+};
+
+const formatPoints = (value) => {
+    return new Intl.NumberFormat("en-US").format(Number(value || 0));
+};
+
+const formatSignedPoints = (value, type) => {
+    const amount = formatPoints(value);
+    return type === "debit" ? `- ${amount}` : `+ ${amount}`;
+};
+
+const formatDate = (value) => {
+    if (!value) return "—";
+
+    return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    }).format(new Date(value));
+};
+
+const formatDateTime = (value) => {
+    if (!value) return "—";
+
+    return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(new Date(value));
+};
+
+onMounted(() => {
+    fetchWallet();
+    fetchTransactions();
+});
 </script>
 
 <style scoped>
-@import url('https://fonts.cdnfonts.com/css/year-of-the-camel');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
 
 .wallet-page {
-    padding: 16px;
-    background: #fff;
-    min-height: 70vh;
-    font-family: 'Year of the Camel', sans-serif;
+    min-height: 100vh;
+    padding: 32px 18px 48px;
+    background: linear-gradient(180deg, #f8fbff 0%, #eef7fc 100%);
+    font-family: 'Cairo', sans-serif;
+    direction: rtl;
 }
 
-/* Loading */
-.loading-state {
-    text-align: center;
-    padding: 40px;
+.wallet-shell {
+    max-width: 1120px;
+    margin: 0 auto;
 }
 
-.spinner {
-    width: 28px;
-    height: 28px;
-    border: 2px solid #eee;
-    border-top: 2px solid #074377;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    margin: auto;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Wrapper */
-.wallet-wrapper {
-    max-width: 600px;
-    margin: auto;
-}
-
-/* Header */
 .wallet-header {
-    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 26px;
 }
 
-.wallet-header h2 {
-    font-size: 20px;
-    color: #074377;
+.wallet-kicker {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(43, 166, 222, 0.1);
+    color: #154677;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.wallet-header h1 {
+    margin: 14px 0 8px;
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    line-height: 1.05;
+    color: #154677;
+    font-weight: 800;
 }
 
 .wallet-header p {
-    font-size: 12px;
-    color: #888;
+    margin: 0;
+    max-width: 42rem;
+    color: #5f7288;
+    line-height: 1.8;
 }
 
-/* Balance */
+.charge-button {
+    min-height: 50px;
+    padding: 0 18px;
+    border: none;
+    border-radius: 1rem;
+    background: #2ba6de;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    box-shadow: 0 18px 35px rgba(21, 70, 119, 0.18);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.charge-button:hover:not(:disabled) {
+    transform: scale(1.02);
+    background: #2398cb;
+    box-shadow: 0 24px 42px rgba(21, 70, 119, 0.22);
+}
+
+.charge-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.balance-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.95fr);
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.balance-card,
+.summary-card,
+.wallet-panel,
+.error-banner,
+.details-modal {
+    background: #ffffff;
+    border: 1px solid rgba(21, 70, 119, 0.1);
+    box-shadow: 0 24px 46px rgba(21, 70, 119, 0.1);
+}
+
 .balance-card {
-    background: #074377;
-    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    min-height: 220px;
+    border-radius: 1.75rem;
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    color: #ffffff;
+}
+
+.balance-card__glow {
+    position: absolute;
+    inset: auto -80px -80px auto;
+    width: 220px;
+    height: 220px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    filter: blur(12px);
+}
+
+.balance-card__content {
+    position: relative;
+    padding: 30px;
+    z-index: 1;
+}
+
+.balance-card__label {
+    margin: 0 0 14px;
+    font-size: 0.9rem;
+    opacity: 0.88;
+}
+
+.balance-card__value {
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+}
+
+.balance-card__value span {
+    font-size: 1rem;
+    font-weight: 600;
+    opacity: 0.9;
+    margin-inline-start: 8px;
+}
+
+.balance-card__meta {
+    margin-top: 18px;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(14px);
+}
+
+.balance-card__meta span {
+    font-size: 0.76rem;
+    opacity: 0.8;
+}
+
+.balance-card__meta strong {
+    font-size: 0.92rem;
+    letter-spacing: 0.04em;
+}
+
+.summary-card {
+    border-radius: 1.75rem;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.summary-card__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(21, 70, 119, 0.08);
+}
+
+.summary-card__row:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.summary-card__label,
+.summary-card__small {
+    display: block;
+    color: #5f7288;
+    font-size: 0.85rem;
+}
+
+.summary-card h3 {
+    margin: 8px 0 0;
+    color: #154677;
+    font-size: 1.7rem;
+    font-weight: 800;
+}
+
+.summary-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 78px;
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.summary-chip--soft {
+    background: rgba(43, 166, 222, 0.1);
+    color: #154677;
+}
+
+.summary-card__footer {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    padding-top: 10px;
+}
+
+.summary-card__footer strong {
+    display: block;
+    margin-top: 6px;
+    color: #154677;
+}
+
+.wallet-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    background: #ffffff;
+    border: 1px solid rgba(21, 70, 119, 0.1);
+    border-radius: 1.1rem;
+    box-shadow: 0 14px 28px rgba(21, 70, 119, 0.08);
+    margin-bottom: 22px;
+}
+
+.wallet-tab {
+    min-width: 138px;
+    min-height: 46px;
+    border: none;
+    border-radius: 0.9rem;
+    background: transparent;
+    color: #5f7288;
+    font-weight: 700;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.wallet-tab:hover {
+    transform: scale(1.02);
+    color: #154677;
+}
+
+.wallet-tab.is-active {
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    color: #ffffff;
+    box-shadow: 0 18px 32px rgba(21, 70, 119, 0.16);
+}
+
+.wallet-panel {
+    border-radius: 1.75rem;
+    padding: 24px;
+}
+
+.panel-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.panel-skeleton,
+.transaction-skeleton,
+.details-skeleton {
+    border-radius: 1.25rem;
+    background: linear-gradient(90deg, #eef5fb 25%, #e5eff7 50%, #eef5fb 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.25s linear infinite;
+}
+
+.panel-skeleton {
+    min-height: 150px;
+}
+
+.info-card {
+    border-radius: 1.35rem;
+    background: linear-gradient(180deg, #ffffff, #f9fcff);
+    border: 1px solid rgba(21, 70, 119, 0.08);
     padding: 20px;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.info-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 18px 34px rgba(21, 70, 119, 0.08);
+}
+
+.info-card__label {
+    display: block;
+    color: #5f7288;
+    font-size: 0.82rem;
+    margin-bottom: 10px;
+}
+
+.info-card h3 {
+    margin: 0;
+    color: #154677;
+    font-size: 1.2rem;
+    font-weight: 800;
+}
+
+.info-card p {
+    margin: 10px 0 0;
+    color: #5f7288;
+    line-height: 1.7;
+}
+
+.transactions-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.transactions-header h2 {
+    margin: 0 0 6px;
+    color: #154677;
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.transactions-header p {
+    margin: 0;
+    color: #5f7288;
+}
+
+.transactions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.transaction-card,
+.transaction-skeleton {
+    min-height: 108px;
+    width: 100%;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(21, 70, 119, 0.08);
+    background: linear-gradient(180deg, #ffffff, #f9fcff);
+    padding: 18px 20px;
+}
+
+.transaction-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    text-align: right;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.transaction-card:hover {
+    transform: scale(1.02);
+    border-color: rgba(43, 166, 222, 0.26);
+    box-shadow: 0 20px 38px rgba(21, 70, 119, 0.1);
+}
+
+.transaction-card__left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.transaction-card__left h3 {
+    margin: 0 0 6px;
+    color: #154677;
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.transaction-card__left p,
+.transaction-card__right span {
+    margin: 0;
+    color: #5f7288;
+    font-size: 0.9rem;
+}
+
+.transaction-card__left i {
+    margin: 0 6px;
+}
+
+.transaction-card__right {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.transaction-card__right strong {
+    color: #154677;
+    font-size: 0.92rem;
+}
+
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 78px;
+    padding: 0.65rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.type-badge.credit {
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    color: #ffffff;
+}
+
+.type-badge.debit {
+    background: rgba(43, 166, 222, 0.1);
+    color: #154677;
+}
+
+.pagination-bar {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(21, 70, 119, 0.08);
+}
+
+.pagination-button,
+.inline-action,
+.details-close {
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.pagination-button,
+.inline-action {
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 0.95rem;
+    background: #2ba6de;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.pagination-button:hover:not(:disabled),
+.inline-action:hover,
+.details-close:hover {
+    transform: scale(1.02);
+}
+
+.pagination-button:hover:not(:disabled),
+.inline-action:hover {
+    background: #2398cb;
+    box-shadow: 0 18px 34px rgba(21, 70, 119, 0.16);
+}
+
+.pagination-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.pagination-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    color: #5f7288;
+}
+
+.pagination-meta strong {
+    color: #154677;
+}
+
+.empty-state {
+    min-height: 320px;
+    border-radius: 1.35rem;
+    border: 1px dashed rgba(21, 70, 119, 0.16);
+    background: linear-gradient(180deg, #ffffff, #f8fbff);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
+    padding: 32px 20px;
+}
+
+.empty-state__icon {
+    width: 72px;
+    height: 72px;
+    display: grid;
+    place-items: center;
+    border-radius: 1.25rem;
+    background: rgba(43, 166, 222, 0.1);
+    color: #154677;
+    font-size: 1.8rem;
     margin-bottom: 16px;
 }
 
-.balance-label {
-    font-size: 12px;
-    color: #cfd8dc;
+.empty-state h3 {
+    margin: 0 0 8px;
+    color: #154677;
+    font-size: 1.25rem;
+    font-weight: 800;
 }
 
-.balance-value {
-    font-size: 30px;
-    font-weight: bold;
-    color: white;
+.empty-state p {
+    margin: 0;
+    max-width: 28rem;
+    color: #5f7288;
+    line-height: 1.8;
 }
 
-.balance-value span {
-    font-size: 12px;
-    margin-right: 4px;
-}
-
-.wallet-id {
-    font-size: 10px;
-    color: #ccc;
-}
-
-/* User */
-.user-row {
-    background: #f7f9fb;
-    border-radius: 12px;
-    padding: 12px;
+.error-banner {
+    margin-top: 18px;
+    padding: 14px 18px;
+    border-radius: 1rem;
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 16px;
+    color: #154677;
 }
 
-.avatar {
-    width: 42px;
-    height: 42px;
-    background: #074377;
-    border-radius: 50%;
+.details-overlay {
+    position: fixed;
+    inset: 0;
+    padding: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    background: rgba(21, 70, 119, 0.22);
+    backdrop-filter: blur(8px);
+    z-index: 50;
 }
 
-.avatar-image {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
+.details-modal {
+    width: min(100%, 760px);
+    border-radius: 1.75rem;
+    padding: 24px;
 }
 
-/* User text */
-.user-details h3 {
-    font-size: 14px;
+.details-modal__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.details-modal__kicker {
+    margin: 0 0 8px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #5f7288;
+}
+
+.details-modal__header h2 {
     margin: 0;
+    color: #154677;
+    font-size: 1.4rem;
+    word-break: break-word;
 }
 
-.user-details p {
-    font-size: 11px;
-    color: #777;
+.details-close {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    background: rgba(43, 166, 222, 0.1);
+    color: #154677;
 }
 
-/* Badge */
-.role-badge {
-    font-size: 10px;
-    background: #e3eef5;
-    color: #074377;
-    padding: 3px 8px;
-    border-radius: 10px;
-}
-
-/* Grid */
-.info-grid {
-    background: #f7f9fb;
-    border-radius: 12px;
-    padding: 12px;
+.details-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
 }
 
-.info-label {
-    font-size: 10px;
-    color: #888;
+.details-item,
+.details-summary {
+    border-radius: 1.2rem;
+    border: 1px solid rgba(21, 70, 119, 0.08);
+    background: linear-gradient(180deg, #ffffff, #f9fcff);
 }
 
-.info-value {
-    font-size: 12px;
-    color: #074377;
+.details-item {
+    padding: 16px;
 }
 
-.status-badge {
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 10px;
-    background: #ddd;
+.details-item span,
+.details-summary span {
+    display: block;
+    color: #5f7288;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
 }
 
-.status-badge.active {
-    background: #074377;
-    color: white;
+.details-item strong,
+.details-summary strong {
+    color: #154677;
+    font-size: 1rem;
+    word-break: break-word;
 }
 
-/* Button */
-.btn-charge {
-    width: 100%;
-    background: #074377;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 10px;
-    font-size: 13px;
-    cursor: pointer;
+.details-summary {
+    margin-top: 16px;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
 }
 
-.btn-charge:disabled {
-    opacity: 0.6;
+.details-skeletons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
 }
 
-/* Error */
-.error-state {
-    text-align: center;
-    padding: 40px;
+.details-skeleton {
+    min-height: 110px;
+}
+
+.wallet-tab-switch-enter-active,
+.wallet-tab-switch-leave-active {
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.wallet-tab-switch-enter-from,
+.wallet-tab-switch-leave-to {
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+@media (max-width: 960px) {
+    .balance-grid,
+    .details-grid,
+    .details-summary,
+    .panel-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .wallet-header,
+    .pagination-bar,
+    .transaction-card,
+    .details-modal__header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wallet-tabs {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .wallet-tab {
+        width: 100%;
+    }
+
+    .transaction-card__left,
+    .transaction-card__right {
+        align-items: flex-start;
+    }
+
+    .transaction-card__right {
+        width: 100%;
+    }
+}
+
+@media (max-width: 560px) {
+    .wallet-page {
+        padding: 20px 14px 36px;
+    }
+
+    .balance-card__content,
+    .summary-card,
+    .wallet-panel,
+    .details-modal {
+        padding: 18px;
+    }
 }
 </style>

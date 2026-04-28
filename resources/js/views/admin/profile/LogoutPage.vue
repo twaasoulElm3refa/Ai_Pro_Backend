@@ -2,8 +2,8 @@
     <AdminLayout>
         <section class="grid min-h-[60vh] place-items-center">
             <div class="rounded-xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
-                <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-amber-500"></div>
-                <h1 class="mt-5 text-xl font-bold text-slate-950 dark:text-white">Signing you out</h1>
+                <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#154677]/10 border-t-amber-500"></div>
+                <h1 class="mt-5 text-xl font-bold text-[#154677] dark:text-white">Signing you out</h1>
             </div>
         </section>
     </AdminLayout>

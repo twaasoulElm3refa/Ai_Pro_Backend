@@ -45,10 +45,12 @@ const routes = [
     {
         path: "/:lang/profile",
         component: Profile,
+        meta: { hideNavbar: false, hideFooter: true },
     },
     {
         path: "/:lang/wallet",
         component: wallet,
+        meta: { hideNavbar: false, hideFooter: true },
     },
     {
         path: "/:lang/Deposit/waiting",
@@ -69,6 +71,7 @@ const routes = [
         path: "/:lang/wallet/charge/:uuid",
         name: "charge-wallet",
         component: charge,
+        meta: { hideNavbar: false, hideFooter: true },
     },
     {
         path: "/:lang/contact",

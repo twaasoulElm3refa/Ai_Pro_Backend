@@ -3,10 +3,10 @@
         <section class="space-y-6">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <span class="inline-flex items-center rounded-full bg-[#074377]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#074377]">
+                    <span class="inline-flex items-center rounded-full bg-[#154677]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#154677]">
                         Admin Statistics
                     </span>
-                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-900">Dashboard Analytics</h1>
+                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-[#154677]">Dashboard Analytics</h1>
                     <p class="mt-2 max-w-3xl text-sm text-slate-500">
                         High-level platform metrics for payments, users, wallets, and tools, plus the latest activity across the system.
                     </p>
@@ -14,27 +14,27 @@
             </div>
 
             <div v-if="loading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div v-for="item in 4" :key="item" class="h-36 animate-pulse rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/70"></div>
+                <div v-for="item in 4" :key="item" class="h-36 animate-pulse rounded-2xl border border-[#154677]/10 bg-white shadow-sm shadow-[#154677]/10"></div>
             </div>
 
             <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <article v-for="card in topCards" :key="card.label" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 transition duration-200 hover:-translate-y-1 hover:shadow-lg">
+                <article v-for="card in topCards" :key="card.label" class="rounded-2xl border border-[#154677]/10 bg-white p-5 shadow-sm shadow-[#154677]/10 transition duration-200 hover:-translate-y-1 hover:shadow-lg">
                     <div class="flex items-center justify-between gap-3">
-                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#074377]/10 text-[#074377]">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#154677]/10 text-[#154677]">
                             <i class="bi" :class="card.icon"></i>
                         </div>
                         <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ card.label }}</span>
                     </div>
-                    <p class="mt-5 text-3xl font-bold tracking-tight text-slate-900">{{ card.value }}</p>
+                    <p class="mt-5 text-3xl font-bold tracking-tight text-[#154677]">{{ card.value }}</p>
                     <p class="mt-2 text-sm text-slate-500">{{ card.caption }}</p>
                 </article>
             </div>
 
             <div class="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-                <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
+                <section class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10">
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <h2 class="text-xl font-semibold text-slate-900">Payments Status</h2>
+                            <h2 class="text-xl font-semibold text-[#154677]">Payments Status</h2>
                             <p class="mt-1 text-sm text-slate-500">Live distribution across completed, pending, and failed transactions.</p>
                         </div>
                     </div>
@@ -42,21 +42,21 @@
                     <div v-if="loading" class="mt-6 h-64 animate-pulse rounded-2xl bg-slate-100"></div>
 
                     <div v-else class="mt-6 grid gap-6 md:grid-cols-[0.9fr_1.1fr] md:items-center">
-                        <div class="mx-auto flex h-52 w-52 items-center justify-center rounded-full border border-slate-200 bg-slate-50" :style="pieStyle">
+                        <div class="mx-auto flex h-52 w-52 items-center justify-center rounded-full border border-[#154677]/10 bg-slate-50" :style="pieStyle">
                             <div class="grid h-24 w-24 place-items-center rounded-full bg-white text-center shadow-sm">
                                 <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Payments</span>
-                                <span class="mt-1 text-2xl font-bold text-[#074377]">{{ stats.payments.total_payments }}</span>
+                                <span class="mt-1 text-2xl font-bold text-[#154677]">{{ stats.payments.total_payments }}</span>
                             </div>
                         </div>
 
                         <div class="space-y-4">
-                            <div v-for="item in paymentBreakdown" :key="item.label" class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div v-for="item in paymentBreakdown" :key="item.label" class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4">
                                 <div class="flex items-center justify-between gap-3">
                                     <div class="flex items-center gap-3">
                                         <span class="h-3 w-3 rounded-full" :style="{ backgroundColor: item.color }"></span>
                                         <span class="text-sm font-semibold text-slate-700">{{ item.label }}</span>
                                     </div>
-                                    <span class="text-sm font-bold text-slate-900">{{ item.value }}</span>
+                                    <span class="text-sm font-bold text-[#154677]">{{ item.value }}</span>
                                 </div>
                                 <div class="mt-3 h-2 rounded-full bg-slate-200">
                                     <div class="h-full rounded-full transition-all duration-500" :style="{ width: `${item.percent}%`, backgroundColor: item.color }"></div>
@@ -66,9 +66,9 @@
                     </div>
                 </section>
 
-                <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
+                <section class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10">
                     <div>
-                        <h2 class="text-xl font-semibold text-slate-900">Revenue Snapshot</h2>
+                        <h2 class="text-xl font-semibold text-[#154677]">Revenue Snapshot</h2>
                         <p class="mt-1 text-sm text-slate-500">Quick comparison between total revenue and total wallet balance.</p>
                     </div>
 
@@ -78,25 +78,25 @@
                         <div v-for="item in revenueBars" :key="item.label" class="space-y-3">
                             <div class="flex items-center justify-between gap-3">
                                 <span class="text-sm font-semibold text-slate-700">{{ item.label }}</span>
-                                <span class="text-sm font-bold text-slate-900">{{ item.display }}</span>
+                                <span class="text-sm font-bold text-[#154677]">{{ item.display }}</span>
                             </div>
                             <div class="h-3 rounded-full bg-slate-200">
-                                <div class="h-full rounded-full bg-[#074377] transition-all duration-500" :style="{ width: `${item.width}%` }"></div>
+                                <div class="h-full rounded-full bg-[#154677] transition-all duration-500" :style="{ width: `${item.width}%` }"></div>
                             </div>
                         </div>
 
                         <div class="grid gap-4 sm:grid-cols-3">
-                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Active Users</p>
-                                <p class="mt-2 text-2xl font-bold text-slate-900">{{ stats.users.active_users }}</p>
+                                <p class="mt-2 text-2xl font-bold text-[#154677]">{{ stats.users.active_users }}</p>
                             </div>
-                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">New Users</p>
-                                <p class="mt-2 text-2xl font-bold text-slate-900">{{ stats.users.new_users }}</p>
+                                <p class="mt-2 text-2xl font-bold text-[#154677]">{{ stats.users.new_users }}</p>
                             </div>
-                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Subtools</p>
-                                <p class="mt-2 text-2xl font-bold text-slate-900">{{ stats.tools.total_subtools }}</p>
+                                <p class="mt-2 text-2xl font-bold text-[#154677]">{{ stats.tools.total_subtools }}</p>
                             </div>
                         </div>
                     </div>
@@ -104,10 +104,10 @@
             </div>
 
             <div class="grid gap-6 xl:grid-cols-2">
-                <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
+                <section class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10">
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <h2 class="text-xl font-semibold text-slate-900">Latest Payments</h2>
+                            <h2 class="text-xl font-semibold text-[#154677]">Latest Payments</h2>
                             <p class="mt-1 text-sm text-slate-500">Most recent transaction activity across the platform.</p>
                         </div>
                     </div>
@@ -117,14 +117,14 @@
                     </div>
 
                     <div v-else-if="stats.latest.payments.length" class="mt-6 space-y-3">
-                        <article v-for="payment in stats.latest.payments" :key="payment.id" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+                        <article v-for="payment in stats.latest.payments" :key="payment.id" class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-sm">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <p class="text-sm font-semibold text-slate-900">{{ payment.transaction_id || `Payment #${payment.id}` }}</p>
+                                    <p class="text-sm font-semibold text-[#154677]">{{ payment.transaction_id || `Payment #${payment.id}` }}</p>
                                     <p class="mt-1 text-sm text-slate-500">{{ payment.user?.name || "-" }} · {{ payment.user?.email || "-" }}</p>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <span class="text-sm font-bold text-[#074377]">{{ formatCurrency(payment.amount, payment.currency) }}</span>
+                                    <span class="text-sm font-bold text-[#154677]">{{ formatCurrency(payment.amount, payment.currency) }}</span>
                                     <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold" :class="statusClass(payment.status)">
                                         {{ payment.status || "unknown" }}
                                     </span>
@@ -138,9 +138,9 @@
                     </div>
                 </section>
 
-                <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
+                <section class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10">
                     <div>
-                        <h2 class="text-xl font-semibold text-slate-900">Latest Users</h2>
+                        <h2 class="text-xl font-semibold text-[#154677]">Latest Users</h2>
                         <p class="mt-1 text-sm text-slate-500">Newest signups and current account activity.</p>
                     </div>
 
@@ -149,15 +149,15 @@
                     </div>
 
                     <div v-else-if="stats.latest.users.length" class="mt-6 space-y-3">
-                        <article v-for="user in stats.latest.users" :key="user.id" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+                        <article v-for="user in stats.latest.users" :key="user.id" class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-sm">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <p class="text-sm font-semibold text-slate-900">{{ user.name || "-" }}</p>
+                                    <p class="text-sm font-semibold text-[#154677]">{{ user.name || "-" }}</p>
                                     <p class="mt-1 text-sm text-slate-500">{{ user.email || "-" }}</p>
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ formatDate(user.created_at) }}</span>
-                                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold" :class="user.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'">
+                                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold" :class="user.is_active ? 'bg-emerald-100 text-[#154677]' : 'bg-slate-200 text-slate-600'">
                                         {{ user.is_active ? "Active" : "Inactive" }}
                                     </span>
                                 </div>
@@ -257,7 +257,7 @@ const paymentBreakdown = computed(() => {
             label: "Completed",
             value: stats.value.payments.completed_payments,
             percent: Math.round((stats.value.payments.completed_payments / total) * 100),
-            color: "#074377",
+            color: "#154677",
         },
         {
             label: "Pending",
@@ -277,7 +277,7 @@ const paymentBreakdown = computed(() => {
 const pieStyle = computed(() => {
     const [completed, pending, failed] = paymentBreakdown.value.map((item) => item.percent);
     return {
-        background: `conic-gradient(#074377 0 ${completed}%, #8aa9c4 ${completed}% ${completed + pending}%, #d0d8e0 ${completed + pending}% 100%)`,
+        background: `conic-gradient(#154677 0 ${completed}%, #8aa9c4 ${completed}% ${completed + pending}%, #d0d8e0 ${completed + pending}% 100%)`,
     };
 });
 
@@ -309,9 +309,9 @@ const revenueBars = computed(() => {
 
 const statusClass = (status) => {
     const normalized = String(status || "").toLowerCase();
-    if (normalized === "completed") return "bg-emerald-100 text-emerald-700";
-    if (normalized === "pending") return "bg-amber-100 text-amber-700";
-    if (normalized === "failed") return "bg-red-100 text-red-600";
+    if (normalized === "completed") return "bg-emerald-100 text-[#154677]";
+    if (normalized === "pending") return "bg-[#2ba6de]/15 text-[#154677]";
+    if (normalized === "failed") return "bg-red-100 text-[#154677]";
     return "bg-slate-100 text-slate-600";
 };
 

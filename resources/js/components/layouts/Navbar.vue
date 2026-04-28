@@ -1,8 +1,6 @@
 <template>
     <header class="nb-root" dir="rtl">
         <div class="nb-inner">
-
-            <!-- Logo -->
             <a class="nb-logo" href="/">
                 <div class="nb-logo-mark">
                     <img src="/images/ai_logo.png" alt="AiPro Logo" />
@@ -16,12 +14,9 @@
             <div class="nb-spacer"></div>
 
             <div class="nb-actions">
-
-                <!-- Home -->
                 <a href="/en" class="nb-home-link">الرئيسية</a>
                 <div class="nb-divider"></div>
 
-                <!-- Wallet -->
                 <button class="nb-wallet-btn" @click="goToWallet" title="المحفظة">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                         <rect x="2" y="6" width="20" height="14" rx="3" stroke="white" stroke-width="1.6" />
@@ -31,7 +26,6 @@
                     <span v-if="WalletBalance !== null" class="nb-badge">{{ WalletBalance }}</span>
                 </button>
 
-                <!-- Logged In -->
                 <template v-if="isLoggedIn">
                     <div class="nb-user-btn" @click.stop="toggleDropdown">
                         <div class="nb-avatar">{{ userName.charAt(0) }}</div>
@@ -45,21 +39,17 @@
                             </div>
                             <a href="/en/profile" class="nb-dd-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="8" r="4" stroke="#074377" stroke-width="1.6" />
-                                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#074377" stroke-width="1.6"
-                                        stroke-linecap="round" />
+                                    <circle cx="12" cy="8" r="4" stroke="#154677" stroke-width="1.6" />
+                                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#154677" stroke-width="1.6" stroke-linecap="round" />
                                 </svg>
                                 الملف الشخصي
                             </a>
                             <div class="nb-dd-sep"></div>
                             <button class="nb-dd-item danger" @click="logout">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#c0392b"
-                                        stroke-width="1.6" stroke-linecap="round" />
-                                    <polyline points="16 17 21 12 16 7" stroke="#c0392b" stroke-width="1.6"
-                                        stroke-linecap="round" stroke-linejoin="round" />
-                                    <line x1="21" y1="12" x2="9" y2="12" stroke="#c0392b" stroke-width="1.6"
-                                        stroke-linecap="round" />
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#154677" stroke-width="1.6" stroke-linecap="round" />
+                                    <polyline points="16 17 21 12 16 7" stroke="#154677" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                    <line x1="21" y1="12" x2="9" y2="12" stroke="#154677" stroke-width="1.6" stroke-linecap="round" />
                                 </svg>
                                 تسجيل الخروج
                             </button>
@@ -67,28 +57,23 @@
                     </div>
                 </template>
 
-                <!-- Guest -->
                 <template v-else>
                     <a href="/en/auth" class="nb-login-btn">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="#074377" stroke-width="1.8"
-                                stroke-linecap="round" />
-                            <polyline points="10 17 15 12 10 7" stroke="#074377" stroke-width="1.8"
-                                stroke-linecap="round" stroke-linejoin="round" />
-                            <line x1="15" y1="12" x2="3" y2="12" stroke="#074377" stroke-width="1.8"
-                                stroke-linecap="round" />
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                            <polyline points="10 17 15 12 10 7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            <line x1="15" y1="12" x2="3" y2="12" stroke="white" stroke-width="1.8" stroke-linecap="round" />
                         </svg>
                         تسجيل الدخول
                     </a>
                 </template>
-
             </div>
         </div>
     </header>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import api from "@/services/ApiClient";
 
 const isLoggedIn = ref(false);
@@ -96,13 +81,14 @@ const userName = ref("المستخدم");
 const WalletBalance = ref(0);
 const dropdownOpen = ref(false);
 
-// ================= Wallet =================
 const fetchWallet = async () => {
     if (!localStorage.getItem("auth_token")) return;
     try {
         const res = await api.get("/users/wallet");
+        console.log(res);
         if (res.data.status === "success") {
-            WalletBalance.value = res.data.data?.wallet?.balance ?? 0;
+            WalletBalance.value = res.data.data?.balance ?? 0;
+            console.log(WalletBalance.value);
         }
     } catch (err) {
         console.log("Wallet error:", err);
@@ -114,7 +100,6 @@ const goToWallet = () => {
     window.location.href = `/${lang}/wallet`;
 };
 
-// ================= Profile =================
 const fetchProfile = async () => {
     if (!localStorage.getItem("auth_token")) return;
     try {
@@ -128,7 +113,6 @@ const fetchProfile = async () => {
     }
 };
 
-// ================= Logout =================
 const logout = async () => {
     try {
         await api.post("/users/logout");
@@ -144,26 +128,30 @@ const logout = async () => {
     window.location.href = "/";
 };
 
-// ================= UI =================
 const toggleDropdown = () => {
     dropdownOpen.value = !dropdownOpen.value;
 };
 
-// ================= Lifecycle =================
-onMounted(() => {
+const handleDocumentClick = (e) => {
+    if (!e.target.closest(".nb-user-btn")) {
+        dropdownOpen.value = false;
+    }
+};
+
+const refreshUserState = () => {
     fetchProfile();
     fetchWallet();
+};
 
-    window.addEventListener("login", () => {
-        fetchProfile();
-        fetchWallet();
-    });
+onMounted(() => {
+    refreshUserState();
+    window.addEventListener("login", refreshUserState);
+    document.addEventListener("click", handleDocumentClick);
+});
 
-    document.addEventListener("click", (e) => {
-        if (!e.target.closest(".nb-user-btn")) {
-            dropdownOpen.value = false;
-        }
-    });
+onBeforeUnmount(() => {
+    window.removeEventListener("login", refreshUserState);
+    document.removeEventListener("click", handleDocumentClick);
 });
 </script>
 
@@ -172,12 +160,13 @@ onMounted(() => {
 
 .nb-root {
     font-family: 'Cairo', sans-serif;
-    background: #074377;
+    background: linear-gradient(135deg, #154677, #2ba6de);
     position: sticky;
     top: 0;
     z-index: 1000;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 2px 20px rgba(7, 67, 119, 0.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 16px 36px rgba(21, 70, 119, 0.18);
+    backdrop-filter: blur(14px);
 }
 
 .nb-inner {
@@ -186,14 +175,14 @@ onMounted(() => {
     display: flex;
     align-items: center;
     padding: 0 24px;
-    height: 64px;
-    gap: 16px;
+    min-height: 72px;
+    gap: 18px;
 }
 
 .nb-logo {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     text-decoration: none;
     flex-shrink: 0;
 }
@@ -201,28 +190,29 @@ onMounted(() => {
 .nb-logo-mark {
     width: 56px;
     height: 56px;
-    background:white;
-    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 1.1rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.12);
 }
 
-.nb-logo-mark svg {
-    width: 20px;
-    height: 20px;
+.nb-logo-mark img {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
 }
 
 .nb-logo-text {
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 1.2rem;
+    font-weight: 800;
     color: #fff;
-    letter-spacing: -0.3px;
 }
 
 .nb-logo-text span {
-    color: #5BC8F5;
+    color: rgba(255, 255, 255, 0.82);
 }
 
 .nb-spacer {
@@ -236,112 +226,108 @@ onMounted(() => {
     flex-shrink: 0;
 }
 
+.nb-home-link,
+.nb-wallet-btn,
+.nb-user-btn {
+    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
 .nb-home-link {
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.92);
     text-decoration: none;
     font-size: 14px;
-    font-weight: 500;
-    padding: 6px 14px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    transition: all 0.2s;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
     white-space: nowrap;
 }
 
 .nb-home-link:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
 }
 
 .nb-divider {
     width: 1px;
     height: 28px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.18);
 }
 
 .nb-wallet-btn {
     position: relative;
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: #fff;
+    width: 44px;
+    height: 44px;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
 }
 
 .nb-wallet-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.18);
     transform: translateY(-1px);
 }
 
 .nb-badge {
     position: absolute;
-    top: -5px;
-    left: -5px;
-    min-width: 18px;
-    height: 18px;
-    background: #5BC8F5;
-    color: #074377;
+    top: -6px;
+    left: -6px;
+    min-width: 20px;
+    height: 20px;
+    background: #ffffff;
+    color: #154677;
     font-size: 10px;
-    font-weight: 700;
-    border-radius: 9px;
+    font-weight: 800;
+    border-radius: 999px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 4px;
-    border: 2px solid #074377;
-    font-family: 'Cairo', sans-serif;
+    padding: 0 5px;
+    border: 2px solid #2ba6de;
 }
 
 .nb-user-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 14px;
-    border-radius: 10px;
+    padding: 8px 14px;
+    border-radius: 999px;
     background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     color: #fff;
     cursor: pointer;
-    font-family: 'Cairo', sans-serif;
     font-size: 14px;
-    font-weight: 600;
-    transition: all 0.2s;
+    font-weight: 700;
     position: relative;
     white-space: nowrap;
 }
 
 .nb-user-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
 }
 
 .nb-avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    background: #5BC8F5;
-    color: #074377;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #154677;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
 }
 
 .nb-chevron {
     font-size: 10px;
     opacity: 0.7;
-    transition: transform 0.2s;
+    transition: transform 0.2s ease;
 }
 
 .nb-chevron.open {
@@ -350,69 +336,66 @@ onMounted(() => {
 
 .nb-dropdown {
     position: absolute;
-    top: calc(100% + 10px);
+    top: calc(100% + 12px);
     left: 0;
-    min-width: 190px;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(7, 67, 119, 0.18);
-    border: 1px solid rgba(7, 67, 119, 0.1);
+    min-width: 220px;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 1.25rem;
+    box-shadow: 0 24px 50px rgba(21, 70, 119, 0.16);
+    border: 1px solid rgba(21, 70, 119, 0.1);
     overflow: hidden;
     z-index: 9999;
 }
 
 .nb-dd-header {
-    padding: 14px 16px 10px;
-    border-bottom: 1px solid #f0f4f8;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid rgba(21, 70, 119, 0.08);
 }
 
 .nb-dd-name {
     font-size: 14px;
-    font-weight: 700;
-    color: #074377;
-    font-family: 'Cairo', sans-serif;
+    font-weight: 800;
+    color: #154677;
 }
 
 .nb-dd-label {
     font-size: 11px;
-    color: #888;
-    font-family: 'Cairo', sans-serif;
-    margin-top: 2px;
+    color: #5f7288;
+    margin-top: 4px;
 }
 
 .nb-dd-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px;
+    padding: 12px 18px;
     font-size: 13px;
-    color: #333;
+    color: #154677;
     text-decoration: none;
-    font-family: 'Cairo', sans-serif;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     border: none;
     background: none;
     width: 100%;
     text-align: right;
-    transition: background 0.15s;
+    transition: background 0.2s ease;
 }
 
 .nb-dd-item:hover {
-    background: #f5f9fc;
+    background: #f4fbff;
 }
 
 .nb-dd-item.danger {
-    color: #c0392b;
+    color: #154677;
 }
 
 .nb-dd-item.danger:hover {
-    background: #fef3f2;
+    background: rgba(43, 166, 222, 0.1);
 }
 
 .nb-dd-sep {
     height: 1px;
-    background: #f0f4f8;
+    background: rgba(21, 70, 119, 0.08);
     margin: 2px 0;
 }
 
@@ -420,23 +403,41 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 18px;
-    border-radius: 10px;
-    background: #5BC8F5;
-    border: none;
-    color: #074377;
-    cursor: pointer;
-    font-family: 'Cairo', sans-serif;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #154677;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 800;
     text-decoration: none;
-    transition: all 0.2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     white-space: nowrap;
+    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.12);
 }
 
 .nb-login-btn:hover {
-    background: #3db8e8;
+    background: #f4fbff;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(91, 200, 245, 0.35);
+    box-shadow: 0 16px 30px rgba(21, 70, 119, 0.16);
+}
+
+@media (max-width: 768px) {
+    .nb-inner {
+        padding: 10px 16px;
+        min-height: 68px;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .nb-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .nb-home-link,
+    .nb-login-btn,
+    .nb-user-btn {
+        font-size: 13px;
+    }
 }
 </style>

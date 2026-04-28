@@ -384,7 +384,7 @@ onMounted(() => {
     padding: 7px 12px;
     border-radius: 999px;
     background: rgba(79, 70, 229, 0.1);
-    color: #4f46e5;
+    color: #154677;
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -431,7 +431,7 @@ onMounted(() => {
 .stat-value {
     font-size: 30px;
     font-weight: 900;
-    color: #111827;
+    color: #154677;
 }
 
 .toolbar {
@@ -463,7 +463,7 @@ onMounted(() => {
     border: none;
     outline: none;
     background: transparent;
-    color: #111827;
+    color: #154677;
     font-size: 14px;
 }
 
@@ -525,7 +525,7 @@ onMounted(() => {
     width: 56px;
     height: 56px;
     border-radius: 18px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #154677, #2ba6de);
     color: #fff;
     display: flex;
     align-items: center;
@@ -557,7 +557,7 @@ onMounted(() => {
 .meta-id {
     font-size: 14px;
     font-weight: 900;
-    color: #111827;
+    color: #154677;
 }
 
 .meta-date {
@@ -595,7 +595,7 @@ onMounted(() => {
 }
 
 .info-value {
-    color: #111827;
+    color: #154677;
     font-size: 14px;
     font-weight: 800;
     word-break: break-word;
@@ -640,7 +640,7 @@ onMounted(() => {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #154677, #2ba6de);
     color: #fff;
     box-shadow: 0 16px 30px rgba(99, 102, 241, 0.22);
 }
@@ -651,7 +651,7 @@ onMounted(() => {
 
 .btn-secondary {
     background: #f3f4f6;
-    color: #111827;
+    color: #154677;
 }
 
 .btn-secondary:hover {
@@ -676,7 +676,7 @@ onMounted(() => {
     border-radius: 14px;
     border: 1px solid #e5e7eb;
     background: #fff;
-    color: #111827;
+    color: #154677;
     font-size: 13px;
     font-weight: 800;
     cursor: pointer;
@@ -685,12 +685,12 @@ onMounted(() => {
 
 .page-btn:hover:not(:disabled) {
     border-color: #c7d2fe;
-    color: #4f46e5;
+    color: #154677;
     background: #eef2ff;
 }
 
 .page-btn.active {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #154677, #2ba6de);
     color: #fff;
     border-color: transparent;
 }
@@ -725,7 +725,7 @@ onMounted(() => {
     margin: 0 auto 18px;
     border-radius: 24px;
     background: linear-gradient(135deg, #eef2ff, #f5f3ff);
-    color: #6366f1;
+    color: #2ba6de;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -738,7 +738,7 @@ onMounted(() => {
 
 .empty-state h3 {
     margin: 0 0 8px;
-    color: #111827;
+    color: #154677;
     font-size: 24px;
     font-weight: 900;
 }
@@ -785,7 +785,7 @@ onMounted(() => {
     margin: 0;
     font-size: 28px;
     font-weight: 900;
-    color: #111827;
+    color: #154677;
 }
 
 .modal-subtitle {
@@ -801,7 +801,7 @@ onMounted(() => {
     border: none;
     border-radius: 14px;
     background: #f3f4f6;
-    color: #111827;
+    color: #154677;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -843,7 +843,7 @@ onMounted(() => {
 .modal-value {
     font-size: 15px;
     font-weight: 800;
-    color: #111827;
+    color: #154677;
     line-height: 1.8;
     word-break: break-word;
 }

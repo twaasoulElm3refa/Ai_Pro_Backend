@@ -3,10 +3,10 @@
         <section class="mx-auto max-w-6xl space-y-6">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                    <span class="inline-flex items-center rounded-full bg-[#2ba6de]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#154677] dark:bg-[#2ba6de]/100/10 dark:text-[#2ba6de]">
                         Create Tool
                     </span>
-                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">Add a new tool</h1>
+                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-[#154677] dark:text-white">Add a new tool</h1>
                     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Set up the core details and publish a new tool into the admin catalog.</p>
                 </div>
             </div>

@@ -100,7 +100,7 @@ onUnmounted(() => {
     width: 56px;
     height: 56px;
     border: 5px solid #e0e0e0;
-    border-top-color: #0070ba;
+    border-top-color: #2ba6de;
     border-radius: 50%;
     animation: spin 0.9s linear infinite;
     margin: 0 auto 24px;

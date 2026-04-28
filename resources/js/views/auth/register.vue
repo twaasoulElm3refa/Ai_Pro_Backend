@@ -456,7 +456,7 @@ onMounted(() => authService.handleGoogleCallback());
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, #5c4033, #8b5e3c);
+    background: linear-gradient(90deg, #154677, #2ba6de);
     opacity: 0;
     transition: opacity 0.4s ease;
     z-index: -1;
@@ -468,7 +468,7 @@ onMounted(() => authService.handleGoogleCallback());
 
 /* ─── Common ─── */
 .waves {
-    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%23D4AF37" fill-opacity="0.08" d="M0,96L48,112C96,128,192,160,288,176C384,192,480,192,576,186.7C672,181,768,171,864,154.7C960,139,1056,117,1152,122.7C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') bottom no-repeat;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%232ba6de" fill-opacity="0.08" d="M0,96L48,112C96,128,192,160,288,176C384,192,480,192,576,186.7C672,181,768,171,864,154.7C960,139,1056,117,1152,122.7C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') bottom no-repeat;
     background-size: cover;
     animation: wave 18s linear infinite alternate;
     opacity: 0.6;
@@ -490,7 +490,7 @@ onMounted(() => authService.handleGoogleCallback());
 
 .glass-input:focus {
     background: rgba(51, 65, 85, 0.55);
-    border-color: #d4af37;
+    border-color: #2ba6de;
     box-shadow: 0 0 0 0.25rem rgba(212, 175, 55, 0.25);
     outline: none;
 }
@@ -500,7 +500,7 @@ onMounted(() => authService.handleGoogleCallback());
 }
 
 .btn-glow {
-    background: linear-gradient(90deg, #d4af37, #eab308, #fbbf24);
+    background: linear-gradient(90deg, #2ba6de, #2ba6de, #2ba6de);
     border: none;
     color: #0f172a;
     font-weight: 600;
@@ -532,7 +532,7 @@ onMounted(() => authService.handleGoogleCallback());
     left: 50%;
     width: 0;
     height: 3px;
-    background: linear-gradient(90deg, #d4af37, #eab308);
+    background: linear-gradient(90deg, #2ba6de, #2ba6de);
     border-radius: 3px;
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     transform: translateX(-50%);
@@ -568,7 +568,7 @@ onMounted(() => authService.handleGoogleCallback());
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, #d4af37, #eab308);
+    background: linear-gradient(90deg, #2ba6de, #2ba6de);
     opacity: 0;
     transition: opacity 0.4s ease;
     z-index: -1;
@@ -595,14 +595,14 @@ onMounted(() => authService.handleGoogleCallback());
 }
 
 [data-theme="dark"] .btn-glow {
-    background: linear-gradient(90deg, #d4af37, #eab308, #fbbf24);
+    background: linear-gradient(90deg, #2ba6de, #2ba6de, #2ba6de);
     color: #0f172a;
 }
 
 /* ─── Light Theme ─── */
 [data-theme="light"] .auth-container,
 [data-theme="light"] .auth-container * {
-    color: #111827;
+    color: #154677;
 }
 
 [data-theme="light"] .glass-card {
@@ -615,11 +615,11 @@ onMounted(() => authService.handleGoogleCallback());
 [data-theme="light"] .glass-input {
     background: rgba(243, 244, 246, 0.9);
     border: 1px solid #d1d5db;
-    color: #111827;
+    color: #154677;
 }
 
 [data-theme="light"] .glass-input:focus {
-    border-color: #111827;
+    border-color: #154677;
     box-shadow: 0 0 0 0.25rem rgba(17, 24, 39, 0.15);
 }
 
@@ -628,13 +628,13 @@ onMounted(() => authService.handleGoogleCallback());
 }
 
 [data-theme="light"] .btn-glow {
-    background: #111827;
+    background: #154677;
     color: white;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 [data-theme="light"] .btn-glow:hover {
-    background: #1f2937;
+    background: #2ba6de;
     transform: translateY(-2px);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
 }
@@ -642,14 +642,14 @@ onMounted(() => authService.handleGoogleCallback());
 /* Light theme → tabs: black underline */
 [data-theme="light"] .nav-link::after,
 [data-theme="light"] .active-tab::after {
-    background: #111827 !important;
+    background: #154677 !important;
 }
 
 /* Light theme → Google button hover becomes black */
 [data-theme="light"] .btn-google {
     background: rgba(0, 0, 0, 0.04);
     border: 1px solid rgba(0, 0, 0, 0.12);
-    color: #111827;
+    color: #154677;
 }
 
 [data-theme="light"] .btn-google:hover {
@@ -657,13 +657,13 @@ onMounted(() => authService.handleGoogleCallback());
 }
 
 [data-theme="light"] .btn-google::before {
-    background: #111827;
+    background: #154677;
 }
 
 [data-theme="light"] .btn-apple {
     background: rgba(0, 0, 0, 0.04);
     border: 1px solid rgba(0, 0, 0, 0.12);
-    color: #111827;
+    color: #154677;
 }
 
 [data-theme="light"] .btn-apple:hover {
@@ -671,7 +671,7 @@ onMounted(() => authService.handleGoogleCallback());
 }
 
 [data-theme="light"] .btn-apple::before {
-    background: #111827;
+    background: #154677;
 }
 
 /* Disable gold glow effects in light mode */
@@ -681,7 +681,7 @@ onMounted(() => authService.handleGoogleCallback());
     filter: none !important;
     background: none !important;
     -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: #111827 !important;
+    -webkit-text-fill-color: #154677 !important;
 }
 
 [data-theme="light"] .logo-glow {
@@ -712,7 +712,7 @@ onMounted(() => authService.handleGoogleCallback());
     content: "";
     position: absolute;
     inset: 0;
-    background: #3b5998;
+    background: #154677;
     opacity: 0;
     transition: opacity 0.4s ease;
     z-index: -1;

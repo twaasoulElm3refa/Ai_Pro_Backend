@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\api\payment;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\concerns\ApiResponse;
+use App\Http\Controllers\Controller;
 use App\Services\PayPalWalletServices;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Exception;
 
 class DepositController extends Controller
 {
@@ -20,8 +20,8 @@ class DepositController extends Controller
     public function create(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'amount'          => 'required|numeric|min:1',
-            'description'     => 'nullable|string|max:255',
+            'amount' => 'required|numeric|min:1',
+            'description' => 'nullable|string|max:255',
             'idempotency_key' => 'nullable|string|max:64',
         ]);
 
@@ -31,8 +31,8 @@ class DepositController extends Controller
             ['order' => $order, 'approval_url' => $url] = $this->paypal->pay($validated);
 
             return response()->json([
-                'success'      => true,
-                'order_id'     => $order->id,
+                'success' => true,
+                'order_id' => $order->id,
                 'approval_url' => $url,
             ]);
         } catch (Exception $e) {
@@ -48,7 +48,7 @@ class DepositController extends Controller
     {
         $token = $request->query('token');
 
-        if (!$token) {
+        if (! $token) {
             return response()->json([
                 'success' => false,
                 'message' => 'Token missing.',
@@ -60,14 +60,14 @@ class DepositController extends Controller
 
             $orderId = $result['order_id'] ?? $result['order']?->id;
 
-            if (!$orderId) {
+            if (! $orderId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order ID missing.',
                 ], 500);
             }
 
-            return redirect('/en/Deposit/waiting?order_id=' . $orderId);
+            return redirect('/en/Deposit/waiting?order_id='.$orderId);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -94,22 +94,28 @@ class DepositController extends Controller
     {
         $order = \App\Models\Payment::find($id);
 
-        if (!$order) {
+        if (! $order) {
             return response()->json([
                 'status' => 'not_found',
             ], 404);
         }
+        $this->clearWalletCache($order->user_id);
 
         return response()->json([
-            'status'   => $order->status,
-            'amount'   => $order->amount,
+            'status' => $order->status,
+            'amount' => $order->amount,
             'order_id' => $order->id,
         ]);
     }
 
+    private function clearWalletCache($userId)
+    {
+        Cache::tags(['wallet', 'transactions', "user_{$userId}"])->flush();
+    }
+
     public function clearUserProfileCache($id): void
     {
-        $cacheKey = 'user_profile_' . $id;
-        Cache::tags(['user_profile', 'user_' . $id])->forget($cacheKey);
+        $cacheKey = 'user_profile_'.$id;
+        Cache::tags(['user_profile', 'user_'.$id])->forget($cacheKey);
     }
 }

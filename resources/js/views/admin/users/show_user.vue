@@ -249,7 +249,7 @@ onMounted(async () => {
 function initials(name = "") {
   return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
-const palette = ["#f43f5e","#8b5cf6","#0ea5e9","#10b981","#f59e0b","#6366f1","#ec4899","#14b8a6"];
+const palette = ["#154677","#2ba6de","#2ba6de","#2ba6de","#2ba6de","#2ba6de","#2ba6de","#2ba6de"];
 function avatarColor(name = "") {
   let n = 0; for (const c of name) n += c.charCodeAt(0);
   return palette[n % palette.length];
@@ -285,11 +285,11 @@ function payStatusLabel(s) {
   --border:    #e4e7f2;
   --text:      #1a1d2e;
   --muted:     #8a90a8;
-  --accent:    #6366f1;
-  --accent2:   #f43f5e;
-  --green:     #10b981;
-  --amber:     #f59e0b;
-  --red:       #ef4444;
+  --accent:    #2ba6de;
+  --accent2:   #154677;
+  --green:     #2ba6de;
+  --amber:     #2ba6de;
+  --red:       #154677;
   --radius:    18px;
   --shadow:    0 4px 30px rgba(0,0,0,.07);
 }
@@ -396,7 +396,7 @@ function payStatusLabel(s) {
   letter-spacing: .04em;
 }
 .role-admin     { background: #ede9fe; color: #6d28d9; }
-.role-user      { background: #dbeafe; color: #1d4ed8; }
+.role-user      { background: #dbeafe; color: #154677; }
 .role-moderator { background: #d1fae5; color: #065f46; }
 
 /* Info list */
@@ -425,12 +425,12 @@ function payStatusLabel(s) {
   font-size: .75rem; font-weight: 700;
 }
 .flag-on  { background: #d1fae5; color: #065f46; }
-.flag-off { background: #fee2e2; color: #991b1b; }
+.flag-off { background: #fee2e2; color: #154677; }
 
 /* Wallet */
 .wallet-card {
   width: 100%;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #154677 0%, #2ba6de 100%);
   border-radius: 16px;
   padding: 1.25rem 1.25rem 1rem;
   color: #fff;
@@ -545,7 +545,7 @@ function payStatusLabel(s) {
 .pay-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .pay-success { background: #d1fae5; color: #059669; }
 .pay-pending { background: #fef3c7; color: #b45309; }
-.pay-failed  { background: #fee2e2; color: #dc2626; }
+.pay-failed  { background: #fee2e2; color: #154677; }
 .pay-txn { font-size: .75rem; color: var(--muted); font-family: monospace; direction: ltr; }
 .pay-right { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; }
 .pay-amount { font-size: 1rem; font-weight: 800; color: var(--text); }
@@ -574,7 +574,7 @@ function payStatusLabel(s) {
   flex-shrink: 0; font-size: 1rem; font-weight: 900;
 }
 .tx-credit .tx-icon-wrap { background: #d1fae5; color: #059669; }
-.tx-debit  .tx-icon-wrap { background: #fee2e2; color: #dc2626; }
+.tx-debit  .tx-icon-wrap { background: #fee2e2; color: #154677; }
 .tx-body { flex: 1; }
 .tx-desc { font-size: .88rem; font-weight: 700; color: var(--text); margin-bottom: .2rem; }
 .tx-meta { display: flex; gap: .85rem; flex-wrap: wrap; }

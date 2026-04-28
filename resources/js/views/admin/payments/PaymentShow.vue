@@ -3,10 +3,10 @@
         <section class="mx-auto max-w-6xl space-y-6">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <span class="inline-flex items-center rounded-full bg-[#074377]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#074377]">
+                    <span class="inline-flex items-center rounded-full bg-[#154677]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#154677]">
                         Payment Details
                     </span>
-                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-[#154677]">
                         {{ loading ? "Loading payment..." : `Payment #${payment.id}` }}
                     </h1>
                     <p class="mt-2 text-sm text-slate-500">
@@ -16,7 +16,7 @@
 
                 <RouterLink
                     :to="{ name: 'admin.payments.index' }"
-                    class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-[#074377] shadow-sm transition hover:border-[#074377]/20 hover:bg-slate-50"
+                    class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 text-sm font-semibold text-[#154677] shadow-sm transition hover:border-[#154677]/20 hover:bg-slate-50"
                 >
                     <i class="bi bi-arrow-left"></i>
                     Back
@@ -24,49 +24,49 @@
             </div>
 
             <div v-if="loading" class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-                <div class="h-80 animate-pulse rounded-2xl border border-slate-200 bg-white"></div>
-                <div class="h-80 animate-pulse rounded-2xl border border-slate-200 bg-white"></div>
+                <div class="h-80 animate-pulse rounded-2xl border border-[#154677]/10 bg-white"></div>
+                <div class="h-80 animate-pulse rounded-2xl border border-[#154677]/10 bg-white"></div>
             </div>
 
             <div v-else class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-                <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
-                    <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
-                        <h2 class="text-lg font-semibold text-slate-900">Payment Info</h2>
+                <article class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10">
+                    <div class="flex items-center justify-between gap-3 border-b border-[#154677]/10 pb-4">
+                        <h2 class="text-lg font-semibold text-[#154677]">Payment Info</h2>
                         <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold" :class="statusClass(payment.status)">
                             {{ payment.status || "unknown" }}
                         </span>
                     </div>
 
                     <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                        <div v-for="item in paymentInfo" :key="item.label" class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div v-for="item in paymentInfo" :key="item.label" class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4">
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ item.label }}</p>
-                            <p class="mt-2 break-words text-sm font-semibold text-slate-900">{{ item.value }}</p>
+                            <p class="mt-2 break-words text-sm font-semibold text-[#154677]">{{ item.value }}</p>
                         </div>
                     </div>
 
-                    <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <div class="mt-6 rounded-2xl border border-[#154677]/10 bg-slate-50 p-5">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Description</p>
                         <p class="mt-3 text-sm leading-7 text-slate-600">{{ payment.description || "No description provided." }}</p>
                     </div>
                 </article>
 
                 <div class="space-y-6">
-                    <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
-                        <h2 class="text-lg font-semibold text-slate-900">User Info</h2>
+                    <article class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10">
+                        <h2 class="text-lg font-semibold text-[#154677]">User Info</h2>
                         <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Name</p>
-                                <p class="mt-2 text-sm font-semibold text-slate-900">{{ payment.user?.name || "-" }}</p>
+                                <p class="mt-2 text-sm font-semibold text-[#154677]">{{ payment.user?.name || "-" }}</p>
                             </div>
-                            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="rounded-2xl border border-[#154677]/10 bg-slate-50 p-4">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Email</p>
-                                <p class="mt-2 break-words text-sm font-semibold text-slate-900">{{ payment.user?.email || "-" }}</p>
+                                <p class="mt-2 break-words text-sm font-semibold text-[#154677]">{{ payment.user?.email || "-" }}</p>
                             </div>
                         </div>
                     </article>
 
-                    <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
-                        <h2 class="text-lg font-semibold text-slate-900">Gateway Response</h2>
+                    <article class="rounded-2xl border border-[#154677]/10 bg-white p-6 shadow-sm shadow-[#154677]/10">
+                        <h2 class="text-lg font-semibold text-[#154677]">Gateway Response</h2>
                         <pre class="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs leading-6 text-slate-700">{{ prettyGatewayResponse }}</pre>
                     </article>
                 </div>
@@ -106,9 +106,9 @@ const formatDate = (value) => {
 
 const statusClass = (status) => {
     const normalized = String(status || "").toLowerCase();
-    if (normalized === "completed") return "bg-emerald-100 text-emerald-700";
-    if (normalized === "pending") return "bg-amber-100 text-amber-700";
-    if (normalized === "failed") return "bg-red-100 text-red-600";
+    if (normalized === "completed") return "bg-emerald-100 text-[#154677]";
+    if (normalized === "pending") return "bg-[#2ba6de]/15 text-[#154677]";
+    if (normalized === "failed") return "bg-red-100 text-[#154677]";
     return "bg-slate-100 text-slate-600";
 };
 

@@ -327,7 +327,7 @@ watch(messages, scrollToBottom, { deep: true });
 /* ─── SIDEBAR ───────────────────────── */
 .sidebar {
     width: 280px;
-    background: #074377;
+    background: #154677;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -447,14 +447,14 @@ watch(messages, scrollToBottom, { deep: true });
 .model-avatar {
     width: 42px; height: 42px;
     border-radius: 10px;
-    background: #074377;
+    background: #154677;
     display: flex; align-items: center; justify-content: center;
     color: white; font-size: 18px;
     overflow: hidden; flex-shrink: 0;
 }
 .model-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-.model-name { font-size: 15px; font-weight: 700; color: #074377; }
+.model-name { font-size: 15px; font-weight: 700; color: #154677; }
 .model-desc {
     font-size: 12px; color: #94a3b8; margin-top: 1px;
     max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -462,7 +462,7 @@ watch(messages, scrollToBottom, { deep: true });
 
 .model-badge {
     display: flex; align-items: center; gap: 6px;
-    background: #e8f0f9; color: #074377;
+    background: #e8f0f9; color: #154677;
     padding: 6px 12px; border-radius: 999px;
     font-size: 12px; font-weight: 600;
 }
@@ -484,7 +484,7 @@ watch(messages, scrollToBottom, { deep: true });
 
 .empty-icon {
     width: 72px; height: 72px;
-    background: linear-gradient(135deg, #074377, #0a5a9e);
+    background: linear-gradient(135deg, #154677, #2ba6de);
     border-radius: 20px;
     display: flex; align-items: center; justify-content: center;
     color: white; font-size: 32px;
@@ -492,12 +492,12 @@ watch(messages, scrollToBottom, { deep: true });
     box-shadow: 0 8px 24px rgba(7,67,119,0.25);
 }
 
-.empty-title { font-size: 22px; font-weight: 700; color: #074377; }
+.empty-title { font-size: 22px; font-weight: 700; color: #154677; }
 .empty-desc  { font-size: 14px; color: #94a3b8; max-width: 360px; line-height: 1.6; }
 
 .suggestion-chip {
     display: flex; align-items: center; gap: 8px;
-    background: #e8f0f9; color: #074377;
+    background: #e8f0f9; color: #154677;
     border: 1px solid #c3d9f0; border-radius: 10px;
     padding: 10px 16px;
     font-size: 13px; font-weight: 500;
@@ -517,11 +517,11 @@ watch(messages, scrollToBottom, { deep: true });
 
 .msg-avatar {
     width: 34px; height: 34px; border-radius: 50%;
-    background: #074377; color: white;
+    background: #154677; color: white;
     display: flex; align-items: center; justify-content: center;
     font-size: 15px; flex-shrink: 0;
 }
-.user-avatar { background: #e8f0f9; color: #074377; }
+.user-avatar { background: #e8f0f9; color: #154677; }
 
 .msg-bubble { max-width: 72%; display: flex; flex-direction: column; gap: 4px; }
 .message-row.user .msg-bubble { align-items: flex-end; }
@@ -531,7 +531,7 @@ watch(messages, scrollToBottom, { deep: true });
     font-size: 14px; line-height: 1.65; word-break: break-word;
 }
 .message-row.user .msg-content {
-    background: #074377; color: white;
+    background: #154677; color: white;
     border-radius: 16px 4px 16px 16px;
 }
 .message-row.assistant .msg-content {
@@ -551,7 +551,7 @@ watch(messages, scrollToBottom, { deep: true });
 }
 .typing-dots span {
     width: 7px; height: 7px;
-    background: #074377; border-radius: 50%;
+    background: #154677; border-radius: 50%;
     animation: bounce 1.2s infinite;
     opacity: 0.7;
 }
@@ -580,7 +580,7 @@ watch(messages, scrollToBottom, { deep: true });
     max-width: 820px; margin: 0 auto;
 }
 .input-box.focused {
-    border-color: #074377;
+    border-color: #154677;
     box-shadow: 0 0 0 3px rgba(7,67,119,0.08);
 }
 
@@ -601,7 +601,7 @@ watch(messages, scrollToBottom, { deep: true });
 
 .send-btn {
     width: 38px; height: 38px;
-    background: #074377; color: white;
+    background: #154677; color: white;
     border: none; border-radius: 10px;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -667,7 +667,7 @@ watch(messages, scrollToBottom, { deep: true });
 
     .menu-btn {
         display: flex !important;
-        color: #074377;
+        color: #154677;
     }
     .icon-btn.menu-btn:hover { background: #e8f0f9; }
 

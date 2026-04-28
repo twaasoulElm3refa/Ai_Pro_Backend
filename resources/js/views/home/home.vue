@@ -159,7 +159,7 @@ onMounted(fetchTools);
     background: #ffffff;
     border-radius: 16px;
     padding: 10px;
-    color: #111;
+    color: #154677;
     border: 1px solid rgba(0, 0, 0, 0.06);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
@@ -188,7 +188,7 @@ onMounted(fetchTools);
     justify-content: center;
     background: #f1f3f5;
     border-radius: 12px;
-    color: #111;
+    color: #154677;
 }
 
 /* OVERLAY TAGS */
@@ -201,7 +201,7 @@ onMounted(fetchTools);
 }
 
 .tool-chip {
-    background: #111;
+    background: #154677;
     color: #fff;
     font-size: 11px;
     padding: 4px 8px;
@@ -213,12 +213,12 @@ onMounted(fetchTools);
 
 .tool-chip.inactive {
     background: #e5e7eb;
-    color: #333;
+    color: #154677;
 }
 
 /* TITLE */
 .tool-card h2 {
-    color: #111;
+    color: #154677;
     font-weight: 700;
     margin: 0;
 }
@@ -232,7 +232,7 @@ onMounted(fetchTools);
 
 /* SHOW BUTTON */
 .show-btn {
-    background: #111;
+    background: #154677;
     color: #fff;
     padding: 6px 12px;
     border-radius: 999px;

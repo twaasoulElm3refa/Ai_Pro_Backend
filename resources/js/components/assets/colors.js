@@ -1,24 +1,24 @@
 const COLORS = {
     /* ---------- LIGHT MODE ---------- */
-    BG: "#F9FAFB", // خلفية الصفحة
-    PRIMARY: "#FFFFFF", // الكروت
-    SECONDARY: "#111827", // العناوين
-    TEXT: "#111827", // النص الأساسي
-    TEXT_MUTED: "#6B7280", // نص خفيف
-    CARD_BORDER: "#E5E7EB",
+    BG: "#F8FBFF",
+    PRIMARY: "#FFFFFF",
+    SECONDARY: "#154677",
+    TEXT: "#154677",
+    TEXT_MUTED: "#5F7288",
+    CARD_BORDER: "rgba(21, 70, 119, 0.12)",
 
-    INPUT: "#F3F4F6",
-    ACCENT: "#D4AF37", // اللون الذهبي
-    BTN_TEXT: "#111827",
+    INPUT: "#FFFFFF",
+    ACCENT: "#2BA6DE",
+    BTN_TEXT: "#FFFFFF",
 
-    SUCCESS: "#16A34A",
-    LINK_HOVER: "#D4AF37",
+    SUCCESS: "#2BA6DE",
+    LINK_HOVER: "#2BA6DE",
 
     /* ---------- DARK MODE ---------- */
-    BG_DARK: "#0F172A", // خلفية الصفحة
-    CARD_DARK: "#1E293B", // الكروت
-    INPUT_DARK: "#334155", // input
-    TEXT_DARK: "#E5E7EB", // النص
+    BG_DARK: "#EEF5FB",
+    CARD_DARK: "#154677",
+    INPUT_DARK: "#FFFFFF",
+    TEXT_DARK: "#FFFFFF",
 };
 
 /* ---------- rgba helper ---------- */

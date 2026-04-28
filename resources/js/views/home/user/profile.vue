@@ -1,26 +1,26 @@
 <template>
     <div :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']">
         <div :class="['max-w-3xl mx-auto rounded-2xl shadow-2xl border p-6 transition-colors duration-300',
-            isDark ? 'bg-slate-950 text-white border-slate-800' : 'bg-white text-slate-900 border-slate-200']">
+            isDark ? 'bg-[#154677] text-white border-slate-800' : 'bg-white text-[#154677] border-[#154677]/10']">
 
             <!-- Header -->
             <div class="mb-6">
-                <h1 class="text-2xl font-bold" :class="isDark ? 'text-[#5da3cc]' : 'text-[#074377]'">
+                <h1 class="text-2xl font-bold" :class="isDark ? 'text-[#2ba6de]' : 'text-[#154677]'">
                     ملفي الشخصي
                 </h1>
             </div>
 
             <!-- Tabs -->
-            <div :class="['flex border-b mb-6', isDark ? 'border-slate-800' : 'border-slate-200']">
+            <div :class="['flex border-b mb-6', isDark ? 'border-slate-800' : 'border-[#154677]/10']">
                 <button v-for="tab in tabs" :key="tab.id" @click="currentTab = tab.id" :class="[
                     'py-3 px-4 text-sm font-medium transition-colors',
                     currentTab === tab.id
                         ? isDark
-                            ? 'border-b-2 border-[#5da3cc] text-[#5da3cc]'
-                            : 'border-b-2 border-[#074377] text-[#074377]'
+                            ? 'border-b-2 border-[#2ba6de] text-[#2ba6de]'
+                            : 'border-b-2 border-[#154677] text-[#154677]'
                         : isDark
                             ? 'text-slate-400 hover:text-white'
-                            : 'text-slate-500 hover:text-slate-900'
+                            : 'text-slate-500 hover:text-[#154677]'
                 ]">
                     {{ tab.label }}
                 </button>
@@ -34,13 +34,13 @@
                         <img v-if="profile.user.image" :src="getImageUrl(profile.user.image)" alt="avatar"
                             class="w-full h-full object-cover" />
                         <div v-else
-                            class="w-full h-full bg-[#074377] flex items-center justify-center text-white text-xl font-bold">
+                            class="w-full h-full bg-[#154677] flex items-center justify-center text-white text-xl font-bold">
                             {{ avatarInitials }}
                         </div>
                     </div>
                     <div>
                         <p class="font-semibold text-base">{{ profile.user.name }}</p>
-                        <p class="text-sm" :class="isDark ? 'text-[#5da3cc]' : 'text-[#074377]'">
+                        <p class="text-sm" :class="isDark ? 'text-[#2ba6de]' : 'text-[#154677]'">
                             {{ profile.user.role }}
                         </p>
                     </div>
@@ -86,18 +86,18 @@
                                 :src="imagePreview || getImageUrl(profile.user.image)"
                                 class="w-full h-full object-cover" alt="preview" />
                             <div v-else
-                                class="w-full h-full bg-[#074377] flex items-center justify-center text-white font-bold text-lg">
+                                class="w-full h-full bg-[#154677] flex items-center justify-center text-white font-bold text-lg">
                                 {{ avatarInitials }}
                             </div>
                         </div>
                         <label :class="['cursor-pointer text-sm px-4 py-2 rounded-lg border transition',
                             isDark
-                                ? 'border-slate-600 text-slate-300 hover:border-[#074377] hover:text-[#074377]'
-                                : 'border-slate-300 text-slate-600 hover:border-[#074377] hover:text-[#074377]']">
+                                ? 'border-slate-600 text-slate-300 hover:border-[#154677] hover:text-[#154677]'
+                                : 'border-slate-300 text-slate-600 hover:border-[#154677] hover:text-[#154677]']">
                             اختر صورة
                             <input type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
                         </label>
-                        <span v-if="editData.image" class="text-xs text-[#074377] dark:text-[#5da3cc] truncate max-w-[140px]">
+                        <span v-if="editData.image" class="text-xs text-[#154677] dark:text-[#2ba6de] truncate max-w-[140px]">
                             {{ editData.image.name }}
                         </span>
                     </div>
@@ -105,12 +105,12 @@
 
                 <div class="flex gap-2">
                     <button @click="updateProfile" :disabled="profileLoading"
-                        class="bg-[#074377] hover:bg-[#0a5a99] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
+                        class="bg-[#154677] hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
                         {{ profileLoading ? 'جاري الحفظ...' : 'حفظ التغييرات' }}
                     </button>
 
                     <button @click="deleteProfile" :disabled="profileLoading"
-                        class="bg-red-500 hover:bg-red-700 active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
+                        class="bg-slate-1000 hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
                         {{ profileLoading ? 'جاري الحذف...' : 'حذف الحساب' }}
                     </button>
                 </div>
@@ -123,7 +123,7 @@
                 <PasswordInput label="تأكيد كلمة المرور" v-model="passwordData.confirm_password" :isDark="isDark" />
 
                 <button @click="updatePassword" :disabled="passwordLoading"
-                    class="bg-[#074377] hover:bg-[#0a5a99] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded-lg shadow-md disabled:opacity-60">
+                    class="bg-[#154677] hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded-lg shadow-md disabled:opacity-60">
                     {{ passwordLoading ? 'جاري التحديث...' : 'تحديث كلمة المرور' }}
                 </button>
             </div>
@@ -132,8 +132,8 @@
             <transition name="fade">
                 <div v-if="statusMessage" :class="['mt-6 p-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all',
                     statusIsError
-                        ? 'bg-red-500/10 border border-red-500/30 text-red-400'
-                        : 'bg-[#074377]/10 border border-[#074377]/30 text-[#074377] dark:text-[#5da3cc]']">
+                        ? 'bg-slate-1000/10 border border-[#154677]/20 text-[#154677]'
+                        : 'bg-[#154677]/10 border border-[#154677]/30 text-[#154677] dark:text-[#2ba6de]']">
                     <span>{{ statusIsError ? '✗' : '✓' }}</span>
                     {{ statusMessage }}
                 </div>
@@ -158,10 +158,10 @@ export default {
             computed: {
                 inputClass() {
                     return [
-                        "w-full border rounded-lg px-3 py-2 pr-10 focus:outline-none focus:border-[#074377] transition-colors",
+                        "w-full border rounded-lg px-3 py-2 pr-10 focus:outline-none focus:border-[#154677] transition-colors",
                         this.isDark
                             ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500"
-                            : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400",
+                            : "bg-slate-50 border-slate-300 text-[#154677] placeholder-slate-400",
                     ].join(" ");
                 },
             },
@@ -247,18 +247,18 @@ export default {
                 label: "الحالة",
                 value: profile.value.user.is_active ? "نشط ✓" : "غير نشط",
                 class: profile.value.user.is_active
-                    ? isDark.value ? "text-[#5da3cc] font-semibold" : "text-[#074377] font-semibold"
-                    : "text-red-400 font-semibold",
+                    ? isDark.value ? "text-[#2ba6de] font-semibold" : "text-[#154677] font-semibold"
+                    : "text-[#154677] font-semibold",
             },
             { label: "آخر تسجيل دخول", value: profile.value.user.last_seen },
         ]);
 
         const inputClass = computed(() =>
             [
-                "w-full border rounded-lg px-3 py-2 focus:outline-none focus:border-[#074377] transition-colors",
+                "w-full border rounded-lg px-3 py-2 focus:outline-none focus:border-[#154677] transition-colors",
                 isDark.value
                     ? "bg-slate-900 border-slate-700 text-white placeholder-slate-500"
-                    : "bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400",
+                    : "bg-slate-50 border-slate-300 text-[#154677] placeholder-slate-400",
             ].join(" ")
         );
 
@@ -441,15 +441,15 @@ export default {
 
 /* Optional: Define CSS variables for easier maintenance */
 :root {
-    --primary-color: #074377;
-    --primary-hover: #0a5a99;
-    --primary-light: #5da3cc;
+    --primary-color: #154677;
+    --primary-hover: #2ba6de;
+    --primary-light: #2ba6de;
     --primary-bg: rgba(7, 67, 119, 0.1);
     --primary-border: rgba(7, 67, 119, 0.3);
 }
 
 /* Dark mode adjustments via class */
 .dark {
-    --primary-light: #5da3cc;
+    --primary-light: #2ba6de;
 }
 </style>

@@ -291,7 +291,7 @@ function clearError(field) { delete errors.value[field]; }
 function initials(name = "") {
   return (name || "U").split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
-const palette = ["#f43f5e","#8b5cf6","#0ea5e9","#10b981","#f59e0b","#6366f1","#ec4899"];
+const palette = ["#154677","#2ba6de","#2ba6de","#2ba6de","#2ba6de","#2ba6de","#2ba6de"];
 function avatarColor(name = "") {
   let n = 0; for (const c of (name || "U")) n += c.charCodeAt(0);
   return palette[n % palette.length];
@@ -314,9 +314,9 @@ function roleLabel(role) {
   --border:    #e2e5f0;
   --text:      #1a1d2e;
   --muted:     #8a90a8;
-  --accent:    #0ea5e9;
-  --accent2:   #f43f5e;
-  --green:     #10b981;
+  --accent:    #2ba6de;
+  --accent2:   #154677;
+  --green:     #2ba6de;
   --radius:    20px;
   --shadow:    0 4px 32px rgba(0,0,0,.07);
 }
@@ -415,7 +415,7 @@ function roleLabel(role) {
   font-size: .75rem; font-weight: 800; letter-spacing: .04em;
 }
 .role-admin     { background: #ede9fe; color: #6d28d9; }
-.role-user      { background: #dbeafe; color: #1d4ed8; }
+.role-user      { background: #dbeafe; color: #154677; }
 .role-moderator { background: #d1fae5; color: #065f46; }
 
 /* Toggle card */
@@ -567,7 +567,7 @@ function roleLabel(role) {
 .btn-save {
   padding: .7rem 1.75rem;
   border-radius: 12px; border: none;
-  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  background: linear-gradient(135deg, #2ba6de 0%, #2ba6de 100%);
   color: #fff; font-size: .9rem; font-weight: 800;
   cursor: pointer; font-family: inherit;
   box-shadow: 0 4px 18px rgba(14,165,233,.4);

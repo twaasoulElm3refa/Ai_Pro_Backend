@@ -2,8 +2,8 @@
     <AdminLayout>
         <section class="mx-auto max-w-3xl space-y-6">
             <div>
-                <p class="text-sm font-semibold uppercase tracking-wide text-amber-500">Admin Settings</p>
-                <h1 class="mt-1 text-3xl font-bold text-slate-950 dark:text-white">Change password</h1>
+                <p class="text-sm font-semibold uppercase tracking-wide text-[#2ba6de]">Admin Settings</p>
+                <h1 class="mt-1 text-3xl font-bold text-[#154677] dark:text-white">Change password</h1>
             </div>
 
             <form class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800" @submit.prevent="submit">
@@ -14,34 +14,34 @@
                             <input
                                 v-model="form[field.name]"
                                 :type="visible[field.name] ? 'text' : 'password'"
-                                class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 pr-12 text-slate-950 shadow-sm outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-500/15 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                                :class="{ 'border-red-400 focus:border-red-500 focus:ring-red-500/15': errors[field.name] }"
+                                class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 pr-12 text-[#154677] shadow-sm outline-none transition focus:border-[#2ba6de] focus:ring-4 focus:ring-[#2ba6de]/15 dark:border-slate-700 dark:bg-[#154677] dark:text-white"
+                                :class="{ 'border-[#2ba6de] focus:border-[#2ba6de] focus:ring-[#2ba6de]/15': errors[field.name] }"
                                 :autocomplete="field.autocomplete"
                             />
                             <button
                                 type="button"
-                                class="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+                                class="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-[#154677] dark:hover:bg-[#2ba6de] dark:hover:text-white"
                                 :title="visible[field.name] ? 'Hide password' : 'Show password'"
                                 @click="visible[field.name] = !visible[field.name]"
                             >
                                 <i class="bi" :class="visible[field.name] ? 'bi-eye-slash' : 'bi-eye'"></i>
                             </button>
                         </div>
-                        <p v-if="errors[field.name]" class="mt-2 text-sm font-medium text-red-600">{{ errors[field.name] }}</p>
+                        <p v-if="errors[field.name]" class="mt-2 text-sm font-medium text-[#154677]">{{ errors[field.name] }}</p>
                     </label>
                 </div>
 
-                <div class="mt-5 rounded-lg bg-slate-50 p-4 text-sm text-slate-600 ring-1 ring-slate-100 dark:bg-slate-950/70 dark:text-slate-300 dark:ring-slate-800">
+                <div class="mt-5 rounded-lg bg-slate-50 p-4 text-sm text-slate-600 ring-1 ring-slate-100 dark:bg-[#154677]/70 dark:text-slate-300 dark:ring-slate-800">
                     Use at least 8 characters with uppercase, lowercase, and a number.
                 </div>
 
                 <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <RouterLink to="/admin/profile" class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                    <RouterLink to="/admin/profile" class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-[#2ba6de]">
                         Cancel
                     </RouterLink>
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#154677] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2ba6de] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                         :disabled="submitting"
                     >
                         <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>

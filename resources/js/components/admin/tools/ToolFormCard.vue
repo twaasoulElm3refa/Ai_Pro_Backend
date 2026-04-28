@@ -1,86 +1,86 @@
 <template>
     <form
-        class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none"
+        class="rounded-[1.75rem] border border-[#154677]/10 bg-white p-6 shadow-[0_24px_46px_rgba(21,70,119,0.1)] dark:border-slate-800 dark:bg-[#154677] dark:shadow-none"
         @submit.prevent="handleSubmit"
     >
         <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
             <div class="space-y-5">
                 <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Tool Name</label>
+                    <label class="theme-label mb-2 block text-sm dark:text-slate-100">Tool Name</label>
                     <input
                         v-model.trim="localForm.name"
                         type="text"
-                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-amber-500 dark:focus:bg-slate-950 dark:focus:ring-amber-500/10"
-                        :class="errors.name ? 'border-red-300 focus:border-red-400 focus:ring-red-100 dark:border-red-500/40 dark:focus:ring-red-500/10' : ''"
+                        class="theme-input w-full rounded-2xl px-4 py-3 text-sm dark:border-white/10 dark:bg-white dark:text-[#154677]"
+                        :class="errors.name ? 'border-[#2ba6de] focus:border-[#2ba6de] focus:ring-[#2ba6de]/15' : ''"
                         placeholder="AI Writing Assistant"
                     />
-                    <p v-if="errors.name" class="mt-2 text-sm font-medium text-red-500">{{ errors.name }}</p>
+                    <p v-if="errors.name" class="mt-2 text-sm font-medium text-[#154677]">{{ errors.name }}</p>
                 </div>
 
                 <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Description</label>
+                    <label class="theme-label mb-2 block text-sm dark:text-slate-100">Description</label>
                     <textarea
                         v-model.trim="localForm.description"
                         rows="5"
-                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-amber-500 dark:focus:bg-slate-950 dark:focus:ring-amber-500/10"
-                        :class="errors.description ? 'border-red-300 focus:border-red-400 focus:ring-red-100 dark:border-red-500/40 dark:focus:ring-red-500/10' : ''"
+                        class="theme-input w-full rounded-2xl px-4 py-3 text-sm dark:border-white/10 dark:bg-white dark:text-[#154677]"
+                        :class="errors.description ? 'border-[#2ba6de] focus:border-[#2ba6de] focus:ring-[#2ba6de]/15' : ''"
                         placeholder="Short summary about what this tool does."
                     ></textarea>
-                    <p v-if="errors.description" class="mt-2 text-sm font-medium text-red-500">{{ errors.description }}</p>
+                    <p v-if="errors.description" class="mt-2 text-sm font-medium text-[#154677]">{{ errors.description }}</p>
                 </div>
             </div>
 
             <div class="space-y-5">
                 <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Sort Order</label>
+                    <label class="theme-label mb-2 block text-sm dark:text-slate-100">Sort Order</label>
                     <input
                         v-model="localForm.sort_order"
                         type="number"
                         min="0"
-                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-amber-500 dark:focus:bg-slate-950 dark:focus:ring-amber-500/10"
-                        :class="errors.sort_order ? 'border-red-300 focus:border-red-400 focus:ring-red-100 dark:border-red-500/40 dark:focus:ring-red-500/10' : ''"
+                        class="theme-input w-full rounded-2xl px-4 py-3 text-sm dark:border-white/10 dark:bg-white dark:text-[#154677]"
+                        :class="errors.sort_order ? 'border-[#2ba6de] focus:border-[#2ba6de] focus:ring-[#2ba6de]/15' : ''"
                         placeholder="0"
                     />
-                    <p v-if="errors.sort_order" class="mt-2 text-sm font-medium text-red-500">{{ errors.sort_order }}</p>
+                    <p v-if="errors.sort_order" class="mt-2 text-sm font-medium text-[#154677]">{{ errors.sort_order }}</p>
                 </div>
 
                 <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Image</label>
-                    <label class="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center transition hover:border-amber-400 hover:bg-amber-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-amber-500 dark:hover:bg-slate-900">
-                        <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm dark:bg-slate-950 dark:text-slate-200">
+                    <label class="theme-label mb-2 block text-sm dark:text-slate-100">Image</label>
+                    <label class="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#154677]/20 bg-[#2ba6de]/5 px-5 py-8 text-center transition hover:border-[#2ba6de] hover:bg-[#2ba6de]/10 dark:border-white/15 dark:bg-white/5 dark:hover:border-white/30 dark:hover:bg-white/10">
+                        <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#154677] shadow-sm dark:bg-white dark:text-[#154677]">
                             <i class="bi bi-image text-xl"></i>
                         </span>
                         <div>
-                            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Upload tool image</p>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">PNG, JPG, GIF, SVG, or WebP up to 2MB</p>
+                            <p class="text-sm font-semibold text-[#154677] dark:text-white">Upload tool image</p>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-200">PNG, JPG, GIF, SVG, or WebP up to 2MB</p>
                         </div>
                         <input class="hidden" type="file" accept="image/*" @change="onFileChange" />
                     </label>
-                    <p v-if="errors.image" class="mt-2 text-sm font-medium text-red-500">{{ errors.image }}</p>
+                    <p v-if="errors.image" class="mt-2 text-sm font-medium text-[#154677]">{{ errors.image }}</p>
                 </div>
 
-                <div v-if="previewImage" class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
+                <div v-if="previewImage" class="overflow-hidden rounded-2xl border border-[#154677]/10 bg-slate-50 dark:border-white/10 dark:bg-white/5">
                     <img :src="previewImage" alt="Tool preview" class="h-48 w-full object-cover" />
                 </div>
-                <div v-else class="flex h-48 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-500">
+                <div v-else class="flex h-48 items-center justify-center rounded-2xl border border-[#154677]/10 bg-slate-50 text-sm text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
                     No image selected
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-end dark:border-slate-800">
+        <div class="mt-8 flex flex-col-reverse gap-3 border-t border-[#154677]/10 pt-6 sm:flex-row sm:items-center sm:justify-end dark:border-white/10">
             <RouterLink
                 :to="cancelTo"
-                class="inline-flex items-center justify-center rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                class="theme-button-soft inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
             >
                 Cancel
             </RouterLink>
             <button
                 type="submit"
-                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400"
+                class="theme-button inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                 :disabled="submitting"
             >
-                <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white dark:border-slate-950/30 dark:border-t-slate-950"></span>
+                <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
                 {{ submitLabel }}
             </button>
         </div>

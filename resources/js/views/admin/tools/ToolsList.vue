@@ -3,23 +3,23 @@
         <section class="space-y-6">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <span class="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-600 dark:bg-amber-500/10 dark:text-amber-300">
+                    <span class="inline-flex items-center rounded-full bg-[#2ba6de]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#2ba6de] dark:bg-[#2ba6de]/10 dark:text-[#2ba6de]">
                         Tool Management
                     </span>
-                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">Tools</h1>
+                    <h1 class="mt-3 text-3xl font-bold tracking-tight text-[#154677] dark:text-white">Tools</h1>
                     <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
                         Manage the tool catalog, review details, and keep the admin inventory clean and organized.
                     </p>
                 </div>
 
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                    <div class="rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-[#154677]">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Tools</p>
-                        <p class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ tools.length }}</p>
+                        <p class="mt-1 text-2xl font-bold text-[#154677] dark:text-white">{{ tools.length }}</p>
                     </div>
                     <RouterLink
                         :to="{ name: 'admin.tools.create' }"
-                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400"
+                        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#154677] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2ba6de] dark:bg-[#2ba6de] dark:text-[#154677] dark:hover:bg-[#2ba6de]"
                     >
                         <i class="bi bi-plus-lg"></i>
                         Create Tool
@@ -27,7 +27,7 @@
                 </div>
             </div>
 
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950 dark:shadow-none">
+            <div class="rounded-2xl border border-[#154677]/10 bg-white p-5 shadow-sm shadow-[#154677]/10 dark:border-slate-800 dark:bg-[#154677] dark:shadow-none">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div class="relative w-full max-w-md">
                         <i class="bi bi-search pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
@@ -35,7 +35,7 @@
                             v-model.trim="searchQuery"
                             type="search"
                             placeholder="Search tools by name or description"
-                            class="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-amber-500 dark:focus:bg-slate-950 dark:focus:ring-amber-500/10"
+                            class="w-full rounded-2xl border border-[#154677]/10 bg-slate-50 py-3 pl-11 pr-4 text-sm text-[#154677] outline-none transition focus:border-[#2ba6de] focus:bg-white focus:ring-4 focus:ring-[#2ba6de]/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-[#2ba6de] dark:focus:bg-[#154677] dark:focus:ring-[#2ba6de]/10"
                         />
                     </div>
                     <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
@@ -45,7 +45,7 @@
                 </div>
 
                 <div v-if="loading" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <div v-for="item in 6" :key="item" class="animate-pulse rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
+                    <div v-for="item in 6" :key="item" class="animate-pulse rounded-2xl border border-[#154677]/10 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
                         <div class="h-40 rounded-2xl bg-slate-200 dark:bg-slate-800"></div>
                         <div class="mt-4 h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-800"></div>
                         <div class="mt-3 h-3 w-full rounded bg-slate-200 dark:bg-slate-800"></div>
@@ -57,7 +57,7 @@
                     <article
                         v-for="tool in filteredTools"
                         :key="tool.id"
-                        class="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                        class="group overflow-hidden rounded-2xl border border-[#154677]/10 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl dark:border-slate-800 dark:bg-[#154677]"
                     >
                         <div class="relative h-48 overflow-hidden bg-slate-100 dark:bg-slate-900">
                             <img
@@ -74,7 +74,7 @@
                         <div class="space-y-4 p-5">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <h2 class="truncate text-lg font-bold text-slate-900 dark:text-white">{{ tool.name }}</h2>
+                                    <h2 class="truncate text-lg font-bold text-[#154677] dark:text-white">{{ tool.name }}</h2>
                                     <p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">#{{ tool.id }}</p>
                                 </div>
                             </div>
@@ -90,21 +90,21 @@
                             <div class="grid grid-cols-3 gap-2 pt-2">
                                 <RouterLink
                                     :to="{ name: 'admin.tools.show', params: { id: tool.id } }"
-                                    class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+                                    class="inline-flex items-center justify-center gap-2 rounded-xl border border-[#154677]/10 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
                                 >
                                     <i class="bi bi-eye"></i>
                                     View
                                 </RouterLink>
                                 <RouterLink
                                     :to="{ name: 'admin.tools.edit', params: { id: tool.id } }"
-                                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+                                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#2ba6de]/10 px-3 py-2 text-sm font-semibold text-[#154677] transition hover:bg-[#2ba6de]/15 dark:bg-[#2ba6de]/10 dark:text-[#2ba6de] dark:hover:bg-[#2ba6de]/20"
                                 >
                                     <i class="bi bi-pencil-square"></i>
                                     Edit
                                 </RouterLink>
                                 <button
                                     type="button"
-                                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+                                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-semibold text-[#154677] transition hover:bg-slate-200 dark:bg-slate-1000/10 dark:text-slate-200 dark:hover:bg-slate-1000/20"
                                     @click="openDeleteModal(tool)"
                                 >
                                     <i class="bi bi-trash3"></i>
@@ -116,10 +116,10 @@
                 </div>
 
                 <div v-else class="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
-                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm dark:bg-[#154677] dark:text-slate-300">
                         <i class="bi bi-grid-3x3-gap text-2xl"></i>
                     </div>
-                    <h2 class="mt-5 text-xl font-bold text-slate-900 dark:text-white">
+                    <h2 class="mt-5 text-xl font-bold text-[#154677] dark:text-white">
                         {{ tools.length ? "No matching tools" : "No tools yet" }}
                     </h2>
                     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
@@ -128,7 +128,7 @@
                     <RouterLink
                         v-if="!tools.length"
                         :to="{ name: 'admin.tools.create' }"
-                        class="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400"
+                        class="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#154677] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2ba6de] dark:bg-[#2ba6de] dark:text-[#154677] dark:hover:bg-[#2ba6de]"
                     >
                         <i class="bi bi-plus-lg"></i>
                         Add Tool
