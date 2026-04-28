@@ -85,10 +85,8 @@ const fetchWallet = async () => {
     if (!localStorage.getItem("auth_token")) return;
     try {
         const res = await api.get("/users/wallet");
-        console.log(res);
         if (res.data.status === "success") {
             WalletBalance.value = res.data.data?.balance ?? 0;
-            console.log(WalletBalance.value);
         }
     } catch (err) {
         console.log("Wallet error:", err);
