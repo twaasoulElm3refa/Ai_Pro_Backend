@@ -412,12 +412,9 @@ const submitMessage = async () => {
             role: "user",
         });
 
-        const saved = response?.data;
-        if (saved) {
-            const lastIndex = messages.value.findIndex((item) => item.localKey === optimisticMessage.localKey);
-            if (lastIndex !== -1) {
-                messages.value[lastIndex] = mapMessage(saved, lastIndex);
-            }
+        const assistantMessage = response?.data;
+        if (assistantMessage) {
+            messages.value.push(mapMessage(assistantMessage, messages.value.length));
         }
 
         if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {

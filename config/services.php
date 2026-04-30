@@ -25,6 +25,11 @@ return [
     ],
     'qdrant' => [
         'url' => env('QDRANT_URL'),
+        'vector_size' => env('QDRANT_VECTOR_SIZE', 1536),
+    ],
+    'aiarabic' => [
+        'url' => env('AIARABIC_WRITER_URL', 'https://api.aiarabic.com/tasks/writer'),
+        'key' => env('AIARABIC_INTERNAL_API_KEY', 'test123'),
     ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
