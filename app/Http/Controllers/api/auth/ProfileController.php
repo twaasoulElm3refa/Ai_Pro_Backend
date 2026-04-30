@@ -109,6 +109,11 @@ class ProfileController extends Controller
         $user->password = Hash::make($validated['new_password']);
         $user->save();
 
+        $currentTokenId = $request->user()->currentAccessToken()?->id;
+        $user->tokens()
+            ->when($currentTokenId, fn ($query) => $query->where('id', '!=', $currentTokenId))
+            ->delete();
+
         return response()->json([
             'status' => 'success',
             'message' => 'Password updated successfully.',

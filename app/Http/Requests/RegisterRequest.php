@@ -18,7 +18,7 @@ class RegisterRequest extends FormRequest
             'name'                  => 'required|string|max:255',
             'email'                 => 'required|email|unique:users,email',
             'phone'                 => 'nullable|string|max:20',
-            'image'                 => 'nullable|image|max:2048',
+            'image'                 => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'password'              => ['required', 'confirmed', Password::min(8)],
             'password_confirmation' => 'required',
         ];

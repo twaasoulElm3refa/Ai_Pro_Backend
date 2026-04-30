@@ -32,7 +32,6 @@ class MainToolController extends Controller
         } catch (\Throwable $th) {
             Log::error('Tool Index Error', [
                 'message' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
             ]);
 
             return $this->error('Something went wrong.');
@@ -48,7 +47,6 @@ class MainToolController extends Controller
         } catch (\Throwable $th) {
             Log::error('Tool Show Error', [
                 'message' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
             ]);
 
             return $this->error('Something went wrong.');
@@ -74,7 +72,6 @@ class MainToolController extends Controller
         } catch (\Throwable $th) {
             Log::error('Tool Store Error', [
                 'message' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
             ]);
 
             return $this->error('Something went wrong.');
@@ -94,7 +91,6 @@ class MainToolController extends Controller
         } catch (\Throwable $th) {
             Log::error('Tool Update Error', [
                 'message' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
             ]);
 
             return $this->error('Something went wrong.');
@@ -110,7 +106,6 @@ class MainToolController extends Controller
         } catch (\Throwable $th) {
             Log::error('Tool Destroy Error', [
                 'message' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
             ]);
 
             return $this->error('Something went wrong.');

@@ -69,7 +69,13 @@ class WalletController extends Controller
         try {
             $transaction = WalletTransaction::with('user:id,name,email')
                 ->where('slug', $slug)
+                ->where('user_id', auth()->id())
                 ->first();
+
+            if (! $transaction) {
+                return $this->notFound('Wallet transaction not found.');
+            }
+
             return $this->success($transaction, 'Wallet transaction details fetched successfully.');
         } catch (\Throwable $th) {
             Log::error($th);

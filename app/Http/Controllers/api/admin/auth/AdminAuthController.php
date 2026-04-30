@@ -19,20 +19,27 @@ class AdminAuthController extends Controller
 
     public function login(Request $request)
     {
-        try {
-            $request->all();
-            $user = User::where('email', $request->email)->first();
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc,dns'],
+            'password' => ['required', 'string', 'max:255'],
+        ]);
 
-            if (! $user || ! Hash::check($request->password, $user->password)) {
+        try {
+            $user = User::where('email', $validated['email'])->first();
+
+            if (! $user || ! Hash::check($validated['password'], $user->password)) {
                 return $this->unauthorized('Invalid credentials.');
             }
             if ($user->role != 'admin') {
                 return $this->unauthorized('You are not an admin.');
             }
+            if (! $user->is_active) {
+                return $this->forbidden('Account is disabled.');
+            }
 
             $user->update(['last_seen' => now()]);
 
-            $token = $user->createToken('rag-token')->plainTextToken;
+            $token = $user->createToken('admin-token', ['admin'])->plainTextToken;
 
             return $this->success([
                 'user' => new UserResource($user),
@@ -42,7 +49,6 @@ class AdminAuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Login Error: '.$e->getMessage(), [
                 'email' => $request->email ?? null,
-                'trace' => $e->getTraceAsString(),
             ]);
 
             return $this->error('Something went wrong during login. Please try again later.', 500);
@@ -143,6 +149,11 @@ class AdminAuthController extends Controller
 
         $user->password = Hash::make($validated['new_password']);
         $user->save();
+
+        $currentTokenId = $request->user()->currentAccessToken()?->id;
+        $user->tokens()
+            ->when($currentTokenId, fn ($query) => $query->where('id', '!=', $currentTokenId))
+            ->delete();
 
         return response()->json([
             'status' => 'success',

@@ -219,8 +219,16 @@ const mapMessage = (message, index = 0) => ({
         : now(),
 });
 
+const escapeHtml = (text = "") =>
+    String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
 const formatMessage = (text = "") =>
-    text
+    escapeHtml(text)
         .replace(/\n/g, "<br>")
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
         .replace(/\*(.*?)\*/g, "<em>$1</em>")

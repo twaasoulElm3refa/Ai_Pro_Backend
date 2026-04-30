@@ -29,7 +29,10 @@ const checkStatus = async () => {
         attempts.value++;
 
         const url = `${import.meta.env.VITE_API_URL}/api/v1/wallet/order-status/${orderId}`;
-        const { data } = await axios.get(url);
+        const token = localStorage.getItem("auth_token");
+        const { data } = await axios.get(url, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         // ✅ النجاح
         if (data.status === "completed") {
             clearInterval(interval);

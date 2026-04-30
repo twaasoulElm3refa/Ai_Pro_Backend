@@ -44,9 +44,14 @@ class ConversationRepository implements ConversationInterface
     public function show($uuid)
     {
         try {
-            return Cache::tags(['conversations'])
-                ->remember("conversation_{$uuid}", now()->addMinutes(10), function () use ($uuid) {
-                    return Conversation::with('message')->where('uuid', $uuid)->first();
+            $userId = auth()->id();
+
+            return Cache::tags(['conversations', "user_{$userId}"])
+                ->remember("conversation_{$userId}_{$uuid}", now()->addMinutes(10), function () use ($uuid, $userId) {
+                    return Conversation::with('message')
+                        ->where('uuid', $uuid)
+                        ->where('user_id', $userId)
+                        ->first();
                 });
         } catch (\Throwable $th) {
             Log::error($th);
@@ -57,14 +62,16 @@ class ConversationRepository implements ConversationInterface
     public function destroy($uuid)
     {
         try {
-            $conversation = Conversation::where('uuid', $uuid)->first();
+            $conversation = Conversation::where('uuid', $uuid)
+                ->where('user_id', auth()->id())
+                ->first();
             if (!$conversation) {
                 return false;
             }
             $userId = $conversation->user_id;
             $conversation->delete();
             $this->clearCache($userId);
-            Cache::forget("conversation_{$uuid}");
+            Cache::forget("conversation_{$userId}_{$uuid}");
             return true;
         } catch (\Throwable $th) {
             Log::error($th);

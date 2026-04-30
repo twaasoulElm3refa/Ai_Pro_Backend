@@ -24,7 +24,7 @@ class SubToolUpdateRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'description' => 'nullable|min:5|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:5024',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5024',
             'prompt_placeholder' => 'nullable|min:5|string',
         ];
     }

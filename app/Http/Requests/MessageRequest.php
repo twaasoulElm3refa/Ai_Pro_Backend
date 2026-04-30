@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Conversation;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class MessageRequest extends FormRequest
 {
@@ -11,7 +13,15 @@ class MessageRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $conversationId = $this->input('conversation_id');
+
+        if (! $this->user() || ! $conversationId) {
+            return false;
+        }
+
+        return Conversation::where('id', $conversationId)
+            ->where('user_id', $this->user()->id)
+            ->exists();
     }
 
     /**
@@ -23,8 +33,11 @@ class MessageRequest extends FormRequest
     {
         return [
             'content' => 'required|string|max:10000',
-            'conversation_id' => 'required|exists:conversations,id',
-            'role' => 'required|in:user,system,assistant',
+            'conversation_id' => [
+                'required',
+                Rule::exists('conversations', 'id')->where('user_id', $this->user()->id),
+            ],
+            'role' => 'required|in:user',
         ];
     }
 }

@@ -49,7 +49,9 @@
                             <strong class="d-block mb-2">Follow us</strong>
                             <div class="d-flex gap-2">
                                 <a v-for="social in socials" :key="social.name" :href="social.href"
-                                    class="btn btn-sm rounded-circle social-btn" :style="socialBtnStyle" v-html="social.icon" />
+                                    class="btn btn-sm rounded-circle social-btn" :style="socialBtnStyle">
+                                    <i :class="social.iconClass"></i>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -174,10 +176,10 @@ const submitForm = () => {
 };
 
 const socials = [
-    { name: "facebook", href: "#", icon: `<i class="bi bi-facebook"></i>` },
-    { name: "twitter", href: "#", icon: `<i class="bi bi-twitter"></i>` },
-    { name: "instagram", href: "#", icon: `<i class="bi bi-instagram"></i>` },
-    { name: "telegram", href: "#", icon: `<i class="bi bi-telegram"></i>` },
+    { name: "facebook", href: "#", iconClass: "bi bi-facebook" },
+    { name: "twitter", href: "#", iconClass: "bi bi-twitter" },
+    { name: "instagram", href: "#", iconClass: "bi bi-instagram" },
+    { name: "telegram", href: "#", iconClass: "bi bi-telegram" },
 ];
 </script>
 

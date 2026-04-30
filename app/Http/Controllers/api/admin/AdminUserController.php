@@ -26,7 +26,8 @@ class AdminUserController extends Controller
             return $this->success($users, 'Users fetched successfully.');
 
         } catch (\Throwable $th) {
-            return $this->error($th->getMessage());
+            Log::error($th->getMessage());
+            return $this->error('Something went wrong.');
         }
     }
 
@@ -41,7 +42,7 @@ class AdminUserController extends Controller
             return $this->success(new UserResource($user), 'User created successfully.');
         } catch (\Throwable $th) {
             Log::error($th->getMessage());
-            return $this->error($th->getMessage());
+            return $this->error('Something went wrong.');
         }
     }
 
@@ -56,7 +57,7 @@ class AdminUserController extends Controller
             return $this->success(new UserResource($user), 'User created successfully.');
         } catch (\Throwable $th) {
             Log::error($th->getMessage());
-            return $this->error($th->getMessage());
+            return $this->error('Something went wrong.');
         }
     }
 
@@ -67,7 +68,8 @@ class AdminUserController extends Controller
 
             return $this->success($user, 'User fetched successfully.');
         } catch (\Throwable $th) {
-            return $this->error($th->getMessage());
+            Log::error($th->getMessage());
+            return $this->error('Something went wrong.');
         }
     }
 
@@ -79,7 +81,8 @@ class AdminUserController extends Controller
             return $this->success(null, 'User deleted successfully.');
 
         } catch (\Throwable $th) {
-            return $this->error($th->getMessage());
+            Log::error($th->getMessage());
+            return $this->error('Something went wrong.');
         }
     }
 
@@ -91,7 +94,8 @@ class AdminUserController extends Controller
             return $this->success(null, 'Cache cleared successfully.');
 
         } catch (\Throwable $th) {
-            return $this->error($th->getMessage());
+            Log::error($th->getMessage());
+            return $this->error('Something went wrong.');
         }
     }
 }

@@ -17,6 +17,11 @@ class User extends Authenticatable
     use HasFactory, Notifiable ,SoftDeletes ,HasApiTokens;
 
     protected $guarded = [];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
     /**
      * Get the attributes that should be cast.
      *

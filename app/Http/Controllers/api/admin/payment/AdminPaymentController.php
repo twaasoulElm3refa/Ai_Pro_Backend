@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Repository\payment\AdminPaymentInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AdminPaymentController extends Controller
 {
@@ -46,6 +47,8 @@ class AdminPaymentController extends Controller
         try {
             $payment = $this->paymentRepo->update($request, $id);
             return $this->success($payment, 'Payment updated successfully.');
+        } catch (ValidationException $th) {
+            throw $th;
         } catch (\Throwable $th) {
             Log::error($th);
             return $this->error('Something went wrong.');

@@ -4,6 +4,7 @@ namespace App\Repository\payment;
 
 use App\Models\Payment;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 
 class AdminPaymentRepository implements AdminPaymentInterface
 {
@@ -35,8 +36,17 @@ class AdminPaymentRepository implements AdminPaymentInterface
 
     public function update($request, $id)
     {
-        $payment = Payment::find($id);
-        $payment->update($request->all());
+        $data = $request->validate([
+            'status' => ['sometimes', 'string', Rule::in(['pending', 'approved', 'completed', 'failed', 'cancelled'])],
+            'payment_status' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'currency' => ['sometimes', 'nullable', 'string', 'size:3'],
+            'amount' => ['sometimes', 'numeric', 'min:0'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:255'],
+        ]);
+
+        $payment = Payment::findOrFail($id);
+        $payment->update($data);
+        Cache::tags(['payments'])->flush();
 
         return $payment;
     }

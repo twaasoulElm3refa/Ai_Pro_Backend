@@ -8,6 +8,10 @@ class Payment extends Model
 {
     protected $table = 'payments';
     protected $guarded = [];
+    protected $hidden = [
+        'gateway_response',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class,'user_id');

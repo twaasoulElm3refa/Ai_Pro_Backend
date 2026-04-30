@@ -85,7 +85,6 @@ class AdminDashboardController extends Controller
         } catch (\Throwable $th) {
             Log::error('Admin Statistics Error', [
                 'message' => $th->getMessage(),
-                'trace' => $th->getTraceAsString(),
             ]);
 
             return $this->error('Something went wrong while fetching dashboard statistics.');

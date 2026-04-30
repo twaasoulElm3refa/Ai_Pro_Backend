@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\payment;
 
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Payment;
 use App\Services\PayPalWalletServices;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -38,7 +39,7 @@ class DepositController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Unable to create payment.',
             ], 500);
         }
     }
@@ -71,7 +72,7 @@ class DepositController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Unable to confirm payment.',
             ], 500);
         }
     }
@@ -92,7 +93,9 @@ class DepositController extends Controller
     // GET /api/v1/wallet/order-status/{id}
     public function orderStatus(Request $request, $id): JsonResponse
     {
-        $order = \App\Models\Payment::find($id);
+        $order = Payment::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
 
         if (! $order) {
             return response()->json([

@@ -1,0 +1,121 @@
+========================================
+📁 PROJECT STRUCTURE RULES (STRICT)
+========================================
+
+⚠️ These rules are mandatory and must be followed strictly.
+
+========================================
+🧩 SERVICES STRUCTURE
+========================================
+
+1) ADMIN SERVICES:
+- Create a separate service file for EACH feature
+- Location:
+  resources/js/services/admin/{featureName}Service.js
+
+- Examples:
+  - CouponService.js
+  - OrderService.js
+  - UserService.js
+
+- Use the Admin API client ONLY:
+  resources/js/services/AdminApiClient.js
+
+- DO NOT use ApiClient.js for admin بأي شكل
+
+----------------------------------------
+
+2) USER (HOME) SERVICES:
+- Create services for frontend features
+- Location:
+  resources/js/services/home/{featureName}Service.js
+
+- Use ONLY:
+  resources/js/services/ApiClient.js
+
+- Examples:
+  - CartService.js
+  - WishlistService.js
+  - ProductService.js
+
+========================================
+🎨 FRONTEND (VUE) STRUCTURE
+========================================
+
+3) USER FRONT (HOME UI):
+- All pages must be inside:
+  resources/js/views/home/{feature}/
+
+- Each feature must have its own folder
+
+- Example structure:
+  home/
+    products/
+      Index.vue
+      Show.vue
+    cart/
+      Index.vue
+    wishlist/
+      Index.vue
+    orders/
+      Index.vue
+      Show.vue
+
+----------------------------------------
+
+4) ADMIN FRONT:
+- (if exists) keep same pattern:
+  resources/js/views/admin/{feature}/
+
+========================================
+🔌 API CLIENT RULES
+========================================
+
+- Admin:
+  use AdminApiClient.js ONLY
+
+- User:
+  use ApiClient.js ONLY
+
+- NEVER mix between them
+
+========================================
+🧠 CODING RULES
+========================================
+
+- Use Composition API in Vue 3
+- Keep components reusable
+- Separate logic from UI
+- Use clean naming conventions
+
+- Do NOT duplicate logic
+- Do NOT create unused files
+- Do NOT break existing structure
+
+========================================
+📌 FEATURE IMPLEMENTATION RULE
+========================================
+
+For EACH feature:
+1) Create backend logic (Laravel)
+2) Create API endpoints
+3) Create service (Vue)
+4) Create UI pages
+5) Connect everything together
+
+========================================
+🚫 STRICT PROHIBITIONS
+========================================
+
+- Do NOT place files in random locations
+- Do NOT use wrong API client
+- Do NOT mix admin and user logic
+- Do NOT create global messy code
+
+========================================
+✅ BEFORE CODING
+========================================
+
+- Analyze the project structure
+- Follow these rules strictly
+- Then start implementation step-by-step

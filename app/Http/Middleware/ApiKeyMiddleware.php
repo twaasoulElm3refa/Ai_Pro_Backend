@@ -17,7 +17,9 @@ class ApiKeyMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->header('X-API-KEY') !== env('API_KEY')) {
+        $apiKey = env('API_KEY');
+
+        if (! is_string($apiKey) || $apiKey === '' || ! hash_equals($apiKey, (string) $request->header('X-API-KEY', ''))) {
             return $this->unauthorized('Must provide valid api key');
         }
         return $next($request);

@@ -48,7 +48,7 @@ class AuthController extends Controller
                 ], 'Account not verified. OTP sent to your email.');
             }
             $user->update(['last_seen' => now()]);
-            $token = $user->createToken('rag-token')->plainTextToken;
+            $token = $user->createToken('user-token', ['user'])->plainTextToken;
             return $this->success([
                 'user'  => new userResource($user),
                 'token' => $token,
@@ -78,6 +78,10 @@ class AuthController extends Controller
             return $this->error('User not found.', 404);
         }
 
+        if (! $user->is_active) {
+            return $this->forbidden('Account is disabled.');
+        }
+
         if (! $this->authService->verifyOtp($request->email, $request->otp)) {
             return $this->error('Invalid or expired OTP.', 400);
         }
@@ -91,7 +95,7 @@ class AuthController extends Controller
 
         $this->authService->clearOtp($request->email);
 
-        $token = $user->createToken('rag-token')->plainTextToken;
+        $token = $user->createToken('user-token', ['user'])->plainTextToken;
 
         return $this->success([
             'user'  => new userResource($user),
@@ -173,9 +177,17 @@ class AuthController extends Controller
             return response()->json(['message' => 'الكود غير صحيح'], 400);
         }
 
-        User::where('email', $request->email)->update([
+        if (now()->parse($record->created_at)->addMinutes(15)->isPast()) {
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+            return response()->json(['message' => 'Expired OTP.'], 400);
+        }
+
+        $user = User::where('email', $request->email)->firstOrFail();
+        $user->update([
             'password' => Hash::make($request->password),
         ]);
+        $user->tokens()->delete();
 
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 

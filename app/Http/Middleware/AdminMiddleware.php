@@ -22,6 +22,12 @@ class AdminMiddleware
         if (!$user || $user->role !== 'admin') {
             return $this->unauthorized('You are not an admin.');
         }
+
+        $token = $request->user()?->currentAccessToken();
+        if ($token && ! $token->can('admin')) {
+            return $this->unauthorized('Invalid admin token.');
+        }
+
         return $next($request);
     }
 }

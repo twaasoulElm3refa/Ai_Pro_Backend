@@ -113,8 +113,7 @@
                             :class="link.active ? 'border-[#154677] bg-[#154677] text-white' : 'border-[#154677]/10 bg-white text-slate-600 hover:border-[#154677]/20 hover:bg-slate-50'"
                             :disabled="!link.url || loading"
                             @click="changePage(link.page)"
-                            v-html="link.label"
-                        ></button>
+                        >{{ link.label }}</button>
                     </div>
                 </div>
             </section>

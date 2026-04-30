@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api\auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
 class GoogleAuthController extends Controller
@@ -31,9 +32,11 @@ class GoogleAuthController extends Controller
                 ['email' => $googleUser->getEmail()],
                 [
                     'name' => $googleUser->getName() ?: 'Google User',
-                    'password' => Hash::make('password'),
+                    'password' => Hash::make(Str::random(40)),
                     'role' => 'user',
                     'is_active' => true,
+                    'is_verified' => true,
+                    'email_verified_at' => now(),
                 ]
             );
 
@@ -41,14 +44,14 @@ class GoogleAuthController extends Controller
                 'last_seen' => now(),
             ]);
 
-            $token = $user->createToken('google-auth-token')->plainTextToken;
+            $token = $user->createToken('google-auth-token', ['user'])->plainTextToken;
 
             return redirect()->to(
                 rtrim(config('app.frontend_url'), '/') . "/google-callback?token={$token}&role={$user->role}"
             );
         } catch (\Exception $e) {
             return redirect()->to(
-                rtrim(config('app.frontend_url'), '/') . "/google-callback?error=" . urlencode($e->getMessage())
+                rtrim(config('app.frontend_url'), '/') . "/google-callback?error=" . urlencode('Google authentication failed.')
             );
         }
     }

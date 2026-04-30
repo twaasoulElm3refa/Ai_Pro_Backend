@@ -12,6 +12,7 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Srmklive\PayPal\Services\PayPal as PayPalClient;
 
 class PayPalWalletServices implements PaymentInterface
@@ -27,8 +28,9 @@ class PayPalWalletServices implements PaymentInterface
 
     public function pay(array $data): array
     {
-        $key = $data['idempotency_key']
-            ?? md5(($data['user_id'] ?? 'guest').'|'.$data['amount'].'|'.now()->format('Ymd'));
+        $key = isset($data['idempotency_key'])
+            ? hash('sha256', ($data['user_id'] ?? 'guest').'|'.$data['idempotency_key'])
+            : md5(($data['user_id'] ?? 'guest').'|'.$data['amount'].'|'.now()->format('Ymd'));
 
         $existing = Payment::where('idempotency_key', $key)
             ->where('type', 'wallet_deposit')
@@ -255,13 +257,10 @@ class PayPalWalletServices implements PaymentInterface
 
                 $customId =
                     $resource['custom_id']
-                    ?? $resource['purchase_units'][0]['custom_id']
+                    ?? $resource['purchase_units'][0]['payments']['captures'][0]['custom_id']
                     ?? null;
-
                 if ($customId && str_starts_with($customId, 'wallet_topup:')) {
-
                     $orderId = str_replace('wallet_topup:', '', $customId);
-
                     $order = Payment::where('id', $orderId)
                         ->lockForUpdate()
                         ->first();
@@ -302,7 +301,10 @@ class PayPalWalletServices implements PaymentInterface
             // ✅ شحن المحفظة
             $wallet = Wallet::firstOrCreate(
                 ['user_id' => $order->user_id],
-                ['balance' => 0]
+                [
+                    'balance' => 0,
+                    'uuid' => Str::uuid(),
+                ]
             );
 
             $before = $wallet->balance;
