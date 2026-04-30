@@ -24,6 +24,7 @@ class SubToolRequest extends FormRequest
         return [
             'name'=>'required|string|max:255|unique:sub_tools,name',
             'description'=>'nullable|min:5|string',
+            'website'=>'nullable|url|max:255',
             'image'=>'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5024',
             'prompt_placeholder'=>'nullable|min:5|string',
         ];

@@ -17,21 +17,29 @@ class AiArabicWriterService
         $this->apiKey = (string) config('services.aiarabic.key', 'test123');
     }
 
-    public function generateReply(array $messages): string
+    public function generateReply(array $payload): string
     {
         $response = Http::timeout(45)
             ->withHeaders([
                 'x-internal-api-key' => $this->apiKey,
                 'Content-Type' => 'application/json',
             ])
-            ->post($this->url, [
-                'messages' => $this->sanitizeMessages($messages),
-            ]);
+            ->post($this->url, $payload);
 
         if (! $response->successful()) {
             Log::warning('AI Arabic writer request failed.', [
+                'url' => $this->url,
                 'status' => $response->status(),
                 'body' => $response->body(),
+                'payload_meta' => [
+                    'keys' => array_keys($payload),
+                    'user_id' => $payload['user_id'] ?? null,
+                    'sub_tool_id' => $payload['sub_tool_id'] ?? null,
+                    'title_length' => isset($payload['title']) ? mb_strlen((string) $payload['title']) : null,
+                    'conversation_uuid' => $payload['conversation_uuid'] ?? null,
+                    'body_length' => isset($payload['body']) ? mb_strlen((string) $payload['body']) : null,
+                    'user_message_length' => isset($payload['user_message']) ? mb_strlen((string) $payload['user_message']) : null,
+                ],
             ]);
 
             throw new RuntimeException('AI writer request failed.');
@@ -48,23 +56,6 @@ class AiArabicWriterService
         }
 
         return $content;
-    }
-
-    protected function sanitizeMessages(array $messages): array
-    {
-        return array_values(array_filter(array_map(static function (array $message) {
-            $role = $message['role'] ?? null;
-            $content = trim((string) ($message['content'] ?? ''));
-
-            if (! in_array($role, ['user', 'assistant', 'system'], true) || $content === '') {
-                return null;
-            }
-
-            return [
-                'role' => $role,
-                'content' => $content,
-            ];
-        }, $messages)));
     }
 
     protected function extractContent(mixed $payload): string

@@ -21,7 +21,6 @@ return new class extends Migration
 
             $table->string('description')->nullable();
             $table->text('meta_description')->nullable();
-
             $table->string('image')->nullable();
             $table->string('slug')->unique();
             $table->string('prompt_placeholder')->nullable();

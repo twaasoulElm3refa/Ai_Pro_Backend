@@ -121,7 +121,12 @@
                         </div>
 
                         <div class="msg-bubble">
-                            <div class="msg-content" v-html="formatMessage(msg.content)"></div>
+                            <div class="msg-content">
+                                <span v-if="msg.streaming && !msg.content" class="typing-indicator">
+                                    <span></span><span></span><span></span>
+                                </span>
+                                <span v-else v-html="formatMessage(msg.content)"></span>
+                            </div>
                             <span class="msg-time">{{ msg.time }}</span>
                         </div>
 
@@ -140,7 +145,7 @@
                         class="chat-input"
                         :placeholder="subtool.promptPlaceholder || 'Write your message here...'"
                         rows="1"
-                        :disabled="sendingMessage"
+                        :disabled="sendingMessage || streamingAssistant"
                         @focus="inputFocused = true"
                         @blur="inputFocused = false"
                         @keydown.enter.exact.prevent="submitMessage"
@@ -152,10 +157,10 @@
                         <span class="char-count">{{ userInput.length }}</span>
                         <button
                             class="send-btn"
-                            :disabled="!userInput.trim() || sendingMessage"
+                            :disabled="!userInput.trim() || sendingMessage || streamingAssistant"
                             @click="submitMessage"
                         >
-                            <i class="bi" :class="sendingMessage ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
+                            <i class="bi" :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
                         </button>
                     </div>
                 </div>
@@ -169,7 +174,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import homeService from "@/services/home/homeService";
 import chatServices from "@/services/chat/chatServices";
@@ -182,6 +187,7 @@ const loadingConversations = ref(true);
 const loadingMessages = ref(false);
 const creatingConversation = ref(false);
 const sendingMessage = ref(false);
+const streamingAssistant = ref(false);
 const removingConversationUuid = ref("");
 
 const subtool = ref({ id: null, name: "", description: "", promptPlaceholder: "", imageUrl: "" });
@@ -193,6 +199,8 @@ const inputFocused = ref(false);
 const sidebarOpen = ref(false);
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
+const activeEventSource = ref(null);
+const streamingConversationUuid = ref("");
 
 const filteredConversations = computed(() =>
     conversations.value.filter((conversation) =>
@@ -252,6 +260,91 @@ const resetTextarea = () => {
     if (textareaRef.value) {
         textareaRef.value.style.height = "auto";
     }
+};
+
+const closeAssistantStream = () => {
+    if (activeEventSource.value) {
+        activeEventSource.value.close();
+        activeEventSource.value = null;
+    }
+
+    streamingAssistant.value = false;
+    streamingConversationUuid.value = "";
+};
+
+const streamUrl = (uuid, afterId) => {
+    const token = localStorage.getItem("auth_token") || "";
+    const params = new URLSearchParams({
+        after_id: String(afterId || 0),
+        token,
+    });
+
+    return `/api/v1/conversation/${uuid}/stream?${params.toString()}`;
+};
+
+const openAssistantStream = async (conversation, afterId) => {
+    if (!conversation?.uuid || streamingAssistant.value) return;
+
+    const assistantMessage = mapMessage(
+        {
+            content: "",
+            role: "assistant",
+            created_at: new Date().toISOString(),
+            streaming: true,
+        },
+        messages.value.length
+    );
+
+    messages.value.push(assistantMessage);
+    streamingAssistant.value = true;
+    streamingConversationUuid.value = conversation.uuid;
+    await scrollToBottom();
+
+    const source = new EventSource(streamUrl(conversation.uuid, afterId));
+    activeEventSource.value = source;
+
+    source.onmessage = async (event) => {
+        const payload = JSON.parse(event.data || "{}");
+        const index = messages.value.findIndex((item) => item.localKey === assistantMessage.localKey);
+
+        if (index === -1) return;
+
+        if (payload.type === "token") {
+            messages.value[index].content += payload.content || "";
+            await scrollToBottom();
+        }
+
+        if (payload.type === "error") {
+            messages.value[index].content = payload.content || "Something went wrong.";
+            messages.value[index].streaming = false;
+            closeAssistantStream();
+        }
+
+        if (payload.type === "done") {
+            messages.value[index] = mapMessage(
+                {
+                    ...(payload.message || messages.value[index]),
+                    content: payload.message?.content || messages.value[index].content,
+                    role: "assistant",
+                    streaming: false,
+                },
+                index
+            );
+            closeAssistantStream();
+            await scrollToBottom();
+        }
+    };
+
+    source.onerror = () => {
+        const index = messages.value.findIndex((item) => item.localKey === assistantMessage.localKey);
+
+        if (index !== -1 && !messages.value[index].content) {
+            messages.value[index].content = "Connection interrupted. Please try again.";
+            messages.value[index].streaming = false;
+        }
+
+        closeAssistantStream();
+    };
 };
 
 const newLine = () => {
@@ -386,7 +479,7 @@ const ensureConversation = async () => {
 
 const submitMessage = async () => {
     const content = userInput.value.trim();
-    if (!content || sendingMessage.value) return;
+    if (!content || sendingMessage.value || streamingAssistant.value) return;
 
     sendingMessage.value = true;
 
@@ -412,14 +505,19 @@ const submitMessage = async () => {
             role: "user",
         });
 
-        const assistantMessage = response?.data;
-        if (assistantMessage) {
-            messages.value.push(mapMessage(assistantMessage, messages.value.length));
+        const savedMessage = response?.data?.message;
+        if (savedMessage) {
+            const lastIndex = messages.value.findIndex((item) => item.localKey === optimisticMessage.localKey);
+            if (lastIndex !== -1) {
+                messages.value[lastIndex] = mapMessage(savedMessage, lastIndex);
+            }
         }
 
         if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
             conversations.value.unshift(conversation);
         }
+
+        await openAssistantStream(conversation, response?.data?.message_id);
     } catch {
         messages.value = messages.value.filter((item) => item.localKey !== optimisticMessage.localKey);
     } finally {
@@ -433,6 +531,10 @@ const removeConversation = async (conversation) => {
 
     removingConversationUuid.value = conversation.uuid;
     try {
+        if (streamingConversationUuid.value === conversation.uuid) {
+            closeAssistantStream();
+        }
+
         await chatServices.deleteConversation(conversation.uuid);
         conversations.value = conversations.value.filter((item) => item.uuid !== conversation.uuid);
 
@@ -452,9 +554,14 @@ onMounted(async () => {
     await syncRouteConversation();
 });
 
+onUnmounted(() => {
+    closeAssistantStream();
+});
+
 watch(
     () => route.params.slug,
     async () => {
+        closeAssistantStream();
         await loadSubtool();
         await loadConversations();
         await syncRouteConversation();
@@ -464,6 +571,7 @@ watch(
 watch(
     () => route.params.uuid,
     async () => {
+        closeAssistantStream();
         await syncRouteConversation();
     }
 );
@@ -947,6 +1055,29 @@ watch(
     border-radius: 6px 18px 18px 18px;
 }
 
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 42px;
+}
+
+.typing-indicator span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2ba6de;
+    animation: typing-bounce 0.9s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.12s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.24s;
+}
+
 .msg-time {
     font-size: 10px;
     color: #94a3b8;
@@ -1127,6 +1258,18 @@ watch(
 
     100% {
         background-position: -200% 0;
+    }
+}
+
+@keyframes typing-bounce {
+    0%, 80%, 100% {
+        opacity: 0.35;
+        transform: translateY(0);
+    }
+
+    40% {
+        opacity: 1;
+        transform: translateY(-4px);
     }
 }
 

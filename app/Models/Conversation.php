@@ -21,8 +21,18 @@ class Conversation extends Model
         return $this->belongsTo(SubTools::class,'sub_tool_id');
     }
 
+    public function subTool()
+    {
+        return $this->sub_tool();
+    }
+
     public function message()
     {
         return $this->hasMany(Message::class,'conversation_id');
+    }
+
+    public function messages()
+    {
+        return $this->message();
     }
 }

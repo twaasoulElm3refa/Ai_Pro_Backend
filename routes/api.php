@@ -60,6 +60,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);
     });
 
+    Route::get('/conversation/{uuid}/stream', [ConversationController::class, 'conversationStream'])
+        ->middleware('throttle:30,1')
+        ->withoutMiddleware(ApiKeyMiddleware::class);
+
     Route::prefix('conversation')->middleware(['auth:sanctum', 'throttle:45,1'])->group(function () {
         Route::get('/', [ConversationController::class, 'conversation']);
         Route::get('/{uuid}', [ConversationController::class, 'conversationDetails']);

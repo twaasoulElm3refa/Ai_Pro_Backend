@@ -9,7 +9,6 @@ class SubToolRepository implements SubToolInterface
     public function index($id)
     {
         $tools = SubTools::where('main_tool_id',$id)
-            ->select('id', 'name', 'image', 'description', 'created_at', 'sort_order', 'slug', 'is_active', 'prompt_placeholder')
             ->paginate(10);
         return $tools;
     }
