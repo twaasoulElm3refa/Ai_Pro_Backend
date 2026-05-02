@@ -1,13 +1,13 @@
 <template>
-    <section class="contact-section py-5" :style="sectionStyle">
+    <main class="contact-section py-5" :style="sectionStyle" aria-labelledby="contact-page-title">
         <div class="container">
 
             <!-- Title -->
             <div class="text-center mb-5">
                 <span class="contact-badge">Get In Touch</span>
-                <h2 class="fw-bold mb-3 mt-3 contact-title">
+                <h1 id="contact-page-title" class="fw-bold mb-3 mt-3 contact-title">
                     Contact Us
-                </h2>
+                </h1>
                 <p class="contact-subtitle">
                     We are here to answer all your questions and help you with anything you need
                 </p>
@@ -49,7 +49,8 @@
                             <strong class="d-block mb-2">Follow us</strong>
                             <div class="d-flex gap-2">
                                 <a v-for="social in socials" :key="social.name" :href="social.href"
-                                    class="btn btn-sm rounded-circle social-btn" :style="socialBtnStyle">
+                                    class="btn btn-sm rounded-circle social-btn" :style="socialBtnStyle"
+                                    :aria-label="`Visit our ${social.name} page`">
                                     <i :class="social.iconClass"></i>
                                 </a>
                             </div>
@@ -64,23 +65,23 @@
 
                         <form @submit.prevent="submitForm">
                             <div class="mb-3">
-                                <label class="form-label">Full Name</label>
-                                <input v-model="form.name" type="text" class="form-control contact-input" :style="inputStyle" required />
+                                <label for="contact-name" class="form-label">Full Name</label>
+                                <input id="contact-name" v-model="form.name" type="text" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input v-model="form.email" type="email" class="form-control contact-input" :style="inputStyle" required />
+                                <label for="contact-email" class="form-label">Email</label>
+                                <input id="contact-email" v-model="form.email" type="email" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Subject</label>
-                                <input v-model="form.subject" type="text" class="form-control contact-input" :style="inputStyle" required />
+                                <label for="contact-subject" class="form-label">Subject</label>
+                                <input id="contact-subject" v-model="form.subject" type="text" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Message</label>
-                                <textarea v-model="form.message" rows="4" class="form-control contact-input" :style="inputStyle" required />
+                                <label for="contact-message" class="form-label">Message</label>
+                                <textarea id="contact-message" v-model="form.message" rows="4" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <button type="submit" class="btn w-100 contact-submit" :style="btnStyle">
@@ -97,12 +98,28 @@
             </div>
 
         </div>
-    </section>
+    </main>
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
+import { useRoute } from "vue-router";
 import COLORS, { rgba } from "@/components/assets/colors.js";
+import useSeoMeta from "@/composables/useSeoMeta";
+
+const route = useRoute();
+const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const seoTitle = computed(() => (isArabic.value ? "اتصل بنا | Ai Pro" : "Contact Us | Ai Pro"));
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "تواصل مع فريقنا للاستفسارات والدعم والشراكات عبر نموذج واضح وقنوات مباشرة، واحصل على استجابة سريعة تساعدك على الاستمرار بثقة."
+        : "Contact our team for support, questions, or partnership requests using a clear form and direct channels, with fast responses to help you move forward."
+);
+
+useSeoMeta({
+    title: seoTitle,
+    description: seoDescription,
+});
 
 /* ---------------- state ---------------- */
 const form = ref({

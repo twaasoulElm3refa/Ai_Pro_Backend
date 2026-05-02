@@ -1,20 +1,20 @@
 <template>
-    <div class="deposit-page">
+    <main class="deposit-page" aria-labelledby="charge-wallet-title">
         <!-- Current Balance -->
-        <div class="balance-card">
+        <section class="balance-card" aria-label="Wallet balance summary">
             <p class="label">رصيدك الحالي</p>
             <p class="amount">${{ wallet?.amount ?? '0.00' }}</p>
             <p class="currency">USD</p>
-        </div>
+        </section>
 
         <!-- Deposit Form -->
-        <div class="deposit-card">
-            <h2>شحن المحفظة</h2>
+        <section class="deposit-card" aria-label="Charge wallet form">
+            <h1 id="charge-wallet-title">شحن المحفظة</h1>
 
             <!-- Preset Amounts -->
             <div class="presets">
                 <button v-for="val in presets" :key="val" :class="['preset-btn', { active: selectedPreset === val }]"
-                    @click="selectPreset(val)">
+                    type="button" :aria-label="`Select preset amount $${val}`" @click="selectPreset(val)">
                     ${{ val }}
                 </button>
             </div>
@@ -24,8 +24,8 @@
                 <label>المبلغ المخصص</label>
                 <div class="amount-wrap">
                     <span class="currency-badge">$</span>
-                    <input v-model.number="form.amount" type="number" min="1" step="0.01" placeholder="0.00"
-                        @input="selectedPreset = null" />
+                    <input id="charge-amount" v-model.number="form.amount" type="number" min="1" step="0.01"
+                        placeholder="0.00" aria-label="Custom charge amount" @input="selectedPreset = null" />
                 </div>
                 <p v-if="amountError" class="error">{{ amountError }}</p>
             </div>
@@ -33,7 +33,7 @@
             <!-- Description -->
             <div class="input-group">
                 <label>وصف (اختياري)</label>
-                <input v-model="form.description" type="text" maxlength="255" placeholder="مثلاً: شحن رصيد لشراء صور" />
+                <input id="charge-description" v-model="form.description" type="text" maxlength="255" aria-label="Charge description" placeholder="مثلاً: شحن رصيد لشراء صور" />
             </div>
 
             <hr />
@@ -53,7 +53,7 @@
             </div>
 
             <!-- Submit -->
-            <button class="pay-btn" :disabled="!isValid || loading" @click="handlePay">
+            <button type="button" class="pay-btn" :disabled="!isValid || loading" @click="handlePay">
                 <span v-if="loading">جاري التحويل...</span>
                 <span v-else>ادفع عبر PayPal</span>
             </button>
@@ -61,14 +61,16 @@
             <p v-if="serverError" class="error" style="margin-top:12px;text-align:center">
                 {{ serverError }}
             </p>
-        </div>
-    </div>
+        </section>
+    </main>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRoute } from "vue-router"
 import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
+import useSeoMeta from "@/composables/useSeoMeta"
 
 /* =========================
    Axios Instance (with token)
@@ -99,6 +101,7 @@ api.interceptors.request.use((config) => {
 const props = defineProps({
     wallet: { type: Object, default: null },
 })
+const route = useRoute()
 
 /* =========================
    State
@@ -113,6 +116,19 @@ const serverError = ref('')
 const form = ref({
     amount: '',
     description: '',
+})
+
+const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar")
+const seoTitle = computed(() => (isArabic.value ? "شحن المحفظة | Ai Pro" : "Charge Wallet | Ai Pro"))
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "اشحن محفظتك بأمان عبر PayPal، اختر مبلغًا ثابتًا أو مخصصًا، وراجع تفاصيل الدفع بدقة قبل إتمام عملية إضافة الرصيد إلى حسابك."
+        : "Add funds to your wallet securely with PayPal, select a preset or custom amount, and review payment details before completing your balance charge."
+)
+
+useSeoMeta({
+    title: seoTitle,
+    description: seoDescription,
 })
 
 /* =========================
@@ -204,7 +220,7 @@ async function handlePay() {
     padding: 1.5rem;
 }
 
-.deposit-card h2 {
+.deposit-card h1 {
     font-size: 16px;
     font-weight: 500;
     margin-bottom: 1.25rem;
@@ -336,3 +352,5 @@ hr {
     margin-top: 6px;
 }
 </style>
+
+

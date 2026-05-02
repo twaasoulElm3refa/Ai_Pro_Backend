@@ -1,5 +1,5 @@
 <template>
-  <div class="failed-page">
+  <main class="failed-page" aria-labelledby="failed-payment-title">
     <div class="particles">
       <div
         v-for="i in 8"
@@ -45,7 +45,7 @@
         </div>
       </div>
 
-      <h1>فشلت عملية الدفع 😞</h1>
+      <h1 id="failed-payment-title">فشلت عملية الدفع 😞</h1>
       <p class="subtitle">
         لم تتم العملية بنجاح<br />
         يمكنك المحاولة مرة أخرى أو التواصل مع الدعم
@@ -79,25 +79,45 @@
       <div class="divider"></div>
 
       <!-- Buttons -->
-      <button @click="retryPayment" class="btn-retry">
+      <button type="button" @click="retryPayment" class="btn-retry" aria-label="Retry PayPal payment">
         <span class="btn-icon">🔄</span>
         إعادة المحاولة
       </button>
 
-      <button @click="contactSupport" class="btn-support">
+      <button type="button" @click="contactSupport" class="btn-support" aria-label="Contact support">
         💬 التواصل مع الدعم الفني
       </button>
 
-      <button @click="goHome" class="sec-link">
+      <button type="button" @click="goHome" class="sec-link" aria-label="Back to home page">
         العودة إلى الصفحة الرئيسية
       </button>
     </div>
-  </div>
+  </main>
 </template>
 
 <script>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+import useSeoMeta from "@/composables/useSeoMeta";
+
 export default {
   name: "PaymentFailed",
+
+  setup() {
+    const route = useRoute();
+    const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+    const seoTitle = computed(() => (isArabic.value ? "فشل الدفع | Ai Pro" : "Payment Failed | Ai Pro"));
+    const seoDescription = computed(() =>
+      isArabic.value
+        ? "تعذر إتمام عملية الدفع. راجع سبب الفشل، أعد المحاولة بأمان عبر PayPal، أو تواصل مع الدعم بسرعة دون فقدان رصيد محفظتك."
+        : "Payment did not complete. Review the failure reason, retry your PayPal charge safely, or contact support for quick help without losing your wallet balance."
+    );
+
+    useSeoMeta({
+      title: seoTitle,
+      description: seoDescription,
+    });
+  },
 
   computed: {
     errorReason() {
@@ -509,3 +529,4 @@ h1 {
     color: #154677;
 }
 </style>
+

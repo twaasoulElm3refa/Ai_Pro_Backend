@@ -1,21 +1,34 @@
 <template>
-    <div class="waiting-container">
-        <div class="card">
-            <div class="spinner"></div>
-            <h2>Processing Your Payment</h2>
+    <main class="waiting-container" aria-labelledby="waiting-payment-title">
+        <section class="card" role="status" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <h1 id="waiting-payment-title">Processing Your Payment</h1>
             <p>Please wait while we confirm your payment with PayPal...</p>
             <p class="hint">Do not close this page</p>
-        </div>
-    </div>
+        </section>
+    </main>
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import axios from "axios";
+import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
 const route = useRoute();
+const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const seoTitle = computed(() => (isArabic.value ? "انتظار تأكيد الدفع | Ai Pro" : "Payment Verification | Ai Pro"));
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "نقوم الآن بتأكيد حالة دفع PayPal. اترك الصفحة مفتوحة حتى نتحقق من العملية ونحوّلك تلقائيًا فور انتهاء المعالجة."
+        : "We are confirming your PayPal payment status. Keep this page open while we verify the transaction and redirect you automatically once processing finishes."
+);
+
+useSeoMeta({
+    title: seoTitle,
+    description: seoDescription,
+});
 const orderId = route.query.order_id;
 
 const lang = localStorage.getItem("language") || "en";
@@ -115,7 +128,7 @@ onUnmounted(() => {
     }
 }
 
-h2 {
+h1 {
     font-size: 1.4rem;
     color: #1a1a1a;
     margin-bottom: 10px;

@@ -1,5 +1,5 @@
 <template>
-    <div class="success-page">
+    <main class="success-page" aria-labelledby="success-payment-title">
         <!-- Background particles -->
         <div class="particles">
             <div v-for="i in 8" :key="i" class="particle"
@@ -24,7 +24,7 @@
                 </div>
             </div>
 
-            <h1>تم شحن الرصيد بنجاح 🎉</h1>
+            <h1 id="success-payment-title">تم شحن الرصيد بنجاح 🎉</h1>
             <p class="subtitle">
                 تم إضافة المبلغ إلى محفظتك بنجاح<br />
                 يمكنك الآن استخدامه أو تحميل مشترياتك
@@ -58,21 +58,41 @@
             <div class="divider"></div>
 
             <!-- Buttons -->
-            <button @click="goToDownloads" class="btn-downloads">
+            <button type="button" @click="goToDownloads" class="btn-downloads" aria-label="Go to wallet page">
                 <span class="btn-arrow">⬇</span>
                 الذهاب إلى المحفظة
             </button>
 
-            <button @click="goHome" class="sec-link">
+            <button type="button" @click="goHome" class="sec-link" aria-label="Back to home page">
                 العودة إلى الصفحة الرئيسية
             </button>
         </div>
-    </div>
+    </main>
 </template>
 
 <script>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+import useSeoMeta from "@/composables/useSeoMeta";
+
 export default {
     name: "PaymentSuccess",
+
+    setup() {
+        const route = useRoute();
+        const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+        const seoTitle = computed(() => (isArabic.value ? "نجاح الشحن | Ai Pro" : "Deposit Success | Ai Pro"));
+        const seoDescription = computed(() =>
+            isArabic.value
+                ? "تم شحن محفظتك بنجاح. راجع تفاصيل العملية، عد إلى المحفظة مباشرة، وواصل استخدام الأدوات برصيدك المحدث دون أي خطوات إضافية."
+                : "Your wallet charge was successful. Confirm transaction details, return to your wallet, and continue using tools with your updated balance immediately."
+        );
+
+        useSeoMeta({
+            title: seoTitle,
+            description: seoDescription,
+        });
+    },
 
     computed: {
         transactionId() {
@@ -213,3 +233,4 @@ export default {
     cursor: pointer;
 }
 </style>
+

@@ -1,18 +1,19 @@
 <template>
-    <div :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']">
+    <main :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']"
+        aria-labelledby="profile-page-title">
         <div :class="['max-w-3xl mx-auto rounded-2xl shadow-2xl border p-6 transition-colors duration-300',
             isDark ? 'bg-[#154677] text-white border-slate-800' : 'bg-white text-[#154677] border-[#154677]/10']">
 
             <!-- Header -->
             <div class="mb-6">
-                <h1 class="text-2xl font-bold" :class="isDark ? 'text-[#2ba6de]' : 'text-[#154677]'">
+                <h1 id="profile-page-title" class="text-2xl font-bold" :class="isDark ? 'text-[#2ba6de]' : 'text-[#154677]'">
                     ملفي الشخصي
                 </h1>
             </div>
 
             <!-- Tabs -->
             <div :class="['flex border-b mb-6', isDark ? 'border-slate-800' : 'border-[#154677]/10']">
-                <button v-for="tab in tabs" :key="tab.id" @click="currentTab = tab.id" :class="[
+                <button v-for="tab in tabs" :key="tab.id" type="button" :aria-label="`Open ${tab.label} tab`" @click="currentTab = tab.id" :class="[
                     'py-3 px-4 text-sm font-medium transition-colors',
                     currentTab === tab.id
                         ? isDark
@@ -31,7 +32,8 @@
                 <div class="flex items-center gap-4 mb-5">
                     <!-- Avatar: صورة أو أحرف -->
                     <div class="w-14 h-14 rounded-full overflow-hidden shadow-md flex-shrink-0">
-                        <img v-if="profile.user.image" :src="getImageUrl(profile.user.image)" alt="avatar"
+                        <img v-if="profile.user.image" :src="getImageUrl(profile.user.image)"
+                            :alt="`${profile.user.name || 'User'} avatar`"
                             class="w-full h-full object-cover" />
                         <div v-else
                             class="w-full h-full bg-[#154677] flex items-center justify-center text-white text-xl font-bold">
@@ -84,7 +86,7 @@
                         <div class="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 shadow">
                             <img v-if="imagePreview || profile.user.image"
                                 :src="imagePreview || getImageUrl(profile.user.image)"
-                                class="w-full h-full object-cover" alt="preview" />
+                                :alt="`${profile.user.name || 'User'} profile preview`" class="w-full h-full object-cover" />
                             <div v-else
                                 class="w-full h-full bg-[#154677] flex items-center justify-center text-white font-bold text-lg">
                                 {{ avatarInitials }}
@@ -95,7 +97,8 @@
                                 ? 'border-slate-600 text-slate-300 hover:border-[#154677] hover:text-[#154677]'
                                 : 'border-slate-300 text-slate-600 hover:border-[#154677] hover:text-[#154677]']">
                             اختر صورة
-                            <input type="file" accept="image/*" class="hidden" @change="handleImageUpload" />
+                            <input type="file" accept="image/*" class="hidden" aria-label="Upload profile image"
+                                @change="handleImageUpload" />
                         </label>
                         <span v-if="editData.image" class="text-xs text-[#154677] dark:text-[#2ba6de] truncate max-w-[140px]">
                             {{ editData.image.name }}
@@ -104,12 +107,14 @@
                 </div>
 
                 <div class="flex gap-2">
-                    <button @click="updateProfile" :disabled="profileLoading"
+                    <button type="button" @click="updateProfile" :disabled="profileLoading"
+                        aria-label="Save profile changes"
                         class="bg-[#154677] hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
                         {{ profileLoading ? 'جاري الحفظ...' : 'حفظ التغييرات' }}
                     </button>
 
-                    <button @click="deleteProfile" :disabled="profileLoading"
+                    <button type="button" @click="deleteProfile" :disabled="profileLoading"
+                        aria-label="Delete account"
                         class="bg-slate-1000 hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
                         {{ profileLoading ? 'جاري الحذف...' : 'حذف الحساب' }}
                     </button>
@@ -122,7 +127,8 @@
                 <PasswordInput label="كلمة المرور الجديدة" v-model="passwordData.new_password" :isDark="isDark" />
                 <PasswordInput label="تأكيد كلمة المرور" v-model="passwordData.confirm_password" :isDark="isDark" />
 
-                <button @click="updatePassword" :disabled="passwordLoading"
+                <button type="button" @click="updatePassword" :disabled="passwordLoading"
+                    aria-label="Update password"
                     class="bg-[#154677] hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded-lg shadow-md disabled:opacity-60">
                     {{ passwordLoading ? 'جاري التحديث...' : 'تحديث كلمة المرور' }}
                 </button>
@@ -130,7 +136,7 @@
 
             <!-- Status Message -->
             <transition name="fade">
-                <div v-if="statusMessage" :class="['mt-6 p-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all',
+                <div v-if="statusMessage" role="status" aria-live="polite" :class="['mt-6 p-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all',
                     statusIsError
                         ? 'bg-slate-1000/10 border border-[#154677]/20 text-[#154677]'
                         : 'bg-[#154677]/10 border border-[#154677]/30 text-[#154677] dark:text-[#2ba6de]']">
@@ -139,14 +145,14 @@
                 </div>
             </transition>
         </div>
-    </div>
+    </main>
 </template>
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import api from "@/services/ApiClient";
-import { useRouter } from "vue-router";
-const router = useRouter();
+import { useRoute } from "vue-router";
+import useSeoMeta from "@/composables/useSeoMeta";
 export default {
     name: "UserProfile",
 
@@ -179,6 +185,7 @@ export default {
                         <button
                             type="button"
                             @click="show = !show"
+                            :aria-label="show ? 'Hide password' : 'Show password'"
                             class="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-300 transition-colors">
                             {{ show ? '🙈' : '👁️' }}
                         </button>
@@ -189,6 +196,7 @@ export default {
     },
 
     setup() {
+        const route = useRoute();
         // ─── Theme ───────────────────────────────────────────
         const isDark = ref(
             localStorage.getItem("theme") === "dark" || localStorage.getItem("theme") === null
@@ -269,6 +277,22 @@ export default {
             { id: 3, label: "تحديث كلمة المرور" },
         ];
         const currentTab = ref(1);
+        const isArabic = computed(() =>
+            String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar"
+        );
+        const seoTitle = computed(() =>
+            isArabic.value ? "الملف الشخصي | Ai Pro" : "User Profile | Ai Pro"
+        );
+        const seoDescription = computed(() =>
+            isArabic.value
+                ? "أدر ملفك الشخصي بسهولة، حدّث بياناتك وصورتك، وغير كلمة المرور بأمان من صفحة واحدة منظمة تمنحك تحكمًا كاملاً في حسابك."
+                : "Manage your account profile, update personal details and avatar, and change your password securely from one organized settings page with clear status feedback."
+        );
+
+        useSeoMeta({
+            title: seoTitle,
+            description: seoDescription,
+        });
 
         // ─── Status ───────────────────────────────────────────
         const statusMessage = ref("");
@@ -453,3 +477,6 @@ export default {
     --primary-light: #2ba6de;
 }
 </style>
+
+
+

@@ -30,6 +30,7 @@ return [
     'aiarabic' => [
         'url' => env('AIARABIC_WRITER_URL', 'https://api.aiarabic.com/tasks/writer'),
         'key' => env('AIARABIC_INTERNAL_API_KEY', 'test123'),
+        'inject_qdrant_context' => env('AIARABIC_INJECT_QDRANT_CONTEXT', false),
     ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),

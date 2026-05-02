@@ -1,14 +1,15 @@
 <template>
-    <div class="wallet-page">
+    <main class="wallet-page" aria-labelledby="wallet-page-title">
         <div class="wallet-shell">
             <header class="wallet-header">
                 <div>
                     <span class="wallet-kicker">Fintech Dashboard</span>
-                    <h1>My Wallet</h1>
+                    <h1 id="wallet-page-title">My Wallet</h1>
                     <p>Track your balance, review transaction flow, and inspect wallet activity in one place.</p>
                 </div>
 
-                <button class="charge-button" @click="chargeWallet" :disabled="!wallet?.uuid || isCharging">
+                <button type="button" class="charge-button" @click="chargeWallet" :disabled="!wallet?.uuid || isCharging"
+                    aria-label="Go to wallet charge page">
                     <i class="bi bi-lightning-charge-fill"></i>
                     <span>{{ isCharging ? "Preparing..." : "Charge Wallet" }}</span>
                 </button>
@@ -115,7 +116,7 @@
                         <div class="empty-state__icon"><i class="bi bi-wallet2"></i></div>
                         <h3>Wallet data is unavailable</h3>
                         <p>We could not load the wallet profile right now.</p>
-                        <button class="inline-action" @click="fetchWallet">Try Again</button>
+                        <button type="button" class="inline-action" @click="fetchWallet">Try Again</button>
                     </div>
                 </section>
 
@@ -138,6 +139,7 @@
                                 :key="transaction.slug || transaction.id"
                                 type="button"
                                 class="transaction-card"
+                                :aria-label="`View transaction ${transaction.id} details`"
                                 @click="openTransactionDetails(transaction.slug)"
                             >
                                 <div class="transaction-card__left">
@@ -211,13 +213,13 @@
                 leave-to-class="opacity-0"
             >
                 <div v-if="detailsModalOpen" class="details-overlay" @click.self="closeTransactionDetails">
-                    <div class="details-modal">
+                    <div class="details-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-details-title">
                         <div class="details-modal__header">
                             <div>
                                 <p class="details-modal__kicker">Transaction Details</p>
-                                <h2>{{ selectedTransaction?.slug || "Wallet Transaction" }}</h2>
+                                <h2 id="transaction-details-title">{{ selectedTransaction?.slug || "Wallet Transaction" }}</h2>
                             </div>
-                            <button type="button" class="details-close" @click="closeTransactionDetails">
+                            <button type="button" class="details-close" aria-label="Close transaction details dialog" @click="closeTransactionDetails">
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
@@ -269,16 +271,29 @@
                 </div>
             </Transition>
         </Teleport>
-    </div>
+    </main>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import walletService from "@/services/profile/walletService";
+import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
 const route = useRoute();
+const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const seoTitle = computed(() => (isArabic.value ? "المحفظة | Ai Pro" : "Wallet | Ai Pro"));
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "أدر محفظتك بوضوح، راقب الرصيد، تتبع عمليات الإضافة والسحب، وراجع تفاصيل كل معاملة بشكل منظم وآمن داخل لوحة واحدة سهلة الاستخدام."
+        : "Manage your wallet, monitor balance, review credits and debits, and inspect full transaction details with pagination in a secure and organized dashboard."
+);
+
+useSeoMeta({
+    title: seoTitle,
+    description: seoDescription,
+});
 
 const wallet = ref(null);
 const transactions = ref([]);

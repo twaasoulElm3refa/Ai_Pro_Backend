@@ -34,11 +34,13 @@
 
                 <!-- TOOLS -->
                 <TransitionGroup v-else-if="tools.length" name="tool-card" tag="div" class="tools-layout">
-                    <article v-for="tool in tools" :key="tool.id" class="tool-card group cursor-pointer"
-                        @click="goToTool(tool.slug)">
+                    <article v-for="tool in tools" :key="tool.id" class="tool-card group cursor-pointer" role="button"
+                        tabindex="0" :aria-label="`Open ${tool.title || tool.slug}`" @click="goToTool(tool.slug)"
+                        @keyup.enter="goToTool(tool.slug)" @keyup.space.prevent="goToTool(tool.slug)">
                         <!-- IMAGE -->
                         <div class="relative overflow-hidden rounded-2xl">
-                            <img v-if="tool.imageUrl" :src="tool.imageUrl" class="tool-image" />
+                            <img v-if="tool.imageUrl" :src="tool.imageUrl"
+                                :alt="tool.title ? `${tool.title} cover image` : 'AI tool cover image'" class="tool-image" />
 
                             <div v-else class="tool-image tool-image-fallback">
                                 <i class="bi bi-grid-3x3-gap-fill text-2xl"></i>
@@ -67,7 +69,8 @@
                                     {{ tool.slug }}
                                 </span>
 
-                                <button class="show-btn" @click.stop="goToTool(tool.slug)">
+                                <button type="button" class="show-btn" :aria-label="`Show details for ${tool.title || tool.slug}`"
+                                    @click.stop="goToTool(tool.slug)">
                                     Show →
                                 </button>
                             </div>
@@ -88,9 +91,10 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import homeService from "@/services/home/homeService";
+import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
 const route = useRoute();
@@ -98,6 +102,18 @@ const route = useRoute();
 const loading = ref(true);
 const tools = ref([]);
 const skeletonCount = 4;
+const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const seoTitle = computed(() => (isArabic.value ? "الرئيسية | أدوات الذكاء الاصطناعي | Ai Pro" : "Home | AI Tools Directory | Ai Pro"));
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "اكتشف أدوات الذكاء الاصطناعي للعمل بتركيز، قارن المزايا بسرعة، وافتح كل أداة بسهولة لبدء المحادثات والمهام وإنجاز سير عمل أكثر إنتاجية."
+        : "Explore AI tools curated for focused work, compare capabilities, and open each experience quickly to start productive chats, tasks, and smart workflows."
+);
+
+useSeoMeta({
+    title: seoTitle,
+    description: seoDescription,
+});
 
 const normalizeTool = (tool) => {
     const t = tool?.translation;

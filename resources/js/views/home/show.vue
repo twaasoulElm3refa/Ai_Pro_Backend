@@ -14,7 +14,8 @@
                     </p>
                 </div>
 
-                <button type="button" class="back-button" @click="router.push(`/${route.params.lang}`)">
+                <button type="button" class="back-button" aria-label="Go back to tools list"
+                    @click="router.push(`/${route.params.lang}`)">
                     <i class="bi bi-arrow-left"></i>
                     <span>Back</span>
                 </button>
@@ -103,7 +104,9 @@
                                 </div>
 
                                 <button
+                                    type="button"
                                     class="chat-button"
+                                    :aria-label="`Start chat with ${subtool.title}`"
                                     @click="router.push(`/${route.params.lang}/subtool/${subtool.slug}/chat`)"
                                 >
                                     <i class="bi bi-chat-fill"></i>
@@ -127,12 +130,14 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import homeService from "@/services/home/homeService";
+import useSeoMeta from "@/composables/useSeoMeta";
 
 const route = useRoute();
 const router = useRouter();
 
 const loading = ref(true);
 const rawTool = ref({});
+const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
 
 const fallbackText = {
     title: "Untitled Tool",
@@ -163,6 +168,21 @@ const mapSubtool = (payload = {}) => {
 
 const tool = computed(() => mapMainTool(rawTool.value));
 const subtools = computed(() => (rawTool.value?.sub_tools || []).map(mapSubtool));
+const seoTitle = computed(() =>
+    isArabic.value
+        ? `${tool.value.title || "تفاصيل الأداة"} | Ai Pro`
+        : `${tool.value.title || "Tool Details"} | Ai Pro`
+);
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "اعرض تفاصيل الأداة بوضوح، استكشف الأدوات الفرعية المرتبطة، وابدأ تجربة الدردشة المناسبة بسرعة عبر معلومات منظمة وحالة تشغيل دقيقة."
+        : "View detailed information for this AI tool, browse related subtools, and launch the right chat experience quickly with clear descriptions and status insights."
+);
+
+useSeoMeta({
+    title: seoTitle,
+    description: seoDescription,
+});
 
 const loadTool = async () => {
     loading.value = true;

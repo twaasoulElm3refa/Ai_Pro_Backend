@@ -1,5 +1,5 @@
 <template>
-    <div class="chat-root">
+    <main class="chat-root" aria-label="AI chat workspace">
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-header">
                 <div class="brand">
@@ -9,12 +9,12 @@
                         <p class="brand-subtitle">{{ subtool.name || "Chat Workspace" }}</p>
                     </div>
                 </div>
-                <button class="icon-btn mobile-only" @click="sidebarOpen = false">
+                <button type="button" class="icon-btn mobile-only" aria-label="Close conversations sidebar" @click="sidebarOpen = false">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
 
-            <button class="new-chat-btn" :disabled="creatingConversation" @click="startNewChat">
+            <button type="button" class="new-chat-btn" :disabled="creatingConversation" @click="startNewChat">
                 <i class="bi bi-plus-lg"></i>
                 <span>{{ creatingConversation ? "Creating..." : "New Chat" }}</span>
             </button>
@@ -38,14 +38,15 @@
                         class="history-item"
                         :class="{ active: activeConversation?.uuid === conversation.uuid }"
                     >
-                        <button class="history-item-main" @click="openConversation(conversation)">
+                        <button type="button" class="history-item-main" @click="openConversation(conversation)">
                             <i class="bi bi-chat-left-text"></i>
                             <div class="history-item-info">
                                 <span class="history-item-title">{{ conversation.title }}</span>
                                 <span class="history-item-date">{{ conversation.subtitle }}</span>
                             </div>
                         </button>
-                        <button class="history-delete" @click="removeConversation(conversation)">
+                        <button type="button" class="history-delete"
+                            :aria-label="`Delete ${conversation.title || 'conversation'}`" @click="removeConversation(conversation)">
                             <i class="bi bi-trash3"></i>
                         </button>
                     </div>
@@ -58,13 +59,14 @@
         <div class="main-area">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button class="icon-btn menu-btn" @click="sidebarOpen = true">
+                    <button type="button" class="icon-btn menu-btn" aria-label="Open conversations sidebar" @click="sidebarOpen = true">
                         <i class="bi bi-list"></i>
                     </button>
 
                     <div class="model-info" v-if="!toolLoading">
                         <div class="model-avatar">
-                            <img v-if="subtool.imageUrl" :src="subtool.imageUrl" :alt="subtool.name" />
+                            <img v-if="subtool.imageUrl" :src="subtool.imageUrl"
+                                :alt="subtool.name ? `${subtool.name} icon` : 'AI model icon'" />
                             <i v-else class="bi bi-stars"></i>
                         </div>
                         <div>
@@ -103,10 +105,10 @@
                     <p class="empty-desc">
                         {{ activeConversation?.uuid ? "Start sending messages in this conversation." : "Create a new chat or send your first message to begin." }}
                     </p>
-                    <div v-if="subtool.promptPlaceholder" class="suggestion-chip" @click="fillPlaceholder">
+                    <button v-if="subtool.promptPlaceholder" type="button" class="suggestion-chip" @click="fillPlaceholder">
                         <i class="bi bi-lightning-charge-fill"></i>
                         {{ subtool.promptPlaceholder }}
-                    </div>
+                    </button>
                 </div>
 
                 <TransitionGroup v-else name="msg" tag="div" class="messages-list">
@@ -143,6 +145,7 @@
                         ref="textareaRef"
                         v-model="userInput"
                         class="chat-input"
+                        aria-label="Chat message input"
                         :placeholder="subtool.promptPlaceholder || 'Write your message here...'"
                         rows="1"
                         :disabled="sendingMessage || streamingAssistant"
@@ -156,7 +159,9 @@
                     <div class="input-actions">
                         <span class="char-count">{{ userInput.length }}</span>
                         <button
+                            type="button"
                             class="send-btn"
+                            aria-label="Send chat message"
                             :disabled="!userInput.trim() || sendingMessage || streamingAssistant"
                             @click="submitMessage"
                         >
@@ -170,7 +175,7 @@
                 </p>
             </div>
         </div>
-    </div>
+    </main>
 </template>
 
 <script setup>
@@ -178,9 +183,11 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import homeService from "@/services/home/homeService";
 import chatServices from "@/services/chat/chatServices";
+import useSeoMeta from "@/composables/useSeoMeta";
 
 const route = useRoute();
 const router = useRouter();
+const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
 
 const toolLoading = ref(true);
 const loadingConversations = ref(true);
@@ -207,6 +214,21 @@ const filteredConversations = computed(() =>
         !subtool.value.id || conversation.sub_tool_id === subtool.value.id
     )
 );
+const seoTitle = computed(() =>
+    isArabic.value
+        ? `${subtool.value.name || "الدردشة"} | Ai Pro`
+        : `${subtool.value.name || "Chat Workspace"} | Ai Pro`
+);
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "تحدث مع الأداة الفرعية المختارة، نظّم سجل المحادثات، وأرسل رسائلك في مساحة عمل مركزة مع استجابات فورية وسياق واضح لكل محادثة."
+        : "Chat with your selected AI subtool, manage conversation history, and send messages in a focused workspace with real-time responses and organized context."
+);
+
+useSeoMeta({
+    title: seoTitle,
+    description: seoDescription,
+});
 
 const now = () => {
     const date = new Date();

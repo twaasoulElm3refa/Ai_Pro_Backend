@@ -42,10 +42,13 @@ class GenerateAssistantReplyJob implements ShouldQueue
 
         $conversation = $userMessage->conversation;
         $payload = $payloadBuilder->build($conversation, $userMessage);
-        $payload = $payloadBuilder->withContext(
-            $payload,
-            $this->qdrantContext($userMessage, $qdrantService)
-        );
+
+        if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
+            $payload = $payloadBuilder->withContext(
+                $payload,
+                $this->qdrantContext($userMessage, $qdrantService)
+            );
+        }
 
         $this->storeMessageInQdrant($userMessage, $qdrantService);
 
