@@ -199,11 +199,16 @@ class ConversationController extends Controller
         $deadline = now()->addSeconds(75);
 
         while (now()->lessThan($deadline)) {
-            $message = Message::where('conversation_id', $conversationId)
-                ->where('role', 'assistant')
-                ->when($afterId > 0, fn ($query) => $query->where('id', '>', $afterId))
-                ->orderBy('id')
-                ->first();
+            $query = Message::where('conversation_id', $conversationId)
+                ->where('role', 'assistant');
+
+            if ($afterId > 0) {
+                $query->where('reply_to_message_id', $afterId)->orderBy('id');
+            } else {
+                $query->orderBy('id', 'desc');
+            }
+
+            $message = $query->first();
 
             if ($message) {
                 return $message;

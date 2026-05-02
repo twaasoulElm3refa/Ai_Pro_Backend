@@ -217,6 +217,8 @@ const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const activeEventSource = ref(null);
 const streamingConversationUuid = ref("");
+const PENDING_SEND_TTL = 5 * 60 * 1000;
+const inFlightSignatures = new Set();
 
 const filteredConversations = computed(() =>
     conversations.value.filter((conversation) =>
@@ -242,6 +244,79 @@ useSeoMeta({
 const now = () => {
     const date = new Date();
     return `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
+};
+
+const createClientMessageId = () => {
+    if (window?.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+
+    return `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const pendingSendStorageKey = (conversationUuid) => `chat-pending-send:${conversationUuid || "unknown"}`;
+
+const readPendingSend = (conversationUuid) => {
+    if (!conversationUuid) return null;
+
+    try {
+        const raw = sessionStorage.getItem(pendingSendStorageKey(conversationUuid));
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed?.idempotencyKey || !parsed?.content || !parsed?.expiresAt) {
+            sessionStorage.removeItem(pendingSendStorageKey(conversationUuid));
+            return null;
+        }
+
+        if (parsed.expiresAt < Date.now()) {
+            sessionStorage.removeItem(pendingSendStorageKey(conversationUuid));
+            return null;
+        }
+
+        return parsed;
+    } catch {
+        return null;
+    }
+};
+
+const writePendingSend = (conversationUuid, content, idempotencyKey) => {
+    if (!conversationUuid) return;
+
+    try {
+        sessionStorage.setItem(
+            pendingSendStorageKey(conversationUuid),
+            JSON.stringify({
+                content,
+                idempotencyKey,
+                expiresAt: Date.now() + PENDING_SEND_TTL,
+            })
+        );
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const clearPendingSend = (conversationUuid) => {
+    if (!conversationUuid) return;
+
+    try {
+        sessionStorage.removeItem(pendingSendStorageKey(conversationUuid));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resolveIdempotencyKey = (conversationUuid, content) => {
+    const pending = readPendingSend(conversationUuid);
+
+    if (pending && pending.content === content) {
+        return pending.idempotencyKey;
+    }
+
+    const idempotencyKey = createClientMessageId();
+    writePendingSend(conversationUuid, content, idempotencyKey);
+    return idempotencyKey;
 };
 
 const formatConversation = (conversation) => ({
@@ -541,6 +616,16 @@ const submitMessage = async () => {
         sendingMessage.value = false;
         return;
     }
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, content);
+    const requestSignature = `${conversation.id}:${idempotencyKey}`;
+
+    if (inFlightSignatures.has(requestSignature)) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    inFlightSignatures.add(requestSignature);
+
     const optimisticMessage = mapMessage(
         {
             content,
@@ -560,6 +645,7 @@ const submitMessage = async () => {
             content,
             conversation_id: conversation.id,
             role: "user",
+            idempotency_key: idempotencyKey,
         });
 
         const savedMessage = response?.data?.message;
@@ -574,10 +660,12 @@ const submitMessage = async () => {
             conversations.value.unshift(conversation);
         }
 
+        clearPendingSend(conversation.uuid);
         await openAssistantStream(conversation, response?.data?.message_id);
     } catch {
         messages.value = messages.value.filter((item) => item.localKey !== optimisticMessage.localKey);
     } finally {
+        inFlightSignatures.delete(requestSignature);
         sendingMessage.value = false;
         await scrollToBottom();
     }

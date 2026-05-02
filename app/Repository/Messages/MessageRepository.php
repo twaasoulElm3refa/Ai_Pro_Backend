@@ -14,7 +14,7 @@ class MessageRepository implements MessageInterface
             return $message;
         } catch (\Throwable $th) {
             Log::error($th);
-            return [];
+            return null;
         }
     }
 }

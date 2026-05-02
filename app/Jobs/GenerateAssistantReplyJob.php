@@ -8,21 +8,34 @@ use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\QdrantService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class GenerateAssistantReplyJob implements ShouldQueue
+class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
     public int $timeout = 90;
+    public int $uniqueFor = 300;
 
     public function __construct(public int $userMessageId)
     {
+    }
+
+    public function uniqueId(): string
+    {
+        return "assistant-reply:{$this->userMessageId}";
+    }
+
+    public static function dispatchMarkerKey(int $userMessageId): string
+    {
+        return "assistant-reply-dispatched:{$userMessageId}";
     }
 
     public function handle(
@@ -31,51 +44,77 @@ class GenerateAssistantReplyJob implements ShouldQueue
         ConversationMessageCacheService $messageCache,
         QdrantService $qdrantService
     ): void {
-        $userMessage = Message::with([
-            'conversation.user',
-            'conversation.subTool',
-        ])->find($this->userMessageId);
+        $lock = Cache::lock("assistant-reply-lock:{$this->userMessageId}", 120);
 
-        if (! $userMessage || ! $userMessage->conversation) {
+        if (! $lock->get()) {
             return;
         }
 
-        $conversation = $userMessage->conversation;
-        $payload = $payloadBuilder->build($conversation, $userMessage);
-
-        if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
-            $payload = $payloadBuilder->withContext(
-                $payload,
-                $this->qdrantContext($userMessage, $qdrantService)
-            );
-        }
-
-        $this->storeMessageInQdrant($userMessage, $qdrantService);
-
         try {
-            $content = $writerService->generateReply($payload);
-            $isError = false;
-        } catch (\Throwable $th) {
-            Log::warning('Assistant generation failed; saving fallback reply.', [
-                'conversation_id' => $conversation->id,
-                'message_id' => $userMessage->id,
-                'error' => $th->getMessage(),
-            ]);
+            $userMessage = Message::with([
+                'conversation.user',
+                'conversation.subTool',
+            ])->find($this->userMessageId);
 
-            $content = 'Sorry, I could not generate a response right now. Please try again.';
-            $isError = true;
+            if (! $userMessage || ! $userMessage->conversation) {
+                return;
+            }
+
+            $existingAssistant = Message::where('role', 'assistant')
+                ->where('reply_to_message_id', $this->userMessageId)
+                ->first();
+
+            if ($existingAssistant) {
+                return;
+            }
+
+            $conversation = $userMessage->conversation;
+            $payload = $payloadBuilder->build($conversation, $userMessage);
+
+            if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
+                $payload = $payloadBuilder->withContext(
+                    $payload,
+                    $this->qdrantContext($userMessage, $qdrantService)
+                );
+            }
+
+            $this->storeMessageInQdrant($userMessage, $qdrantService);
+
+            try {
+                $content = $writerService->generateReply($payload);
+                $isError = false;
+            } catch (\Throwable $th) {
+                Log::warning('Assistant generation failed; saving fallback reply.', [
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $userMessage->id,
+                    'error' => $th->getMessage(),
+                ]);
+
+                $content = 'Sorry, I could not generate a response right now. Please try again.';
+                $isError = true;
+            }
+
+            $assistantMessage = Message::firstOrCreate(
+                [
+                    'reply_to_message_id' => $userMessage->id,
+                ],
+                [
+                    'conversation_id' => $conversation->id,
+                    'content' => $content,
+                    'role' => 'assistant',
+                    'is_error' => $isError,
+                ]
+            );
+
+            if ($assistantMessage->wasRecentlyCreated) {
+                $assistantMessage->setRelation('conversation', $conversation);
+                $messageCache->updateAfterMessage($assistantMessage);
+                $this->storeMessageInQdrant($assistantMessage, $qdrantService);
+            }
+        } finally {
+            Cache::forget(self::dispatchMarkerKey($this->userMessageId));
+            $lock->release();
         }
-
-        $assistantMessage = Message::create([
-            'conversation_id' => $conversation->id,
-            'content' => $content,
-            'role' => 'assistant',
-            'is_error' => $isError,
-        ]);
-
-        $assistantMessage->setRelation('conversation', $conversation);
-        $messageCache->updateAfterMessage($assistantMessage);
-        $this->storeMessageInQdrant($assistantMessage, $qdrantService);
     }
 
     protected function qdrantContext(Message $userMessage, QdrantService $qdrantService): string

@@ -38,6 +38,7 @@ class MessageRequest extends FormRequest
                 Rule::exists('conversations', 'id')->where('user_id', $this->user()->id),
             ],
             'role' => 'required|in:user',
+            'idempotency_key' => 'required|uuid',
         ];
     }
 }
