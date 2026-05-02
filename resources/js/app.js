@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import App from "./App.vue";
+import i18n from './i18n'
 import router from "./router";
 
 // your imports (bootstrap, css, etc.)
@@ -27,7 +28,7 @@ if (!theme) {
 // ===============================
 
 const app = createApp(App);
-
+app.use(i18n)
 app.component("navbar-component", navbarComponent);
 app.component("footer-component", footer);
 

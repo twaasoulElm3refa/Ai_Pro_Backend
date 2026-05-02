@@ -1,39 +1,36 @@
 <template>
-    <main :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']"
+    <main :dir="currentDir" :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']"
         aria-labelledby="profile-page-title">
         <div :class="['max-w-3xl mx-auto rounded-2xl shadow-2xl border p-6 transition-colors duration-300',
             isDark ? 'bg-[#154677] text-white border-slate-800' : 'bg-white text-[#154677] border-[#154677]/10']">
 
-            <!-- Header -->
             <div class="mb-6">
                 <h1 id="profile-page-title" class="text-2xl font-bold" :class="isDark ? 'text-[#2ba6de]' : 'text-[#154677]'">
-                    ملفي الشخصي
+                    {{ t("user.profile.title") }}
                 </h1>
             </div>
 
-            <!-- Tabs -->
             <div :class="['flex border-b mb-6', isDark ? 'border-slate-800' : 'border-[#154677]/10']">
-                <button v-for="tab in tabs" :key="tab.id" type="button" :aria-label="`Open ${tab.label} tab`" @click="currentTab = tab.id" :class="[
-                    'py-3 px-4 text-sm font-medium transition-colors',
-                    currentTab === tab.id
-                        ? isDark
-                            ? 'border-b-2 border-[#2ba6de] text-[#2ba6de]'
-                            : 'border-b-2 border-[#154677] text-[#154677]'
-                        : isDark
-                            ? 'text-slate-400 hover:text-white'
-                            : 'text-slate-500 hover:text-[#154677]'
-                ]">
+                <button v-for="tab in tabs" :key="tab.id" type="button" :aria-label="t('user.profile.openTabAria', { tab: tab.label })"
+                    @click="currentTab = tab.id" :class="[
+                        'py-3 px-4 text-sm font-medium transition-colors',
+                        currentTab === tab.id
+                            ? isDark
+                                ? 'border-b-2 border-[#2ba6de] text-[#2ba6de]'
+                                : 'border-b-2 border-[#154677] text-[#154677]'
+                            : isDark
+                                ? 'text-slate-400 hover:text-white'
+                                : 'text-slate-500 hover:text-[#154677]'
+                    ]">
                     {{ tab.label }}
                 </button>
             </div>
 
-            <!-- Tab 1: معلومات المستخدم -->
             <div v-if="currentTab === 1" class="space-y-3">
                 <div class="flex items-center gap-4 mb-5">
-                    <!-- Avatar: صورة أو أحرف -->
                     <div class="w-14 h-14 rounded-full overflow-hidden shadow-md flex-shrink-0">
                         <img v-if="profile.user.image" :src="getImageUrl(profile.user.image)"
-                            :alt="`${profile.user.name || 'User'} avatar`"
+                            :alt="t('user.profile.avatarAlt', { name: profile.user.name || t('user.profile.userFallback') })"
                             class="w-full h-full object-cover" loading="lazy" decoding="async" />
                         <div v-else
                             class="w-full h-full bg-[#154677] flex items-center justify-center text-white text-xl font-bold">
@@ -53,40 +50,34 @@
                     <span :class="['font-medium min-w-[130px]', isDark ? 'text-slate-400' : 'text-slate-500']">
                         {{ row.label }}
                     </span>
-                    <span :class="row.class || ''">{{ row.value || '—' }}</span>
+                    <span :class="row.class || ''">{{ row.value || t("user.profile.na") }}</span>
                 </div>
             </div>
 
-            <!-- Tab 2: تعديل البيانات -->
             <div v-if="currentTab === 2" class="space-y-4">
 
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">الاسم</label>
-                    <input v-model="editData.name" :class="inputClass" placeholder="أدخل اسمك" />
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.name") }}</label>
+                    <input v-model="editData.name" :class="inputClass" :placeholder="t('user.profile.placeholders.name')" />
                 </div>
 
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">البريد
-                        الإلكتروني</label>
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.email") }}</label>
                     <input v-model="editData.email" type="email" :class="inputClass" placeholder="example@email.com" />
                 </div>
 
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">رقم
-                        الهاتف</label>
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.phone") }}</label>
                     <input v-model="editData.phone" type="tel" :class="inputClass" placeholder="+201xxxxxxxxx" />
                 </div>
 
-                <!-- Image Upload -->
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">الصورة
-                        الشخصية</label>
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.image") }}</label>
                     <div class="flex items-center gap-4">
-                        <!-- Preview -->
                         <div class="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 shadow">
                             <img v-if="imagePreview || profile.user.image"
                                 :src="imagePreview || getImageUrl(profile.user.image)"
-                                :alt="`${profile.user.name || 'User'} profile preview`" class="w-full h-full object-cover"
+                                :alt="t('user.profile.previewAlt', { name: profile.user.name || t('user.profile.userFallback') })" class="w-full h-full object-cover"
                                 loading="lazy" decoding="async" />
                             <div v-else
                                 class="w-full h-full bg-[#154677] flex items-center justify-center text-white font-bold text-lg">
@@ -97,8 +88,8 @@
                             isDark
                                 ? 'border-slate-600 text-slate-300 hover:border-[#154677] hover:text-[#154677]'
                                 : 'border-slate-300 text-slate-600 hover:border-[#154677] hover:text-[#154677]']">
-                            اختر صورة
-                            <input type="file" accept="image/*" class="hidden" aria-label="Upload profile image"
+                            {{ t("user.profile.chooseImage") }}
+                            <input type="file" accept="image/*" class="hidden" :aria-label="t('user.profile.uploadImageAria')"
                                 @change="handleImageUpload" />
                         </label>
                         <span v-if="editData.image" class="text-xs text-[#154677] dark:text-[#2ba6de] truncate max-w-[140px]">
@@ -109,39 +100,37 @@
 
                 <div class="flex gap-2">
                     <button type="button" @click="updateProfile" :disabled="profileLoading"
-                        aria-label="Save profile changes"
+                        :aria-label="t('user.profile.saveAria')"
                         class="bg-[#154677] hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
-                        {{ profileLoading ? 'جاري الحفظ...' : 'حفظ التغييرات' }}
+                        {{ profileLoading ? t('user.profile.loading.save') : t('user.profile.actions.save') }}
                     </button>
 
                     <button type="button" @click="deleteProfile" :disabled="profileLoading"
-                        aria-label="Delete account"
+                        :aria-label="t('user.profile.deleteAria')"
                         class="bg-slate-1000 hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
-                        {{ profileLoading ? 'جاري الحذف...' : 'حذف الحساب' }}
+                        {{ profileLoading ? t('user.profile.loading.delete') : t('user.profile.actions.deleteAccount') }}
                     </button>
                 </div>
             </div>
 
-            <!-- Tab 3: تحديث كلمة المرور -->
             <div v-if="currentTab === 3" class="space-y-4">
-                <PasswordInput label="كلمة المرور الحالية" v-model="passwordData.current_password" :isDark="isDark" />
-                <PasswordInput label="كلمة المرور الجديدة" v-model="passwordData.new_password" :isDark="isDark" />
-                <PasswordInput label="تأكيد كلمة المرور" v-model="passwordData.confirm_password" :isDark="isDark" />
+                <PasswordInput :label="t('user.profile.password.current')" v-model="passwordData.current_password" :isDark="isDark" />
+                <PasswordInput :label="t('user.profile.password.new')" v-model="passwordData.new_password" :isDark="isDark" />
+                <PasswordInput :label="t('user.profile.password.confirm')" v-model="passwordData.confirm_password" :isDark="isDark" />
 
                 <button type="button" @click="updatePassword" :disabled="passwordLoading"
-                    aria-label="Update password"
+                    :aria-label="t('user.profile.updatePasswordAria')"
                     class="bg-[#154677] hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded-lg shadow-md disabled:opacity-60">
-                    {{ passwordLoading ? 'جاري التحديث...' : 'تحديث كلمة المرور' }}
+                    {{ passwordLoading ? t('user.profile.loading.updatePassword') : t('user.profile.actions.updatePassword') }}
                 </button>
             </div>
 
-            <!-- Status Message -->
             <transition name="fade">
                 <div v-if="statusMessage" role="status" aria-live="polite" :class="['mt-6 p-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all',
                     statusIsError
                         ? 'bg-slate-1000/10 border border-[#154677]/20 text-[#154677]'
                         : 'bg-[#154677]/10 border border-[#154677]/30 text-[#154677] dark:text-[#2ba6de]']">
-                    <span>{{ statusIsError ? '✗' : '✓' }}</span>
+                    <i class="bi" :class="statusIsError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'" aria-hidden="true"></i>
                     {{ statusMessage }}
                 </div>
             </transition>
@@ -151,9 +140,11 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import api from "@/services/ApiClient";
 import { useRoute } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
+
 export default {
     name: "UserProfile",
 
@@ -186,9 +177,9 @@ export default {
                         <button
                             type="button"
                             @click="show = !show"
-                            :aria-label="show ? 'Hide password' : 'Show password'"
+                            :aria-label="show ? $t('user.profile.password.hide') : $t('user.profile.password.show')"
                             class="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-300 transition-colors">
-                            {{ show ? '🙈' : '👁️' }}
+                            <i class="bi" :class="show ? 'bi-eye-fill' : 'bi-eye-slash-fill'" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
@@ -198,7 +189,9 @@ export default {
 
     setup() {
         const route = useRoute();
-        // ─── Theme ───────────────────────────────────────────
+        const { t, locale } = useI18n();
+        const currentDir = computed(() => locale.value === "ar" ? "rtl" : "ltr");
+
         const isDark = ref(
             localStorage.getItem("theme") === "dark" || localStorage.getItem("theme") === null
         );
@@ -207,7 +200,6 @@ export default {
             if (e.key === "theme") isDark.value = e.newValue === "dark";
         };
 
-        // ─── Profile State ───────────────────────────────────
         const profile = ref({
             user: {
                 name: "",
@@ -237,7 +229,6 @@ export default {
             confirm_password: "",
         });
 
-        // ─── Computed ─────────────────────────────────────────
         const avatarInitials = computed(() =>
             (profile.value.user.name || "")
                 .split(" ")
@@ -248,18 +239,18 @@ export default {
         );
 
         const infoRows = computed(() => [
-            { label: "الاسم", value: profile.value.user.name },
-            { label: "البريد الإلكتروني", value: profile.value.user.email },
-            { label: "رقم الهاتف", value: profile.value.user.phone },
-            { label: "الدور", value: profile.value.user.role },
+            { label: t("user.profile.fields.name"), value: profile.value.user.name },
+            { label: t("user.profile.fields.email"), value: profile.value.user.email },
+            { label: t("user.profile.fields.phone"), value: profile.value.user.phone },
+            { label: t("user.profile.fields.role"), value: profile.value.user.role },
             {
-                label: "الحالة",
-                value: profile.value.user.is_active ? "نشط ✓" : "غير نشط",
+                label: t("user.profile.fields.status"),
+                value: profile.value.user.is_active ? t("user.profile.status.active") : t("user.profile.status.inactive"),
                 class: profile.value.user.is_active
                     ? isDark.value ? "text-[#2ba6de] font-semibold" : "text-[#154677] font-semibold"
                     : "text-[#154677] font-semibold",
             },
-            { label: "آخر تسجيل دخول", value: profile.value.user.last_seen },
+            { label: t("user.profile.fields.lastSeen"), value: profile.value.user.last_seen },
         ]);
 
         const inputClass = computed(() =>
@@ -271,31 +262,24 @@ export default {
             ].join(" ")
         );
 
-        // ─── Tabs ─────────────────────────────────────────────
-        const tabs = [
-            { id: 1, label: "معلومات المستخدم" },
-            { id: 2, label: "تعديل البيانات" },
-            { id: 3, label: "تحديث كلمة المرور" },
-        ];
+        const tabs = computed(() => [
+            { id: 1, label: t("user.profile.tabs.info") },
+            { id: 2, label: t("user.profile.tabs.edit") },
+            { id: 3, label: t("user.profile.tabs.password") },
+        ]);
+
         const currentTab = ref(1);
         const isArabic = computed(() =>
             String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar"
         );
-        const seoTitle = computed(() =>
-            isArabic.value ? "الملف الشخصي | Ai Pro" : "User Profile | Ai Pro"
-        );
-        const seoDescription = computed(() =>
-            isArabic.value
-                ? "أدر ملفك الشخصي بسهولة، حدّث بياناتك وصورتك، وغير كلمة المرور بأمان من صفحة واحدة منظمة تمنحك تحكمًا كاملاً في حسابك."
-                : "Manage your account profile, update personal details and avatar, and change your password securely from one organized settings page with clear status feedback."
-        );
+        const seoTitle = computed(() => t("user.profile.seoTitle"));
+        const seoDescription = computed(() => t("user.profile.seoDescription"));
 
         useSeoMeta({
             title: seoTitle,
             description: seoDescription,
         });
 
-        // ─── Status ───────────────────────────────────────────
         const statusMessage = ref("");
         const statusIsError = ref(false);
         let statusTimer = null;
@@ -307,7 +291,6 @@ export default {
             statusTimer = setTimeout(() => (statusMessage.value = ""), 4000);
         };
 
-        // ─── Helpers ──────────────────────────────────────────
         const fillEditData = (user) => {
             editData.value.name = user.name || "";
             editData.value.email = user.email || "";
@@ -322,7 +305,6 @@ export default {
             imagePreview.value = file ? URL.createObjectURL(file) : "";
         };
 
-        // ─── API Calls ────────────────────────────────────────
         const fetchProfile = async () => {
             try {
                 const { data } = await api.get("/users/profile");
@@ -331,7 +313,7 @@ export default {
                     fillEditData(data.data.user);
                 }
             } catch {
-                // الـ interceptor بيتولى الـ error toast
+                // Interceptor handles toast
             }
         };
 
@@ -343,7 +325,7 @@ export default {
 
         const updateProfile = async () => {
             if (!editData.value.name || !editData.value.email) {
-                showStatus("يرجى ملء الاسم والبريد الإلكتروني", true);
+                showStatus(t("user.profile.messages.nameEmailRequired"), true);
                 return;
             }
 
@@ -365,9 +347,9 @@ export default {
                     fillEditData(profile.value.user);
                 }
 
-                showStatus("تم تحديث البيانات بنجاح ✓");
+                showStatus(t("user.profile.messages.profileUpdated"));
             } catch {
-                // الـ interceptor بيتولى الـ error toast
+                // Interceptor handles toast
             } finally {
                 profileLoading.value = false;
             }
@@ -377,7 +359,7 @@ export default {
             profileLoading.value = true;
             try {
                 await api.delete("/users/delete-account");
-                showStatus("تم حذف الحساب بنجاح ✓");
+                showStatus(t("user.profile.messages.accountDeleted"));
                 localStorage.removeItem("auth_token");
                 window.location.href = "/";
             } catch (error) {
@@ -391,15 +373,15 @@ export default {
             const { current_password, new_password, confirm_password } = passwordData.value;
 
             if (!current_password || !new_password || !confirm_password) {
-                showStatus("يرجى ملء جميع الحقول", true);
+                showStatus(t("user.profile.messages.fillAllFields"), true);
                 return;
             }
             if (new_password !== confirm_password) {
-                showStatus("كلمات المرور غير متطابقة", true);
+                showStatus(t("user.profile.messages.passwordMismatch"), true);
                 return;
             }
             if (new_password.length < 6) {
-                showStatus("كلمة المرور يجب أن تكون 6 أحرف على الأقل", true);
+                showStatus(t("user.profile.messages.passwordTooShort"), true);
                 return;
             }
 
@@ -407,15 +389,14 @@ export default {
             try {
                 await api.post("/users/password", passwordData.value);
                 passwordData.value = { current_password: "", new_password: "", confirm_password: "" };
-                showStatus("تم تحديث كلمة المرور بنجاح ✓");
+                showStatus(t("user.profile.messages.passwordUpdated"));
             } catch {
-                // الـ interceptor بيتولى الـ error toast
+                // Interceptor handles toast
             } finally {
                 passwordLoading.value = false;
             }
         };
 
-        // ─── Lifecycle ────────────────────────────────────────
         onMounted(() => {
             window.addEventListener("storage", handleStorageChange);
             window.addEventListener("login", fetchProfile);
@@ -429,6 +410,8 @@ export default {
         });
 
         return {
+            t,
+            currentDir,
             isDark,
             profile,
             avatarInitials,
@@ -464,7 +447,6 @@ export default {
     opacity: 0;
 }
 
-/* Optional: Define CSS variables for easier maintenance */
 :root {
     --primary-color: #154677;
     --primary-hover: #2ba6de;
@@ -473,11 +455,7 @@ export default {
     --primary-border: rgba(7, 67, 119, 0.3);
 }
 
-/* Dark mode adjustments via class */
 .dark {
     --primary-light: #2ba6de;
 }
 </style>
-
-
-

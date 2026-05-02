@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\MainTools;
+use App\Models\SubTools;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -11,7 +11,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Stichoza\GoogleTranslate\GoogleTranslate;
 
-class TranslateToolJob implements ShouldQueue
+class TranslateSubToolJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -19,7 +19,8 @@ class TranslateToolJob implements ShouldQueue
 
     public function handle(): void
     {
-        $tool = MainTools::find($this->toolId);
+        $tool = SubTools::find($this->toolId);
+
         if (! $tool) {
             return;
         }
@@ -28,10 +29,13 @@ class TranslateToolJob implements ShouldQueue
             try {
                 $tr = new GoogleTranslate($locale);
                 $tr->setSource('ar');
+
                 $name = $tool->name ? $tr->translate($tool->name) : null;
                 $desc = $tool->description ? $tr->translate($tool->description) : null;
                 $metaName = $tool->meta_name ? $tr->translate($tool->meta_name) : null;
                 $metaDesc = $tool->meta_description ? $tr->translate($tool->meta_description) : null;
+                $promptPlaceholder = $tool->prompt_placeholder ? $tr->translate($tool->prompt_placeholder) : null;
+
                 $tool->translations()->updateOrCreate(
                     [
                         'locale' => $locale,
@@ -39,10 +43,12 @@ class TranslateToolJob implements ShouldQueue
                     [
                         'name' => $name,
                         'description' => $desc,
-                        'meta_title' => $metaName,
+                        'meta_name' => $metaName,
                         'meta_description' => $metaDesc,
+                        'prompt_placeholder' => $promptPlaceholder
                     ]
                 );
+
             } catch (\Throwable $e) {
                 Log::error('Tool Translate Error: '.$e->getMessage());
             }

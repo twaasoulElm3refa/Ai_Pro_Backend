@@ -1,17 +1,17 @@
 <template>
-    <main class="wallet-page" aria-labelledby="wallet-page-title">
+    <main class="wallet-page" :dir="locale === 'ar' ? 'rtl' : 'ltr'" aria-labelledby="wallet-page-title">
         <div class="wallet-shell">
             <header class="wallet-header">
                 <div>
-                    <span class="wallet-kicker">Fintech Dashboard</span>
-                    <h1 id="wallet-page-title">My Wallet</h1>
-                    <p>Track your balance, review transaction flow, and inspect wallet activity in one place.</p>
+                    <span class="wallet-kicker">{{ t("user.wallet.kicker") }}</span>
+                    <h1 id="wallet-page-title">{{ t("user.wallet.title") }}</h1>
+                    <p>{{ t("user.wallet.subtitle") }}</p>
                 </div>
 
                 <button type="button" class="charge-button" @click="chargeWallet" :disabled="!wallet?.uuid || isCharging"
-                    aria-label="Go to wallet charge page">
+                    :aria-label="t('user.wallet.chargeAria')">
                     <i class="bi bi-lightning-charge-fill"></i>
-                    <span>{{ isCharging ? "Preparing..." : "Charge Wallet" }}</span>
+                    <span>{{ isCharging ? t("user.wallet.preparing") : t("user.wallet.chargeButton") }}</span>
                 </button>
             </header>
 
@@ -19,13 +19,13 @@
                 <article class="balance-card">
                     <div class="balance-card__glow"></div>
                     <div class="balance-card__content">
-                        <p class="balance-card__label">Current Balance</p>
+                        <p class="balance-card__label">{{ t("user.wallet.currentBalance") }}</p>
                         <div class="balance-card__value">
                             {{ formatPoints(wallet?.balance) }}
-                            <span>Points</span>
+                            <span>{{ t("user.wallet.points") }}</span>
                         </div>
                         <div class="balance-card__meta">
-                            <span>Wallet ID</span>
+                            <span>{{ t("user.wallet.walletId") }}</span>
                             <strong>{{ shortUuid }}</strong>
                         </div>
                     </div>
@@ -34,27 +34,27 @@
                 <article class="summary-card">
                     <div class="summary-card__row">
                         <div>
-                            <p class="summary-card__label">Credits on this page</p>
+                            <p class="summary-card__label">{{ t("user.wallet.creditsOnPage") }}</p>
                             <h3>{{ formatPoints(summary.credits) }}</h3>
                         </div>
-                        <span class="summary-chip">Credit</span>
+                        <span class="summary-chip">{{ t("user.wallet.credit") }}</span>
                     </div>
 
                     <div class="summary-card__row">
                         <div>
-                            <p class="summary-card__label">Debits on this page</p>
+                            <p class="summary-card__label">{{ t("user.wallet.debitsOnPage") }}</p>
                             <h3>{{ formatPoints(summary.debits) }}</h3>
                         </div>
-                        <span class="summary-chip summary-chip--soft">Debit</span>
+                        <span class="summary-chip summary-chip--soft">{{ t("user.wallet.debit") }}</span>
                     </div>
 
                     <div class="summary-card__footer">
                         <div>
-                            <span class="summary-card__small">Transactions Loaded</span>
+                            <span class="summary-card__small">{{ t("user.wallet.transactionsLoaded") }}</span>
                             <strong>{{ pagination.total || transactions.length }}</strong>
                         </div>
                         <div>
-                            <span class="summary-card__small">Last update</span>
+                            <span class="summary-card__small">{{ t("user.wallet.lastUpdate") }}</span>
                             <strong>{{ formatDate(wallet?.updated_at) }}</strong>
                         </div>
                     </div>
@@ -68,7 +68,7 @@
                     :class="{ 'is-active': activeTab === 'wallet' }"
                     @click="activeTab = 'wallet'"
                 >
-                    Wallet
+                    {{ t("user.wallet.tabWallet") }}
                 </button>
                 <button
                     type="button"
@@ -76,7 +76,7 @@
                     :class="{ 'is-active': activeTab === 'transactions' }"
                     @click="activeTab = 'transactions'"
                 >
-                    Transactions
+                    {{ t("user.wallet.tabTransactions") }}
                 </button>
             </section>
 
@@ -88,43 +88,43 @@
 
                     <div v-else-if="wallet" class="panel-grid">
                         <article class="info-card">
-                            <span class="info-card__label">Account Holder</span>
-                            <h3>{{ wallet.user?.name || "Unknown user" }}</h3>
-                            <p>{{ wallet.user?.email || "No email available" }}</p>
+                            <span class="info-card__label">{{ t("user.wallet.accountHolder") }}</span>
+                            <h3>{{ wallet.user?.name || t("user.wallet.unknownUser") }}</h3>
+                            <p>{{ wallet.user?.email || t("user.wallet.noEmail") }}</p>
                         </article>
 
                         <article class="info-card">
-                            <span class="info-card__label">Wallet Status</span>
-                            <h3>{{ wallet.is_active ? "Active" : "Inactive" }}</h3>
-                            <p>{{ wallet.is_active ? "Ready for credits and debits." : "Wallet activity is paused." }}</p>
+                            <span class="info-card__label">{{ t("user.wallet.walletStatus") }}</span>
+                            <h3>{{ wallet.is_active ? t("user.wallet.statusActive") : t("user.wallet.statusInactive") }}</h3>
+                            <p>{{ wallet.is_active ? t("user.wallet.statusActiveDesc") : t("user.wallet.statusInactiveDesc") }}</p>
                         </article>
 
                         <article class="info-card">
-                            <span class="info-card__label">Created At</span>
+                            <span class="info-card__label">{{ t("user.wallet.createdAt") }}</span>
                             <h3>{{ formatDate(wallet.created_at) }}</h3>
-                            <p>Wallet creation timestamp</p>
+                            <p>{{ t("user.wallet.createdAtDesc") }}</p>
                         </article>
 
                         <article class="info-card">
-                            <span class="info-card__label">Updated At</span>
+                            <span class="info-card__label">{{ t("user.wallet.updatedAt") }}</span>
                             <h3>{{ formatDate(wallet.updated_at) }}</h3>
-                            <p>Most recent wallet refresh</p>
+                            <p>{{ t("user.wallet.updatedAtDesc") }}</p>
                         </article>
                     </div>
 
                     <div v-else class="empty-state">
                         <div class="empty-state__icon"><i class="bi bi-wallet2"></i></div>
-                        <h3>Wallet data is unavailable</h3>
-                        <p>We could not load the wallet profile right now.</p>
-                        <button type="button" class="inline-action" @click="fetchWallet">Try Again</button>
+                        <h3>{{ t("user.wallet.unavailableTitle") }}</h3>
+                        <p>{{ t("user.wallet.unavailableDesc") }}</p>
+                        <button type="button" class="inline-action" @click="fetchWallet">{{ t("user.wallet.tryAgain") }}</button>
                     </div>
                 </section>
 
                 <section v-else key="transactions" class="wallet-panel">
                     <div class="transactions-header">
                         <div>
-                            <h2>Transaction Activity</h2>
-                            <p>Review credits, debits, and wallet balance movement over time.</p>
+                            <h2>{{ t("user.wallet.transactionActivity") }}</h2>
+                            <p>{{ t("user.wallet.transactionActivityDesc") }}</p>
                         </div>
                     </div>
 
@@ -139,12 +139,12 @@
                                 :key="transaction.slug || transaction.id"
                                 type="button"
                                 class="transaction-card"
-                                :aria-label="`View transaction ${transaction.id} details`"
+                                :aria-label="t('user.wallet.viewTransactionAria', { id: transaction.id })"
                                 @click="openTransactionDetails(transaction.slug)"
                             >
                                 <div class="transaction-card__left">
                                     <span class="type-badge" :class="transaction.type === 'credit' ? 'credit' : 'debit'">
-                                        {{ transaction.type || "unknown" }}
+                                        {{ transaction.type || t("user.wallet.unknownType") }}
                                     </span>
                                     <div>
                                         <h3>{{ formatSignedPoints(transaction.points, transaction.type) }}</h3>
@@ -165,8 +165,8 @@
 
                         <div v-else class="empty-state">
                             <div class="empty-state__icon"><i class="bi bi-receipt"></i></div>
-                            <h3>No transactions yet</h3>
-                            <p>Your wallet activity will appear here once credits or debits are recorded.</p>
+                            <h3>{{ t("user.wallet.noTransactions") }}</h3>
+                            <p>{{ t("user.wallet.noTransactionsDesc") }}</p>
                         </div>
 
                         <div v-if="pagination.lastPage > 1" class="pagination-bar">
@@ -176,12 +176,12 @@
                                 :disabled="pagination.currentPage <= 1 || loadingTransactions"
                                 @click="changePage(pagination.currentPage - 1)"
                             >
-                                Previous
+                                {{ t("user.wallet.previous") }}
                             </button>
 
                             <div class="pagination-meta">
-                                <span>Page {{ pagination.currentPage }} of {{ pagination.lastPage }}</span>
-                                <strong>{{ pagination.total }} transactions</strong>
+                                <span>{{ t("user.wallet.pagination", { current: pagination.currentPage, last: pagination.lastPage }) }}</span>
+                                <strong>{{ t("user.wallet.transactionsCount", { count: pagination.total }) }}</strong>
                             </div>
 
                             <button
@@ -190,7 +190,7 @@
                                 :disabled="pagination.currentPage >= pagination.lastPage || loadingTransactions"
                                 @click="changePage(pagination.currentPage + 1)"
                             >
-                                Next
+                                {{ t("user.wallet.next") }}
                             </button>
                         </div>
                     </template>
@@ -216,10 +216,10 @@
                     <div class="details-modal" role="dialog" aria-modal="true" aria-labelledby="transaction-details-title">
                         <div class="details-modal__header">
                             <div>
-                                <p class="details-modal__kicker">Transaction Details</p>
-                                <h2 id="transaction-details-title">{{ selectedTransaction?.slug || "Wallet Transaction" }}</h2>
+                                <p class="details-modal__kicker">{{ t("user.wallet.transactionDetails") }}</p>
+                                <h2 id="transaction-details-title">{{ selectedTransaction?.slug || t("user.wallet.walletTransaction") }}</h2>
                             </div>
-                            <button type="button" class="details-close" aria-label="Close transaction details dialog" @click="closeTransactionDetails">
+                            <button type="button" class="details-close" :aria-label="t('user.wallet.closeDetailsAria')" @click="closeTransactionDetails">
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
@@ -231,38 +231,38 @@
                         <template v-else-if="selectedTransaction">
                             <div class="details-grid">
                                 <article class="details-item">
-                                    <span>Type</span>
+                                    <span>{{ t("user.wallet.type") }}</span>
                                     <strong>{{ selectedTransaction.type || "-" }}</strong>
                                 </article>
                                 <article class="details-item">
-                                    <span>Points</span>
+                                    <span>{{ t("user.wallet.points") }}</span>
                                     <strong>{{ formatSignedPoints(selectedTransaction.points, selectedTransaction.type) }}</strong>
                                 </article>
                                 <article class="details-item">
-                                    <span>Balance Before</span>
+                                    <span>{{ t("user.wallet.balanceBefore") }}</span>
                                     <strong>{{ formatPoints(selectedTransaction.balance_before) }}</strong>
                                 </article>
                                 <article class="details-item">
-                                    <span>Balance After</span>
+                                    <span>{{ t("user.wallet.balanceAfter") }}</span>
                                     <strong>{{ formatPoints(selectedTransaction.balance_after) }}</strong>
                                 </article>
                                 <article class="details-item">
-                                    <span>User</span>
+                                    <span>{{ t("user.wallet.user") }}</span>
                                     <strong>{{ selectedTransaction.user?.name || wallet?.user?.name || "-" }}</strong>
                                 </article>
                                 <article class="details-item">
-                                    <span>Email</span>
+                                    <span>{{ t("user.wallet.email") }}</span>
                                     <strong>{{ selectedTransaction.user?.email || wallet?.user?.email || "-" }}</strong>
                                 </article>
                             </div>
 
                             <div class="details-summary">
                                 <div>
-                                    <span>Transaction Date</span>
+                                    <span>{{ t("user.wallet.transactionDate") }}</span>
                                     <strong>{{ formatDateTime(selectedTransaction.created_at) }}</strong>
                                 </div>
                                 <div>
-                                    <span>Reference</span>
+                                    <span>{{ t("user.wallet.reference") }}</span>
                                     <strong>{{ selectedTransaction.slug || "-" }}</strong>
                                 </div>
                             </div>
@@ -277,11 +277,13 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import walletService from "@/services/profile/walletService";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
 const route = useRoute();
+const { t, locale } = useI18n();
 const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
 const seoTitle = computed(() => (isArabic.value ? "المحفظة | Ai Pro" : "Wallet | Ai Pro"));
 const seoDescription = computed(() =>
@@ -325,7 +327,7 @@ const summary = computed(() => {
 });
 
 const shortUuid = computed(() => {
-    if (!wallet.value?.uuid) return "No wallet reference";
+    if (!wallet.value?.uuid) return t("user.wallet.noWalletReference");
     return `${wallet.value.uuid.slice(0, 12)}...`;
 });
 
@@ -348,7 +350,7 @@ const fetchWallet = async () => {
         const response = await walletService.getWallet();
         wallet.value = response?.data || null;
     } catch (err) {
-        error.value = err.response?.data?.message || "Failed to load wallet data.";
+        error.value = err.response?.data?.message || t("user.wallet.loadWalletError");
     } finally {
         loadingWallet.value = false;
     }
@@ -364,7 +366,7 @@ const fetchTransactions = async (page = 1) => {
     } catch (err) {
         transactions.value = [];
         pagination.value = { currentPage: 1, lastPage: 1, total: 0 };
-        error.value = err.response?.data?.message || "Failed to load wallet transactions.";
+        error.value = err.response?.data?.message || t("user.wallet.loadTransactionsError");
     } finally {
         loadingTransactions.value = false;
     }
@@ -386,7 +388,7 @@ const openTransactionDetails = async (slug) => {
         selectedTransaction.value = response?.data || null;
     } catch (err) {
         selectedTransaction.value = null;
-        error.value = err.response?.data?.message || "Failed to load transaction details.";
+        error.value = err.response?.data?.message || t("user.wallet.loadDetailsError");
     } finally {
         loadingDetails.value = false;
     }
@@ -422,7 +424,7 @@ const formatSignedPoints = (value, type) => {
 };
 
 const formatDate = (value) => {
-    if (!value) return "—";
+    if (!value) return t("user.wallet.na");
 
     return new Intl.DateTimeFormat("en-US", {
         year: "numeric",
@@ -432,7 +434,7 @@ const formatDate = (value) => {
 };
 
 const formatDateTime = (value) => {
-    if (!value) return "—";
+    if (!value) return t("user.wallet.na");
 
     return new Intl.DateTimeFormat("en-US", {
         year: "numeric",
@@ -455,7 +457,6 @@ onMounted(() => {
     padding: 32px 18px 48px;
     background: linear-gradient(180deg, #f8fbff 0%, #eef7fc 100%);
     font-family: 'Cairo', sans-serif;
-    direction: rtl;
 }
 
 .wallet-shell {
@@ -807,7 +808,7 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     gap: 18px;
-    text-align: right;
+    text-align: start;
     transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
@@ -1152,4 +1153,5 @@ onMounted(() => {
     }
 }
 </style>
+
 

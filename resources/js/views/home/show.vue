@@ -1,23 +1,23 @@
 <template>
-    <section class="home-tools-page min-h-screen px-4 py-12 sm:px-6 lg:px-10">
+    <section class="home-tools-page min-h-screen px-4 py-12 sm:px-6 lg:px-10" :dir="locale === 'ar' ? 'rtl' : 'ltr'">
         <div class="mx-auto max-w-7xl">
 
             <!-- HEADER -->
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div class="max-w-3xl">
-                    <span class="badge">Tool Overview</span>
+                    <span class="badge">{{ t("user.toolShow.badge") }}</span>
                     <h1 class="mt-6 text-4xl font-bold sm:text-5xl text-main">
-                        {{ loading ? "Loading tool..." : tool.title }}
+                        {{ loading ? t("user.toolShow.loadingTitle") : tool.title }}
                     </h1>
                     <p class="mt-4 text-base sm:text-lg text-muted">
                         {{ tool.description }}
                     </p>
                 </div>
 
-                <button type="button" class="back-button" aria-label="Go back to tools list"
+                <button type="button" class="back-button" :aria-label="t('user.toolShow.backAria')"
                     @click="router.push(`/${route.params.lang}`)">
                     <i class="bi bi-arrow-left"></i>
-                    <span>Back</span>
+                    <span>{{ t("user.toolShow.back") }}</span>
                 </button>
             </div>
 
@@ -31,33 +31,12 @@
 
             <!-- CONTENT -->
             <div v-else class="mt-10 space-y-10">
-
-                <!-- MAIN TOOL HERO -->
-                <!-- <article class="tool-hero-card">
-                    <div class="tool-hero-image-wrap">
-                        <img
-                            v-if="tool.imageUrl"
-                            :src="tool.imageUrl"
-                            :alt="tool.title"
-                            class="tool-hero-img"
-                        />
-                        <div v-else class="tool-hero-fallback">
-                            <i class="bi bi-grid-3x3-gap-fill"></i>
-                        </div>
-                    </div>
-
-                    <div class="tool-hero-info">
-                        <h2 class="tool-hero-title">{{ tool.title }}</h2>
-                        <p class="tool-hero-desc">{{ tool.description }}</p>
-                    </div>
-                </article> -->
-
                 <!-- SUBTOOLS -->
                 <div>
                     <div class="subtools-header">
                         <div>
-                            <h2 class="section-title">Related Subtools</h2>
-                            <p class="section-sub">Connected experiences you can chat with</p>
+                            <h2 class="section-title">{{ t("user.toolShow.sectionTitle") }}</h2>
+                            <p class="section-sub">{{ t("user.toolShow.sectionSubtitle") }}</p>
                         </div>
                         <span class="count-badge">{{ subtools.length }}</span>
                     </div>
@@ -79,7 +58,7 @@
                                     <i class="bi bi-cpu"></i>
                                 </div>
                                 <span :class="['status-chip', subtool.is_active ? 'active' : 'inactive']">
-                                    {{ subtool.is_active ? "Active" : "Inactive" }}
+                                    {{ subtool.is_active ? t("user.toolShow.statusActive") : t("user.toolShow.statusInactive") }}
                                 </span>
                             </div>
 
@@ -106,11 +85,11 @@
                                 <button
                                     type="button"
                                     class="chat-button"
-                                    :aria-label="`Start chat with ${subtool.title}`"
+                                    :aria-label="t('user.toolShow.chatAria', { name: subtool.title })"
                                     @click="router.push(`/${route.params.lang}/subtool/${subtool.slug}/chat`)"
                                 >
                                     <i class="bi bi-chat-fill"></i>
-                                    Chat
+                                    {{ t("user.toolShow.chatButton") }}
                                 </button>
                             </div>
                         </article>
@@ -118,7 +97,7 @@
 
                     <div v-else class="empty-box mt-6">
                         <i class="bi bi-inbox text-2xl mb-2 block"></i>
-                        No related subtools found
+                        {{ t("user.toolShow.empty") }}
                     </div>
                 </div>
             </div>
@@ -129,27 +108,24 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const route = useRoute();
 const router = useRouter();
+const { t, locale } = useI18n();
 
 const loading = ref(true);
 const rawTool = ref({});
 const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
 
-const fallbackText = {
-    title: "Untitled Tool",
-    description: "No description available",
-};
-
 const mapMainTool = (payload = {}) => {
     const translation = payload?.translation;
     return {
         ...payload,
-        title: translation?.name || fallbackText.title,
-        description: translation?.description || fallbackText.description,
+        title: translation?.name || t("user.toolShow.untitledTool"),
+        description: translation?.description || t("user.toolShow.noDescription"),
         imageUrl: payload?.image ? `/storage/${payload.image}` : "",
     };
 };
@@ -158,8 +134,8 @@ const mapSubtool = (payload = {}) => {
     return {
         id: payload?.id,
         slug: payload?.slug || "-",
-        title: payload?.name || "Untitled",
-        description: payload?.description || "No description",
+        title: payload?.name || t("user.toolShow.untitledSubtool"),
+        description: payload?.description || t("user.toolShow.noDescription"),
         promptPlaceholder: payload?.prompt_placeholder || "",
         is_active: Boolean(payload?.is_active),
         providerName: payload?.provider?.name || "",
@@ -188,6 +164,7 @@ const loadTool = async () => {
     loading.value = true;
     try {
         const response = await homeService.showTool(route.params.slug);
+        console.log(response);
         rawTool.value = response?.data || {};
     } catch (e) {
         rawTool.value = {};

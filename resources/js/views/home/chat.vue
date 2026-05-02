@@ -1,26 +1,26 @@
 <template>
-    <main class="chat-root" aria-label="AI chat workspace">
+    <main class="chat-root" :dir="locale === 'ar' ? 'rtl' : 'ltr'" :aria-label="t('user.chat.workspaceAria')">
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-header">
                 <div class="brand">
                     <div class="brand-icon"><i class="bi bi-chat-square-text-fill"></i></div>
                     <div>
-                        <span class="brand-name">Conversations</span>
-                        <p class="brand-subtitle">{{ subtool.name || "Chat Workspace" }}</p>
+                        <span class="brand-name">{{ t("user.chat.conversations") }}</span>
+                        <p class="brand-subtitle">{{ subtool.name || t("user.chat.workspaceTitle") }}</p>
                     </div>
                 </div>
-                <button type="button" class="icon-btn mobile-only" aria-label="Close conversations sidebar" @click="sidebarOpen = false">
+                <button type="button" class="icon-btn mobile-only" :aria-label="t('user.chat.closeSidebarAria')" @click="sidebarOpen = false">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
 
             <button type="button" class="new-chat-btn" :disabled="creatingConversation" @click="startNewChat">
                 <i class="bi bi-plus-lg"></i>
-                <span>{{ creatingConversation ? "Creating..." : "New Chat" }}</span>
+                <span>{{ creatingConversation ? t("user.chat.creating") : t("user.chat.newChat") }}</span>
             </button>
 
             <div class="history-section">
-                <p class="history-label">Recent Chats</p>
+                <p class="history-label">{{ t("user.chat.recentChats") }}</p>
 
                 <div v-if="loadingConversations" class="history-skeletons">
                     <div v-for="item in 5" :key="item" class="history-skeleton"></div>
@@ -28,7 +28,7 @@
 
                 <div v-else-if="filteredConversations.length === 0" class="history-empty">
                     <i class="bi bi-chat-dots"></i>
-                    <span>No conversations yet</span>
+                    <span>{{ t("user.chat.noConversations") }}</span>
                 </div>
 
                 <TransitionGroup v-else name="history-item" tag="div" class="history-list">
@@ -46,7 +46,7 @@
                             </div>
                         </button>
                         <button type="button" class="history-delete"
-                            :aria-label="`Delete ${conversation.title || 'conversation'}`" @click="removeConversation(conversation)">
+                            :aria-label="t('user.chat.deleteConversationAria', { name: conversation.title || t('user.chat.conversationFallback') })" @click="removeConversation(conversation)">
                             <i class="bi bi-trash3"></i>
                         </button>
                     </div>
@@ -59,7 +59,7 @@
         <div class="main-area">
             <header class="topbar">
                 <div class="topbar-left">
-                    <button type="button" class="icon-btn menu-btn" aria-label="Open conversations sidebar" @click="sidebarOpen = true">
+                    <button type="button" class="icon-btn menu-btn" :aria-label="t('user.chat.openSidebarAria')" @click="sidebarOpen = true">
                         <i class="bi bi-list"></i>
                     </button>
 
@@ -67,7 +67,7 @@
                         <div class="model-avatar">
                             <img v-if="subtool.imageUrl" :src="subtool.optimizedImageUrl || subtool.imageUrl" loading="lazy"
                                 decoding="async" @error="onModelImageError"
-                                :alt="subtool.name ? `${subtool.name} icon` : 'AI model icon'" />
+                                :alt="subtool.name ? t('user.chat.modelIconAriaWithName', { name: subtool.name }) : t('user.chat.modelIconAria')" />
                             <i v-else class="bi bi-stars"></i>
                         </div>
                         <div>
@@ -88,7 +88,7 @@
                 <div class="topbar-right">
                     <div class="model-badge">
                         <i class="bi bi-link-45deg"></i>
-                        {{ activeConversation?.uuid ? `#${activeConversation.uuid.slice(-6)}` : "Draft" }}
+                        {{ activeConversation?.uuid ? `#${activeConversation.uuid.slice(-6)}` : t("user.chat.draft") }}
                     </div>
                 </div>
             </header>
@@ -102,9 +102,9 @@
                     <div class="empty-icon">
                         <i class="bi bi-stars"></i>
                     </div>
-                    <h2 class="empty-title">{{ subtool.name || "New Conversation" }}</h2>
+                    <h2 class="empty-title">{{ subtool.name || t("user.chat.newConversation") }}</h2>
                     <p class="empty-desc">
-                        {{ activeConversation?.uuid ? "Start sending messages in this conversation." : "Create a new chat or send your first message to begin." }}
+                        {{ activeConversation?.uuid ? t("user.chat.emptyWithConversation") : t("user.chat.emptyWithoutConversation") }}
                     </p>
                     <button v-if="subtool.promptPlaceholder" type="button" class="suggestion-chip" @click="fillPlaceholder">
                         <i class="bi bi-lightning-charge-fill"></i>
@@ -146,8 +146,8 @@
                         ref="textareaRef"
                         v-model="userInput"
                         class="chat-input"
-                        aria-label="Chat message input"
-                        :placeholder="subtool.promptPlaceholder || 'Write your message here...'"
+                        :aria-label="t('user.chat.inputAria')"
+                        :placeholder="subtool.promptPlaceholder || t('user.chat.inputPlaceholder')"
                         rows="1"
                         :disabled="sendingMessage || streamingAssistant"
                         @focus="inputFocused = true"
@@ -162,7 +162,7 @@
                         <button
                             type="button"
                             class="send-btn"
-                            aria-label="Send chat message"
+                            :aria-label="t('user.chat.sendAria')"
                             :disabled="!userInput.trim() || sendingMessage || streamingAssistant"
                             @click="submitMessage"
                         >
@@ -172,7 +172,7 @@
                 </div>
                 <p class="input-hint">
                     <i class="bi bi-info-circle"></i>
-                    Enter to send · Shift+Enter for a new line
+                    {{ t("user.chat.inputHint") }}
                 </p>
             </div>
         </div>
@@ -182,12 +182,14 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
 import chatServices from "@/services/chat/chatServices";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const route = useRoute();
 const router = useRouter();
+const { t, locale } = useI18n();
 const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
 const isAuthenticated = computed(() => Boolean(localStorage.getItem("auth_token")));
 
@@ -227,8 +229,8 @@ const filteredConversations = computed(() =>
 );
 const seoTitle = computed(() =>
     isArabic.value
-        ? `${subtool.value.name || "الدردشة"} | Ai Pro`
-        : `${subtool.value.name || "Chat Workspace"} | Ai Pro`
+        ? `${subtool.value.name || t("user.chat.workspaceTitle")} | Ai Pro`
+        : `${subtool.value.name || t("user.chat.workspaceTitle")} | Ai Pro`
 );
 const seoDescription = computed(() =>
     isArabic.value
@@ -321,8 +323,8 @@ const resolveIdempotencyKey = (conversationUuid, content) => {
 
 const formatConversation = (conversation) => ({
     ...conversation,
-    title: `Conversation ${String(conversation.uuid || "").slice(-6) || conversation.id}`,
-    subtitle: `UUID: ${conversation.uuid}`,
+    title: t("user.chat.conversationTitle", { short: String(conversation.uuid || "").slice(-6) || conversation.id }),
+    subtitle: t("user.chat.conversationSubtitle", { uuid: conversation.uuid }),
 });
 
 const mapMessage = (message, index = 0) => ({
@@ -421,7 +423,7 @@ const openAssistantStream = async (conversation, afterId) => {
         }
 
         if (payload.type === "error") {
-            messages.value[index].content = payload.content || "Something went wrong.";
+            messages.value[index].content = payload.content || t("user.chat.genericError");
             messages.value[index].streaming = false;
             closeAssistantStream();
         }
@@ -445,7 +447,7 @@ const openAssistantStream = async (conversation, afterId) => {
         const index = messages.value.findIndex((item) => item.localKey === assistantMessage.localKey);
 
         if (index !== -1 && !messages.value[index].content) {
-            messages.value[index].content = "Connection interrupted. Please try again.";
+            messages.value[index].content = t("user.chat.connectionInterrupted");
             messages.value[index].streaming = false;
         }
 
@@ -477,7 +479,7 @@ const loadSubtool = async () => {
         const data = res?.data || {};
         subtool.value = {
             id: data.id || null,
-            name: data.name || data.translation?.name || "AI Tool",
+            name: data.name || data.translation?.name || t("user.chat.aiTool"),
             description: data.description || data.translation?.description || "",
             promptPlaceholder: data.prompt_placeholder || "",
             imageUrl: data.image ? `/storage/${data.image}` : "",
@@ -486,9 +488,9 @@ const loadSubtool = async () => {
     } catch {
         subtool.value = {
             id: null,
-            name: "AI Tool",
-            description: "Start a conversation.",
-            promptPlaceholder: "Write your message...",
+            name: t("user.chat.aiTool"),
+            description: t("user.chat.startConversation"),
+            promptPlaceholder: t("user.chat.inputPlaceholder"),
             imageUrl: "",
             optimizedImageUrl: "",
         };
@@ -733,7 +735,6 @@ watch(
     overflow: hidden;
     background: linear-gradient(180deg, #f8fbff 0%, #eef7fc 100%);
     font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
-    direction: rtl;
 }
 
 .sidebar {
@@ -880,7 +881,7 @@ watch(
     border-radius: 16px;
     padding: 14px;
     cursor: pointer;
-    text-align: right;
+    text-align: start;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -1265,9 +1266,16 @@ watch(
     color: #154677;
     line-height: 1.7;
     font-family: inherit;
-    direction: rtl;
     min-height: 24px;
     max-height: 180px;
+}
+
+.chat-root[dir="rtl"] .chat-input {
+    direction: rtl;
+}
+
+.chat-root[dir="ltr"] .chat-input {
+    direction: ltr;
 }
 
 .chat-input::placeholder {

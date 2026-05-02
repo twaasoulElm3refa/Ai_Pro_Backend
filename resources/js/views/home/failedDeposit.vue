@@ -1,5 +1,5 @@
 <template>
-  <main class="failed-page" aria-labelledby="failed-payment-title">
+  <main class="failed-page" :dir="$i18n.locale === 'ar' ? 'rtl' : 'ltr'" aria-labelledby="failed-payment-title">
     <div class="particles">
       <div
         v-for="i in 8"
@@ -10,13 +10,11 @@
     </div>
 
     <div class="card">
-      <!-- Badge -->
       <div class="paypal-badge">
         <div class="paypal-dot"></div>
-        فشل الدفع عبر PayPal
+        {{ $t("user.deposit.failed.badge") }}
       </div>
 
-      <!-- Icon -->
       <div class="icon-wrap">
         <div class="icon-ring"></div>
         <div class="icon-circle">
@@ -45,51 +43,46 @@
         </div>
       </div>
 
-      <h1 id="failed-payment-title">فشلت عملية الدفع 😞</h1>
-      <p class="subtitle">
-        لم تتم العملية بنجاح<br />
-        يمكنك المحاولة مرة أخرى أو التواصل مع الدعم
-      </p>
+      <h1 id="failed-payment-title">{{ $t("user.deposit.failed.title") }}</h1>
+      <p class="subtitle" v-html="$t('user.deposit.failed.subtitleHtml')"></p>
 
-      <!-- Info -->
       <div class="info-row">
-        <div class="info-icon">❌</div>
+        <div class="info-icon"><i class="bi bi-x-circle-fill" aria-hidden="true"></i></div>
         <div>
-          <div class="info-label">الحالة</div>
-          <div class="info-val">فشل الدفع</div>
+          <div class="info-label">{{ $t("user.deposit.failed.statusLabel") }}</div>
+          <div class="info-val">{{ $t("user.deposit.failed.statusValue") }}</div>
         </div>
       </div>
 
       <div class="info-row">
-        <div class="info-icon">⚠️</div>
+        <div class="info-icon"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i></div>
         <div>
-          <div class="info-label">السبب</div>
+          <div class="info-label">{{ $t("user.deposit.failed.reasonLabel") }}</div>
           <div class="info-val">{{ errorReason }}</div>
         </div>
       </div>
 
       <div class="info-row">
-        <div class="info-icon">🔒</div>
+        <div class="info-icon"><i class="bi bi-info-circle-fill" aria-hidden="true"></i></div>
         <div>
-          <div class="info-label">معلومة</div>
-          <div class="info-val">لم يتم خصم أي مبلغ</div>
+          <div class="info-label">{{ $t("user.deposit.failed.noteLabel") }}</div>
+          <div class="info-val">{{ $t("user.deposit.failed.noteValue") }}</div>
         </div>
       </div>
 
       <div class="divider"></div>
 
-      <!-- Buttons -->
-      <button type="button" @click="retryPayment" class="btn-retry" aria-label="Retry PayPal payment">
-        <span class="btn-icon">🔄</span>
-        إعادة المحاولة
+      <button type="button" @click="retryPayment" class="btn-retry" :aria-label="$t('user.deposit.failed.retryAria')">
+        <span class="btn-icon"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></span>
+        {{ $t("user.deposit.failed.retryButton") }}
       </button>
 
-      <button type="button" @click="contactSupport" class="btn-support" aria-label="Contact support">
-        💬 التواصل مع الدعم الفني
+      <button type="button" @click="contactSupport" class="btn-support" :aria-label="$t('user.deposit.failed.supportAria')">
+        <i class="bi bi-headset" aria-hidden="true"></i> {{ $t("user.deposit.failed.supportButton") }}
       </button>
 
-      <button type="button" @click="goHome" class="sec-link" aria-label="Back to home page">
-        العودة إلى الصفحة الرئيسية
+      <button type="button" @click="goHome" class="sec-link" :aria-label="$t('user.deposit.failed.homeAria')">
+        {{ $t("user.deposit.failed.homeButton") }}
       </button>
     </div>
   </main>
@@ -97,21 +90,16 @@
 
 <script>
 import { computed } from "vue";
-import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 export default {
   name: "PaymentFailed",
 
   setup() {
-    const route = useRoute();
-    const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
-    const seoTitle = computed(() => (isArabic.value ? "فشل الدفع | Ai Pro" : "Payment Failed | Ai Pro"));
-    const seoDescription = computed(() =>
-      isArabic.value
-        ? "تعذر إتمام عملية الدفع. راجع سبب الفشل، أعد المحاولة بأمان عبر PayPal، أو تواصل مع الدعم بسرعة دون فقدان رصيد محفظتك."
-        : "Payment did not complete. Review the failure reason, retry your PayPal charge safely, or contact support for quick help without losing your wallet balance."
-    );
+    const { t } = useI18n();
+    const seoTitle = computed(() => t("user.deposit.failed.seoTitle"));
+    const seoDescription = computed(() => t("user.deposit.failed.seoDescription"));
 
     useSeoMeta({
       title: seoTitle,
@@ -122,13 +110,13 @@ export default {
   computed: {
     errorReason() {
       const reasons = {
-        INSTRUMENT_DECLINED: "تم رفض وسيلة الدفع",
-        PAYER_CANNOT_PAY: "رصيد غير كافٍ",
-        TRANSACTION_REFUSED: "تم رفض العملية من PayPal",
+        INSTRUMENT_DECLINED: this.$t("user.deposit.failed.reasons.instrument_declined"),
+        PAYER_CANNOT_PAY: this.$t("user.deposit.failed.reasons.payer_cannot_pay"),
+        TRANSACTION_REFUSED: this.$t("user.deposit.failed.reasons.transaction_refused"),
       };
 
       const code = this.$route.query.error;
-      return reasons[code] || "تم إلغاء العملية أو فشل الدفع";
+      return reasons[code] || this.$t("user.deposit.failed.reasons.default");
     },
   },
 
@@ -159,7 +147,6 @@ export default {
 
 .failed-page {
     font-family: 'Cairo', sans-serif;
-    direction: rtl;
     background: #ffffff;
     color: #154677;
     min-height: 100vh;
@@ -408,8 +395,7 @@ h1 {
     border-radius: 12px;
     padding: 14px 18px;
     margin-bottom: 12px;
-    text-align: right;
-    animation: fade-up 0.5s ease 0.7s both;
+    text-align: start;
 }
 
 .info-icon {
@@ -527,5 +513,3 @@ h1 {
     color: #154677;
 }
 </style>
-
-

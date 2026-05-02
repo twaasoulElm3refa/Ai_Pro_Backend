@@ -1,9 +1,10 @@
 <template>
-    <div class="google-callback d-flex align-items-center justify-content-center min-vh-100 px-4">
+    <div class="google-callback d-flex align-items-center justify-content-center min-vh-100 px-4"
+        :dir="locale === 'ar' ? 'rtl' : 'ltr'">
         <div class="callback-card text-center">
             <div class="spinner-ring mx-auto mb-4"></div>
-            <h2 class="callback-title">Signing you in with Google...</h2>
-            <p v-if="!error" class="callback-subtitle mt-3">Please wait while we complete your sign-in.</p>
+            <h2 class="callback-title">{{ t("auth.googleCallback.signingInTitle") }}</h2>
+            <p v-if="!error" class="callback-subtitle mt-3">{{ t("auth.googleCallback.signingInSubtitle") }}</p>
             <p v-else class="callback-error mt-3">{{ error }}</p>
         </div>
     </div>
@@ -12,9 +13,11 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import axios from "axios";
 
 const router = useRouter();
+const { t, locale } = useI18n();
 const error = ref("");
 
 onMounted(async () => {
@@ -29,7 +32,7 @@ onMounted(async () => {
     }
 
     if (!token) {
-        error.value = "No token received from Google login.";
+        error.value = t("auth.googleCallback.missingToken");
         return;
     }
 

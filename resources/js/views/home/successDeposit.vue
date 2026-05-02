@@ -1,19 +1,16 @@
 <template>
-    <main class="success-page" aria-labelledby="success-payment-title">
-        <!-- Background particles -->
+    <main class="success-page" :dir="$i18n.locale === 'ar' ? 'rtl' : 'ltr'" aria-labelledby="success-payment-title">
         <div class="particles">
             <div v-for="i in 8" :key="i" class="particle"
                 :style="{ left: (i * 12) + '%', animationDelay: (i * 0.3) + 's' }"></div>
         </div>
 
         <div class="card">
-            <!-- PayPal badge -->
             <div class="paypal-badge">
                 <div class="paypal-dot"></div>
-                تم شحن الرصيد عبر PayPal
+                {{ $t("user.deposit.success.badge") }}
             </div>
 
-            <!-- Success icon -->
             <div class="icon-wrap">
                 <div class="icon-ring"></div>
                 <div class="icon-circle">
@@ -24,47 +21,42 @@
                 </div>
             </div>
 
-            <h1 id="success-payment-title">تم شحن الرصيد بنجاح 🎉</h1>
-            <p class="subtitle">
-                تم إضافة المبلغ إلى محفظتك بنجاح<br />
-                يمكنك الآن استخدامه أو تحميل مشترياتك
-            </p>
+            <h1 id="success-payment-title">{{ $t("user.deposit.success.title") }}</h1>
+            <p class="subtitle" v-html="$t('user.deposit.success.subtitleHtml')"></p>
 
-            <!-- Info -->
             <div class="info-row">
-                <div class="info-icon">💰</div>
+                <div class="info-icon"><i class="bi bi-check-circle-fill" aria-hidden="true"></i></div>
                 <div>
-                    <div class="info-label">حالة العملية</div>
-                    <div class="info-val">ناجحة</div>
+                    <div class="info-label">{{ $t("user.deposit.success.statusLabel") }}</div>
+                    <div class="info-val">{{ $t("user.deposit.success.statusValue") }}</div>
                 </div>
             </div>
 
             <div class="info-row">
-                <div class="info-icon">📧</div>
+                <div class="info-icon"><i class="bi bi-bell-fill" aria-hidden="true"></i></div>
                 <div>
-                    <div class="info-label">الإشعار</div>
-                    <div class="info-val">تم إرسال رسالة لبريدك</div>
+                    <div class="info-label">{{ $t("user.deposit.success.notificationLabel") }}</div>
+                    <div class="info-val">{{ $t("user.deposit.success.notificationValue") }}</div>
                 </div>
             </div>
 
             <div class="info-row">
-                <div class="info-icon">💳</div>
+                <div class="info-icon"><i class="bi bi-hash" aria-hidden="true"></i></div>
                 <div>
-                    <div class="info-label">رقم العملية</div>
+                    <div class="info-label">{{ $t("user.deposit.success.transactionIdLabel") }}</div>
                     <div class="info-val">{{ transactionId }}</div>
                 </div>
             </div>
 
             <div class="divider"></div>
 
-            <!-- Buttons -->
-            <button type="button" @click="goToDownloads" class="btn-downloads" aria-label="Go to wallet page">
-                <span class="btn-arrow">⬇</span>
-                الذهاب إلى المحفظة
+            <button type="button" @click="goToDownloads" class="btn-downloads" :aria-label="$t('user.deposit.success.walletAria')">
+                <span class="btn-arrow"><i class="bi bi-arrow-left-short" aria-hidden="true"></i></span>
+                {{ $t("user.deposit.success.walletButton") }}
             </button>
 
-            <button type="button" @click="goHome" class="sec-link" aria-label="Back to home page">
-                العودة إلى الصفحة الرئيسية
+            <button type="button" @click="goHome" class="sec-link" :aria-label="$t('user.deposit.success.homeAria')">
+                {{ $t("user.deposit.success.homeButton") }}
             </button>
         </div>
     </main>
@@ -72,21 +64,16 @@
 
 <script>
 import { computed } from "vue";
-import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 export default {
     name: "PaymentSuccess",
 
     setup() {
-        const route = useRoute();
-        const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
-        const seoTitle = computed(() => (isArabic.value ? "نجاح الشحن | Ai Pro" : "Deposit Success | Ai Pro"));
-        const seoDescription = computed(() =>
-            isArabic.value
-                ? "تم شحن محفظتك بنجاح. راجع تفاصيل العملية، عد إلى المحفظة مباشرة، وواصل استخدام الأدوات برصيدك المحدث دون أي خطوات إضافية."
-                : "Your wallet charge was successful. Confirm transaction details, return to your wallet, and continue using tools with your updated balance immediately."
-        );
+        const { t } = useI18n();
+        const seoTitle = computed(() => t("user.deposit.success.seoTitle"));
+        const seoDescription = computed(() => t("user.deposit.success.seoDescription"));
 
         useSeoMeta({
             title: seoTitle,
@@ -96,7 +83,7 @@ export default {
 
     computed: {
         transactionId() {
-            return this.$route.query.token || "PP-" + Date.now();
+            return this.$route.query.token || this.$t("user.deposit.success.fallbackTransactionId", { id: Date.now() });
         },
     },
 
@@ -116,7 +103,6 @@ export default {
 <style scoped>
 .success-page {
     font-family: 'Cairo', sans-serif;
-    direction: rtl;
     background: #fff;
     min-height: 100vh;
     display: flex;
@@ -125,7 +111,6 @@ export default {
     position: relative;
 }
 
-/* particles */
 .particle {
     position: absolute;
     width: 4px;
@@ -147,7 +132,6 @@ export default {
     }
 }
 
-/* card */
 .card {
     background: #fff;
     border-radius: 20px;
@@ -157,7 +141,6 @@ export default {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
 
-/* badge */
 .paypal-badge {
     background: #f3f3f3;
     padding: 6px 14px;
@@ -176,7 +159,6 @@ export default {
     border-radius: 50%;
 }
 
-/* icon */
 .icon-circle {
     background: #154677;
     width: 80px;
@@ -188,7 +170,6 @@ export default {
     justify-content: center;
 }
 
-/* info */
 .info-row {
     display: flex;
     gap: 10px;
@@ -196,7 +177,7 @@ export default {
     padding: 12px;
     border-radius: 10px;
     margin-bottom: 10px;
-    text-align: right;
+    text-align: start;
 }
 
 .info-label {
@@ -208,7 +189,6 @@ export default {
     font-weight: bold;
 }
 
-/* buttons */
 .btn-downloads {
     width: 100%;
     padding: 14px;
@@ -233,4 +213,3 @@ export default {
     cursor: pointer;
 }
 </style>
-

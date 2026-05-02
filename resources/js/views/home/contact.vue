@@ -1,15 +1,15 @@
 <template>
-    <main class="contact-section py-5" :style="sectionStyle" aria-labelledby="contact-page-title">
+    <main class="contact-section py-5" :style="sectionStyle" :dir="locale === 'ar' ? 'rtl' : 'ltr'" aria-labelledby="contact-page-title">
         <div class="container">
 
             <!-- Title -->
             <div class="text-center mb-5">
-                <span class="contact-badge">Get In Touch</span>
+                <span class="contact-badge">{{ t("user.contact.badge") }}</span>
                 <h1 id="contact-page-title" class="fw-bold mb-3 mt-3 contact-title">
-                    Contact Us
+                    {{ t("user.contact.title") }}
                 </h1>
                 <p class="contact-subtitle">
-                    We are here to answer all your questions and help you with anything you need
+                    {{ t("user.contact.subtitle") }}
                 </p>
             </div>
 
@@ -19,38 +19,38 @@
 
                     <!-- Contact Info -->
                     <div class="col-md-6 p-4 p-md-5 order-md-2 contact-info-panel" :style="infoStyle">
-                        <h4 class="fw-bold mb-4">Contact Information</h4>
+                        <h4 class="fw-bold mb-4">{{ t("user.contact.infoTitle") }}</h4>
 
                         <div class="mb-3 d-flex info-item">
                             <i class="bi bi-geo-alt-fill me-3 fs-5 info-icon"></i>
                             <div>
-                                <strong>Address</strong>
-                                <p class="mb-0 contact-muted">Nile Street, Cairo, Egypt</p>
+                                <strong>{{ t("user.contact.addressLabel") }}</strong>
+                                <p class="mb-0 contact-muted">{{ t("user.contact.addressValue") }}</p>
                             </div>
                         </div>
 
                         <div class="mb-3 d-flex info-item">
                             <i class="bi bi-telephone-fill me-3 fs-5 info-icon"></i>
                             <div>
-                                <strong>Phone</strong>
-                                <p class="mb-0 contact-muted">+20 123 456 789</p>
+                                <strong>{{ t("user.contact.phoneLabel") }}</strong>
+                                <p class="mb-0 contact-muted">{{ t("user.contact.phoneValue") }}</p>
                             </div>
                         </div>
 
                         <div class="mb-4 d-flex info-item">
                             <i class="bi bi-envelope-fill me-3 fs-5 info-icon"></i>
                             <div>
-                                <strong>Email</strong>
-                                <p class="mb-0 contact-muted">info@example.com</p>
+                                <strong>{{ t("user.contact.emailLabel") }}</strong>
+                                <p class="mb-0 contact-muted">{{ t("user.contact.emailValue") }}</p>
                             </div>
                         </div>
 
                         <div>
-                            <strong class="d-block mb-2">Follow us</strong>
+                            <strong class="d-block mb-2">{{ t("user.contact.followUs") }}</strong>
                             <div class="d-flex gap-2">
                                 <a v-for="social in socials" :key="social.name" :href="social.href"
                                     class="btn btn-sm rounded-circle social-btn" :style="socialBtnStyle"
-                                    :aria-label="`Visit our ${social.name} page`">
+                                    :aria-label="t('user.contact.socialAria', { name: social.name })">
                                     <i :class="social.iconClass"></i>
                                 </a>
                             </div>
@@ -59,33 +59,31 @@
 
                     <!-- Contact Form -->
                     <div class="col-md-6 p-4 p-md-5 order-md-1">
-                        <h4 class="fw-bold mb-4">
-                            Send us a message
-                        </h4>
+                        <h4 class="fw-bold mb-4">{{ t("user.contact.formTitle") }}</h4>
 
                         <form @submit.prevent="submitForm">
                             <div class="mb-3">
-                                <label for="contact-name" class="form-label">Full Name</label>
+                                <label for="contact-name" class="form-label">{{ t("user.contact.nameLabel") }}</label>
                                 <input id="contact-name" v-model="form.name" type="text" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <div class="mb-3">
-                                <label for="contact-email" class="form-label">Email</label>
+                                <label for="contact-email" class="form-label">{{ t("user.contact.emailFieldLabel") }}</label>
                                 <input id="contact-email" v-model="form.email" type="email" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <div class="mb-3">
-                                <label for="contact-subject" class="form-label">Subject</label>
+                                <label for="contact-subject" class="form-label">{{ t("user.contact.subjectLabel") }}</label>
                                 <input id="contact-subject" v-model="form.subject" type="text" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <div class="mb-3">
-                                <label for="contact-message" class="form-label">Message</label>
+                                <label for="contact-message" class="form-label">{{ t("user.contact.messageLabel") }}</label>
                                 <textarea id="contact-message" v-model="form.message" rows="4" class="form-control contact-input" :style="inputStyle" required />
                             </div>
 
                             <button type="submit" class="btn w-100 contact-submit" :style="btnStyle">
-                                Send Message
+                                {{ t("user.contact.submit") }}
                             </button>
                         </form>
 
@@ -104,10 +102,12 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import COLORS, { rgba } from "@/components/assets/colors.js";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const route = useRoute();
+const { t, locale } = useI18n();
 const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
 const seoTitle = computed(() => (isArabic.value ? "اتصل بنا | Ai Pro" : "Contact Us | Ai Pro"));
 const seoDescription = computed(() =>
@@ -188,7 +188,7 @@ const textMuted = computed(() =>
 
 /* ---------------- logic ---------------- */
 const submitForm = () => {
-    successMessage.value = "Your message has been sent successfully!";
+    successMessage.value = t("user.contact.successMessage");
     form.value = { name: "", email: "", subject: "", message: "" };
 };
 

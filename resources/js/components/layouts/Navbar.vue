@@ -1,10 +1,16 @@
 <template>
-    <header class="nb-root" dir="rtl">
+    <header class="nb-root" :dir="currentDir">
         <div class="nb-inner">
-            <a class="nb-logo" href="/">
+            <a class="nb-logo" :href="homeUrl">
                 <div class="nb-logo-mark">
-                    <img src="/images/ai_logo.png" alt="AiPro Logo" width="42" height="42" fetchpriority="high"
-                        decoding="async" />
+                    <img
+                        src="/images/Ai_logo.png"
+                        alt="AiPro Logo"
+                        width="42"
+                        height="42"
+                        fetchpriority="high"
+                        decoding="async"
+                    />
                 </div>
 
                 <span class="nb-logo-text">
@@ -15,57 +21,168 @@
             <div class="nb-spacer"></div>
 
             <div class="nb-actions">
-                <a href="/en" class="nb-home-link">الرئيسية</a>
+                <a :href="homeUrl" class="nb-home-link">
+                    {{ t("navbar.home") }}
+                </a>
+
+                <!-- Language Dropdown -->
+                <div class="nb-lang-wrap" @click.stop>
+                    <button
+                        class="nb-lang-btn"
+                        type="button"
+                        @click="toggleLangDropdown"
+                    >
+                        <span>{{ currentLanguage.label }}</span>
+                        <span class="nb-chevron" :class="{ open: langDropdownOpen }">▼</span>
+                    </button>
+
+                    <div v-if="langDropdownOpen" class="nb-lang-dropdown">
+                        <button
+                            v-for="language in languages"
+                            :key="language.code"
+                            type="button"
+                            class="nb-lang-item"
+                            :class="{ active: language.code === currentLocale }"
+                            @click="changeLanguage(language.code)"
+                        >
+                            <span>{{ language.nativeName }}</span>
+                            <small>{{ language.label }}</small>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="nb-divider"></div>
 
-                <button class="nb-wallet-btn" @click="goToWallet" title="المحفظة">
+                <button
+                    class="nb-wallet-btn"
+                    type="button"
+                    @click="goToWallet"
+                    :title="t('navbar.wallet')"
+                >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <rect x="2" y="6" width="20" height="14" rx="3" stroke="white" stroke-width="1.6" />
-                        <path d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z" fill="white" />
+                        <rect
+                            x="2"
+                            y="6"
+                            width="20"
+                            height="14"
+                            rx="3"
+                            stroke="white"
+                            stroke-width="1.6"
+                        />
+                        <path
+                            d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"
+                            fill="white"
+                        />
                         <path d="M2 10h20" stroke="white" stroke-width="1.6" />
                     </svg>
-                    <span v-if="WalletBalance !== null" class="nb-badge">{{ WalletBalance }}</span>
+
+                    <span v-if="WalletBalance !== null" class="nb-badge">
+                        {{ WalletBalance }}
+                    </span>
                 </button>
 
                 <template v-if="isLoggedIn">
                     <div class="nb-user-btn" @click.stop="toggleDropdown">
-                        <div class="nb-avatar">{{ userName.charAt(0) }}</div>
+                        <div class="nb-avatar">
+                            {{ userName ? userName.charAt(0) : t("navbar.user").charAt(0) }}
+                        </div>
+
                         <span>{{ userName }}</span>
-                        <span class="nb-chevron" :class="{ open: dropdownOpen }">▼</span>
+
+                        <span class="nb-chevron" :class="{ open: dropdownOpen }">
+                            ▼
+                        </span>
 
                         <div v-if="dropdownOpen" class="nb-dropdown">
                             <div class="nb-dd-header">
                                 <div class="nb-dd-name">{{ userName }}</div>
-                                <div class="nb-dd-label">حساب شخصي</div>
+                                <div class="nb-dd-label">
+                                    {{ t("navbar.personalAccount") }}
+                                </div>
                             </div>
-                            <a href="/en/profile" class="nb-dd-item">
+
+                            <a :href="profileUrl" class="nb-dd-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="8" r="4" stroke="#154677" stroke-width="1.6" />
-                                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#154677" stroke-width="1.6" stroke-linecap="round" />
+                                    <circle
+                                        cx="12"
+                                        cy="8"
+                                        r="4"
+                                        stroke="#154677"
+                                        stroke-width="1.6"
+                                    />
+                                    <path
+                                        d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
+                                        stroke="#154677"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                    />
                                 </svg>
-                                الملف الشخصي
+
+                                {{ t("navbar.profile") }}
                             </a>
+
                             <div class="nb-dd-sep"></div>
-                            <button class="nb-dd-item danger" @click="logout">
+
+                            <button class="nb-dd-item danger" type="button" @click="logout">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#154677" stroke-width="1.6" stroke-linecap="round" />
-                                    <polyline points="16 17 21 12 16 7" stroke="#154677" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-                                    <line x1="21" y1="12" x2="9" y2="12" stroke="#154677" stroke-width="1.6" stroke-linecap="round" />
+                                    <path
+                                        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+                                        stroke="#154677"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                    />
+                                    <polyline
+                                        points="16 17 21 12 16 7"
+                                        stroke="#154677"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
+                                    <line
+                                        x1="21"
+                                        y1="12"
+                                        x2="9"
+                                        y2="12"
+                                        stroke="#154677"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                    />
                                 </svg>
-                                تسجيل الخروج
+
+                                {{ t("navbar.logout") }}
                             </button>
                         </div>
                     </div>
                 </template>
 
                 <template v-else>
-                    <a href="/en/auth" class="nb-login-btn">
+                    <a :href="authUrl" class="nb-login-btn">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="white" stroke-width="1.8" stroke-linecap="round" />
-                            <polyline points="10 17 15 12 10 7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            <line x1="15" y1="12" x2="3" y2="12" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                            <path
+                                d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
+                                stroke="white"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                            />
+                            <polyline
+                                points="10 17 15 12 10 7"
+                                stroke="white"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
+                            <line
+                                x1="15"
+                                y1="12"
+                                x2="3"
+                                y2="12"
+                                stroke="white"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                            />
                         </svg>
-                        تسجيل الدخول
+
+                        {{ t("navbar.login") }}
                     </a>
                 </template>
             </div>
@@ -74,26 +191,125 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import api from "@/services/ApiClient";
 
+const { t, locale } = useI18n();
+
 const isLoggedIn = ref(false);
-const userName = ref("المستخدم");
 const WalletBalance = ref(0);
 const dropdownOpen = ref(false);
+const langDropdownOpen = ref(false);
+
 const PROFILE_CACHE_KEY = "navbar_profile_cache_v1";
 const WALLET_CACHE_KEY = "navbar_wallet_cache_v1";
 const NAV_CACHE_TTL = 60 * 1000;
 
+const languages = [
+    {
+        code: "ar",
+        label: "Arabic",
+        nativeName: "العربية",
+        dir: "rtl",
+    },
+    {
+        code: "en",
+        label: "English",
+        nativeName: "English",
+        dir: "ltr",
+    },
+
+    {
+        code: "ru",
+        label: "Russian",
+        nativeName: "Русский",
+        dir: "ltr",
+    },
+];
+
+const currentLocale = computed(() => locale.value || "ar");
+
+const currentLanguage = computed(() => {
+    return languages.find((language) => language.code === currentLocale.value) || languages[0];
+});
+
+const currentDir = computed(() => {
+    return currentLanguage.value.dir || "ltr";
+});
+
+const homeUrl = computed(() => `/${currentLocale.value}`);
+const profileUrl = computed(() => `/${currentLocale.value}/profile`);
+const authUrl = computed(() => `/${currentLocale.value}/auth`);
+const walletUrl = computed(() => `/${currentLocale.value}/wallet`);
+
+const userName = ref(t("navbar.user"));
+
+const syncHtmlDirection = () => {
+    document.documentElement.setAttribute("lang", currentLocale.value);
+    document.documentElement.setAttribute("dir", currentDir.value);
+};
+
+const replaceLocaleInPath = (newLocale) => {
+    const currentPath = window.location.pathname;
+    const supportedCodes = languages.map((language) => language.code);
+    const pathParts = currentPath.split("/").filter(Boolean);
+
+    if (pathParts.length && supportedCodes.includes(pathParts[0])) {
+        pathParts[0] = newLocale;
+        return `/${pathParts.join("/")}${window.location.search}`;
+    }
+
+    return `/${newLocale}${currentPath === "/" ? "" : currentPath}${window.location.search}`;
+};
+
+const changeLanguage = (newLocale) => {
+    if (newLocale === currentLocale.value) {
+        langDropdownOpen.value = false;
+        return;
+    }
+
+    const selectedLanguage = languages.find((language) => language.code === newLocale);
+
+    if (!selectedLanguage) return;
+
+    locale.value = newLocale;
+    localStorage.setItem("locale", newLocale);
+
+    document.documentElement.setAttribute("lang", newLocale);
+    document.documentElement.setAttribute("dir", selectedLanguage.dir);
+
+    langDropdownOpen.value = false;
+
+    window.location.href = replaceLocaleInPath(newLocale);
+};
+
+const toggleLangDropdown = () => {
+    langDropdownOpen.value = !langDropdownOpen.value;
+    dropdownOpen.value = false;
+};
+
+watch(locale, () => {
+    syncHtmlDirection();
+
+    if (!isLoggedIn.value) {
+        userName.value = t("navbar.user");
+    }
+});
+
 const readCache = (key) => {
     try {
         const raw = sessionStorage.getItem(key);
+
         if (!raw) return null;
+
         const parsed = JSON.parse(raw);
+
         if (!parsed?.expiresAt || parsed.expiresAt < Date.now()) {
             sessionStorage.removeItem(key);
             return null;
         }
+
         return parsed.value;
     } catch {
         return null;
@@ -119,6 +335,7 @@ const deferToIdle = (task) => {
         window.requestIdleCallback(task, { timeout: 800 });
         return;
     }
+
     setTimeout(task, 120);
 };
 
@@ -126,6 +343,7 @@ const fetchWallet = async () => {
     if (!localStorage.getItem("auth_token")) return;
 
     const cachedBalance = readCache(WALLET_CACHE_KEY);
+
     if (cachedBalance !== null) {
         WalletBalance.value = cachedBalance;
         return;
@@ -133,6 +351,7 @@ const fetchWallet = async () => {
 
     try {
         const res = await api.get("/users/wallet");
+
         if (res.data.status === "success") {
             WalletBalance.value = res.data.data?.balance ?? 0;
             writeCache(WALLET_CACHE_KEY, WalletBalance.value);
@@ -143,14 +362,19 @@ const fetchWallet = async () => {
 };
 
 const goToWallet = () => {
-    const lang = localStorage.getItem("lang") || "ar";
-    window.location.href = `/${lang}/wallet`;
+    window.location.href = walletUrl.value;
 };
 
 const fetchProfile = async () => {
-    if (!localStorage.getItem("auth_token")) return;
+    if (!localStorage.getItem("auth_token")) {
+        isLoggedIn.value = false;
+        userName.value = t("navbar.user");
+        WalletBalance.value = null;
+        return;
+    }
 
     const cachedProfile = readCache(PROFILE_CACHE_KEY);
+
     if (cachedProfile?.name) {
         userName.value = cachedProfile.name;
         isLoggedIn.value = true;
@@ -159,10 +383,14 @@ const fetchProfile = async () => {
 
     try {
         const res = await api.get("/users/profile");
+
         if (res.data.status === "success") {
-            userName.value = res.data.data.user.name || "????????";
+            userName.value = res.data.data.user.name || t("navbar.user");
             isLoggedIn.value = true;
-            writeCache(PROFILE_CACHE_KEY, { name: userName.value });
+
+            writeCache(PROFILE_CACHE_KEY, {
+                name: userName.value,
+            });
         }
     } catch (err) {
         console.log("Profile error:", err);
@@ -175,36 +403,50 @@ const logout = async () => {
     } catch (err) {
         console.log("Logout error:", err);
     }
+
     localStorage.removeItem("user_role");
     localStorage.removeItem("auth_token");
+
     sessionStorage.removeItem(PROFILE_CACHE_KEY);
     sessionStorage.removeItem(WALLET_CACHE_KEY);
+
     isLoggedIn.value = false;
-    userName.value = "المستخدم";
+    userName.value = t("navbar.user");
     WalletBalance.value = null;
     dropdownOpen.value = false;
-    window.location.href = "/";
+    langDropdownOpen.value = false;
+
+    window.location.href = homeUrl.value;
 };
 
 const toggleDropdown = () => {
     dropdownOpen.value = !dropdownOpen.value;
+    langDropdownOpen.value = false;
 };
 
 const handleDocumentClick = (e) => {
     if (!e.target.closest(".nb-user-btn")) {
         dropdownOpen.value = false;
     }
+
+    if (!e.target.closest(".nb-lang-wrap")) {
+        langDropdownOpen.value = false;
+    }
 };
 
 const refreshUserState = () => {
     fetchProfile();
+
     deferToIdle(() => {
         fetchWallet();
     });
 };
 
 onMounted(() => {
+    syncHtmlDirection();
+
     refreshUserState();
+
     window.addEventListener("login", refreshUserState);
     document.addEventListener("click", handleDocumentClick);
 });
@@ -226,7 +468,87 @@ onBeforeUnmount(() => {
     box-shadow: 0 16px 36px rgba(21, 70, 119, 0.18);
     backdrop-filter: blur(14px);
 }
+.nb-lang-wrap {
+    position: relative;
+}
 
+.nb-lang-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    font-size: 13px;
+    font-weight: 800;
+    padding: 9px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.nb-lang-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+}
+
+.nb-lang-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    min-width: 180px;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 1rem;
+    box-shadow: 0 24px 50px rgba(21, 70, 119, 0.16);
+    border: 1px solid rgba(21, 70, 119, 0.1);
+    overflow: hidden;
+    z-index: 9999;
+}
+
+.nb-root[dir="rtl"] .nb-lang-dropdown {
+    left: 0;
+    right: auto;
+}
+
+.nb-root[dir="ltr"] .nb-lang-dropdown {
+    right: 0;
+    left: auto;
+}
+
+.nb-lang-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 12px 14px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    color: #154677;
+    font-weight: 800;
+    transition: background 0.2s ease;
+}
+
+.nb-root[dir="rtl"] .nb-lang-item {
+    text-align: right;
+    align-items: flex-end;
+}
+
+.nb-root[dir="ltr"] .nb-lang-item {
+    text-align: left;
+    align-items: flex-start;
+}
+
+.nb-lang-item small {
+    font-size: 11px;
+    color: #5f7288;
+    font-weight: 600;
+}
+
+.nb-lang-item:hover,
+.nb-lang-item.active {
+    background: #f4fbff;
+}
 .nb-inner {
     max-width: 1200px;
     margin: 0 auto;

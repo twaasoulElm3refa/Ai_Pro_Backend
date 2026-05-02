@@ -1,0 +1,343 @@
+{
+  "navbar": {
+    "home": "Home",
+    "wallet": "Wallet",
+    "personalAccount": "Personal Account",
+    "profile": "Profile",
+    "logout": "Logout",
+    "login": "Login",
+    "user": "User"
+  },
+  "home": {
+    "title": "AI Tools",
+    "description": "Choose the tool you need"
+  },
+  "auth": {
+    "googleCallback": {
+      "signingInTitle": "Signing you in with Google...",
+      "signingInSubtitle": "Please wait while we complete your sign-in.",
+      "missingToken": "No token received from Google login."
+    },
+    "register": {
+      "logoAlt": "AI PRO Logo",
+      "googleAlt": "Google logo",
+      "brandTagline": "Build. Learn. Evolve with AI",
+      "tabs": {
+        "login": "Login",
+        "register": "Register"
+      },
+      "fields": {
+        "fullName": "Full Name",
+        "email": "Email Address",
+        "password": "Password",
+        "confirmPassword": "Confirm Password",
+        "phoneOptional": "Phone (optional)"
+      },
+      "otp": {
+        "title": "Verify Your Email",
+        "sentTo": "A code was sent to",
+        "codePlaceholder": "Enter verification code",
+        "verifyAndLogin": "Verify and Login",
+        "verifying": "Verifying...",
+        "resend": "Resend code",
+        "backToLogin": "Back to login"
+      },
+      "login": {
+        "submit": "Login",
+        "loading": "Loading...",
+        "forgot": "Forgot password?",
+        "google": "Continue with Google"
+      },
+      "register": {
+        "submit": "Create Account",
+        "loading": "Creating..."
+      },
+      "forgot": {
+        "submit": "Send code",
+        "loading": "Sending...",
+        "backToLogin": "Back to login"
+      },
+      "reset": {
+        "email": "Email",
+        "otp": "OTP Code",
+        "newPassword": "New Password",
+        "submit": "Reset Password",
+        "loading": "Updating..."
+      },
+      "switch": {
+        "haveAccount": "Already have an account?",
+        "noAccount": "Don't have an account?"
+      }
+    }
+  },
+  "user": {
+    "home": {
+      "badge": "Tools Directory",
+      "title": "Discover AI tools built for focused work",
+      "subtitle": "Browse the latest tools, jump into details fast, and explore each experience through a clean catalog.",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "showButton": "Show ?",
+      "showAria": "Show details for {name}",
+      "openAria": "Open {name}",
+      "coverAlt": "AI tool cover image",
+      "coverAltWithName": "{name} cover image",
+      "empty": "No tools available"
+    },
+    "toolShow": {
+      "badge": "Tool Overview",
+      "loadingTitle": "Loading tool...",
+      "back": "Back",
+      "backAria": "Go back to tools list",
+      "sectionTitle": "Related Subtools",
+      "sectionSubtitle": "Connected experiences you can chat with",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "chatButton": "Chat",
+      "chatAria": "Start chat with {name}",
+      "empty": "No related subtools found",
+      "untitledTool": "Untitled Tool",
+      "untitledSubtool": "Untitled Subtool",
+      "noDescription": "No description"
+    },
+    "chat": {
+      "workspaceAria": "AI chat workspace",
+      "workspaceTitle": "Chat Workspace",
+      "conversations": "Conversations",
+      "closeSidebarAria": "Close conversations sidebar",
+      "openSidebarAria": "Open conversations sidebar",
+      "creating": "Creating...",
+      "newChat": "New Chat",
+      "recentChats": "Recent Chats",
+      "noConversations": "No conversations yet",
+      "conversationFallback": "conversation",
+      "deleteConversationAria": "Delete {name}",
+      "modelIconAria": "AI model icon",
+      "modelIconAriaWithName": "{name} icon",
+      "draft": "Draft",
+      "newConversation": "New Conversation",
+      "emptyWithConversation": "Start sending messages in this conversation.",
+      "emptyWithoutConversation": "Create a new chat or send your first message to begin.",
+      "inputAria": "Chat message input",
+      "inputPlaceholder": "Write your message here...",
+      "sendAria": "Send chat message",
+      "inputHint": "Enter to send � Shift+Enter for a new line",
+      "conversationTitle": "Conversation {short}",
+      "conversationSubtitle": "UUID: {uuid}",
+      "genericError": "Something went wrong.",
+      "connectionInterrupted": "Connection interrupted. Please try again.",
+      "aiTool": "AI Tool",
+      "startConversation": "Start a conversation."
+    },
+    "contact": {
+      "badge": "Get In Touch",
+      "title": "Contact Us",
+      "subtitle": "We are here to answer all your questions and help you with anything you need",
+      "infoTitle": "Contact Information",
+      "addressLabel": "Address",
+      "addressValue": "Nile Street, Cairo, Egypt",
+      "phoneLabel": "Phone",
+      "phoneValue": "+20 123 456 789",
+      "emailLabel": "Email",
+      "emailValue": "info@example.com",
+      "followUs": "Follow us",
+      "socialAria": "Visit our {name} page",
+      "formTitle": "Send us a message",
+      "nameLabel": "Full Name",
+      "emailFieldLabel": "Email",
+      "subjectLabel": "Subject",
+      "messageLabel": "Message",
+      "submit": "Send Message",
+      "successMessage": "Your message has been sent successfully!"
+    },
+    "charge": {
+      "balanceSummaryAria": "Wallet balance summary",
+      "formAria": "Charge wallet form",
+      "title": "Charge Wallet",
+      "currentBalance": "Current Balance",
+      "selectPresetAria": "Select preset amount {value} dollars",
+      "customAmountLabel": "Custom Amount",
+      "customAmountAria": "Custom charge amount",
+      "descriptionLabel": "Description (optional)",
+      "descriptionAria": "Charge description",
+      "descriptionPlaceholder": "For example: wallet top-up for image purchase",
+      "summaryAmount": "Amount",
+      "summaryCurrency": "Currency",
+      "summaryMethod": "Payment Method",
+      "loading": "Processing...",
+      "payButton": "Pay with PayPal",
+      "amountError": "Enter a valid amount (greater than 1)",
+      "defaultDescription": "Wallet Deposit",
+      "genericError": "Something went wrong, please try again."
+    },
+    "profile": {
+      "title": "My Profile",
+      "openTabAria": "Open {tab} tab",
+      "avatarAlt": "{name} avatar",
+      "previewAlt": "{name} profile preview",
+      "userFallback": "User",
+      "na": "�",
+      "tabs": {
+        "info": "User Information",
+        "edit": "Edit Details",
+        "password": "Update Password"
+      },
+      "fields": {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "image": "Profile Image",
+        "role": "Role",
+        "status": "Status",
+        "lastSeen": "Last Seen"
+      },
+      "status": {
+        "active": "Active ?",
+        "inactive": "Inactive"
+      },
+      "placeholders": {
+        "name": "Enter your name"
+      },
+      "chooseImage": "Choose Image",
+      "uploadImageAria": "Upload profile image",
+      "actions": {
+        "save": "Save Changes",
+        "deleteAccount": "Delete Account",
+        "updatePassword": "Update Password"
+      },
+      "loading": {
+        "save": "Saving...",
+        "delete": "Deleting...",
+        "updatePassword": "Updating..."
+      },
+      "saveAria": "Save profile changes",
+      "deleteAria": "Delete account",
+      "updatePasswordAria": "Update password",
+      "password": {
+        "current": "Current Password",
+        "new": "New Password",
+        "confirm": "Confirm Password",
+        "show": "Show password",
+        "hide": "Hide password"
+      },
+      "messages": {
+        "nameEmailRequired": "Please fill in name and email",
+        "profileUpdated": "Profile updated successfully ?",
+        "accountDeleted": "Account deleted successfully ?",
+        "fillAllFields": "Please fill all fields",
+        "passwordMismatch": "Passwords do not match",
+        "passwordTooShort": "Password must be at least 6 characters",
+        "passwordUpdated": "Password updated successfully ?"
+      },
+      "seoTitle": "User Profile | Ai Pro",
+      "seoDescription": "Manage your account profile, update personal details and avatar, and change your password securely from one organized settings page with clear status feedback."
+    },
+    "wallet": {
+      "kicker": "Fintech Dashboard",
+      "title": "My Wallet",
+      "subtitle": "Track your balance, review transaction flow, and inspect wallet activity in one place.",
+      "chargeAria": "Go to wallet charge page",
+      "chargeButton": "Charge Wallet",
+      "preparing": "Preparing...",
+      "currentBalance": "Current Balance",
+      "points": "Points",
+      "walletId": "Wallet ID",
+      "creditsOnPage": "Credits on this page",
+      "debitsOnPage": "Debits on this page",
+      "credit": "Credit",
+      "debit": "Debit",
+      "transactionsLoaded": "Transactions Loaded",
+      "lastUpdate": "Last update",
+      "tabWallet": "Wallet",
+      "tabTransactions": "Transactions",
+      "accountHolder": "Account Holder",
+      "unknownUser": "Unknown user",
+      "noEmail": "No email available",
+      "walletStatus": "Wallet Status",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "statusActiveDesc": "Ready for credits and debits.",
+      "statusInactiveDesc": "Wallet activity is paused.",
+      "createdAt": "Created At",
+      "createdAtDesc": "Wallet creation timestamp",
+      "updatedAt": "Updated At",
+      "updatedAtDesc": "Most recent wallet refresh",
+      "unavailableTitle": "Wallet data is unavailable",
+      "unavailableDesc": "We could not load the wallet profile right now.",
+      "tryAgain": "Try Again",
+      "transactionActivity": "Transaction Activity",
+      "transactionActivityDesc": "Review credits, debits, and wallet balance movement over time.",
+      "viewTransactionAria": "View transaction {id} details",
+      "unknownType": "unknown",
+      "noTransactions": "No transactions yet",
+      "noTransactionsDesc": "Your wallet activity will appear here once credits or debits are recorded.",
+      "previous": "Previous",
+      "next": "Next",
+      "pagination": "Page {current} of {last}",
+      "transactionsCount": "{count} transactions",
+      "transactionDetails": "Transaction Details",
+      "walletTransaction": "Wallet Transaction",
+      "closeDetailsAria": "Close transaction details dialog",
+      "type": "Type",
+      "balanceBefore": "Balance Before",
+      "balanceAfter": "Balance After",
+      "user": "User",
+      "email": "Email",
+      "transactionDate": "Transaction Date",
+      "reference": "Reference",
+      "noWalletReference": "No wallet reference",
+      "loadWalletError": "Failed to load wallet data.",
+      "loadTransactionsError": "Failed to load wallet transactions.",
+      "loadDetailsError": "Failed to load transaction details.",
+      "na": "�"
+    },
+    "deposit": {
+      "success": {
+        "badge": "Balance charged via PayPal",
+        "title": "Balance charged successfully ??",
+        "subtitleHtml": "The amount has been added to your wallet successfully<br />You can now use it for your purchases",
+        "statusLabel": "Transaction Status",
+        "statusValue": "Successful",
+        "notificationLabel": "Notification",
+        "notificationValue": "A message has been sent to your email",
+        "transactionIdLabel": "Transaction ID",
+        "walletButton": "Go to Wallet",
+        "walletAria": "Go to wallet page",
+        "homeButton": "Back to Home",
+        "homeAria": "Back to home page",
+        "fallbackTransactionId": "PP-{id}",
+        "seoTitle": "Deposit Success | Ai Pro",
+        "seoDescription": "Your wallet charge was successful. Confirm transaction details, return to your wallet, and continue using tools with your updated balance immediately."
+      },
+      "failed": {
+        "badge": "PayPal payment failed",
+        "title": "Payment failed ??",
+        "subtitleHtml": "The payment was not completed successfully<br />You can try again or contact support",
+        "statusLabel": "Status",
+        "statusValue": "Payment Failed",
+        "reasonLabel": "Reason",
+        "noteLabel": "Note",
+        "noteValue": "No amount has been charged",
+        "retryButton": "Retry",
+        "retryAria": "Retry PayPal payment",
+        "supportButton": "Contact Support",
+        "supportAria": "Contact support",
+        "homeButton": "Back to Home",
+        "homeAria": "Back to home page",
+        "reasons": {
+          "instrument_declined": "Payment instrument was declined",
+          "payer_cannot_pay": "Insufficient balance",
+          "transaction_refused": "Transaction was refused by PayPal",
+          "default": "The transaction was canceled or payment failed"
+        },
+        "seoTitle": "Payment Failed | Ai Pro",
+        "seoDescription": "Payment did not complete. Review the failure reason, retry your PayPal charge safely, or contact support for quick help without losing your wallet balance."
+      },
+      "waiting": {
+        "title": "Processing Your Payment",
+        "subtitle": "Please wait while we confirm your payment with PayPal...",
+        "hint": "Do not close this page"
+      }
+    }
+  }
+}

@@ -1,10 +1,10 @@
 <template>
-    <main class="waiting-container" aria-labelledby="waiting-payment-title">
+    <main class="waiting-container" :dir="locale === 'ar' ? 'rtl' : 'ltr'" aria-labelledby="waiting-payment-title">
         <section class="card" role="status" aria-live="polite">
             <div class="spinner" aria-hidden="true"></div>
-            <h1 id="waiting-payment-title">Processing Your Payment</h1>
-            <p>Please wait while we confirm your payment with PayPal...</p>
-            <p class="hint">Do not close this page</p>
+            <h1 id="waiting-payment-title">{{ t("user.deposit.waiting.title") }}</h1>
+            <p>{{ t("user.deposit.waiting.subtitle") }}</p>
+            <p class="hint">{{ t("user.deposit.waiting.hint") }}</p>
         </section>
     </main>
 </template>
@@ -12,11 +12,13 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import axios from "axios";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
 const route = useRoute();
+const { t, locale } = useI18n();
 const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
 const seoTitle = computed(() => (isArabic.value ? "انتظار تأكيد الدفع | Ai Pro" : "Payment Verification | Ai Pro"));
 const seoDescription = computed(() =>

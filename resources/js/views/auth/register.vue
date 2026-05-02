@@ -1,31 +1,26 @@
-<template>
-    <div class="min-vh-100 d-flex align-items-center justify-content-center position-relative overflow-hidden">
+﻿<template>
+    <div class="min-vh-100 d-flex align-items-center justify-content-center position-relative overflow-hidden"
+        :dir="locale === 'ar' ? 'rtl' : 'ltr'">
         <div class="position-absolute w-100 h-100 waves"></div>
 
         <div class="auth-container position-relative z-2 d-flex flex-column flex-lg-row w-100 h-100">
-
-            <!-- ── Left Panel ── -->
             <div class="d-none d-lg-flex col-lg-5 align-items-center justify-content-center p-5 position-relative">
                 <div class="text-center">
-                    <img src="/images/ai_logo.png" alt="NEXTLEVEL Logo" class="height-auto logo-glow" width="140"
+                    <img src="/images/Ai_logo.png" :alt="t('auth.register.logoAlt')" class="height-auto logo-glow" width="140"
                         height="140" fetchpriority="high" decoding="async" />
                     <h1 class="display-3 fw-black mb-3">AI PRO</h1>
-                    <p class="lead fs-4 fw-medium opacity-90">Build. Learn. Evolve with AI</p>
+                    <p class="lead fs-4 fw-medium opacity-90">{{ t("auth.register.brandTagline") }}</p>
                 </div>
             </div>
 
-            <!-- ── Right Panel ── -->
             <div class="col-12 col-lg-7 d-flex align-items-center justify-content-center p-4 p-md-5">
                 <div class="glass-card rounded-4 shadow-glow p-4 p-md-5 w-100"
                     style="max-width: 480px; backdrop-filter: blur(16px)">
 
-                    <!-- ════════════════════════════════════════
-                         OTP Screen (تظهر بعد Login لو not verified)
-                    ════════════════════════════════════════ -->
                     <div v-if="showOtpScreen">
-                        <h4 class="text-center fw-bold mb-2">تحقق من إيميلك</h4>
+                        <h4 class="text-center fw-bold mb-2">{{ t("auth.register.otp.title") }}</h4>
                         <p class="text-center text-white-50 mb-4 fs-6">
-                            تم إرسال كود على
+                            {{ t("auth.register.otp.sentTo") }}
                             <strong class="text-white">{{ pendingEmail }}</strong>
                         </p>
 
@@ -35,7 +30,7 @@
                                 type="text"
                                 maxlength="6"
                                 class="form-control form-control-lg glass-input rounded-3 px-4 fs-5 text-center"
-                                placeholder="أدخل كود التفعيل"
+                                :placeholder="t('auth.register.otp.codePlaceholder')"
                             />
 
                             <button
@@ -43,31 +38,26 @@
                                 :disabled="loading"
                                 @click="handleVerifyLoginOtp"
                             >
-                                {{ loading ? "جاري التحقق..." : "تحقق وسجّل الدخول" }}
+                                {{ loading ? t("auth.register.otp.verifying") : t("auth.register.otp.verifyAndLogin") }}
                             </button>
 
                             <p class="text-center mb-0">
                                 <a href="#" class="text-glow fw-medium fs-6"
                                     @click.prevent="handleResendOtp">
-                                    إعادة إرسال الكود
+                                    {{ t("auth.register.otp.resend") }}
                                 </a>
                             </p>
 
                             <p class="text-center mb-0">
                                 <a href="#" class="text-glow fw-medium fs-6"
                                     @click.prevent="backToLogin">
-                                    رجوع لتسجيل الدخول
+                                    {{ t("auth.register.otp.backToLogin") }}
                                 </a>
                             </p>
                         </div>
                     </div>
 
-                    <!-- ════════════════════════════════════════
-                         Normal Auth Flow
-                    ════════════════════════════════════════ -->
                     <div v-else>
-
-                        <!-- ── Tabs ── -->
                         <div class="position-relative mb-4"
                             style="border-bottom: 1px solid rgba(255,255,255,0.15)">
                             <ul class="nav nav-pills nav-fill">
@@ -75,14 +65,14 @@
                                     <button class="nav-link px-0 fs-5 fw-semibold position-relative"
                                         :class="{ 'active-tab': tab === 'login' }"
                                         @click.prevent="tab = 'login'">
-                                        Login
+                                        {{ t("auth.register.tabs.login") }}
                                     </button>
                                 </li>
                                 <li class="nav-item">
                                     <button class="nav-link px-0 fs-5 fw-semibold position-relative"
                                         :class="{ 'active-tab': tab === 'register' }"
                                         @click.prevent="tab = 'register'">
-                                        Register
+                                        {{ t("auth.register.tabs.register") }}
                                     </button>
                                 </li>
                             </ul>
@@ -91,7 +81,6 @@
                             </div>
                         </div>
 
-                        <!-- ── Login Form ── -->
                         <form v-if="tab === 'login'"
                             @submit.prevent="handleLogin"
                             class="d-flex flex-column gap-4">
@@ -100,7 +89,7 @@
                                 v-model="loginForm.email"
                                 type="email"
                                 class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                                placeholder="Email Address"
+                                :placeholder="t('auth.register.fields.email')"
                                 required
                             />
 
@@ -109,40 +98,41 @@
                                     v-model="loginForm.password"
                                     :type="showPassword ? 'text' : 'password'"
                                     class="form-control glass-input rounded-3 py-3 px-4 fs-5 border-end-0"
-                                    placeholder="Password"
+                                    :placeholder="t('auth.register.fields.password')"
                                     required
                                 />
-                                <span
+                                <button
+                                    type="button"
                                     class="input-group-text glass-input rounded-3 border-start-0 pointer"
+                                    :aria-label="showPassword ? t('user.profile.password.hide') : t('user.profile.password.show')"
                                     @click="showPassword = !showPassword">
-                                    <span class="fs-4">{{ showPassword ? "👁️" : "👁️‍🗨️" }}</span>
-                                </span>
+                                    <i class="bi fs-5" :class="showPassword ? 'bi-eye-fill' : 'bi-eye-slash-fill'"></i>
+                                </button>
                             </div>
 
                             <button
                                 type="submit"
                                 class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5 mt-2"
                                 :disabled="loading">
-                                {{ loading ? "Loading..." : "Login" }}
+                                {{ loading ? t("auth.register.login.loading") : t("auth.register.login.submit") }}
                             </button>
 
                             <p class="text-end mb-0">
                                 <a href="#" class="text-glow fw-medium fs-6"
                                     @click.prevent="tab = 'forgot'">
-                                    هل نسيت كلمة المرور؟
+                                    {{ t("auth.register.login.forgot") }}
                                 </a>
                             </p>
 
                             <button
                                 @click.prevent="handleGoogleLogin"
                                 class="btn btn-google btn-lg d-flex align-items-center justify-content-center gap-2 mt-3">
-                                <img src="/images/google_logo.webp" alt="Google" loading="lazy" decoding="async"
+                                <img src="/images/google_logo.webp" :alt="t('auth.register.googleAlt')" loading="lazy" decoding="async"
                                     width="35" height="36" style="width:35px;height:36px" />
-                                Continue with Google
+                                {{ t("auth.register.login.google") }}
                             </button>
                         </form>
 
-                        <!-- ── Register Form (مرة واحدة بدون OTP) ── -->
                         <form v-else-if="tab === 'register'"
                             @submit.prevent="handleRegister"
                             class="d-flex flex-column gap-4">
@@ -151,7 +141,7 @@
                                 v-model="registerForm.name"
                                 type="text"
                                 class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                                placeholder="Full Name"
+                                :placeholder="t('auth.register.fields.fullName')"
                                 required
                             />
 
@@ -159,7 +149,7 @@
                                 v-model="registerForm.email"
                                 type="email"
                                 class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                                placeholder="Email Address"
+                                :placeholder="t('auth.register.fields.email')"
                                 required
                             />
 
@@ -167,36 +157,31 @@
                                 v-model="registerForm.phone"
                                 type="text"
                                 class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                                placeholder="Phone (optional)"
+                                :placeholder="t('auth.register.fields.phoneOptional')"
                             />
-
-                            <!-- <input
-                                type="file"
-                                class="form-control glass-input rounded-3 px-4 fs-5"
-                                accept="image/*"
-                                @change="handleImageUpload"
-                            /> -->
 
                             <div class="input-group input-group-lg">
                                 <input
                                     v-model="registerForm.password"
                                     :type="showPassword ? 'text' : 'password'"
                                     class="form-control glass-input rounded-3 px-4 fs-5 border-end-0"
-                                    placeholder="Password"
+                                    :placeholder="t('auth.register.fields.password')"
                                     required
                                 />
-                                <span
+                                <button
+                                    type="button"
                                     class="input-group-text glass-input border-start-0"
+                                    :aria-label="showPassword ? t('user.profile.password.hide') : t('user.profile.password.show')"
                                     @click="showPassword = !showPassword">
-                                    {{ showPassword ? "👁️" : "👁️‍🗨️" }}
-                                </span>
+                                    <i class="bi fs-5" :class="showPassword ? 'bi-eye-fill' : 'bi-eye-slash-fill'"></i>
+                                </button>
                             </div>
 
                             <input
                                 v-model="registerForm.password_confirmation"
                                 :type="showPassword ? 'text' : 'password'"
                                 class="form-control form-control-lg glass-input rounded-3 px-4 fs-5"
-                                placeholder="Confirm Password"
+                                :placeholder="t('auth.register.fields.confirmPassword')"
                                 required
                             />
 
@@ -204,11 +189,10 @@
                                 type="submit"
                                 class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
                                 :disabled="loading">
-                                {{ loading ? "Creating..." : "Create Account" }}
+                                {{ loading ? t("auth.register.register.loading") : t("auth.register.register.submit") }}
                             </button>
                         </form>
 
-                        <!-- ── Forgot Password Form ── -->
                         <form v-else-if="tab === 'forgot'"
                             @submit.prevent="handleForgot"
                             class="d-flex flex-column gap-4">
@@ -217,7 +201,7 @@
                                 v-model="forgotEmail"
                                 type="email"
                                 class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                                placeholder="Email Address"
+                                :placeholder="t('auth.register.fields.email')"
                                 required
                             />
 
@@ -225,17 +209,16 @@
                                 type="submit"
                                 class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
                                 :disabled="loading">
-                                {{ loading ? "جاري الإرسال..." : "إرسال الكود" }}
+                                {{ loading ? t("auth.register.forgot.loading") : t("auth.register.forgot.submit") }}
                             </button>
 
                             <p class="text-center mt-3">
                                 <a href="#" class="text-glow" @click.prevent="tab = 'login'">
-                                    رجوع لتسجيل الدخول
+                                    {{ t("auth.register.forgot.backToLogin") }}
                                 </a>
                             </p>
                         </form>
 
-                        <!-- ── Reset Password Form ── -->
                         <form v-else-if="tab === 'reset'"
                             @submit.prevent="handleReset"
                             class="d-flex flex-column gap-4">
@@ -244,7 +227,7 @@
                                 v-model="resetForm.email"
                                 type="email"
                                 class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                                placeholder="Email"
+                                :placeholder="t('auth.register.reset.email')"
                                 required
                             />
 
@@ -252,7 +235,7 @@
                                 v-model="resetForm.otp"
                                 type="text"
                                 class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                                placeholder="OTP Code"
+                                :placeholder="t('auth.register.reset.otp')"
                                 required
                             />
 
@@ -260,7 +243,7 @@
                                 v-model="resetForm.password"
                                 type="password"
                                 class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                                placeholder="New Password"
+                                :placeholder="t('auth.register.reset.newPassword')"
                                 required
                             />
 
@@ -268,7 +251,7 @@
                                 v-model="resetForm.password_confirmation"
                                 type="password"
                                 class="form-control form-control-lg glass-input rounded-3 py-3 px-4 fs-5"
-                                placeholder="Confirm Password"
+                                :placeholder="t('auth.register.fields.confirmPassword')"
                                 required
                             />
 
@@ -276,27 +259,24 @@
                                 type="submit"
                                 class="btn btn-glow btn-lg rounded-3 py-3 fw-bold fs-5"
                                 :disabled="loading">
-                                {{ loading ? "جاري التغيير..." : "تغيير كلمة المرور" }}
+                                {{ loading ? t("auth.register.reset.loading") : t("auth.register.reset.submit") }}
                             </button>
                         </form>
 
-                        <!-- ── Bottom Switch Link ── -->
                         <div class="text-center mt-4 text-white fs-6">
                             <span v-if="tab === 'register'">
-                                Already have an account?
+                                {{ t("auth.register.switch.haveAccount") }}
                                 <a href="#" class="text-glow fw-medium"
-                                    @click.prevent="tab = 'login'">Login</a>
+                                    @click.prevent="tab = 'login'">{{ t("auth.register.tabs.login") }}</a>
                             </span>
                             <span v-else-if="tab === 'login'">
-                                Don't have an account?
+                                {{ t("auth.register.switch.noAccount") }}
                                 <a href="#" class="text-glow fw-medium"
-                                    @click.prevent="tab = 'register'">Register</a>
+                                    @click.prevent="tab = 'register'">{{ t("auth.register.tabs.register") }}</a>
                             </span>
                         </div>
 
                     </div>
-                    <!-- end normal auth flow -->
-
                 </div>
             </div>
         </div>
@@ -305,21 +285,19 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 import authService from "@/services/auth/Authservice";
 
-// ─────────────────────────────────────────────
-//  State
-// ─────────────────────────────────────────────
+const { t, locale } = useI18n();
 
-const tab          = ref("login");
+const tab = ref("login");
 const showPassword = ref(false);
-const loading      = ref(false);
-const forgotEmail  = ref("");
+const loading = ref(false);
+const forgotEmail = ref("");
 
-// OTP Screen State
 const showOtpScreen = ref(false);
-const pendingEmail  = ref("");
-const otpCode       = ref("");
+const pendingEmail = ref("");
+const otpCode = ref("");
 
 const loginForm = ref({
     email: "",
@@ -342,10 +320,6 @@ const resetForm = ref({
     password_confirmation: "",
 });
 
-// ─────────────────────────────────────────────
-//  Helpers
-// ─────────────────────────────────────────────
-
 const withLoading = async (fn) => {
     loading.value = true;
     try {
@@ -357,20 +331,14 @@ const withLoading = async (fn) => {
 
 const backToLogin = () => {
     showOtpScreen.value = false;
-    pendingEmail.value  = "";
-    otpCode.value       = "";
-    tab.value           = "login";
+    pendingEmail.value = "";
+    otpCode.value = "";
+    tab.value = "login";
 };
 
-// ─────────────────────────────────────────────
-//  Handlers
-// ─────────────────────────────────────────────
-
-// Register – مرة واحدة بدون OTP
 const handleRegister = () =>
     withLoading(async () => {
         await authService.register(registerForm.value);
-        // toastr بيتعمل جوا authService
         tab.value = "login";
         registerForm.value = {
             name: "", email: "", phone: "",
@@ -378,46 +346,37 @@ const handleRegister = () =>
         };
     });
 
-// Login
 const handleLogin = () =>
     withLoading(async () => {
         const result = await authService.login(loginForm.value);
 
         if (result?.requiresVerification) {
-            // الحساب not verified → ورّي شاشة OTP
-            pendingEmail.value  = result.email;
+            pendingEmail.value = result.email;
             showOtpScreen.value = true;
         }
-        // لو verified → authService بيعمل redirect تلقائي
     });
 
-// Verify OTP بعد Login
 const handleVerifyLoginOtp = () =>
     withLoading(async () => {
         await authService.verifyLoginOtp(pendingEmail.value, otpCode.value);
-        // redirect بيتعمل جوا authService
     });
 
-// Resend OTP
 const handleResendOtp = () =>
     withLoading(async () => {
         await authService.resendOtp(pendingEmail.value);
-        // toastr بيتعمل جوا authService
     });
 
-// Forgot Password
 const handleForgot = () =>
     withLoading(async () => {
         await authService.forgotPassword(forgotEmail.value);
         resetForm.value.email = forgotEmail.value;
-        tab.value             = "reset";
+        tab.value = "reset";
     });
 
-// Reset Password
 const handleReset = () =>
     withLoading(async () => {
         await authService.resetPassword(resetForm.value);
-        tab.value  = "login";
+        tab.value = "login";
         resetForm.value = { email: "", otp: "", password: "", password_confirmation: "" };
     });
 
@@ -430,13 +389,8 @@ const handleGoogleLogin = async () => {
     window.location.href = url;
 };
 
-// ─────────────────────────────────────────────
-//  Lifecycle
-// ─────────────────────────────────────────────
-
 onMounted(() => authService.handleGoogleCallback());
 </script>
-
 <style scoped>
 .btn-apple {
     background: rgba(255, 255, 255, 0.08);
@@ -467,7 +421,7 @@ onMounted(() => authService.handleGoogleCallback());
     opacity: 1;
 }
 
-/* ─── Common ─── */
+/* â”€â”€â”€ Common â”€â”€â”€ */
 .waves {
     background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%232ba6de" fill-opacity="0.08" d="M0,96L48,112C96,128,192,160,288,176C384,192,480,192,576,186.7C672,181,768,171,864,154.7C960,139,1056,117,1152,122.7C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>') bottom no-repeat;
     background-size: cover;
@@ -515,7 +469,7 @@ onMounted(() => authService.handleGoogleCallback());
     filter: brightness(1.08);
 }
 
-/* ─── Tabs ─── */
+/* â”€â”€â”€ Tabs â”€â”€â”€ */
 .nav-link {
     position: relative;
     color: rgba(255, 255, 255, 0.75);
@@ -549,7 +503,7 @@ onMounted(() => authService.handleGoogleCallback());
     color: white !important;
 }
 
-/* ─── Google Button ─── */
+/* â”€â”€â”€ Google Button â”€â”€â”€ */
 .btn-google {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -579,7 +533,7 @@ onMounted(() => authService.handleGoogleCallback());
     opacity: 1;
 }
 
-/* ─── Dark Theme (default) ─── */
+/* â”€â”€â”€ Dark Theme (default) â”€â”€â”€ */
 [data-theme="dark"] .glass-card {
     background: rgba(30, 41, 59, 0.35);
     border-color: rgba(212, 175, 55, 0.18);
@@ -600,7 +554,7 @@ onMounted(() => authService.handleGoogleCallback());
     color: #0f172a;
 }
 
-/* ─── Light Theme ─── */
+/* â”€â”€â”€ Light Theme â”€â”€â”€ */
 [data-theme="light"] .auth-container,
 [data-theme="light"] .auth-container * {
     color: #154677;
@@ -640,13 +594,13 @@ onMounted(() => authService.handleGoogleCallback());
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
 }
 
-/* Light theme → tabs: black underline */
+/* Light theme â†’ tabs: black underline */
 [data-theme="light"] .nav-link::after,
 [data-theme="light"] .active-tab::after {
     background: #154677 !important;
 }
 
-/* Light theme → Google button hover becomes black */
+/* Light theme â†’ Google button hover becomes black */
 [data-theme="light"] .btn-google {
     background: rgba(0, 0, 0, 0.04);
     border: 1px solid rgba(0, 0, 0, 0.12);
@@ -689,7 +643,7 @@ onMounted(() => authService.handleGoogleCallback());
     filter: none;
 }
 
-/* Waves in light mode → very subtle or hidden */
+/* Waves in light mode â†’ very subtle or hidden */
 [data-theme="light"] .waves {
     opacity: 0.03;
     filter: brightness(0.4);
@@ -747,4 +701,6 @@ onMounted(() => authService.handleGoogleCallback());
     font-weight: 600;
 }
 </style>
+
+
 

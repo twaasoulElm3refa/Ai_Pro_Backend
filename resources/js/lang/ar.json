@@ -1,0 +1,343 @@
+{
+  "navbar": {
+    "home": "الرئيسية",
+    "wallet": "المحفظة",
+    "personalAccount": "حساب شخصي",
+    "profile": "الملف الشخصي",
+    "logout": "تسجيل الخروج",
+    "login": "تسجيل الدخول",
+    "user": "المستخدم"
+  },
+  "home": {
+    "title": "أدوات الذكاء الاصطناعي",
+    "description": "اختر الأداة التي تحتاجها"
+  },
+  "auth": {
+    "googleCallback": {
+      "signingInTitle": "جارٍ تسجيل الدخول باستخدام Google...",
+      "signingInSubtitle": "يرجى الانتظار بينما نكمل عملية تسجيل الدخول.",
+      "missingToken": "لم يتم استلام رمز الدخول من تسجيل Google."
+    },
+    "register": {
+      "logoAlt": "شعار AI PRO",
+      "googleAlt": "شعار Google",
+      "brandTagline": "ابنِ. تعلّم. تطوّر مع الذكاء الاصطناعي",
+      "tabs": {
+        "login": "تسجيل الدخول",
+        "register": "إنشاء حساب"
+      },
+      "fields": {
+        "fullName": "الاسم الكامل",
+        "email": "البريد الإلكتروني",
+        "password": "كلمة المرور",
+        "confirmPassword": "تأكيد كلمة المرور",
+        "phoneOptional": "رقم الهاتف (اختياري)"
+      },
+      "otp": {
+        "title": "تأكيد البريد الإلكتروني",
+        "sentTo": "تم إرسال رمز التحقق إلى",
+        "codePlaceholder": "أدخل رمز التحقق",
+        "verifyAndLogin": "تأكيد وتسجيل الدخول",
+        "verifying": "جارٍ التحقق...",
+        "resend": "إعادة إرسال الرمز",
+        "backToLogin": "العودة إلى تسجيل الدخول"
+      },
+      "login": {
+        "submit": "تسجيل الدخول",
+        "loading": "جارٍ التحميل...",
+        "forgot": "هل نسيت كلمة المرور؟",
+        "google": "المتابعة باستخدام Google"
+      },
+      "register": {
+        "submit": "إنشاء حساب",
+        "loading": "جارٍ إنشاء الحساب..."
+      },
+      "forgot": {
+        "submit": "إرسال الرمز",
+        "loading": "جارٍ الإرسال...",
+        "backToLogin": "العودة إلى تسجيل الدخول"
+      },
+      "reset": {
+        "email": "البريد الإلكتروني",
+        "otp": "رمز التحقق",
+        "newPassword": "كلمة المرور الجديدة",
+        "submit": "إعادة تعيين كلمة المرور",
+        "loading": "جارٍ التحديث..."
+      },
+      "switch": {
+        "haveAccount": "لديك حساب بالفعل؟",
+        "noAccount": "ليس لديك حساب؟"
+      }
+    }
+  },
+  "user": {
+    "home": {
+      "badge": "دليل الأدوات",
+      "title": "اكتشف أدوات ذكاء اصطناعي مصممة لإنجاز أعمالك بتركيز",
+      "subtitle": "تصفح أحدث الأدوات، وانتقل سريعًا إلى التفاصيل، واستكشف كل تجربة من خلال كتالوج واضح ومنظم.",
+      "statusActive": "نشط",
+      "statusInactive": "غير نشط",
+      "showButton": "عرض",
+      "showAria": "عرض تفاصيل {name}",
+      "openAria": "فتح {name}",
+      "coverAlt": "صورة غلاف أداة الذكاء الاصطناعي",
+      "coverAltWithName": "صورة غلاف {name}",
+      "empty": "لا توجد أدوات متاحة"
+    },
+    "toolShow": {
+      "badge": "نظرة عامة على الأداة",
+      "loadingTitle": "جارٍ تحميل الأداة...",
+      "back": "رجوع",
+      "backAria": "العودة إلى قائمة الأدوات",
+      "sectionTitle": "الأدوات الفرعية المرتبطة",
+      "sectionSubtitle": "تجارب متصلة يمكنك الدردشة معها",
+      "statusActive": "نشط",
+      "statusInactive": "غير نشط",
+      "chatButton": "دردشة",
+      "chatAria": "بدء الدردشة مع {name}",
+      "empty": "لم يتم العثور على أدوات فرعية مرتبطة",
+      "untitledTool": "أداة بدون عنوان",
+      "untitledSubtool": "أداة فرعية بدون عنوان",
+      "noDescription": "لا يوجد وصف"
+    },
+    "chat": {
+      "workspaceAria": "مساحة عمل الدردشة مع الذكاء الاصطناعي",
+      "workspaceTitle": "مساحة الدردشة",
+      "conversations": "المحادثات",
+      "closeSidebarAria": "إغلاق الشريط الجانبي للمحادثات",
+      "openSidebarAria": "فتح الشريط الجانبي للمحادثات",
+      "creating": "جارٍ الإنشاء...",
+      "newChat": "دردشة جديدة",
+      "recentChats": "الدردشات الأخيرة",
+      "noConversations": "لا توجد محادثات بعد",
+      "conversationFallback": "محادثة",
+      "deleteConversationAria": "حذف {name}",
+      "modelIconAria": "أيقونة نموذج الذكاء الاصطناعي",
+      "modelIconAriaWithName": "أيقونة {name}",
+      "draft": "مسودة",
+      "newConversation": "محادثة جديدة",
+      "emptyWithConversation": "ابدأ بإرسال الرسائل في هذه المحادثة.",
+      "emptyWithoutConversation": "أنشئ دردشة جديدة أو أرسل أول رسالة للبدء.",
+      "inputAria": "حقل إدخال رسالة الدردشة",
+      "inputPlaceholder": "اكتب رسالتك هنا...",
+      "sendAria": "إرسال رسالة الدردشة",
+      "inputHint": "اضغط Enter للإرسال، وShift+Enter لسطر جديد",
+      "conversationTitle": "محادثة {short}",
+      "conversationSubtitle": "المعرّف: {uuid}",
+      "genericError": "حدث خطأ ما.",
+      "connectionInterrupted": "انقطع الاتصال. يرجى المحاولة مرة أخرى.",
+      "aiTool": "أداة ذكاء اصطناعي",
+      "startConversation": "ابدأ محادثة."
+    },
+    "contact": {
+      "badge": "تواصل معنا",
+      "title": "اتصل بنا",
+      "subtitle": "نحن هنا للإجابة عن جميع أسئلتك ومساعدتك في كل ما تحتاجه",
+      "infoTitle": "معلومات التواصل",
+      "addressLabel": "العنوان",
+      "addressValue": "شارع النيل، القاهرة، مصر",
+      "phoneLabel": "الهاتف",
+      "phoneValue": "+20 123 456 789",
+      "emailLabel": "البريد الإلكتروني",
+      "emailValue": "info@example.com",
+      "followUs": "تابعنا",
+      "socialAria": "زيارة صفحتنا على {name}",
+      "formTitle": "أرسل لنا رسالة",
+      "nameLabel": "الاسم الكامل",
+      "emailFieldLabel": "البريد الإلكتروني",
+      "subjectLabel": "الموضوع",
+      "messageLabel": "الرسالة",
+      "submit": "إرسال الرسالة",
+      "successMessage": "تم إرسال رسالتك بنجاح!"
+    },
+    "charge": {
+      "balanceSummaryAria": "ملخص رصيد المحفظة",
+      "formAria": "نموذج شحن المحفظة",
+      "title": "شحن المحفظة",
+      "currentBalance": "الرصيد الحالي",
+      "selectPresetAria": "اختيار مبلغ جاهز بقيمة {value} دولار",
+      "customAmountLabel": "مبلغ مخصص",
+      "customAmountAria": "مبلغ الشحن المخصص",
+      "descriptionLabel": "الوصف (اختياري)",
+      "descriptionAria": "وصف عملية الشحن",
+      "descriptionPlaceholder": "مثال: شحن المحفظة لشراء صورة",
+      "summaryAmount": "المبلغ",
+      "summaryCurrency": "العملة",
+      "summaryMethod": "طريقة الدفع",
+      "loading": "جارٍ المعالجة...",
+      "payButton": "الدفع عبر PayPal",
+      "amountError": "أدخل مبلغًا صالحًا أكبر من 1",
+      "defaultDescription": "إيداع في المحفظة",
+      "genericError": "حدث خطأ ما، يرجى المحاولة مرة أخرى."
+    },
+    "profile": {
+      "title": "ملفي الشخصي",
+      "openTabAria": "فتح تبويب {tab}",
+      "avatarAlt": "الصورة الشخصية لـ {name}",
+      "previewAlt": "معاينة الملف الشخصي لـ {name}",
+      "userFallback": "المستخدم",
+      "na": "غير متاح",
+      "tabs": {
+        "info": "معلومات المستخدم",
+        "edit": "تعديل البيانات",
+        "password": "تحديث كلمة المرور"
+      },
+      "fields": {
+        "name": "الاسم",
+        "email": "البريد الإلكتروني",
+        "phone": "الهاتف",
+        "image": "الصورة الشخصية",
+        "role": "الدور",
+        "status": "الحالة",
+        "lastSeen": "آخر ظهور"
+      },
+      "status": {
+        "active": "نشط",
+        "inactive": "غير نشط"
+      },
+      "placeholders": {
+        "name": "أدخل اسمك"
+      },
+      "chooseImage": "اختيار صورة",
+      "uploadImageAria": "رفع الصورة الشخصية",
+      "actions": {
+        "save": "حفظ التغييرات",
+        "deleteAccount": "حذف الحساب",
+        "updatePassword": "تحديث كلمة المرور"
+      },
+      "loading": {
+        "save": "جارٍ الحفظ...",
+        "delete": "جارٍ الحذف...",
+        "updatePassword": "جارٍ التحديث..."
+      },
+      "saveAria": "حفظ تغييرات الملف الشخصي",
+      "deleteAria": "حذف الحساب",
+      "updatePasswordAria": "تحديث كلمة المرور",
+      "password": {
+        "current": "كلمة المرور الحالية",
+        "new": "كلمة المرور الجديدة",
+        "confirm": "تأكيد كلمة المرور",
+        "show": "إظهار كلمة المرور",
+        "hide": "إخفاء كلمة المرور"
+      },
+      "messages": {
+        "nameEmailRequired": "يرجى إدخال الاسم والبريد الإلكتروني",
+        "profileUpdated": "تم تحديث الملف الشخصي بنجاح",
+        "accountDeleted": "تم حذف الحساب بنجاح",
+        "fillAllFields": "يرجى ملء جميع الحقول",
+        "passwordMismatch": "كلمتا المرور غير متطابقتين",
+        "passwordTooShort": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
+        "passwordUpdated": "تم تحديث كلمة المرور بنجاح"
+      },
+      "seoTitle": "الملف الشخصي | Ai Pro",
+      "seoDescription": "أدر ملف حسابك، حدّث بياناتك وصورتك الشخصية، وغيّر كلمة المرور بأمان من صفحة إعدادات واحدة منظمة مع رسائل حالة واضحة."
+    },
+    "wallet": {
+      "kicker": "لوحة مالية",
+      "title": "محفظتي",
+      "subtitle": "تابع رصيدك، وراجع حركة المعاملات، وافحص نشاط المحفظة في مكان واحد.",
+      "chargeAria": "الانتقال إلى صفحة شحن المحفظة",
+      "chargeButton": "شحن المحفظة",
+      "preparing": "جارٍ التجهيز...",
+      "currentBalance": "الرصيد الحالي",
+      "points": "نقطة",
+      "walletId": "معرّف المحفظة",
+      "creditsOnPage": "الإضافات في هذه الصفحة",
+      "debitsOnPage": "الخصومات في هذه الصفحة",
+      "credit": "إضافة",
+      "debit": "خصم",
+      "transactionsLoaded": "المعاملات المحمّلة",
+      "lastUpdate": "آخر تحديث",
+      "tabWallet": "المحفظة",
+      "tabTransactions": "المعاملات",
+      "accountHolder": "صاحب الحساب",
+      "unknownUser": "مستخدم غير معروف",
+      "noEmail": "لا يوجد بريد إلكتروني متاح",
+      "walletStatus": "حالة المحفظة",
+      "statusActive": "نشطة",
+      "statusInactive": "غير نشطة",
+      "statusActiveDesc": "جاهزة لعمليات الإضافة والخصم.",
+      "statusInactiveDesc": "نشاط المحفظة متوقف مؤقتًا.",
+      "createdAt": "تاريخ الإنشاء",
+      "createdAtDesc": "وقت إنشاء المحفظة",
+      "updatedAt": "تاريخ التحديث",
+      "updatedAtDesc": "آخر تحديث للمحفظة",
+      "unavailableTitle": "بيانات المحفظة غير متاحة",
+      "unavailableDesc": "تعذر تحميل بيانات المحفظة الآن.",
+      "tryAgain": "حاول مرة أخرى",
+      "transactionActivity": "نشاط المعاملات",
+      "transactionActivityDesc": "راجع الإضافات والخصومات وحركة رصيد المحفظة بمرور الوقت.",
+      "viewTransactionAria": "عرض تفاصيل المعاملة {id}",
+      "unknownType": "غير معروف",
+      "noTransactions": "لا توجد معاملات بعد",
+      "noTransactionsDesc": "سيظهر نشاط محفظتك هنا بمجرد تسجيل أي إضافات أو خصومات.",
+      "previous": "السابق",
+      "next": "التالي",
+      "pagination": "صفحة {current} من {last}",
+      "transactionsCount": "{count} معاملة",
+      "transactionDetails": "تفاصيل المعاملة",
+      "walletTransaction": "معاملة المحفظة",
+      "closeDetailsAria": "إغلاق نافذة تفاصيل المعاملة",
+      "type": "النوع",
+      "balanceBefore": "الرصيد قبل العملية",
+      "balanceAfter": "الرصيد بعد العملية",
+      "user": "المستخدم",
+      "email": "البريد الإلكتروني",
+      "transactionDate": "تاريخ المعاملة",
+      "reference": "المرجع",
+      "noWalletReference": "لا يوجد مرجع للمحفظة",
+      "loadWalletError": "فشل تحميل بيانات المحفظة.",
+      "loadTransactionsError": "فشل تحميل معاملات المحفظة.",
+      "loadDetailsError": "فشل تحميل تفاصيل المعاملة.",
+      "na": "غير متاح"
+    },
+    "deposit": {
+      "success": {
+        "badge": "تم شحن الرصيد عبر PayPal",
+        "title": "تم شحن الرصيد بنجاح",
+        "subtitleHtml": "تمت إضافة المبلغ إلى محفظتك بنجاح<br />يمكنك الآن استخدامه في مشترياتك",
+        "statusLabel": "حالة المعاملة",
+        "statusValue": "ناجحة",
+        "notificationLabel": "الإشعار",
+        "notificationValue": "تم إرسال رسالة إلى بريدك الإلكتروني",
+        "transactionIdLabel": "معرّف المعاملة",
+        "walletButton": "الذهاب إلى المحفظة",
+        "walletAria": "الانتقال إلى صفحة المحفظة",
+        "homeButton": "العودة إلى الرئيسية",
+        "homeAria": "العودة إلى الصفحة الرئيسية",
+        "fallbackTransactionId": "PP-{id}",
+        "seoTitle": "نجاح الإيداع | Ai Pro",
+        "seoDescription": "تم شحن محفظتك بنجاح. راجع تفاصيل العملية، ثم عد إلى المحفظة وتابع استخدام الأدوات برصيدك المحدّث مباشرة."
+      },
+      "failed": {
+        "badge": "فشلت عملية الدفع عبر PayPal",
+        "title": "فشلت عملية الدفع",
+        "subtitleHtml": "لم تكتمل عملية الدفع بنجاح<br />يمكنك المحاولة مرة أخرى أو التواصل مع الدعم",
+        "statusLabel": "الحالة",
+        "statusValue": "فشل الدفع",
+        "reasonLabel": "السبب",
+        "noteLabel": "ملاحظة",
+        "noteValue": "لم يتم خصم أي مبلغ",
+        "retryButton": "إعادة المحاولة",
+        "retryAria": "إعادة محاولة الدفع عبر PayPal",
+        "supportButton": "التواصل مع الدعم",
+        "supportAria": "التواصل مع الدعم",
+        "homeButton": "العودة إلى الرئيسية",
+        "homeAria": "العودة إلى الصفحة الرئيسية",
+        "reasons": {
+          "instrument_declined": "تم رفض وسيلة الدفع",
+          "payer_cannot_pay": "الرصيد غير كافٍ",
+          "transaction_refused": "تم رفض المعاملة من PayPal",
+          "default": "تم إلغاء المعاملة أو فشلت عملية الدفع"
+        },
+        "seoTitle": "فشل الدفع | Ai Pro",
+        "seoDescription": "لم تكتمل عملية الدفع. راجع سبب الفشل، وأعد محاولة الشحن عبر PayPal بأمان، أو تواصل مع الدعم للحصول على مساعدة سريعة."
+      },
+      "waiting": {
+        "title": "جارٍ معالجة الدفع",
+        "subtitle": "يرجى الانتظار بينما نؤكد عملية الدفع مع PayPal...",
+        "hint": "لا تغلق هذه الصفحة"
+      }
+    }
+  }
+}

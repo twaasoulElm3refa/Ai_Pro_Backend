@@ -1,21 +1,20 @@
 <template>
-    <section class="home-tools-page">
+    <section class="home-tools-page" :dir="locale === 'ar' ? 'rtl' : 'ltr'">
         <div class="container pl-2.5 pr-2.5">
 
             <!-- HEADER -->
             <div class="text-left">
                 <span
                     class="inline-flex items-center rounded-full border border-black/10 bg-black px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-xl">
-                    Tools Directory
+                    {{ t("user.home.badge") }}
                 </span>
 
                 <h1 class="mt-2 text-3xl font-bold tracking-tight text-black sm:text-4xl">
-                    Discover AI tools built for focused work
+                    {{ t("user.home.title") }}
                 </h1>
 
                 <p class="mt-2 text-sm leading-6 text-neutral-600 sm:text-base">
-                    Browse the latest tools, jump into details fast, and explore each experience through a clean
-                    catalog.
+                    {{ t("user.home.subtitle") }}
                 </p>
             </div>
 
@@ -35,12 +34,12 @@
                 <!-- TOOLS -->
                 <TransitionGroup v-else-if="tools.length" name="tool-card" tag="div" class="tools-layout">
                     <article v-for="(tool, index) in tools" :key="tool.id" class="tool-card group cursor-pointer" role="button"
-                        tabindex="0" :aria-label="`Open ${tool.title || tool.slug}`" @click="goToTool(tool.slug)"
+                        tabindex="0" :aria-label="t('user.home.openAria', { name: tool.title || tool.slug })" @click="goToTool(tool.slug)"
                         @keyup.enter="goToTool(tool.slug)" @keyup.space.prevent="goToTool(tool.slug)">
                         <!-- IMAGE -->
                         <div class="relative overflow-hidden rounded-2xl">
                             <img v-if="tool.imageUrl" :src="tool.optimizedImageUrl || tool.imageUrl"
-                                :alt="tool.title ? `${tool.title} cover image` : 'AI tool cover image'" class="tool-image"
+                                :alt="tool.title ? t('user.home.coverAltWithName', { name: tool.title }) : t('user.home.coverAlt')" class="tool-image"
                                 :loading="index <= 1 ? 'eager' : 'lazy'" :fetchpriority="index === 0 ? 'high' : 'auto'"
                                 decoding="async" width="640" height="160" @error="onToolImageError($event, tool.imageUrl)" />
 
@@ -51,7 +50,7 @@
                             <!-- BADGE -->
                             <div class="tool-overlay">
                                 <span class="tool-chip" :class="tool.is_active ? 'active' : 'inactive'">
-                                    {{ tool.is_active ? "Active" : "Inactive" }}
+                                    {{ tool.is_active ? t("user.home.statusActive") : t("user.home.statusInactive") }}
                                 </span>
                             </div>
                         </div>
@@ -71,9 +70,9 @@
                                     {{ tool.slug }}
                                 </span>
 
-                                <button type="button" class="show-btn" :aria-label="`Show details for ${tool.title || tool.slug}`"
+                                <button type="button" class="show-btn" :aria-label="t('user.home.showAria', { name: tool.title || tool.slug })"
                                     @click.stop="goToTool(tool.slug)">
-                                    Show →
+                                    {{ t("user.home.showButton") }}
                                 </button>
                             </div>
                         </div>
@@ -83,7 +82,7 @@
                 <!-- EMPTY -->
                 <div v-else class="empty-state mt-2.5 text-left">
                     <h2 class="text-lg font-semibold text-black">
-                        No tools available
+                        {{ t("user.home.empty") }}
                     </h2>
                 </div>
 
@@ -95,11 +94,13 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
 const route = useRoute();
+const { t, locale } = useI18n();
 
 const loading = ref(true);
 const tools = ref([]);
@@ -145,7 +146,7 @@ const fetchTools = async () => {
 
     try {
         const res = await homeService.fetchTools();
-        const data = res?.data?.data || [];
+        const data = res?.data || [];
 
         tools.value = data.map(normalizeTool);
     } catch (e) {

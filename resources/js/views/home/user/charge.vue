@@ -1,61 +1,61 @@
 <template>
-    <main class="deposit-page" aria-labelledby="charge-wallet-title">
+    <main class="deposit-page" :dir="locale === 'ar' ? 'rtl' : 'ltr'" aria-labelledby="charge-wallet-title">
         <!-- Current Balance -->
-        <section class="balance-card" aria-label="Wallet balance summary">
-            <p class="label">رصيدك الحالي</p>
+        <section class="balance-card" :aria-label="t('user.charge.balanceSummaryAria')">
+            <p class="label">{{ t("user.charge.currentBalance") }}</p>
             <p class="amount">${{ wallet?.amount ?? '0.00' }}</p>
             <p class="currency">USD</p>
         </section>
 
         <!-- Deposit Form -->
-        <section class="deposit-card" aria-label="Charge wallet form">
-            <h1 id="charge-wallet-title">شحن المحفظة</h1>
+        <section class="deposit-card" :aria-label="t('user.charge.formAria')">
+            <h1 id="charge-wallet-title">{{ t("user.charge.title") }}</h1>
 
             <!-- Preset Amounts -->
             <div class="presets">
                 <button v-for="val in presets" :key="val" :class="['preset-btn', { active: selectedPreset === val }]"
-                    type="button" :aria-label="`Select preset amount $${val}`" @click="selectPreset(val)">
+                    type="button" :aria-label="t('user.charge.selectPresetAria', { value: val })" @click="selectPreset(val)">
                     ${{ val }}
                 </button>
             </div>
 
             <!-- Custom Amount -->
             <div class="input-group">
-                <label>المبلغ المخصص</label>
+                <label>{{ t("user.charge.customAmountLabel") }}</label>
                 <div class="amount-wrap">
                     <span class="currency-badge">$</span>
                     <input id="charge-amount" v-model.number="form.amount" type="number" min="1" step="0.01"
-                        placeholder="0.00" aria-label="Custom charge amount" @input="selectedPreset = null" />
+                        placeholder="0.00" :aria-label="t('user.charge.customAmountAria')" @input="selectedPreset = null" />
                 </div>
                 <p v-if="amountError" class="error">{{ amountError }}</p>
             </div>
 
             <!-- Description -->
             <div class="input-group">
-                <label>وصف (اختياري)</label>
-                <input id="charge-description" v-model="form.description" type="text" maxlength="255" aria-label="Charge description" placeholder="مثلاً: شحن رصيد لشراء صور" />
+                <label>{{ t("user.charge.descriptionLabel") }}</label>
+                <input id="charge-description" v-model="form.description" type="text" maxlength="255" :aria-label="t('user.charge.descriptionAria')" :placeholder="t('user.charge.descriptionPlaceholder')" />
             </div>
 
             <hr />
 
             <!-- Summary -->
             <div class="summary-row">
-                <span>المبلغ</span>
+                <span>{{ t("user.charge.summaryAmount") }}</span>
                 <span>{{ form.amount ? '$' + Number(form.amount).toFixed(2) : '—' }}</span>
             </div>
             <div class="summary-row">
-                <span>العملة</span>
+                <span>{{ t("user.charge.summaryCurrency") }}</span>
                 <span>USD</span>
             </div>
             <div class="summary-row">
-                <span>وسيلة الدفع</span>
+                <span>{{ t("user.charge.summaryMethod") }}</span>
                 <span class="paypal-text">PayPal</span>
             </div>
 
             <!-- Submit -->
             <button type="button" class="pay-btn" :disabled="!isValid || loading" @click="handlePay">
-                <span v-if="loading">جاري التحويل...</span>
-                <span v-else>ادفع عبر PayPal</span>
+                <span v-if="loading">{{ t("user.charge.loading") }}</span>
+                <span v-else>{{ t("user.charge.payButton") }}</span>
             </button>
 
             <p v-if="serverError" class="error" style="margin-top:12px;text-align:center">
@@ -68,6 +68,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from "vue-router"
+import { useI18n } from "vue-i18n"
 import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
 import useSeoMeta from "@/composables/useSeoMeta"
@@ -102,6 +103,7 @@ const props = defineProps({
     wallet: { type: Object, default: null },
 })
 const route = useRoute()
+const { t, locale } = useI18n()
 
 /* =========================
    State
@@ -144,7 +146,7 @@ function selectPreset(val) {
 ========================= */
 const amountError = computed(() => {
     if (!form.value.amount) return ''
-    if (form.value.amount < 1) return 'أدخل مبلغ صحيح (أكثر من 1)'
+    if (form.value.amount < 1) return t("user.charge.amountError")
     return ''
 })
 
@@ -164,7 +166,7 @@ async function handlePay() {
     try {
         const { data } = await api.post('/v1/deposit/pay', {
             amount: Number(form.value.amount).toFixed(2),
-            description: form.value.description || 'Wallet Deposit',
+            description: form.value.description || t("user.charge.defaultDescription"),
             idempotency_key: idempotencyKey.value,
         })
 
@@ -176,7 +178,7 @@ async function handlePay() {
     } catch (err) {
         console.error(err)
         serverError.value =
-            err.response?.data?.message || 'حدث خطأ، حاول مرة أخرى.'
+            err.response?.data?.message || t("user.charge.genericError")
     } finally {
         loading.value = false
     }

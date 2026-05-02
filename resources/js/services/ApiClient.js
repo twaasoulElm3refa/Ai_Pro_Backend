@@ -13,7 +13,7 @@ const api = axios.create({
     baseURL: "/api/v1",
     headers: {
         Accept: "application/json",
-        'Accept-Language': localStorage.getItem("language") || "ar",
+        'Accept-Language': localStorage.getItem("locale") || "ar",
         'x-api-key': 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y'
     },
 });
