@@ -8,7 +8,8 @@
 
             <!-- Logo -->
             <div class="sidebar-logo">
-                <img src="/images/ai_logo.png" class="w-50" alt="Site Logo" />
+                <img src="/images/ai_logo.png" class="w-50" alt="Site Logo" width="96" height="96" loading="eager"
+                    decoding="async" />
                 <span class="logo-text">AI PRO</span>
             </div>
 
@@ -490,3 +491,4 @@ const toggleSidebarItem = (key) => {
     content: none !important;
 }
 </style>
+

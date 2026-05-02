@@ -1,16 +1,17 @@
 import { createRouter, createWebHistory } from "vue-router";
-import Home from "../views/home/home.vue";
-import Register from "../views/auth/register.vue";
-import Profile from "../views/home/user/profile.vue";
-import GoogleCallback from "../views/auth/GoogleCallback.vue";
-import Contact from "../views/home/contact.vue";
-import wallet from "../views/home/user/wallet.vue";
-import show from "../views/home/show.vue";
-import chat from "../views/home/chat.vue";
-import charge from "../views/home/user/charge.vue";
-import WaitingDeposit from '../views/home/WaitingDeposit.vue'
-import success from '../views/home/successDeposit.vue'
-import failed from '../views/home/failedDeposit.vue'
+
+const Home = () => import("../views/home/home.vue");
+const Register = () => import("../views/auth/register.vue");
+const Profile = () => import("../views/home/user/profile.vue");
+const GoogleCallback = () => import("../views/auth/GoogleCallback.vue");
+const Contact = () => import("../views/home/contact.vue");
+const wallet = () => import("../views/home/user/wallet.vue");
+const show = () => import("../views/home/show.vue");
+const chat = () => import("../views/home/chat.vue");
+const charge = () => import("../views/home/user/charge.vue");
+const WaitingDeposit = () => import("../views/home/WaitingDeposit.vue");
+const success = () => import("../views/home/successDeposit.vue");
+const failed = () => import("../views/home/failedDeposit.vue");
 
 const adminMeta = {
     hideNavbar: true,

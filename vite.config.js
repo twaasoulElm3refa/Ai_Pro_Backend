@@ -17,11 +17,7 @@ export default defineConfig({
 
     plugins: [
         laravel({
-            input: [
-                'resources/sass/app.scss',
-                'resources/css/app.css',
-                'resources/js/app.js',
-            ],
+            input: ['resources/js/app.js'],
             refresh: true,
         }),
 
@@ -39,6 +35,33 @@ export default defineConfig({
         alias: {
             vue: 'vue/dist/vue.esm-bundler.js',
             '@': path.resolve(__dirname, 'resources/js'),
+        },
+    },
+
+    build: {
+        cssCodeSplit: true,
+        sourcemap: false,
+        chunkSizeWarningLimit: 800,
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (!id.includes('node_modules')) return;
+
+                    if (id.includes('vue') || id.includes('vue-router')) {
+                        return 'vue-vendor';
+                    }
+
+                    if (id.includes('axios') || id.includes('toastr')) {
+                        return 'network-vendor';
+                    }
+
+                    if (id.includes('bootstrap')) {
+                        return 'bootstrap-vendor';
+                    }
+
+                    return 'vendor';
+                },
+            },
         },
     },
 });

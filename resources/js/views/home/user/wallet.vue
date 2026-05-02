@@ -450,8 +450,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-
 .wallet-page {
     min-height: 100vh;
     padding: 32px 18px 48px;
@@ -1154,3 +1152,4 @@ onMounted(() => {
     }
 }
 </style>
+

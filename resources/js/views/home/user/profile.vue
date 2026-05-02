@@ -34,7 +34,7 @@
                     <div class="w-14 h-14 rounded-full overflow-hidden shadow-md flex-shrink-0">
                         <img v-if="profile.user.image" :src="getImageUrl(profile.user.image)"
                             :alt="`${profile.user.name || 'User'} avatar`"
-                            class="w-full h-full object-cover" />
+                            class="w-full h-full object-cover" loading="lazy" decoding="async" />
                         <div v-else
                             class="w-full h-full bg-[#154677] flex items-center justify-center text-white text-xl font-bold">
                             {{ avatarInitials }}
@@ -86,7 +86,8 @@
                         <div class="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 shadow">
                             <img v-if="imagePreview || profile.user.image"
                                 :src="imagePreview || getImageUrl(profile.user.image)"
-                                :alt="`${profile.user.name || 'User'} profile preview`" class="w-full h-full object-cover" />
+                                :alt="`${profile.user.name || 'User'} profile preview`" class="w-full h-full object-cover"
+                                loading="lazy" decoding="async" />
                             <div v-else
                                 class="w-full h-full bg-[#154677] flex items-center justify-center text-white font-bold text-lg">
                                 {{ avatarInitials }}

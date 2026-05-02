@@ -34,13 +34,15 @@
 
                 <!-- TOOLS -->
                 <TransitionGroup v-else-if="tools.length" name="tool-card" tag="div" class="tools-layout">
-                    <article v-for="tool in tools" :key="tool.id" class="tool-card group cursor-pointer" role="button"
+                    <article v-for="(tool, index) in tools" :key="tool.id" class="tool-card group cursor-pointer" role="button"
                         tabindex="0" :aria-label="`Open ${tool.title || tool.slug}`" @click="goToTool(tool.slug)"
                         @keyup.enter="goToTool(tool.slug)" @keyup.space.prevent="goToTool(tool.slug)">
                         <!-- IMAGE -->
                         <div class="relative overflow-hidden rounded-2xl">
-                            <img v-if="tool.imageUrl" :src="tool.imageUrl"
-                                :alt="tool.title ? `${tool.title} cover image` : 'AI tool cover image'" class="tool-image" />
+                            <img v-if="tool.imageUrl" :src="tool.optimizedImageUrl || tool.imageUrl"
+                                :alt="tool.title ? `${tool.title} cover image` : 'AI tool cover image'" class="tool-image"
+                                :loading="index <= 1 ? 'eager' : 'lazy'" :fetchpriority="index === 0 ? 'high' : 'auto'"
+                                decoding="async" width="640" height="160" @error="onToolImageError($event, tool.imageUrl)" />
 
                             <div v-else class="tool-image tool-image-fallback">
                                 <i class="bi bi-grid-3x3-gap-fill text-2xl"></i>
@@ -117,16 +119,25 @@ useSeoMeta({
 
 const normalizeTool = (tool) => {
     const t = tool?.translation;
+    const imageUrl = tool.image ? `/storage/${tool.image}` : "";
+    const optimizedImageUrl = imageUrl.replace(/\.(png|jpe?g)$/i, ".webp");
 
     return {
         id: tool.id,
         slug: tool.slug,
-        imageUrl: tool.image ? `/storage/${tool.image}` : "",
+        imageUrl,
+        optimizedImageUrl,
         is_active: tool.is_active,
         sort_order: tool.sort_order,
         title: t?.name,
         description: t?.description,
     };
+};
+
+const onToolImageError = (event, fallbackUrl) => {
+    if (event?.target?.src !== fallbackUrl) {
+        event.target.src = fallbackUrl;
+    }
 };
 
 const fetchTools = async () => {

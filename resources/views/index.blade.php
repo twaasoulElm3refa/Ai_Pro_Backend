@@ -5,16 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ai Pro</title>
+    <link rel="preload" href="/images/ai_logo.png" as="image" type="image/webp" fetchpriority="high">
+    <link rel="preload" href="/images/google_logo.webp" as="image" type="image/webp">
 
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-</head>
-
-<body class="app-body">
-    <div id="app"></div>
-
-    <!-- Theme init -->
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme') || 'light';
@@ -22,7 +15,14 @@
             document.documentElement.setAttribute('data-bs-theme', savedTheme);
         })();
     </script>
-    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.js" defer></script>
+
+    @vite(['resources/js/app.js'])
+</head>
+
+<body class="app-body">
+    <div id="app"></div>
+
 </body>
 
 </html>
+

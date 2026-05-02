@@ -7,7 +7,8 @@
             <!-- ── Left Panel ── -->
             <div class="d-none d-lg-flex col-lg-5 align-items-center justify-content-center p-5 position-relative">
                 <div class="text-center">
-                    <img src="/images/Ai_logo.png" alt="NEXTLEVEL Logo" class="height-auto logo-glow" />
+                    <img src="/images/ai_logo.png" alt="NEXTLEVEL Logo" class="height-auto logo-glow" width="140"
+                        height="140" fetchpriority="high" decoding="async" />
                     <h1 class="display-3 fw-black mb-3">AI PRO</h1>
                     <p class="lead fs-4 fw-medium opacity-90">Build. Learn. Evolve with AI</p>
                 </div>
@@ -135,8 +136,8 @@
                             <button
                                 @click.prevent="handleGoogleLogin"
                                 class="btn btn-google btn-lg d-flex align-items-center justify-content-center gap-2 mt-3">
-                                <img src="/images/google_logo.png" alt="Google"
-                                    style="width:35px;height:36px" />
+                                <img src="/images/google_logo.webp" alt="Google" loading="lazy" decoding="async"
+                                    width="35" height="36" style="width:35px;height:36px" />
                                 Continue with Google
                             </button>
                         </form>
@@ -746,3 +747,4 @@ onMounted(() => authService.handleGoogleCallback());
     font-weight: 600;
 }
 </style>
+

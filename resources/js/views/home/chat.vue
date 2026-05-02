@@ -65,7 +65,8 @@
 
                     <div class="model-info" v-if="!toolLoading">
                         <div class="model-avatar">
-                            <img v-if="subtool.imageUrl" :src="subtool.imageUrl"
+                            <img v-if="subtool.imageUrl" :src="subtool.optimizedImageUrl || subtool.imageUrl" loading="lazy"
+                                decoding="async" @error="onModelImageError"
                                 :alt="subtool.name ? `${subtool.name} icon` : 'AI model icon'" />
                             <i v-else class="bi bi-stars"></i>
                         </div>
@@ -188,6 +189,7 @@ import useSeoMeta from "@/composables/useSeoMeta";
 const route = useRoute();
 const router = useRouter();
 const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const isAuthenticated = computed(() => Boolean(localStorage.getItem("auth_token")));
 
 const toolLoading = ref(true);
 const loadingConversations = ref(true);
@@ -197,7 +199,14 @@ const sendingMessage = ref(false);
 const streamingAssistant = ref(false);
 const removingConversationUuid = ref("");
 
-const subtool = ref({ id: null, name: "", description: "", promptPlaceholder: "", imageUrl: "" });
+const subtool = ref({
+    id: null,
+    name: "",
+    description: "",
+    promptPlaceholder: "",
+    imageUrl: "",
+    optimizedImageUrl: "",
+});
 const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
@@ -380,6 +389,12 @@ const fillPlaceholder = () => {
     autoResize();
 };
 
+const onModelImageError = (event) => {
+    if (event?.target?.src !== subtool.value.imageUrl) {
+        event.target.src = subtool.value.imageUrl;
+    }
+};
+
 const loadSubtool = async () => {
     toolLoading.value = true;
     try {
@@ -391,6 +406,7 @@ const loadSubtool = async () => {
             description: data.description || data.translation?.description || "",
             promptPlaceholder: data.prompt_placeholder || "",
             imageUrl: data.image ? `/storage/${data.image}` : "",
+            optimizedImageUrl: data.image ? `/storage/${data.image}`.replace(/\.(png|jpe?g)$/i, ".webp") : "",
         };
     } catch {
         subtool.value = {
@@ -399,6 +415,7 @@ const loadSubtool = async () => {
             description: "Start a conversation.",
             promptPlaceholder: "Write your message...",
             imageUrl: "",
+            optimizedImageUrl: "",
         };
     } finally {
         toolLoading.value = false;
@@ -406,6 +423,12 @@ const loadSubtool = async () => {
 };
 
 const loadConversations = async () => {
+    if (!isAuthenticated.value) {
+        conversations.value = [];
+        loadingConversations.value = false;
+        return;
+    }
+
     loadingConversations.value = true;
     try {
         const response = await chatServices.getConversations();
@@ -417,6 +440,12 @@ const loadConversations = async () => {
 };
 
 const loadConversationDetails = async (uuid) => {
+    if (!isAuthenticated.value) {
+        activeConversation.value = null;
+        messages.value = [];
+        return;
+    }
+
     if (!uuid) {
         activeConversation.value = null;
         messages.value = [];
@@ -470,7 +499,7 @@ const openConversation = async (conversation) => {
 };
 
 const startNewChat = async () => {
-    if (creatingConversation.value) return;
+    if (!isAuthenticated.value || creatingConversation.value) return;
 
     creatingConversation.value = true;
     try {
@@ -487,6 +516,8 @@ const startNewChat = async () => {
 };
 
 const ensureConversation = async () => {
+    if (!isAuthenticated.value) return null;
+
     if (activeConversation.value?.id && activeConversation.value?.uuid) {
         return activeConversation.value;
     }
@@ -506,6 +537,10 @@ const submitMessage = async () => {
     sendingMessage.value = true;
 
     const conversation = await ensureConversation();
+    if (!conversation) {
+        sendingMessage.value = false;
+        return;
+    }
     const optimisticMessage = mapMessage(
         {
             content,
@@ -571,8 +606,7 @@ const removeConversation = async (conversation) => {
 };
 
 onMounted(async () => {
-    await loadSubtool();
-    await loadConversations();
+    await Promise.all([loadSubtool(), loadConversations()]);
     await syncRouteConversation();
 });
 
@@ -584,8 +618,7 @@ watch(
     () => route.params.slug,
     async () => {
         closeAssistantStream();
-        await loadSubtool();
-        await loadConversations();
+        await Promise.all([loadSubtool(), loadConversations()]);
         await syncRouteConversation();
     }
 );

@@ -3,7 +3,8 @@
         <div class="nb-inner">
             <a class="nb-logo" href="/">
                 <div class="nb-logo-mark">
-                    <img src="/images/Ai_logo.png" alt="AiPro Logo" />
+                    <img src="/images/ai_logo.png" alt="AiPro Logo" width="42" height="42" fetchpriority="high"
+                        decoding="async" />
                 </div>
 
                 <span class="nb-logo-text">
@@ -80,13 +81,61 @@ const isLoggedIn = ref(false);
 const userName = ref("المستخدم");
 const WalletBalance = ref(0);
 const dropdownOpen = ref(false);
+const PROFILE_CACHE_KEY = "navbar_profile_cache_v1";
+const WALLET_CACHE_KEY = "navbar_wallet_cache_v1";
+const NAV_CACHE_TTL = 60 * 1000;
+
+const readCache = (key) => {
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.expiresAt || parsed.expiresAt < Date.now()) {
+            sessionStorage.removeItem(key);
+            return null;
+        }
+        return parsed.value;
+    } catch {
+        return null;
+    }
+};
+
+const writeCache = (key, value) => {
+    try {
+        sessionStorage.setItem(
+            key,
+            JSON.stringify({
+                value,
+                expiresAt: Date.now() + NAV_CACHE_TTL,
+            })
+        );
+    } catch {
+        // Ignore sessionStorage edge cases.
+    }
+};
+
+const deferToIdle = (task) => {
+    if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(task, { timeout: 800 });
+        return;
+    }
+    setTimeout(task, 120);
+};
 
 const fetchWallet = async () => {
     if (!localStorage.getItem("auth_token")) return;
+
+    const cachedBalance = readCache(WALLET_CACHE_KEY);
+    if (cachedBalance !== null) {
+        WalletBalance.value = cachedBalance;
+        return;
+    }
+
     try {
         const res = await api.get("/users/wallet");
         if (res.data.status === "success") {
             WalletBalance.value = res.data.data?.balance ?? 0;
+            writeCache(WALLET_CACHE_KEY, WalletBalance.value);
         }
     } catch (err) {
         console.log("Wallet error:", err);
@@ -100,11 +149,20 @@ const goToWallet = () => {
 
 const fetchProfile = async () => {
     if (!localStorage.getItem("auth_token")) return;
+
+    const cachedProfile = readCache(PROFILE_CACHE_KEY);
+    if (cachedProfile?.name) {
+        userName.value = cachedProfile.name;
+        isLoggedIn.value = true;
+        return;
+    }
+
     try {
         const res = await api.get("/users/profile");
         if (res.data.status === "success") {
-            userName.value = res.data.data.user.name || "المستخدم";
+            userName.value = res.data.data.user.name || "????????";
             isLoggedIn.value = true;
+            writeCache(PROFILE_CACHE_KEY, { name: userName.value });
         }
     } catch (err) {
         console.log("Profile error:", err);
@@ -119,6 +177,8 @@ const logout = async () => {
     }
     localStorage.removeItem("user_role");
     localStorage.removeItem("auth_token");
+    sessionStorage.removeItem(PROFILE_CACHE_KEY);
+    sessionStorage.removeItem(WALLET_CACHE_KEY);
     isLoggedIn.value = false;
     userName.value = "المستخدم";
     WalletBalance.value = null;
@@ -138,7 +198,9 @@ const handleDocumentClick = (e) => {
 
 const refreshUserState = () => {
     fetchProfile();
-    fetchWallet();
+    deferToIdle(() => {
+        fetchWallet();
+    });
 };
 
 onMounted(() => {
@@ -154,8 +216,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
-
 .nb-root {
     font-family: 'Cairo', sans-serif;
     background: linear-gradient(135deg, #154677, #2ba6de);
@@ -439,3 +499,9 @@ onBeforeUnmount(() => {
     }
 }
 </style>
+
+
+
+
+
+

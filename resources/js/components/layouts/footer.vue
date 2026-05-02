@@ -27,7 +27,8 @@
                 <div class="footer-col footer-brand theme-surface-soft">
                     <div class="brand-logo">
                         <div class="brand-mark">
-                            <img src="/images/Ai_logo.png" alt="AiPro Logo" />
+                            <img src="/images/ai_logo.png" alt="AiPro Logo" width="54" height="54" loading="lazy"
+                                decoding="async" />
                         </div>
                         <div>
                             <p class="brand-title">AiPro</p>
@@ -211,3 +212,4 @@
     }
 }
 </style>
+

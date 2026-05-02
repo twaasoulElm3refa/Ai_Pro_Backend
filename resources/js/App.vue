@@ -19,55 +19,6 @@ export default {
             return !this.$route.meta.hideNavbar;
         },
     },
-
-    created() {
-        this.initTheme();
-        this.setupAxios();
-    },
-
-    methods: {
-        // =========================
-        // 🌙 Theme Initialization
-        // =========================
-        initTheme() {
-            const savedTheme = localStorage.getItem("theme");
-
-            if (!savedTheme) {
-                localStorage.setItem("theme", "light");
-                document.documentElement.setAttribute("data-theme", "light");
-            } else {
-                document.documentElement.setAttribute("data-theme", savedTheme);
-            }
-        },
-
-        // =========================
-        // Axios Setup
-        // =========================
-        setupAxios() {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-
-            if (csrfToken) {
-                window.axios.defaults.headers.common["X-CSRF-TOKEN"] =
-                    csrfToken.content;
-            }
-
-            window.axios.defaults.baseURL = "/api";
-            window.axios.defaults.withCredentials = true;
-
-            this.setupAuthInterceptor();
-        },
-
-        setupAuthInterceptor() {
-            window.axios.interceptors.response.use(
-                response => response,
-                error => {
-                    if (error.response && error.response.status === 401) {
-                        this.$router.push("/auth");
-                    }
-                    return Promise.reject(error);
-                }
-            );
-        },
-    },
 };
 </script>
+

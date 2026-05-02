@@ -149,8 +149,6 @@ export default {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap');
-
 *,
 *::before,
 *::after {
@@ -529,4 +527,5 @@ h1 {
     color: #154677;
 }
 </style>
+
 

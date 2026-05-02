@@ -16,6 +16,10 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+:root {
+  --font-main: "Cairo", "Segoe UI", Tahoma, sans-serif;
+}
 /* Light Theme */
 /* ===== THEMES ===== */
 
@@ -49,11 +53,13 @@
   background: var(--bg-main);
   color: var(--text-main);
   min-height: 100vh;
+  font-family: var(--font-main);
 }
 
 body {
   background: #f8fbff;
   color: #154677;
+  font-family: var(--font-main);
 }
 
 .theme-surface {

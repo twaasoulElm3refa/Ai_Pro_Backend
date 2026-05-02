@@ -303,7 +303,6 @@ function roleLabel(role) {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -622,3 +621,5 @@ function roleLabel(role) {
 }
 .nf-icon { font-size: 3rem; }
 </style>
+
+
