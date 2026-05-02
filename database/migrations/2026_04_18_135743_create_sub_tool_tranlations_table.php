@@ -19,7 +19,7 @@ return new class extends Migration
 
             $table->string('name')->nullable();
             $table->string('prompt_placeholder')->nullable();
-            $table->string('description')->nullable();
+            $table->text('description')->nullable();
 
             $table->string('meta_name')->nullable();
             $table->text('meta_description')->nullable();
