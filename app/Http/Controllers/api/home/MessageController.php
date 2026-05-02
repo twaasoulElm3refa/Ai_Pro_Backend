@@ -33,13 +33,10 @@ class MessageController extends Controller
     {
         try {
             $data = $request->validated();
-
             $userId = (int) auth()->id();
-
             if ($userId <= 0) {
                 return $this->error('Unauthorized.');
             }
-
             $data['conversation_id'] = (int) ($data['conversation_id'] ?? 0);
             $data['role'] = 'user';
             $data['content'] = trim((string) ($data['content'] ?? ''));
@@ -48,18 +45,15 @@ class MessageController extends Controller
             if ($data['conversation_id'] <= 0 || $data['content'] === '') {
                 return $this->error('Invalid message data.');
             }
-
             /*
              * مهم:
              * لو الفرونت مبعتش idempotency_key لأي سبب، بنولده هنا.
              * لكن الأفضل الفرونت يبعته عشان يمنع Retry duplication.
              */
             $data['idempotency_key'] = trim((string) ($data['idempotency_key'] ?? ''));
-
             if ($data['idempotency_key'] === '') {
                 $data['idempotency_key'] = (string) Str::uuid();
             }
-
             /*
              * احذف أي مفاتيح ممكن الفرونت يبعتها وتبوظ التخزين
              */
@@ -70,15 +64,12 @@ class MessageController extends Controller
                 $data['deleted_at'],
                 $data['reply_to_message_id']
             );
-
             $lockKey = $this->requestLockKey(
                 $userId,
                 $data['conversation_id'],
                 $data['idempotency_key']
             );
-
             $lock = Cache::lock($lockKey, 15);
-
             $processed = $lock->block(5, function () use ($data) {
                 return DB::transaction(function () use ($data) {
                     /*
