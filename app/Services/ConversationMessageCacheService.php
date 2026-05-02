@@ -9,6 +9,15 @@ use Illuminate\Support\Facades\Cache;
 
 class ConversationMessageCacheService
 {
+    protected const ERROR_PATTERNS = [
+        '/sorry,\s*i could not generate a response/i',
+        '/could not generate a response/i',
+        '/please try again/i',
+        '/assistant response timed out/i',
+        '/connection interrupted/i',
+        '/something went wrong/i',
+    ];
+
     public function key(string $uuid): string
     {
         return "conversation_{$uuid}_messages";
@@ -24,7 +33,14 @@ class ConversationMessageCacheService
 
         $messages = json_decode($cached, true);
 
-        return is_array($messages) ? $messages : null;
+        if (! is_array($messages)) {
+            return null;
+        }
+
+        return collect($messages)
+            ->filter(fn (array $message) => $this->isValidCachedMessage($message))
+            ->values()
+            ->all();
     }
 
     public function remember(Conversation $conversation): array
@@ -53,6 +69,12 @@ class ConversationMessageCacheService
             return;
         }
 
+        $cleanMessage = $this->toAiMessage($message);
+
+        if (! $cleanMessage) {
+            return;
+        }
+
         $messages = $this->get($conversation->uuid);
 
         if ($messages === null) {
@@ -61,7 +83,7 @@ class ConversationMessageCacheService
             return;
         }
 
-        $messages[] = $this->toAiMessage($message);
+        $messages[] = $cleanMessage;
 
         Cache::put(
             $this->key($conversation->uuid),
@@ -77,27 +99,92 @@ class ConversationMessageCacheService
 
     public function toResponseMessages(array $messages): array
     {
-        return array_map(static function (array $message) {
-            return [
-                'role' => $message['role'] ?? 'user',
-                'content' => $message['content'] ?? '',
-            ];
-        }, $messages);
+        return collect($messages)
+            ->filter(fn (array $message) => $this->isValidCachedMessage($message))
+            ->map(static function (array $message) {
+                return [
+                    'id' => $message['id'] ?? null,
+                    'role' => $message['role'] ?? 'user',
+                    'content' => $message['content'] ?? '',
+                    'created_at' => $message['created_at'] ?? null,
+                    'is_error' => (bool) ($message['is_error'] ?? false),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     protected function toAiMessages(Collection $messages): array
     {
         return $messages
             ->map(fn (Message $message) => $this->toAiMessage($message))
+            ->filter()
             ->values()
             ->all();
     }
 
-    protected function toAiMessage(Message $message): array
+    protected function toAiMessage(Message $message): ?array
     {
+        $role = (string) $message->role;
+        $content = trim((string) $message->content);
+
+        if (! in_array($role, ['user', 'assistant'], true)) {
+            return null;
+        }
+
+        if ($content === '') {
+            return null;
+        }
+
+        if ((bool) ($message->is_error ?? false)) {
+            return null;
+        }
+
+        if ($role === 'assistant' && $this->looksLikeFallbackError($content)) {
+            return null;
+        }
+
         return [
-            'role' => $message->role,
-            'content' => $message->content,
+            'id' => $message->id,
+            'role' => $role,
+            'content' => $content,
+            'created_at' => optional($message->created_at)->toISOString(),
+            'is_error' => false,
         ];
+    }
+
+    protected function isValidCachedMessage(array $message): bool
+    {
+        $role = (string) ($message['role'] ?? '');
+        $content = trim((string) ($message['content'] ?? ''));
+
+        if (! in_array($role, ['user', 'assistant'], true)) {
+            return false;
+        }
+
+        if ($content === '') {
+            return false;
+        }
+
+        if ((bool) ($message['is_error'] ?? false)) {
+            return false;
+        }
+
+        if ($role === 'assistant' && $this->looksLikeFallbackError($content)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function looksLikeFallbackError(string $content): bool
+    {
+        foreach (self::ERROR_PATTERNS as $pattern) {
+            if (preg_match($pattern, $content) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
