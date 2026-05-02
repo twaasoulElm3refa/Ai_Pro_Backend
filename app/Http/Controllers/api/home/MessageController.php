@@ -12,19 +12,19 @@ use App\Services\ConversationMessageCacheService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class MessageController extends Controller
 {
     use ApiResponse;
 
-    private $message;
+    private MessageInterface $message;
     private ConversationMessageCacheService $messageCache;
 
     public function __construct(
         MessageInterface $message,
         ConversationMessageCacheService $messageCache
-    )
-    {
+    ) {
         $this->message = $message;
         $this->messageCache = $messageCache;
     }
@@ -33,18 +33,85 @@ class MessageController extends Controller
     {
         try {
             $data = $request->validated();
+
             $userId = (int) auth()->id();
-            $lockKey = $this->requestLockKey($userId, (int) $data['conversation_id'], (string) $data['idempotency_key']);
-            $lock = Cache::lock($lockKey, 10);
-            $processed = $lock->block(3, function () use ($data) {
+
+            if ($userId <= 0) {
+                return $this->error('Unauthorized.');
+            }
+
+            $data['conversation_id'] = (int) ($data['conversation_id'] ?? 0);
+            $data['role'] = 'user';
+            $data['content'] = trim((string) ($data['content'] ?? ''));
+            $data['is_error'] = false;
+
+            if ($data['conversation_id'] <= 0 || $data['content'] === '') {
+                return $this->error('Invalid message data.');
+            }
+
+            /*
+             * مهم:
+             * لو الفرونت مبعتش idempotency_key لأي سبب، بنولده هنا.
+             * لكن الأفضل الفرونت يبعته عشان يمنع Retry duplication.
+             */
+            $data['idempotency_key'] = trim((string) ($data['idempotency_key'] ?? ''));
+
+            if ($data['idempotency_key'] === '') {
+                $data['idempotency_key'] = (string) Str::uuid();
+            }
+
+            /*
+             * احذف أي مفاتيح ممكن الفرونت يبعتها وتبوظ التخزين
+             */
+            unset(
+                $data['id'],
+                $data['created_at'],
+                $data['updated_at'],
+                $data['deleted_at'],
+                $data['reply_to_message_id']
+            );
+
+            $lockKey = $this->requestLockKey(
+                $userId,
+                $data['conversation_id'],
+                $data['idempotency_key']
+            );
+
+            $lock = Cache::lock($lockKey, 15);
+
+            $processed = $lock->block(5, function () use ($data) {
                 return DB::transaction(function () use ($data) {
-                    $existing = Message::where('conversation_id', $data['conversation_id'])
+                    /*
+                     * 1) منع تكرار نفس الرسالة بنفس idempotency_key
+                     */
+                    $existingByKey = Message::where('conversation_id', $data['conversation_id'])
                         ->where('role', 'user')
                         ->where('idempotency_key', $data['idempotency_key'])
                         ->first();
 
-                    if ($existing) {
-                        return [$existing, false];
+                    if ($existingByKey) {
+                        return [$existingByKey, false];
+                    }
+
+                    /*
+                     * 2) حماية إضافية:
+                     * لو حصل request تاني قديم أو endpoint تاني بيبعت نفس المحتوى بدون key
+                     * خلال آخر 20 ثانية، رجّع الرسالة الموجودة بدل ما تعمل create جديد.
+                     */
+                    $existingRecentDuplicate = Message::where('conversation_id', $data['conversation_id'])
+                        ->where('role', 'user')
+                        ->where('content', $data['content'])
+                        ->where('created_at', '>=', now()->subSeconds(20))
+                        ->orderByDesc('id')
+                        ->first();
+
+                    if ($existingRecentDuplicate) {
+                        if (empty($existingRecentDuplicate->idempotency_key)) {
+                            $existingRecentDuplicate->idempotency_key = $data['idempotency_key'];
+                            $existingRecentDuplicate->save();
+                        }
+
+                        return [$existingRecentDuplicate, false];
                     }
 
                     $userMessage = $this->message->send($data);
@@ -67,8 +134,11 @@ class MessageController extends Controller
 
             if ($wasCreated) {
                 $userMessage->loadMissing('conversation');
+
                 $this->messageCache->updateAfterMessage($userMessage);
+
                 $this->clearCache($userId);
+
                 $this->dispatchAssistantReplyIfNeeded($userMessage);
             }
 
@@ -76,20 +146,26 @@ class MessageController extends Controller
                 'message_id' => $userMessage->id,
                 'conversation_id' => $userMessage->conversation_id,
                 'message' => $userMessage,
+                'was_created' => $wasCreated,
             ], 'Message Sent Successfully.');
         } catch (\Throwable $th) {
-            Log::error($th);
+            Log::error('Send message failed.', [
+                'error' => $th->getMessage(),
+                'trace' => $th->getTraceAsString(),
+            ]);
 
             return $this->error('Something went wrong.');
         }
     }
 
-    protected function clearCache($userId)
+    protected function clearCache($userId): void
     {
         try {
             Cache::tags(['conversations', "user_{$userId}"])->flush();
         } catch (\Throwable $th) {
-            Log::debug('Conversation tagged cache flush skipped.', ['error' => $th->getMessage()]);
+            Log::debug('Conversation tagged cache flush skipped.', [
+                'error' => $th->getMessage(),
+            ]);
         }
     }
 
@@ -104,6 +180,7 @@ class MessageController extends Controller
         }
 
         $dispatchMarker = GenerateAssistantReplyJob::dispatchMarkerKey($userMessage->id);
+
         if (! Cache::add($dispatchMarker, true, now()->addMinutes(5))) {
             return;
         }
