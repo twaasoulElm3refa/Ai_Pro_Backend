@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class MessageController extends Controller
 {
@@ -32,10 +33,20 @@ class MessageController extends Controller
     public function sendMessage(MessageRequest $request)
     {
         try {
+            Log::debug('Message send request received.', [
+                'user_id' => auth()->id(),
+                'input' => $request->all(),
+            ]);
+
             $data = $request->validated();
+            Log::debug('Message send request validated.', [
+                'user_id' => auth()->id(),
+                'validated' => $data,
+            ]);
+
             $userId = (int) auth()->id();
             if ($userId <= 0) {
-                return $this->error('Unauthorized.');
+                return $this->unauthorized('Unauthorized.');
             }
             $data['conversation_id'] = (int) ($data['conversation_id'] ?? 0);
             $data['role'] = 'user';
@@ -43,7 +54,15 @@ class MessageController extends Controller
             $data['is_error'] = false;
 
             if ($data['conversation_id'] <= 0 || $data['content'] === '') {
-                return $this->error('Invalid message data.');
+                Log::warning('Message send rejected due to invalid normalized payload.', [
+                    'user_id' => $userId,
+                    'payload' => $data,
+                ]);
+
+                return $this->validationError([
+                    'content' => ['Message content is required.'],
+                    'conversation_id' => ['Conversation id is required.'],
+                ], 'Invalid message data.');
             }
             /*
              * مهم:
@@ -130,8 +149,20 @@ class MessageController extends Controller
 
                 $this->clearCache($userId);
 
+                Log::debug('Dispatching assistant reply generation.', [
+                    'user_id' => $userId,
+                    'conversation_id' => $userMessage->conversation_id,
+                    'message_id' => $userMessage->id,
+                ]);
                 $this->dispatchAssistantReplyIfNeeded($userMessage);
             }
+
+            Log::debug('Message send succeeded.', [
+                'user_id' => $userId,
+                'conversation_id' => $userMessage->conversation_id,
+                'message_id' => $userMessage->id,
+                'was_created' => $wasCreated,
+            ]);
 
             return $this->success([
                 'message_id' => $userMessage->id,
@@ -139,13 +170,25 @@ class MessageController extends Controller
                 'message' => $userMessage,
                 'was_created' => $wasCreated,
             ], 'Message Sent Successfully.');
-        } catch (\Throwable $th) {
+        } catch (Throwable $th) {
             Log::error('Send message failed.', [
-                'error' => $th->getMessage(),
+                'message' => $th->getMessage(),
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
                 'trace' => $th->getTraceAsString(),
+                'request_input' => $request->all(),
+                'user_id' => auth()->id(),
             ]);
 
-            return $this->error('Something went wrong.');
+            if (app()->environment('local')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $th->getMessage(),
+                    'trace' => $this->shortTrace($th),
+                ], 500);
+            }
+
+            return $this->error('Sorry, I could not generate a response right now.');
         }
     }
 
@@ -182,5 +225,28 @@ class MessageController extends Controller
     protected function requestLockKey(int $userId, int $conversationId, string $idempotencyKey): string
     {
         return "message-send:{$userId}:{$conversationId}:{$idempotencyKey}";
+    }
+
+    protected function shortTrace(Throwable $th, int $limit = 5): array
+    {
+        $trace = collect($th->getTrace())
+            ->take($limit)
+            ->map(function (array $frame): array {
+                return [
+                    'file' => $frame['file'] ?? null,
+                    'line' => $frame['line'] ?? null,
+                    'function' => $frame['function'] ?? null,
+                ];
+            })
+            ->values()
+            ->all();
+
+        array_unshift($trace, [
+            'file' => $th->getFile(),
+            'line' => $th->getLine(),
+            'function' => 'throw',
+        ]);
+
+        return $trace;
     }
 }

@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiServiceException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use RuntimeException;
+use Throwable;
 
 class AiArabicWriterService
 {
@@ -19,41 +20,89 @@ class AiArabicWriterService
 
     public function generateReply(array $payload): string
     {
-        $response = Http::timeout(45)
-            ->withHeaders([
-                'x-internal-api-key' => $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])
-            ->post($this->url, $payload);
+        Log::debug('AI request started.', [
+            'url' => $this->url,
+            'payload' => $payload,
+        ]);
 
-        if (! $response->successful()) {
-            Log::warning('AI Arabic writer request failed.', [
+        try {
+            $response = Http::timeout(45)
+                ->withHeaders([
+                    'x-internal-api-key' => $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($this->url, $payload);
+        } catch (Throwable $th) {
+            Log::error('AI request failed before receiving response.', [
                 'url' => $this->url,
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'payload_meta' => [
-                    'keys' => array_keys($payload),
-                    'user_id' => $payload['user_id'] ?? null,
-                    'sub_tool_id' => $payload['sub_tool_id'] ?? null,
-                    'title_length' => isset($payload['title']) ? mb_strlen((string) $payload['title']) : null,
-                    'conversation_uuid' => $payload['conversation_uuid'] ?? null,
-                    'body_length' => isset($payload['body']) ? mb_strlen((string) $payload['body']) : null,
-                    'user_message_length' => isset($payload['user_message']) ? mb_strlen((string) $payload['user_message']) : null,
-                ],
+                'payload' => $payload,
+                'error_message' => $th->getMessage(),
+                'error_file' => $th->getFile(),
+                'error_line' => $th->getLine(),
+                'error_trace' => $th->getTraceAsString(),
             ]);
 
-            throw new RuntimeException('AI writer request failed.');
+            throw new AiServiceException(
+                'AI request transport failure: '.$th->getMessage(),
+                [
+                    'url' => $this->url,
+                    'payload' => $payload,
+                    'error' => $th->getMessage(),
+                ],
+                0,
+                $th
+            );
         }
+
+        if (! $response->successful()) {
+            Log::error('AI request returned non-success status.', [
+                'url' => $this->url,
+                'payload' => $payload,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            throw new AiServiceException(
+                'AI request failed with status '.$response->status(),
+                [
+                    'url' => $this->url,
+                    'payload' => $payload,
+                    'status' => $response->status(),
+                    'response_body' => $response->body(),
+                ]
+            );
+        }
+
+        Log::debug('AI request completed.', [
+            'url' => $this->url,
+            'status' => $response->status(),
+            'response' => $response->json(),
+        ]);
 
         $content = $this->extractContent($response->json());
 
         if ($content === '') {
-            Log::warning('AI Arabic writer response did not include content.', [
+            Log::error('AI response missing content.', [
+                'url' => $this->url,
+                'payload' => $payload,
                 'body' => $response->body(),
             ]);
 
-            throw new RuntimeException('AI writer response is empty.');
+            throw new AiServiceException(
+                'AI response is empty.',
+                [
+                    'url' => $this->url,
+                    'payload' => $payload,
+                    'status' => $response->status(),
+                    'response_body' => $response->body(),
+                ]
+            );
         }
+
+        Log::debug('AI response extracted.', [
+            'content' => $content,
+            'content_length' => mb_strlen($content),
+        ]);
 
         return $content;
     }

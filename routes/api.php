@@ -18,6 +18,7 @@ use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\payment\DepositController;
 use App\Http\Controllers\api\webhook\WebhookController;
+use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ApiKeyMiddleware;
 use App\Http\Middleware\ConversationOwnerMiddleware;
@@ -72,7 +73,7 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('message')->middleware(['auth:sanctum', 'throttle:45,1'])->group(function () {
-        Route::post('/send', [MessageController::class, 'sendMessage']);
+        Route::post('/send', [MessageController::class, 'sendMessage'])->withoutMiddleware(ApiKeyMiddleware::class , AcceptLanguage::class);
     });
 
     Route::prefix('deposit')->middleware(['auth:sanctum', 'throttle:10,1'])->group(function () {

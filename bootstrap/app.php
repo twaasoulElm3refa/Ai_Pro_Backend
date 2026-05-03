@@ -1,10 +1,13 @@
 <?php
 
+use App\Exceptions\AiServiceException;
 use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\ApiKeyMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,5 +21,33 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(AcceptLanguage::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (AiServiceException $e, Request $request) {
+            Log::error('AI service exception captured by global handler.', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'context' => $e->context(),
+                'path' => $request->path(),
+                'method' => $request->method(),
+            ]);
+
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            if (app()->environment('local')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                    'trace' => collect($e->getTrace())->take(5)->values(),
+                    'context' => $e->context(),
+                ], 502);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to generate AI response.',
+            ], 502);
+        });
     })->create();

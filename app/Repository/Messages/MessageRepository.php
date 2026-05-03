@@ -78,16 +78,14 @@ class MessageRepository implements MessageInterface
             return Message::create($data);
         } catch (\Throwable $th) {
             Log::error('Message repository send failed.', [
-                'error' => $th->getMessage(),
-                'data' => [
-                    'conversation_id' => $data['conversation_id'] ?? null,
-                    'role' => $data['role'] ?? null,
-                    'has_idempotency_key' => ! empty($data['idempotency_key'] ?? null),
-                    'content_length' => isset($data['content']) ? mb_strlen((string) $data['content']) : null,
-                ],
+                'message' => $th->getMessage(),
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+                'trace' => $th->getTraceAsString(),
+                'data' => $data,
             ]);
 
-            return null;
+            throw $th;
         }
     }
 }

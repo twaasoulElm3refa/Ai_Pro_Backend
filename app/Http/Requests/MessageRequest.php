@@ -4,7 +4,9 @@ namespace App\Http\Requests;
 
 use App\Models\Conversation;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Contracts\Validation\Validator;
 
 class MessageRequest extends FormRequest
 {
@@ -40,5 +42,18 @@ class MessageRequest extends FormRequest
             'role' => 'required|in:user',
             'idempotency_key' => 'required|uuid',
         ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        Log::warning('Message request validation failed.', [
+            'user_id' => optional($this->user())->id,
+            'route' => optional($this->route())->uri(),
+            'method' => $this->method(),
+            'input' => $this->all(),
+            'errors' => $validator->errors()->toArray(),
+        ]);
+
+        parent::failedValidation($validator);
     }
 }

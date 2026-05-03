@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\AiServiceException;
 use App\Models\Message;
 use App\Services\AI\AIPayloadBuilder;
 use App\Services\AiArabicWriterService;
@@ -83,15 +84,31 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             try {
                 $content = $writerService->generateReply($payload);
                 $isError = false;
-            } catch (\Throwable $th) {
-                Log::warning('Assistant generation failed; saving fallback reply.', [
+            } catch (AiServiceException $th) {
+                Log::error('Assistant generation failed with AI service exception.', [
                     'conversation_id' => $conversation->id,
                     'message_id' => $userMessage->id,
-                    'error' => $th->getMessage(),
+                    'payload' => $payload,
+                    'error_message' => $th->getMessage(),
+                    'error_file' => $th->getFile(),
+                    'error_line' => $th->getLine(),
+                    'error_trace' => $th->getTraceAsString(),
+                    'ai_context' => $th->context(),
                 ]);
 
-                $content = 'Sorry, I could not generate a response right now. Please try again.';
-                $isError = true;
+                throw $th;
+            } catch (\Throwable $th) {
+                Log::error('Assistant generation failed with unexpected exception.', [
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $userMessage->id,
+                    'payload' => $payload,
+                    'error_message' => $th->getMessage(),
+                    'error_file' => $th->getFile(),
+                    'error_line' => $th->getLine(),
+                    'error_trace' => $th->getTraceAsString(),
+                ]);
+
+                throw $th;
             }
 
             $assistantMessage = Message::firstOrCreate(
