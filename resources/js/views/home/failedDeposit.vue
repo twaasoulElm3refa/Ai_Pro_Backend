@@ -92,6 +92,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import useSeoMeta from "@/composables/useSeoMeta";
+import homeService from "@/services/home/homeService";
 
 export default {
   name: "PaymentFailed",
@@ -122,7 +123,7 @@ export default {
 
   methods: {
     retryPayment() {
-      this.$router.push(`/${this.$route.params.lang}/cart`);
+      this.$router.push(`/${homeService.getLang()}/cart`);
     },
 
     contactSupport() {

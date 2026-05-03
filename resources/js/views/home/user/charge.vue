@@ -72,6 +72,7 @@ import { useI18n } from "vue-i18n"
 import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
 import useSeoMeta from "@/composables/useSeoMeta"
+import homeService from "@/services/home/homeService"
 
 /* =========================
    Axios Instance (with token)
@@ -86,6 +87,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem("auth_token")
     const Api_key = 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y'
+    config.headers["Accept-Language"] = homeService.getLang();
     if (token) {
         config.headers.Authorization = `Bearer ${token}`
     }
@@ -120,7 +122,7 @@ const form = ref({
     description: '',
 })
 
-const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar")
+const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar")
 const seoTitle = computed(() => (isArabic.value ? "شحن المحفظة | Ai Pro" : "Charge Wallet | Ai Pro"))
 const seoDescription = computed(() =>
     isArabic.value
@@ -176,7 +178,6 @@ async function handlePay() {
         }
 
     } catch (err) {
-        console.error(err)
         serverError.value =
             err.response?.data?.message || t("user.charge.genericError")
     } finally {

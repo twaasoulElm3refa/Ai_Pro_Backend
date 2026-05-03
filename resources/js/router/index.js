@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
+import i18n from "@/i18n";
+import homeService from "@/services/home/homeService";
 
 const Home = () => import("../views/home/home.vue");
 const Register = () => import("../views/auth/register.vue");
@@ -24,8 +26,8 @@ const routes = [
     {
         path: "/",
         redirect: () => {
-            const lang = localStorage.getItem("language") || "ar"
-            return `/${lang}`
+            const lang = homeService.getLang();
+            return `/${lang}`;
         },
     },
     {
@@ -59,7 +61,7 @@ const routes = [
         meta: { hideNavbar: false, hideFooter: false },
     },
     {
-        path: "/en/deposit/success",
+        path: "/:lang/deposit/success",
         component: success,
         meta: { hideNavbar: false, hideFooter: false },
     },
@@ -216,12 +218,29 @@ router.beforeEach((to, from, next) => {
     const token = localStorage.getItem("auth_token");
     const role = localStorage.getItem("user_role");
 
-    // ✅ Sync language with localStorage
+    // Sync language with i18n + storage + cache behavior.
     if (to.params.lang) {
-        const currentLang = localStorage.getItem("language");
+        const requestedLang = String(to.params.lang).toLowerCase();
+        const currentLang = homeService.getLang();
 
-        if (currentLang !== to.params.lang) {
-            localStorage.setItem("language", to.params.lang);
+        if (currentLang !== requestedLang) {
+            homeService.setLang(requestedLang);
+        }
+
+        const normalizedLang = homeService.getLang();
+        if (i18n.global.locale.value !== normalizedLang) {
+            i18n.global.locale.value = normalizedLang;
+        }
+
+        if (requestedLang !== normalizedLang) {
+            return next({
+                ...to,
+                params: {
+                    ...to.params,
+                    lang: normalizedLang,
+                },
+                replace: true,
+            });
         }
     }
 
@@ -246,7 +265,7 @@ router.beforeEach((to, from, next) => {
         return next("/login");
     }
 
-    if (to.path === "/en/auth") {
+    if (to.matched.some((record) => record.path === "/:lang/auth")) {
         if (!token) {
             return next();
         }

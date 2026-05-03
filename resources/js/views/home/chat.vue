@@ -53,9 +53,7 @@
                 </TransitionGroup>
             </div>
         </aside>
-
         <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
-
         <div class="main-area">
             <header class="topbar">
                 <div class="topbar-left">
@@ -190,7 +188,7 @@ import useSeoMeta from "@/composables/useSeoMeta";
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
-const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
 const isAuthenticated = computed(() => Boolean(localStorage.getItem("auth_token")));
 
 const toolLoading = ref(true);
@@ -572,7 +570,7 @@ const openConversation = async (conversation) => {
         return;
     }
 
-    await router.push(`/${route.params.lang}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
+    await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 };
 
 const startNewChat = async () => {
@@ -586,7 +584,7 @@ const startNewChat = async () => {
         activeConversation.value = conversation;
         messages.value = [];
         sidebarOpen.value = false;
-        await router.push(`/${route.params.lang}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
+        await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
         creatingConversation.value = false;
     }
@@ -603,7 +601,7 @@ const ensureConversation = async () => {
     const conversation = formatConversation(response?.data || {});
     conversations.value = [conversation, ...conversations.value.filter((item) => item.uuid !== conversation.uuid)];
     activeConversation.value = conversation;
-    await router.push(`/${route.params.lang}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
+    await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     return conversation;
 };
 
@@ -688,7 +686,7 @@ const removeConversation = async (conversation) => {
         if (activeConversation.value?.uuid === conversation.uuid || route.params.uuid === conversation.uuid) {
             activeConversation.value = null;
             messages.value = [];
-            await router.push(`/${route.params.lang}/subtool/${route.params.slug}/chat`);
+            await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }
     } finally {
         removingConversationUuid.value = "";
@@ -696,13 +694,23 @@ const removeConversation = async (conversation) => {
 };
 
 onMounted(async () => {
+    locale.value = homeService.getLang();
     await Promise.all([loadSubtool(), loadConversations()]);
     await syncRouteConversation();
+    window.addEventListener("lang-changed", handleLangChanged);
 });
 
 onUnmounted(() => {
     closeAssistantStream();
+    window.removeEventListener("lang-changed", handleLangChanged);
 });
+
+const handleLangChanged = async () => {
+    locale.value = homeService.getLang();
+    closeAssistantStream();
+    await Promise.all([loadSubtool(), loadConversations()]);
+    await syncRouteConversation();
+};
 
 watch(
     () => route.params.slug,
@@ -718,6 +726,14 @@ watch(
     async () => {
         closeAssistantStream();
         await syncRouteConversation();
+    }
+);
+
+watch(
+    () => route.params.lang,
+    async (nextLang, prevLang) => {
+        if (!nextLang || nextLang === prevLang) return;
+        await handleLangChanged();
     }
 );
 </script>

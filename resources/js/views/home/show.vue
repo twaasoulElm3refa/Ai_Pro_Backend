@@ -15,7 +15,7 @@
                 </div>
 
                 <button type="button" class="back-button" :aria-label="t('user.toolShow.backAria')"
-                    @click="router.push(`/${route.params.lang}`)">
+                    @click="router.push(`/${homeService.getLang()}`)">
                     <i class="bi bi-arrow-left"></i>
                     <span>{{ t("user.toolShow.back") }}</span>
                 </button>
@@ -86,7 +86,7 @@
                                     type="button"
                                     class="chat-button"
                                     :aria-label="t('user.toolShow.chatAria', { name: subtool.title })"
-                                    @click="router.push(`/${route.params.lang}/subtool/${subtool.slug}/chat`)"
+                                    @click="router.push(`/${homeService.getLang()}/subtool/${subtool.slug}/chat`)"
                                 >
                                     <i class="bi bi-chat-fill"></i>
                                     {{ t("user.toolShow.chatButton") }}
@@ -106,7 +106,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
@@ -118,7 +118,7 @@ const { t, locale } = useI18n();
 
 const loading = ref(true);
 const rawTool = ref({});
-const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
 
 const mapMainTool = (payload = {}) => {
     const translation = payload?.translation;
@@ -161,10 +161,10 @@ useSeoMeta({
 });
 
 const loadTool = async () => {
+    locale.value = homeService.getLang();
     loading.value = true;
     try {
         const response = await homeService.showTool(route.params.slug);
-        console.log(response);
         rawTool.value = response?.data || {};
     } catch (e) {
         rawTool.value = {};
@@ -173,7 +173,27 @@ const loadTool = async () => {
     }
 };
 
-onMounted(loadTool);
+const handleLangChanged = async () => {
+    locale.value = homeService.getLang();
+    await loadTool();
+};
+
+onMounted(async () => {
+    await loadTool();
+    window.addEventListener("lang-changed", handleLangChanged);
+});
+
+onUnmounted(() => {
+    window.removeEventListener("lang-changed", handleLangChanged);
+});
+
+watch(
+    () => [route.params.slug, route.params.lang],
+    async ([nextSlug, nextLang], [prevSlug, prevLang]) => {
+        if (nextSlug === prevSlug && nextLang === prevLang) return;
+        await loadTool();
+    }
+);
 </script>
 
 <style scoped>

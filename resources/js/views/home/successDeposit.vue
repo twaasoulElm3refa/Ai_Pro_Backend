@@ -66,6 +66,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import useSeoMeta from "@/composables/useSeoMeta";
+import homeService from "@/services/home/homeService";
 
 export default {
     name: "PaymentSuccess",
@@ -89,11 +90,11 @@ export default {
 
     methods: {
         goToDownloads() {
-            const lang = localStorage.getItem("language") || "en";
+            const lang = homeService.getLang();
             this.$router.push(`/${lang}/wallet`);
         },
         goHome() {
-            const lang = localStorage.getItem("language") || "en";
+            const lang = homeService.getLang();
             this.$router.push(`/${lang}`);
         },
     },

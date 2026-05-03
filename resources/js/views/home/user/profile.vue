@@ -144,6 +144,7 @@ import { useI18n } from "vue-i18n";
 import api from "@/services/ApiClient";
 import { useRoute } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
+import homeService from "@/services/home/homeService";
 
 export default {
     name: "UserProfile",
@@ -270,7 +271,7 @@ export default {
 
         const currentTab = ref(1);
         const isArabic = computed(() =>
-            String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar"
+            String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
         );
         const seoTitle = computed(() => t("user.profile.seoTitle"));
         const seoDescription = computed(() => t("user.profile.seoDescription"));
@@ -362,8 +363,8 @@ export default {
                 showStatus(t("user.profile.messages.accountDeleted"));
                 localStorage.removeItem("auth_token");
                 window.location.href = "/";
-            } catch (error) {
-                console.log(error);
+            } catch {
+                // Interceptor handles toast
             } finally {
                 profileLoading.value = false;
             }
@@ -398,14 +399,17 @@ export default {
         };
 
         onMounted(() => {
+            locale.value = homeService.getLang();
             window.addEventListener("storage", handleStorageChange);
             window.addEventListener("login", fetchProfile);
+            window.addEventListener("lang-changed", fetchProfile);
             fetchProfile();
         });
 
         onUnmounted(() => {
             window.removeEventListener("storage", handleStorageChange);
             window.removeEventListener("login", fetchProfile);
+            window.removeEventListener("lang-changed", fetchProfile);
             clearTimeout(statusTimer);
         });
 

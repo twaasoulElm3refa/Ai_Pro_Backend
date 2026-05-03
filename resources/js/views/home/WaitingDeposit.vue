@@ -15,11 +15,12 @@ import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import axios from "axios";
 import useSeoMeta from "@/composables/useSeoMeta";
+import homeService from "@/services/home/homeService";
 
 const router = useRouter();
 const route = useRoute();
 const { t, locale } = useI18n();
-const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
 const seoTitle = computed(() => (isArabic.value ? "انتظار تأكيد الدفع | Ai Pro" : "Payment Verification | Ai Pro"));
 const seoDescription = computed(() =>
     isArabic.value
@@ -33,7 +34,7 @@ useSeoMeta({
 });
 const orderId = route.query.order_id;
 
-const lang = localStorage.getItem("language") || "en";
+const currentLang = () => homeService.getLang();
 
 let interval = null;
 const attempts = ref(0);
@@ -43,7 +44,7 @@ const checkStatus = async () => {
     try {
         attempts.value++;
 
-        const url = `$/api/v1/wallet/order-status/${orderId}`;
+        const url = `/api/v1/wallet/order-status/${orderId}`;
         const token = localStorage.getItem("auth_token");
         const { data } = await axios.get(url, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -51,14 +52,14 @@ const checkStatus = async () => {
         // ✅ النجاح
         if (data.status === "completed") {
             clearInterval(interval);
-            router.push(`/${lang}/deposit/success`);
+            router.push(`/${currentLang()}/deposit/success`);
             return;
         }
 
         // ❌ فشل حقيقي بس
         if (data.status === "failed") {
             clearInterval(interval);
-            router.push(`/${lang}/failed`);
+            router.push(`/${currentLang()}/failed`);
             return;
         }
 
@@ -70,20 +71,18 @@ const checkStatus = async () => {
         // fallback
         if (attempts.value >= MAX_ATTEMPTS) {
             clearInterval(interval);
-            router.push(`/${lang}/failed`);
+            router.push(`/${currentLang()}/failed`);
         }
 
-    } catch (e) {
-        console.error("Polling error:", e.response?.status);
-
-        // ❌ متفشلش هنا
-        // سيبه يكمل
+    } catch {
+        // Keep polling on transient errors.
     }
 };
 
 onMounted(() => {
+    locale.value = homeService.getLang();
     if (!orderId) {
-        router.push(`/${lang}/failed`);
+        router.push(`/${currentLang()}/failed`);
         return;
     }
 

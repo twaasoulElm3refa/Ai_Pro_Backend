@@ -8,7 +8,7 @@ class MainToolRepository implements MainToolInterface
 {
     public function index()
     {
-        return MainTools::with('translation:id,main_tools_id,locale,name,description,meta_title,meta_description')->select('id','is_active','slug', 'name', 'image','description','created_at')
+        return MainTools::with('translation')->select('id', 'is_active', 'slug', 'name', 'image', 'description', 'created_at')
             ->get();
     }
 
@@ -38,6 +38,7 @@ class MainToolRepository implements MainToolInterface
     {
         $tool = MainTools::findOrFail($id);
         $tool->update($data);
+
         return $tool;
     }
 

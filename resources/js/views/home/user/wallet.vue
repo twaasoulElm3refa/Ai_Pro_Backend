@@ -275,16 +275,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import walletService from "@/services/profile/walletService";
 import useSeoMeta from "@/composables/useSeoMeta";
+import homeService from "@/services/home/homeService";
 
 const router = useRouter();
 const route = useRoute();
 const { t, locale } = useI18n();
-const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
 const seoTitle = computed(() => (isArabic.value ? "المحفظة | Ai Pro" : "Wallet | Ai Pro"));
 const seoDescription = computed(() =>
     isArabic.value
@@ -406,7 +407,7 @@ const chargeWallet = () => {
     router.push({
         name: "charge-wallet",
         params: {
-            lang: route.params.lang,
+            lang: homeService.getLang(),
             uuid: wallet.value.uuid,
         },
     }).finally(() => {
@@ -446,9 +447,29 @@ const formatDateTime = (value) => {
 };
 
 onMounted(() => {
+    locale.value = homeService.getLang();
     fetchWallet();
     fetchTransactions();
+    window.addEventListener("lang-changed", handleLangChanged);
 });
+
+onUnmounted(() => {
+    window.removeEventListener("lang-changed", handleLangChanged);
+});
+
+const handleLangChanged = async () => {
+    locale.value = homeService.getLang();
+    await fetchWallet();
+    await fetchTransactions(pagination.value.currentPage || 1);
+};
+
+watch(
+    () => route.params.lang,
+    async (nextLang, prevLang) => {
+        if (!nextLang || nextLang === prevLang) return;
+        await handleLangChanged();
+    }
+);
 </script>
 
 <style scoped>

@@ -105,10 +105,11 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import COLORS, { rgba } from "@/components/assets/colors.js";
 import useSeoMeta from "@/composables/useSeoMeta";
+import homeService from "@/services/home/homeService";
 
 const route = useRoute();
 const { t, locale } = useI18n();
-const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
 const seoTitle = computed(() => (isArabic.value ? "اتصل بنا | Ai Pro" : "Contact Us | Ai Pro"));
 const seoDescription = computed(() =>
     isArabic.value

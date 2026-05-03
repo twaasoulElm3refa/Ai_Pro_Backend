@@ -3,14 +3,8 @@
         <div class="nb-inner">
             <a class="nb-logo" :href="homeUrl">
                 <div class="nb-logo-mark">
-                    <img
-                        src="/images/Ai_logo.png"
-                        alt="AiPro Logo"
-                        width="42"
-                        height="42"
-                        fetchpriority="high"
-                        decoding="async"
-                    />
+                    <img src="/images/Ai_logo.png" alt="AiPro Logo" width="42" height="42" fetchpriority="high"
+                        decoding="async" />
                 </div>
 
                 <span class="nb-logo-text">
@@ -27,24 +21,14 @@
 
                 <!-- Language Dropdown -->
                 <div class="nb-lang-wrap" @click.stop>
-                    <button
-                        class="nb-lang-btn"
-                        type="button"
-                        @click="toggleLangDropdown"
-                    >
+                    <button class="nb-lang-btn" type="button" @click="toggleLangDropdown">
                         <span>{{ currentLanguage.label }}</span>
                         <span class="nb-chevron" :class="{ open: langDropdownOpen }">▼</span>
                     </button>
 
                     <div v-if="langDropdownOpen" class="nb-lang-dropdown">
-                        <button
-                            v-for="language in languages"
-                            :key="language.code"
-                            type="button"
-                            class="nb-lang-item"
-                            :class="{ active: language.code === currentLocale }"
-                            @click="changeLanguage(language.code)"
-                        >
+                        <button v-for="language in languages" :key="language.code" type="button" class="nb-lang-item"
+                            :class="{ active: language.code === currentLocale }" @click="changeLanguage(language.code)">
                             <span>{{ language.nativeName }}</span>
                             <small>{{ language.label }}</small>
                         </button>
@@ -53,26 +37,10 @@
 
                 <div class="nb-divider"></div>
 
-                <button
-                    class="nb-wallet-btn"
-                    type="button"
-                    @click="goToWallet"
-                    :title="t('navbar.wallet')"
-                >
+                <button class="nb-wallet-btn" type="button" @click="goToWallet" :title="t('navbar.wallet')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <rect
-                            x="2"
-                            y="6"
-                            width="20"
-                            height="14"
-                            rx="3"
-                            stroke="white"
-                            stroke-width="1.6"
-                        />
-                        <path
-                            d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"
-                            fill="white"
-                        />
+                        <rect x="2" y="6" width="20" height="14" rx="3" stroke="white" stroke-width="1.6" />
+                        <path d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z" fill="white" />
                         <path d="M2 10h20" stroke="white" stroke-width="1.6" />
                     </svg>
 
@@ -103,19 +71,9 @@
 
                             <a :href="profileUrl" class="nb-dd-item">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <circle
-                                        cx="12"
-                                        cy="8"
-                                        r="4"
-                                        stroke="#154677"
-                                        stroke-width="1.6"
-                                    />
-                                    <path
-                                        d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
-                                        stroke="#154677"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                    />
+                                    <circle cx="12" cy="8" r="4" stroke="#154677" stroke-width="1.6" />
+                                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#154677" stroke-width="1.6"
+                                        stroke-linecap="round" />
                                 </svg>
 
                                 {{ t("navbar.profile") }}
@@ -125,28 +83,12 @@
 
                             <button class="nb-dd-item danger" type="button" @click="logout">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path
-                                        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-                                        stroke="#154677"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                    />
-                                    <polyline
-                                        points="16 17 21 12 16 7"
-                                        stroke="#154677"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                    <line
-                                        x1="21"
-                                        y1="12"
-                                        x2="9"
-                                        y2="12"
-                                        stroke="#154677"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                    />
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#154677"
+                                        stroke-width="1.6" stroke-linecap="round" />
+                                    <polyline points="16 17 21 12 16 7" stroke="#154677" stroke-width="1.6"
+                                        stroke-linecap="round" stroke-linejoin="round" />
+                                    <line x1="21" y1="12" x2="9" y2="12" stroke="#154677" stroke-width="1.6"
+                                        stroke-linecap="round" />
                                 </svg>
 
                                 {{ t("navbar.logout") }}
@@ -158,28 +100,12 @@
                 <template v-else>
                     <a :href="authUrl" class="nb-login-btn">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                            <path
-                                d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
-                                stroke="white"
-                                stroke-width="1.8"
-                                stroke-linecap="round"
-                            />
-                            <polyline
-                                points="10 17 15 12 10 7"
-                                stroke="white"
-                                stroke-width="1.8"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                            <line
-                                x1="15"
-                                y1="12"
-                                x2="3"
-                                y2="12"
-                                stroke="white"
-                                stroke-width="1.8"
-                                stroke-linecap="round"
-                            />
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="white" stroke-width="1.8"
+                                stroke-linecap="round" />
+                            <polyline points="10 17 15 12 10 7" stroke="white" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <line x1="15" y1="12" x2="3" y2="12" stroke="white" stroke-width="1.8"
+                                stroke-linecap="round" />
                         </svg>
 
                         {{ t("navbar.login") }}
@@ -193,17 +119,20 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import api from "@/services/ApiClient";
+import homeService from "@/services/home/homeService";
 
 const { t, locale } = useI18n();
+const router = useRouter();
 
 const isLoggedIn = ref(false);
 const WalletBalance = ref(0);
 const dropdownOpen = ref(false);
 const langDropdownOpen = ref(false);
 
-const PROFILE_CACHE_KEY = "navbar_profile_cache_v1";
-const WALLET_CACHE_KEY = "navbar_wallet_cache_v1";
+const PROFILE_CACHE_PREFIX = "navbar_profile_cache_v1";
+const WALLET_CACHE_PREFIX = "navbar_wallet_cache_v1";
 const NAV_CACHE_TTL = 60 * 1000;
 
 const languages = [
@@ -226,6 +155,19 @@ const languages = [
         nativeName: "Русский",
         dir: "ltr",
     },
+
+    {
+        code: "fr",
+        label: "French",
+        nativeName: "Français",
+        dir: "ltr",
+    },
+    {
+        code: "zh",
+        label: "Chinese",
+        nativeName: "中文",
+        dir: "ltr",
+    },
 ];
 
 const currentLocale = computed(() => locale.value || "ar");
@@ -245,6 +187,18 @@ const walletUrl = computed(() => `/${currentLocale.value}/wallet`);
 
 const userName = ref(t("navbar.user"));
 
+const scopedCacheKey = (prefix) => `${prefix}:${homeService.getLang()}`;
+
+const clearNavbarCache = () => {
+    for (let i = sessionStorage.length - 1; i >= 0; i -= 1) {
+        const key = sessionStorage.key(i);
+        if (!key) continue;
+        if (key.startsWith(`${PROFILE_CACHE_PREFIX}:`) || key.startsWith(`${WALLET_CACHE_PREFIX}:`)) {
+            sessionStorage.removeItem(key);
+        }
+    }
+};
+
 const syncHtmlDirection = () => {
     document.documentElement.setAttribute("lang", currentLocale.value);
     document.documentElement.setAttribute("dir", currentDir.value);
@@ -263,7 +217,7 @@ const replaceLocaleInPath = (newLocale) => {
     return `/${newLocale}${currentPath === "/" ? "" : currentPath}${window.location.search}`;
 };
 
-const changeLanguage = (newLocale) => {
+const changeLanguage = async (newLocale) => {
     if (newLocale === currentLocale.value) {
         langDropdownOpen.value = false;
         return;
@@ -273,15 +227,16 @@ const changeLanguage = (newLocale) => {
 
     if (!selectedLanguage) return;
 
+    homeService.setLang(newLocale);
     locale.value = newLocale;
-    localStorage.setItem("locale", newLocale);
-
     document.documentElement.setAttribute("lang", newLocale);
     document.documentElement.setAttribute("dir", selectedLanguage.dir);
 
     langDropdownOpen.value = false;
 
-    window.location.href = replaceLocaleInPath(newLocale);
+    await router.push(replaceLocaleInPath(newLocale));
+    clearNavbarCache();
+    refreshUserState();
 };
 
 const toggleLangDropdown = () => {
@@ -342,7 +297,7 @@ const deferToIdle = (task) => {
 const fetchWallet = async () => {
     if (!localStorage.getItem("auth_token")) return;
 
-    const cachedBalance = readCache(WALLET_CACHE_KEY);
+    const cachedBalance = readCache(scopedCacheKey(WALLET_CACHE_PREFIX));
 
     if (cachedBalance !== null) {
         WalletBalance.value = cachedBalance;
@@ -354,10 +309,10 @@ const fetchWallet = async () => {
 
         if (res.data.status === "success") {
             WalletBalance.value = res.data.data?.balance ?? 0;
-            writeCache(WALLET_CACHE_KEY, WalletBalance.value);
+            writeCache(scopedCacheKey(WALLET_CACHE_PREFIX), WalletBalance.value);
         }
-    } catch (err) {
-        console.log("Wallet error:", err);
+    } catch {
+        // Ignore wallet fetch errors in navbar.
     }
 };
 
@@ -373,7 +328,7 @@ const fetchProfile = async () => {
         return;
     }
 
-    const cachedProfile = readCache(PROFILE_CACHE_KEY);
+    const cachedProfile = readCache(scopedCacheKey(PROFILE_CACHE_PREFIX));
 
     if (cachedProfile?.name) {
         userName.value = cachedProfile.name;
@@ -388,27 +343,26 @@ const fetchProfile = async () => {
             userName.value = res.data.data.user.name || t("navbar.user");
             isLoggedIn.value = true;
 
-            writeCache(PROFILE_CACHE_KEY, {
+            writeCache(scopedCacheKey(PROFILE_CACHE_PREFIX), {
                 name: userName.value,
             });
         }
-    } catch (err) {
-        console.log("Profile error:", err);
+    } catch {
+        // Ignore profile fetch errors in navbar.
     }
 };
 
 const logout = async () => {
     try {
         await api.post("/users/logout");
-    } catch (err) {
-        console.log("Logout error:", err);
+    } catch {
+        // Ignore logout request errors and continue local cleanup.
     }
 
     localStorage.removeItem("user_role");
     localStorage.removeItem("auth_token");
 
-    sessionStorage.removeItem(PROFILE_CACHE_KEY);
-    sessionStorage.removeItem(WALLET_CACHE_KEY);
+    clearNavbarCache();
 
     isLoggedIn.value = false;
     userName.value = t("navbar.user");
@@ -442,17 +396,26 @@ const refreshUserState = () => {
     });
 };
 
+const handleLangChanged = () => {
+    locale.value = homeService.getLang();
+    syncHtmlDirection();
+    clearNavbarCache();
+    refreshUserState();
+};
+
 onMounted(() => {
     syncHtmlDirection();
 
     refreshUserState();
 
     window.addEventListener("login", refreshUserState);
+    window.addEventListener("lang-changed", handleLangChanged);
     document.addEventListener("click", handleDocumentClick);
 });
 
 onBeforeUnmount(() => {
     window.removeEventListener("login", refreshUserState);
+    window.removeEventListener("lang-changed", handleLangChanged);
     document.removeEventListener("click", handleDocumentClick);
 });
 </script>
@@ -468,6 +431,7 @@ onBeforeUnmount(() => {
     box-shadow: 0 16px 36px rgba(21, 70, 119, 0.18);
     backdrop-filter: blur(14px);
 }
+
 .nb-lang-wrap {
     position: relative;
 }
@@ -549,6 +513,7 @@ onBeforeUnmount(() => {
 .nb-lang-item.active {
     background: #f4fbff;
 }
+
 .nb-inner {
     max-width: 1200px;
     margin: 0 auto;
@@ -821,9 +786,3 @@ onBeforeUnmount(() => {
     }
 }
 </style>
-
-
-
-
-
-

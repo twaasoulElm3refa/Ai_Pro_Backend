@@ -32,7 +32,7 @@
                 </div>
 
                 <!-- TOOLS -->
-                <TransitionGroup v-else-if="tools.length" name="tool-card" tag="div" class="tools-layout">
+                <TransitionGroup v-else-if="tools.length" :key="listKey" name="tool-card" tag="div" class="tools-layout">
                     <article v-for="(tool, index) in tools" :key="tool.id" class="tool-card group cursor-pointer" role="button"
                         tabindex="0" :aria-label="t('user.home.openAria', { name: tool.title || tool.slug })" @click="goToTool(tool.slug)"
                         @keyup.enter="goToTool(tool.slug)" @keyup.space.prevent="goToTool(tool.slug)">
@@ -92,7 +92,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
@@ -105,7 +105,8 @@ const { t, locale } = useI18n();
 const loading = ref(true);
 const tools = ref([]);
 const skeletonCount = 4;
-const isArabic = computed(() => String(route.params.lang || localStorage.getItem("language") || "en").toLowerCase() === "ar");
+const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
+const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
 const seoTitle = computed(() => (isArabic.value ? "الرئيسية | أدوات الذكاء الاصطناعي | Ai Pro" : "Home | AI Tools Directory | Ai Pro"));
 const seoDescription = computed(() =>
     isArabic.value
@@ -142,6 +143,7 @@ const onToolImageError = (event, fallbackUrl) => {
 };
 
 const fetchTools = async () => {
+    locale.value = homeService.getLang();
     loading.value = true;
 
     try {
@@ -157,10 +159,30 @@ const fetchTools = async () => {
 };
 
 const goToTool = (slug) => {
-    router.push(`/${route.params.lang}/tool/${slug}`);
+    router.push(`/${homeService.getLang()}/tool/${slug}`);
 };
 
-onMounted(fetchTools);
+const handleLangChanged = async () => {
+    locale.value = homeService.getLang();
+    await fetchTools();
+};
+
+onMounted(async () => {
+    await fetchTools();
+    window.addEventListener("lang-changed", handleLangChanged);
+});
+
+onUnmounted(() => {
+    window.removeEventListener("lang-changed", handleLangChanged);
+});
+
+watch(
+    () => route.params.lang,
+    async (nextLang, prevLang) => {
+        if (!nextLang || nextLang === prevLang) return;
+        await fetchTools();
+    }
+);
 </script>
 
 <style scoped>

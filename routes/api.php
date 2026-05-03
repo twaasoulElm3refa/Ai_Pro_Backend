@@ -73,7 +73,7 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('message')->middleware(['auth:sanctum', 'throttle:45,1'])->group(function () {
-        Route::post('/send', [MessageController::class, 'sendMessage'])->withoutMiddleware(ApiKeyMiddleware::class , AcceptLanguage::class);
+        Route::post('/send', [MessageController::class, 'sendMessage']);
     });
 
     Route::prefix('deposit')->middleware(['auth:sanctum', 'throttle:10,1'])->group(function () {

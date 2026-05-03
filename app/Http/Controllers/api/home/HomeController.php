@@ -43,19 +43,17 @@ class HomeController extends Controller
     {
         try {
             $locale = app()->getLocale();
-
+            $cacheKey = "tools:index:{$locale}";
             $tools = Cache::tags(['tools'])->remember(
-                "tools:index:{$locale}",
+                $cacheKey,
                 now()->addHour(),
                 fn () => $this->toolRepository->index()
             );
-
-            return $this->cacheableSuccessResponse($tools, 'Tools fetched successfully.');
+            return $this->success($tools, 'Tools fetched successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Index Error', [
                 'error' => $th->getMessage(),
             ]);
-
             return $this->error('Something went wrong.');
         }
     }
@@ -70,8 +68,7 @@ class HomeController extends Controller
                 now()->addHour(),
                 fn () => $this->toolRepository->showBySlug($slug)
             );
-
-            return $this->cacheableSuccessResponse($tool, 'Tool fetched successfully.');
+            return $this->success($tool, 'Tool fetched successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Show Error', [
                 'error' => $th->getMessage(),
@@ -92,7 +89,7 @@ class HomeController extends Controller
                 fn () => $this->subToolRepository->showBySlug($slug)
             );
 
-            return $this->cacheableSuccessResponse($tool, 'Tool fetched successfully.');
+            return $this->success($tool, 'Tool fetched successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Show Error', [
                 'error' => $th->getMessage(),
