@@ -12,13 +12,13 @@ use App\Http\Controllers\api\auth\AuthController;
 use App\Http\Controllers\api\auth\GoogleAuthController;
 use App\Http\Controllers\api\auth\ProfileController;
 use App\Http\Controllers\api\auth\RegisterController;
+use App\Http\Controllers\api\auth\UserProfileController;
 use App\Http\Controllers\api\auth\WalletController;
 use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\payment\DepositController;
 use App\Http\Controllers\api\webhook\WebhookController;
-use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ApiKeyMiddleware;
 use App\Http\Middleware\ConversationOwnerMiddleware;
@@ -43,7 +43,7 @@ Route::prefix('v1')->group(function () {
             ->middleware('guest');
         Route::get('google-callback', [GoogleAuthController::class, 'googleCallback'])
             ->middleware('guest')->withoutMiddleware(ApiKeyMiddleware::class);
-        Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+        Route::middleware(['auth:sanctum', 'throttle:90,1'])->group(function () {
             Route::get('wallet', [WalletController::class, 'wallet']);
             Route::get('wallet/transactions', [WalletController::class, 'walletTransactions']);
             Route::get('wallet/transaction/{slug}', [WalletController::class, 'walletTransactionDetails']);
@@ -52,6 +52,8 @@ Route::prefix('v1')->group(function () {
             Route::post('password', [ProfileController::class, 'updatePassword']);
             Route::post('logout', [AuthController::class, 'logout']);
             Route::delete('delete-account', [ProfileController::class, 'deleteAccount']);
+            Route::get('conversations', [UserProfileController::class, 'conversations']);
+            Route::get('conversation/{uuid}', [UserProfileController::class, 'conversationDetails']);
         });
     });
 
@@ -134,5 +136,5 @@ Route::prefix('admin')->group(function () {
         Route::post('/{id}', [AdminPaymentController::class, 'update']);
         Route::delete('/{id}', [AdminPaymentController::class, 'destroy']);
     });
-    // 60 Api For Now
+    // 64 Api For Now
 });

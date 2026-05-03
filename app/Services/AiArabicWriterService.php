@@ -16,7 +16,7 @@ class AiArabicWriterService
     public function __construct()
     {
         $this->url = (string) config('services.aiarabic.url', 'https://api.aiarabic.com/tasks/writer');
-        $this->apiKey = (string) config('services.aiarabic.key', 'test123');
+        $this->apiKey = (string) config('services.aiarabic.key', 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy');
     }
 
     public function generateReply(array $payload): string

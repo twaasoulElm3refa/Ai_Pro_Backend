@@ -162,6 +162,13 @@ const homeService = {
         });
     },
 
+    async getConversations() {
+        return cached(buildKey("home:conversations:index"), async () => {
+            const response = await api.get("/users/conversations");
+            return unwrap(response);
+        });
+    },
+
     async sendChatMessage(slug, message, history = []) {
         const response = await api.post(`/subtool/${slug}/chat`, {
             message,

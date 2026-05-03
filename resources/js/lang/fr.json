@@ -1,344 +1,344 @@
 {
-  "navbar": {
-    "home": "Accueil",
-    "wallet": "Portefeuille",
-    "personalAccount": "Compte Personnel",
-    "profile": "Profil",
-    "logout": "Déconnexion",
-    "login": "Connexion",
-    "user": "Utilisateur"
-  },
-  "home": {
-    "title": "Outils IA",
-    "description": "Choisissez l'outil dont vous avez besoin"
-  },
-  "auth": {
-    "googleCallback": {
-      "signingInTitle": "Connexion avec Google en cours...",
-      "signingInSubtitle": "Veuillez patienter pendant que nous terminons votre connexion.",
-      "missingToken": "Aucun token reçu de la connexion Google."
-    },
-    "register": {
-      "logoAlt": "Logo AI PRO",
-      "googleAlt": "Logo Google",
-      "brandTagline": "Construisez. Apprenez. Évoluez avec l'IA",
-      "tabs": {
+    "navbar": {
+        "home": "Accueil",
+        "wallet": "Portefeuille",
+        "personalAccount": "Compte Personnel",
+        "profile": "Profil",
+        "logout": "Déconnexion",
         "login": "Connexion",
-        "register": "Inscription"
-      },
-      "fields": {
-        "fullName": "Nom Complet",
-        "email": "Adresse Email",
-        "password": "Mot de passe",
-        "confirmPassword": "Confirmer le mot de passe",
-        "phoneOptional": "Téléphone (optionnel)"
-      },
-      "otp": {
-        "title": "Vérifiez Votre Email",
-        "sentTo": "Un code a été envoyé à",
-        "codePlaceholder": "Entrez le code de vérification",
-        "verifyAndLogin": "Vérifier et Se Connecter",
-        "verifying": "Vérification en cours...",
-        "resend": "Renvoyer le code",
-        "backToLogin": "Retour à la connexion"
-      },
-      "login": {
-        "submit": "Se Connecter",
-        "loading": "Chargement...",
-        "forgot": "Mot de passe oublié ?",
-        "google": "Continuer avec Google"
-      },
-      "register": {
-        "submit": "Créer un Compte",
-        "loading": "Création en cours..."
-      },
-      "forgot": {
-        "submit": "Envoyer le code",
-        "loading": "Envoi en cours...",
-        "backToLogin": "Retour à la connexion"
-      },
-      "reset": {
-        "email": "Email",
-        "otp": "Code OTP",
-        "newPassword": "Nouveau Mot de Passe",
-        "submit": "Réinitialiser le Mot de Passe",
-        "loading": "Mise à jour en cours..."
-      },
-      "switch": {
-        "haveAccount": "Vous avez déjà un compte ?",
-        "noAccount": "Vous n'avez pas de compte ?"
-      }
-    }
-  },
-  "user": {
+        "user": "Utilisateur"
+    },
     "home": {
-      "badge": "Annuaire des Outils",
-      "title": "Découvrez les outils IA conçus pour un travail concentré",
-      "subtitle": "Parcourez les derniers outils, accédez rapidement aux détails et explorez chaque expérience via un catalogue clair.",
-      "statusActive": "Actif",
-      "statusInactive": "Inactif",
-      "showButton": "Afficher ?",
-      "showAria": "Afficher les détails pour {name}",
-      "openAria": "Ouvrir {name}",
-      "coverAlt": "Image de couverture de l'outil IA",
-      "coverAltWithName": "Image de couverture de {name}",
-      "empty": "Aucun outil disponible"
+        "title": "Outils IA",
+        "description": "Choisissez l'outil dont vous avez besoin"
     },
-    "toolShow": {
-      "badge": "Aperçu de l'Outil",
-      "loadingTitle": "Chargement de l'outil...",
-      "back": "Retour",
-      "backAria": "Retour à la liste des outils",
-      "sectionTitle": "Sous-outils Connexes",
-      "sectionSubtitle": "Expériences connectées avec lesquelles vous pouvez discuter",
-      "statusActive": "Actif",
-      "statusInactive": "Inactif",
-      "chatButton": "Discuter",
-      "chatAria": "Commencer la discussion avec {name}",
-      "empty": "Aucun sous-outil connexe trouvé",
-      "untitledTool": "Outil sans titre",
-      "untitledSubtool": "Sous-outil sans titre",
-      "noDescription": "Aucune description"
-    },
-    "chat": {
-      "workspaceAria": "Espace de travail de chat IA",
-      "workspaceTitle": "Espace de Travail de Chat",
-      "conversations": "Conversations",
-      "closeSidebarAria": "Fermer la barre latérale des conversations",
-      "openSidebarAria": "Ouvrir la barre latérale des conversations",
-      "creating": "Création en cours...",
-      "newChat": "Nouvelle Discussion",
-      "recentChats": "Discussions Récentes",
-      "noConversations": "Aucune conversation pour le moment",
-      "conversationFallback": "conversation",
-      "deleteConversationAria": "Supprimer {name}",
-      "modelIconAria": "Icône du modèle IA",
-      "modelIconAriaWithName": "Icône de {name}",
-      "draft": "Brouillon",
-      "newConversation": "Nouvelle Conversation",
-      "emptyWithConversation": "Commencez à envoyer des messages dans cette conversation.",
-      "emptyWithoutConversation": "Créez une nouvelle discussion ou envoyez votre premier message pour commencer.",
-      "inputAria": "Champ de saisie du message de chat",
-      "inputPlaceholder": "Écrivez votre message ici...",
-      "sendAria": "Envoyer le message de chat",
-      "inputHint": "Entrée pour envoyer • Maj+Entrée pour une nouvelle ligne",
-      "conversationTitle": "Conversation {short}",
-      "conversationSubtitle": "UUID : {uuid}",
-      "genericError": "Quelque chose s'est mal passé.",
-      "connectionInterrupted": "Connexion interrompue. Veuillez réessayer.",
-      "aiTool": "Outil IA",
-      "startConversation": "Commencer une conversation."
-    },
-    "contact": {
-      "badge": "Nous Contacter",
-      "title": "Contactez-nous",
-      "subtitle": "Nous sommes là pour répondre à toutes vos questions et vous aider avec tout ce dont vous avez besoin",
-      "infoTitle": "Informations de Contact",
-      "addressLabel": "Adresse",
-      "addressValue": "Nile Street, Le Caire, Égypte",
-      "phoneLabel": "Téléphone",
-      "phoneValue": "+20 123 456 789",
-      "emailLabel": "Email",
-      "emailValue": "info@example.com",
-      "followUs": "Suivez-nous",
-      "socialAria": "Visiter notre page {name}",
-      "formTitle": "Envoyez-nous un message",
-      "nameLabel": "Nom Complet",
-      "emailFieldLabel": "Email",
-      "subjectLabel": "Sujet",
-      "messageLabel": "Message",
-      "submit": "Envoyer le Message",
-      "successMessage": "Votre message a été envoyé avec succès !"
-    },
-    "charge": {
-      "balanceSummaryAria": "Résumé du solde du portefeuille",
-      "formAria": "Formulaire de recharge du portefeuille",
-      "title": "Recharger le Portefeuille",
-      "currentBalance": "Solde Actuel",
-      "selectPresetAria": "Sélectionner le montant prédéfini {value} dollars",
-      "customAmountLabel": "Montant Personnalisé",
-      "customAmountAria": "Montant de recharge personnalisé",
-      "descriptionLabel": "Description (optionnel)",
-      "descriptionAria": "Description de la recharge",
-      "descriptionPlaceholder": "Par exemple : recharge de portefeuille pour achat d'image",
-      "summaryAmount": "Montant",
-      "summaryCurrency": "Devise",
-      "summaryMethod": "Méthode de Paiement",
-      "loading": "Traitement en cours...",
-      "payButton": "Payer avec PayPal",
-      "amountError": "Entrez un montant valide (supérieur à 1)",
-      "defaultDescription": "Dépôt Portefeuille",
-      "genericError": "Quelque chose s'est mal passé, veuillez réessayer."
-    },
-    "profile": {
-      "title": "Mon Profil",
-      "openTabAria": "Ouvrir l'onglet {tab}",
-      "avatarAlt": "Avatar de {name}",
-      "previewAlt": "Aperçu du profil de {name}",
-      "userFallback": "Utilisateur",
-      "na": "�",
-      "tabs": {
-        "info": "Informations Utilisateur",
-        "edit": "Modifier les Détails",
-        "password": "Mettre à Jour le Mot de Passe"
-      },
-      "fields": {
-        "name": "Nom",
-        "email": "Email",
-        "phone": "Téléphone",
-        "image": "Image de Profil",
-        "role": "Rôle",
-        "status": "Statut",
-        "lastSeen": "Dernière Connexion"
-      },
-      "status": {
-        "active": "Actif ?",
-        "inactive": "Inactif"
-      },
-      "placeholders": {
-        "name": "Entrez votre nom"
-      },
-      "chooseImage": "Choisir une Image",
-      "uploadImageAria": "Télécharger l'image de profil",
-      "actions": {
-        "save": "Enregistrer les Modifications",
-        "deleteAccount": "Supprimer le Compte",
-        "updatePassword": "Mettre à Jour le Mot de Passe"
-      },
-      "loading": {
-        "save": "Enregistrement en cours...",
-        "delete": "Suppression en cours...",
-        "updatePassword": "Mise à jour en cours..."
-      },
-      "saveAria": "Enregistrer les modifications du profil",
-      "deleteAria": "Supprimer le compte",
-      "updatePasswordAria": "Mettre à jour le mot de passe",
-      "password": {
-        "current": "Mot de Passe Actuel",
-        "new": "Nouveau Mot de Passe",
-        "confirm": "Confirmer le Mot de Passe",
-        "show": "Afficher le mot de passe",
-        "hide": "Masquer le mot de passe"
-      },
-      "messages": {
-        "nameEmailRequired": "Veuillez remplir le nom et l'email",
-        "profileUpdated": "Profil mis à jour avec succès ?",
-        "accountDeleted": "Compte supprimé avec succès ?",
-        "fillAllFields": "Veuillez remplir tous les champs",
-        "passwordMismatch": "Les mots de passe ne correspondent pas",
-        "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
-        "passwordUpdated": "Mot de passe mis à jour avec succès ?"
-      },
-      "seoTitle": "Profil Utilisateur | Ai Pro",
-      "seoDescription": "Gérez le profil de votre compte, mettez à jour vos informations personnelles et avatar, et changez votre mot de passe en toute sécurité depuis une page de paramètres organisée avec un retour d'état clair."
-    },
-    "wallet": {
-      "kicker": "Tableau de Bord Fintech",
-      "title": "Mon Portefeuille",
-      "subtitle": "Suivez votre solde, examinez le flux des transactions et inspectez l'activité du portefeuille en un seul endroit.",
-      "chargeAria": "Aller à la page de recharge du portefeuille",
-      "chargeButton": "Recharger le Portefeuille",
-      "preparing": "Préparation en cours...",
-      "currentBalance": "Solde Actuel",
-      "points": "Points",
-      "walletId": "ID du Portefeuille",
-      "creditsOnPage": "Crédits sur cette page",
-      "debitsOnPage": "Débits sur cette page",
-      "credit": "Crédit",
-      "debit": "Débit",
-      "transactionsLoaded": "Transactions Chargées",
-      "lastUpdate": "Dernière mise à jour",
-      "tabWallet": "Portefeuille",
-      "tabTransactions": "Transactions",
-      "accountHolder": "Titulaire du Compte",
-      "unknownUser": "Utilisateur inconnu",
-      "noEmail": "Aucun email disponible",
-      "walletStatus": "Statut du Portefeuille",
-      "statusActive": "Actif",
-      "statusInactive": "Inactif",
-      "statusActiveDesc": "Prêt pour les crédits et débits.",
-      "statusInactiveDesc": "L'activité du portefeuille est en pause.",
-      "createdAt": "Créé le",
-      "createdAtDesc": "Horodatage de création du portefeuille",
-      "updatedAt": "Mis à jour le",
-      "updatedAtDesc": "Dernier rafraîchissement du portefeuille",
-      "unavailableTitle": "Les données du portefeuille sont indisponibles",
-      "unavailableDesc": "Nous n'avons pas pu charger le profil du portefeuille pour le moment.",
-      "tryAgain": "Réessayer",
-      "transactionActivity": "Activité des Transactions",
-      "transactionActivityDesc": "Examinez les crédits, débits et mouvements du solde du portefeuille au fil du temps.",
-      "viewTransactionAria": "Voir les détails de la transaction {id}",
-      "unknownType": "inconnu",
-      "noTransactions": "Aucune transaction pour le moment",
-      "noTransactionsDesc": "L'activité de votre portefeuille apparaîtra ici une fois que des crédits ou débits seront enregistrés.",
-      "previous": "Précédent",
-      "next": "Suivant",
-      "pagination": "Page {current} sur {last}",
-      "transactionsCount": "{count} transactions",
-      "transactionDetails": "Détails de la Transaction",
-      "walletTransaction": "Transaction Portefeuille",
-      "closeDetailsAria": "Fermer la boîte de dialogue des détails de la transaction",
-      "type": "Type",
-      "balanceBefore": "Solde Avant",
-      "balanceAfter": "Solde Après",
-      "user": "Utilisateur",
-      "email": "Email",
-      "transactionDate": "Date de la Transaction",
-      "reference": "Référence",
-      "noWalletReference": "Aucune référence portefeuille",
-      "loadWalletError": "Échec du chargement des données du portefeuille.",
-      "loadTransactionsError": "Échec du chargement des transactions du portefeuille.",
-      "loadDetailsError": "Échec du chargement des détails de la transaction.",
-      "na": "�"
-    },
-    "deposit": {
-      "success": {
-        "badge": "Solde rechargé via PayPal",
-        "title": "Solde rechargé avec succès ??",
-        "subtitleHtml": "Le montant a été ajouté à votre portefeuille avec succès<br />Vous pouvez maintenant l'utiliser pour vos achats",
-        "statusLabel": "Statut de la Transaction",
-        "statusValue": "Réussie",
-        "notificationLabel": "Notification",
-        "notificationValue": "Un message a été envoyé à votre email",
-        "transactionIdLabel": "ID de Transaction",
-        "walletButton": "Aller au Portefeuille",
-        "walletAria": "Aller à la page du portefeuille",
-        "homeButton": "Retour à l'Accueil",
-        "homeAria": "Retour à la page d'accueil",
-        "fallbackTransactionId": "PP-{id}",
-        "seoTitle": "Dépôt Réussi | Ai Pro",
-        "seoDescription": "Votre recharge de portefeuille a réussi. Confirmez les détails de la transaction, retournez à votre portefeuille et continuez à utiliser les outils avec votre solde mis à jour immédiatement."
-      },
-      "failed": {
-        "badge": "Paiement PayPal échoué",
-        "title": "Paiement échoué ??",
-        "subtitleHtml": "Le paiement n'a pas été complété avec succès<br />Vous pouvez réessayer ou contacter le support",
-        "statusLabel": "Statut",
-        "statusValue": "Paiement Échoué",
-        "reasonLabel": "Raison",
-        "noteLabel": "Note",
-        "noteValue": "Aucun montant n'a été débité",
-        "retryButton": "Réessayer",
-        "retryAria": "Réessayer le paiement PayPal",
-        "supportButton": "Contacter le Support",
-        "supportAria": "Contacter le support",
-        "homeButton": "Retour à l'Accueil",
-        "homeAria": "Retour à la page d'accueil",
-        "reasons": {
-          "instrument_declined": "L'instrument de paiement a été refusé",
-          "payer_cannot_pay": "Solde insuffisant",
-          "transaction_refused": "Transaction refusée par PayPal",
-          "default": "La transaction a été annulée ou le paiement a échoué"
+    "auth": {
+        "googleCallback": {
+            "signingInTitle": "Connexion avec Google en cours...",
+            "signingInSubtitle": "Veuillez patienter pendant que nous terminons votre connexion.",
+            "missingToken": "Aucun token reçu de la connexion Google."
         },
-        "seoTitle": "Paiement Échoué | Ai Pro",
-        "seoDescription": "Le paiement n'a pas abouti. Consultez la raison de l'échec, réessayez votre recharge PayPal en toute sécurité ou contactez le support pour une aide rapide sans perdre votre solde portefeuille."
-      },
-      "waiting": {
-        "title": "Traitement de Votre Paiement",
-        "subtitle": "Veuillez patienter pendant que nous confirmons votre paiement avec PayPal...",
-        "hint": "Ne fermez pas cette page"
-      }
+        "register": {
+            "logoAlt": "Logo AI PRO",
+            "googleAlt": "Logo Google",
+            "brandTagline": "Construisez. Apprenez. Évoluez avec l'IA",
+            "tabs": {
+                "login": "Connexion",
+                "register": "Inscription"
+            },
+            "fields": {
+                "fullName": "Nom Complet",
+                "email": "Adresse Email",
+                "password": "Mot de passe",
+                "confirmPassword": "Confirmer le mot de passe",
+                "phoneOptional": "Téléphone (optionnel)"
+            },
+            "otp": {
+                "title": "Vérifiez Votre Email",
+                "sentTo": "Un code a été envoyé à",
+                "codePlaceholder": "Entrez le code de vérification",
+                "verifyAndLogin": "Vérifier et Se Connecter",
+                "verifying": "Vérification en cours...",
+                "resend": "Renvoyer le code",
+                "backToLogin": "Retour à la connexion"
+            },
+            "login": {
+                "submit": "Se Connecter",
+                "loading": "Chargement...",
+                "forgot": "Mot de passe oublié ?",
+                "google": "Continuer avec Google"
+            },
+            "register": {
+                "submit": "Créer un Compte",
+                "loading": "Création en cours..."
+            },
+            "forgot": {
+                "submit": "Envoyer le code",
+                "loading": "Envoi en cours...",
+                "backToLogin": "Retour à la connexion"
+            },
+            "reset": {
+                "email": "Email",
+                "otp": "Code OTP",
+                "newPassword": "Nouveau Mot de Passe",
+                "submit": "Réinitialiser le Mot de Passe",
+                "loading": "Mise à jour en cours..."
+            },
+            "switch": {
+                "haveAccount": "Vous avez déjà un compte ?",
+                "noAccount": "Vous n'avez pas de compte ?"
+            }
+        }
+    },
+    "user": {
+        "home": {
+            "badge": "Annuaire des Outils",
+            "title": "Découvrez les outils IA conçus pour un travail concentré",
+            "subtitle": "Parcourez les derniers outils, accédez rapidement aux détails et explorez chaque expérience via un catalogue clair.",
+            "statusActive": "Actif",
+            "statusInactive": "Inactif",
+            "showButton": "Afficher ?",
+            "showAria": "Afficher les détails pour {name}",
+            "openAria": "Ouvrir {name}",
+            "coverAlt": "Image de couverture de l'outil IA",
+            "coverAltWithName": "Image de couverture de {name}",
+            "empty": "Aucun outil disponible"
+        },
+        "toolShow": {
+            "badge": "Aperçu de l'Outil",
+            "loadingTitle": "Chargement de l'outil...",
+            "back": "Retour",
+            "backAria": "Retour à la liste des outils",
+            "sectionTitle": "Sous-outils Connexes",
+            "sectionSubtitle": "Expériences connectées avec lesquelles vous pouvez discuter",
+            "statusActive": "Actif",
+            "statusInactive": "Inactif",
+            "chatButton": "Discuter",
+            "chatAria": "Commencer la discussion avec {name}",
+            "empty": "Aucun sous-outil connexe trouvé",
+            "untitledTool": "Outil sans titre",
+            "untitledSubtool": "Sous-outil sans titre",
+            "noDescription": "Aucune description"
+        },
+        "chat": {
+            "workspaceAria": "Espace de travail de chat IA",
+            "workspaceTitle": "Espace de Travail de Chat",
+            "conversations": "Conversations",
+            "closeSidebarAria": "Fermer la barre latérale des conversations",
+            "openSidebarAria": "Ouvrir la barre latérale des conversations",
+            "creating": "Création en cours...",
+            "newChat": "Nouvelle Discussion",
+            "recentChats": "Discussions Récentes",
+            "noConversations": "Aucune conversation pour le moment",
+            "conversationFallback": "conversation",
+            "deleteConversationAria": "Supprimer {name}",
+            "modelIconAria": "Icône du modèle IA",
+            "modelIconAriaWithName": "Icône de {name}",
+            "draft": "Brouillon",
+            "newConversation": "Nouvelle Conversation",
+            "emptyWithConversation": "Commencez à envoyer des messages dans cette conversation.",
+            "emptyWithoutConversation": "Créez une nouvelle discussion ou envoyez votre premier message pour commencer.",
+            "inputAria": "Champ de saisie du message de chat",
+            "inputPlaceholder": "Écrivez votre message ici...",
+            "sendAria": "Envoyer le message de chat",
+            "inputHint": "Entrée pour envoyer • Maj+Entrée pour une nouvelle ligne",
+            "conversationTitle": "Conversation {short}",
+            "conversationSubtitle": "UUID : {uuid}",
+            "genericError": "Quelque chose s'est mal passé.",
+            "connectionInterrupted": "Connexion interrompue. Veuillez réessayer.",
+            "aiTool": "Outil IA",
+            "startConversation": "Commencer une conversation."
+        },
+        "contact": {
+            "badge": "Nous Contacter",
+            "title": "Contactez-nous",
+            "subtitle": "Nous sommes là pour répondre à toutes vos questions et vous aider avec tout ce dont vous avez besoin",
+            "infoTitle": "Informations de Contact",
+            "addressLabel": "Adresse",
+            "addressValue": "Nile Street, Le Caire, Égypte",
+            "phoneLabel": "Téléphone",
+            "phoneValue": "+20 123 456 789",
+            "emailLabel": "Email",
+            "emailValue": "info@example.com",
+            "followUs": "Suivez-nous",
+            "socialAria": "Visiter notre page {name}",
+            "formTitle": "Envoyez-nous un message",
+            "nameLabel": "Nom Complet",
+            "emailFieldLabel": "Email",
+            "subjectLabel": "Sujet",
+            "messageLabel": "Message",
+            "submit": "Envoyer le Message",
+            "successMessage": "Votre message a été envoyé avec succès !"
+        },
+        "charge": {
+            "balanceSummaryAria": "Résumé du solde du portefeuille",
+            "formAria": "Formulaire de recharge du portefeuille",
+            "title": "Recharger le Portefeuille",
+            "currentBalance": "Solde Actuel",
+            "selectPresetAria": "Sélectionner le montant prédéfini {value} dollars",
+            "customAmountLabel": "Montant Personnalisé",
+            "customAmountAria": "Montant de recharge personnalisé",
+            "descriptionLabel": "Description (optionnel)",
+            "descriptionAria": "Description de la recharge",
+            "descriptionPlaceholder": "Par exemple : recharge de portefeuille pour achat d'image",
+            "summaryAmount": "Montant",
+            "summaryCurrency": "Devise",
+            "summaryMethod": "Méthode de Paiement",
+            "loading": "Traitement en cours...",
+            "payButton": "Payer avec PayPal",
+            "amountError": "Entrez un montant valide (supérieur à 1)",
+            "defaultDescription": "Dépôt Portefeuille",
+            "genericError": "Quelque chose s'est mal passé, veuillez réessayer."
+        },
+        "profile": {
+            "title": "Mon Profil",
+            "openTabAria": "Ouvrir l'onglet {tab}",
+            "avatarAlt": "Avatar de {name}",
+            "previewAlt": "Aperçu du profil de {name}",
+            "userFallback": "Utilisateur",
+            "na": "�",
+            "tabs": {
+                "conversations": "Conversations",
+                "info": "Informations Utilisateur",
+                "edit": "Modifier les Détails",
+                "password": "Mettre à Jour le Mot de Passe"
+            },
+            "fields": {
+                "name": "Nom",
+                "email": "Email",
+                "phone": "Téléphone",
+                "image": "Image de Profil",
+                "role": "Rôle",
+                "status": "Statut",
+                "lastSeen": "Dernière Connexion"
+            },
+            "status": {
+                "active": "Actif ?",
+                "inactive": "Inactif"
+            },
+            "placeholders": {
+                "name": "Entrez votre nom"
+            },
+            "chooseImage": "Choisir une Image",
+            "uploadImageAria": "Télécharger l'image de profil",
+            "actions": {
+                "save": "Enregistrer les Modifications",
+                "deleteAccount": "Supprimer le Compte",
+                "updatePassword": "Mettre à Jour le Mot de Passe"
+            },
+            "loading": {
+                "save": "Enregistrement en cours...",
+                "delete": "Suppression en cours...",
+                "updatePassword": "Mise à jour en cours..."
+            },
+            "saveAria": "Enregistrer les modifications du profil",
+            "deleteAria": "Supprimer le compte",
+            "updatePasswordAria": "Mettre à jour le mot de passe",
+            "password": {
+                "current": "Mot de Passe Actuel",
+                "new": "Nouveau Mot de Passe",
+                "confirm": "Confirmer le Mot de Passe",
+                "show": "Afficher le mot de passe",
+                "hide": "Masquer le mot de passe"
+            },
+            "messages": {
+                "nameEmailRequired": "Veuillez remplir le nom et l'email",
+                "profileUpdated": "Profil mis à jour avec succès ?",
+                "accountDeleted": "Compte supprimé avec succès ?",
+                "fillAllFields": "Veuillez remplir tous les champs",
+                "passwordMismatch": "Les mots de passe ne correspondent pas",
+                "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
+                "passwordUpdated": "Mot de passe mis à jour avec succès ?"
+            },
+            "seoTitle": "Profil Utilisateur | Ai Pro",
+            "seoDescription": "Gérez le profil de votre compte, mettez à jour vos informations personnelles et avatar, et changez votre mot de passe en toute sécurité depuis une page de paramètres organisée avec un retour d'état clair."
+        },
+        "wallet": {
+            "kicker": "Tableau de Bord Fintech",
+            "title": "Mon Portefeuille",
+            "subtitle": "Suivez votre solde, examinez le flux des transactions et inspectez l'activité du portefeuille en un seul endroit.",
+            "chargeAria": "Aller à la page de recharge du portefeuille",
+            "chargeButton": "Recharger le Portefeuille",
+            "preparing": "Préparation en cours...",
+            "currentBalance": "Solde Actuel",
+            "points": "Points",
+            "walletId": "ID du Portefeuille",
+            "creditsOnPage": "Crédits sur cette page",
+            "debitsOnPage": "Débits sur cette page",
+            "credit": "Crédit",
+            "debit": "Débit",
+            "transactionsLoaded": "Transactions Chargées",
+            "lastUpdate": "Dernière mise à jour",
+            "tabWallet": "Portefeuille",
+            "tabTransactions": "Transactions",
+            "accountHolder": "Titulaire du Compte",
+            "unknownUser": "Utilisateur inconnu",
+            "noEmail": "Aucun email disponible",
+            "walletStatus": "Statut du Portefeuille",
+            "statusActive": "Actif",
+            "statusInactive": "Inactif",
+            "statusActiveDesc": "Prêt pour les crédits et débits.",
+            "statusInactiveDesc": "L'activité du portefeuille est en pause.",
+            "createdAt": "Créé le",
+            "createdAtDesc": "Horodatage de création du portefeuille",
+            "updatedAt": "Mis à jour le",
+            "updatedAtDesc": "Dernier rafraîchissement du portefeuille",
+            "unavailableTitle": "Les données du portefeuille sont indisponibles",
+            "unavailableDesc": "Nous n'avons pas pu charger le profil du portefeuille pour le moment.",
+            "tryAgain": "Réessayer",
+            "transactionActivity": "Activité des Transactions",
+            "transactionActivityDesc": "Examinez les crédits, débits et mouvements du solde du portefeuille au fil du temps.",
+            "viewTransactionAria": "Voir les détails de la transaction {id}",
+            "unknownType": "inconnu",
+            "noTransactions": "Aucune transaction pour le moment",
+            "noTransactionsDesc": "L'activité de votre portefeuille apparaîtra ici une fois que des crédits ou débits seront enregistrés.",
+            "previous": "Précédent",
+            "next": "Suivant",
+            "pagination": "Page {current} sur {last}",
+            "transactionsCount": "{count} transactions",
+            "transactionDetails": "Détails de la Transaction",
+            "walletTransaction": "Transaction Portefeuille",
+            "closeDetailsAria": "Fermer la boîte de dialogue des détails de la transaction",
+            "type": "Type",
+            "balanceBefore": "Solde Avant",
+            "balanceAfter": "Solde Après",
+            "user": "Utilisateur",
+            "email": "Email",
+            "transactionDate": "Date de la Transaction",
+            "reference": "Référence",
+            "noWalletReference": "Aucune référence portefeuille",
+            "loadWalletError": "Échec du chargement des données du portefeuille.",
+            "loadTransactionsError": "Échec du chargement des transactions du portefeuille.",
+            "loadDetailsError": "Échec du chargement des détails de la transaction.",
+            "na": "�"
+        },
+        "deposit": {
+            "success": {
+                "badge": "Solde rechargé via PayPal",
+                "title": "Solde rechargé avec succès ??",
+                "subtitleHtml": "Le montant a été ajouté à votre portefeuille avec succès<br />Vous pouvez maintenant l'utiliser pour vos achats",
+                "statusLabel": "Statut de la Transaction",
+                "statusValue": "Réussie",
+                "notificationLabel": "Notification",
+                "notificationValue": "Un message a été envoyé à votre email",
+                "transactionIdLabel": "ID de Transaction",
+                "walletButton": "Aller au Portefeuille",
+                "walletAria": "Aller à la page du portefeuille",
+                "homeButton": "Retour à l'Accueil",
+                "homeAria": "Retour à la page d'accueil",
+                "fallbackTransactionId": "PP-{id}",
+                "seoTitle": "Dépôt Réussi | Ai Pro",
+                "seoDescription": "Votre recharge de portefeuille a réussi. Confirmez les détails de la transaction, retournez à votre portefeuille et continuez à utiliser les outils avec votre solde mis à jour immédiatement."
+            },
+            "failed": {
+                "badge": "Paiement PayPal échoué",
+                "title": "Paiement échoué ??",
+                "subtitleHtml": "Le paiement n'a pas été complété avec succès<br />Vous pouvez réessayer ou contacter le support",
+                "statusLabel": "Statut",
+                "statusValue": "Paiement Échoué",
+                "reasonLabel": "Raison",
+                "noteLabel": "Note",
+                "noteValue": "Aucun montant n'a été débité",
+                "retryButton": "Réessayer",
+                "retryAria": "Réessayer le paiement PayPal",
+                "supportButton": "Contacter le Support",
+                "supportAria": "Contacter le support",
+                "homeButton": "Retour à l'Accueil",
+                "homeAria": "Retour à la page d'accueil",
+                "reasons": {
+                    "instrument_declined": "L'instrument de paiement a été refusé",
+                    "payer_cannot_pay": "Solde insuffisant",
+                    "transaction_refused": "Transaction refusée par PayPal",
+                    "default": "La transaction a été annulée ou le paiement a échoué"
+                },
+                "seoTitle": "Paiement Échoué | Ai Pro",
+                "seoDescription": "Le paiement n'a pas abouti. Consultez la raison de l'échec, réessayez votre recharge PayPal en toute sécurité ou contactez le support pour une aide rapide sans perdre votre solde portefeuille."
+            },
+            "waiting": {
+                "title": "Traitement de Votre Paiement",
+                "subtitle": "Veuillez patienter pendant que nous confirmons votre paiement avec PayPal...",
+                "hint": "Ne fermez pas cette page"
+            }
+        }
     }
-  }
 }
-

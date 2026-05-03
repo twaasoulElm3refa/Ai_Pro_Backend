@@ -125,6 +125,38 @@
                 </button>
             </div>
 
+            <div v-if="currentTab === 4" class="space-y-3">
+                <div v-if="conversationsLoading" :class="['px-4 py-3 rounded-xl text-sm', isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-50 text-slate-600']">
+                    Loading conversations...
+                </div>
+
+                <div v-else-if="conversations.length === 0" :class="['px-4 py-3 rounded-xl text-sm', isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-50 text-slate-600']">
+                    No conversations found.
+                </div>
+
+                <template v-else>
+                    <button
+                        v-for="conversation in conversations"
+                        :key="conversation.uuid"
+                        type="button"
+                        @click="openConversation(conversation)"
+                        :class="[
+                            'w-full text-left rounded-xl border px-4 py-3 transition-colors',
+                            isDark
+                                ? 'bg-slate-900 border-slate-700 hover:border-[#2ba6de] hover:bg-slate-800'
+                                : 'bg-white border-slate-200 hover:border-[#154677] hover:bg-slate-50'
+                        ]"
+                    >
+                        <p class="font-semibold">
+                            {{ conversation.sub_tool?.name || "Unknown Tool" }}
+                        </p>
+                        <p v-if="conversation.created_at" :class="['text-xs mt-1', isDark ? 'text-slate-400' : 'text-slate-500']">
+                            {{ formatConversationDate(conversation.created_at) }}
+                        </p>
+                    </button>
+                </template>
+            </div>
+
             <transition name="fade">
                 <div v-if="statusMessage" role="status" aria-live="polite" :class="['mt-6 p-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all',
                     statusIsError
@@ -139,10 +171,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import api from "@/services/ApiClient";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
 import homeService from "@/services/home/homeService";
 
@@ -190,6 +222,7 @@ export default {
 
     setup() {
         const route = useRoute();
+        const router = useRouter();
         const { t, locale } = useI18n();
         const currentDir = computed(() => locale.value === "ar" ? "rtl" : "ltr");
 
@@ -229,6 +262,9 @@ export default {
             new_password: "",
             confirm_password: "",
         });
+        const conversations = ref([]);
+        const conversationsLoading = ref(false);
+        const conversationsLoaded = ref(false);
 
         const avatarInitials = computed(() =>
             (profile.value.user.name || "")
@@ -267,6 +303,7 @@ export default {
             { id: 1, label: t("user.profile.tabs.info") },
             { id: 2, label: t("user.profile.tabs.edit") },
             { id: 3, label: t("user.profile.tabs.password") },
+            { id: 4, label: t("user.profile.tabs.conversations") },
         ]);
 
         const currentTab = ref(1);
@@ -398,12 +435,57 @@ export default {
             }
         };
 
+        const fetchConversations = async () => {
+            conversationsLoading.value = true;
+            try {
+                const response = await homeService.getConversations();
+                conversations.value = Array.isArray(response?.data) ? response.data : [];
+                conversationsLoaded.value = true;
+            } catch {
+                conversations.value = [];
+                conversationsLoaded.value = true;
+            } finally {
+                conversationsLoading.value = false;
+            }
+        };
+
+        const getConversationLang = () => {
+            return localStorage.getItem("locale")
+                || localStorage.getItem("lang")
+                || homeService.getLang();
+        };
+
+        const openConversation = (conversation) => {
+            const slug = conversation?.sub_tool?.slug;
+            const uuid = conversation?.uuid;
+
+            if (!slug || !uuid) return;
+
+            router.push(`/${getConversationLang()}/subtool/${slug}/chat/${uuid}`);
+        };
+
+        const formatConversationDate = (value) => {
+            if (!value) return "";
+
+            return new Intl.DateTimeFormat("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            }).format(new Date(value));
+        };
+
         onMounted(() => {
             locale.value = homeService.getLang();
             window.addEventListener("storage", handleStorageChange);
             window.addEventListener("login", fetchProfile);
             window.addEventListener("lang-changed", fetchProfile);
             fetchProfile();
+
+            if (currentTab.value === 4 && !conversationsLoaded.value) {
+                fetchConversations();
+            }
         });
 
         onUnmounted(() => {
@@ -412,6 +494,15 @@ export default {
             window.removeEventListener("lang-changed", fetchProfile);
             clearTimeout(statusTimer);
         });
+
+        watch(
+            currentTab,
+            (tabId) => {
+                if (tabId === 4 && !conversationsLoaded.value) {
+                    fetchConversations();
+                }
+            }
+        );
 
         return {
             t,
@@ -430,11 +521,15 @@ export default {
             inputClass,
             profileLoading,
             passwordLoading,
+            conversations,
+            conversationsLoading,
             handleImageUpload,
             updateProfile,
             updatePassword,
             getImageUrl,
             deleteProfile,
+            openConversation,
+            formatConversationDate,
         };
     },
 };

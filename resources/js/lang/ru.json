@@ -1,343 +1,344 @@
 {
-  "navbar": {
-    "home": "Главная",
-    "wallet": "Кошелёк",
-    "personalAccount": "Личный аккаунт",
-    "profile": "Профиль",
-    "logout": "Выйти",
-    "login": "Войти",
-    "user": "Пользователь"
-  },
-  "home": {
-    "title": "AI-инструменты",
-    "description": "Выберите нужный инструмент"
-  },
-  "auth": {
-    "googleCallback": {
-      "signingInTitle": "Выполняется вход через Google...",
-      "signingInSubtitle": "Пожалуйста, подождите, пока мы завершим вход.",
-      "missingToken": "Токен от входа через Google не получен."
+    "navbar": {
+        "home": "Главная",
+        "wallet": "Кошелёк",
+        "personalAccount": "Личный аккаунт",
+        "profile": "Профиль",
+        "logout": "Выйти",
+        "login": "Войти",
+        "user": "Пользователь"
     },
-    "register": {
-      "logoAlt": "Логотип AI PRO",
-      "googleAlt": "Логотип Google",
-      "brandTagline": "Создавайте. Учитесь. Развивайтесь с ИИ",
-      "tabs": {
-        "login": "Вход",
-        "register": "Регистрация"
-      },
-      "fields": {
-        "fullName": "Полное имя",
-        "email": "Электронная почта",
-        "password": "Пароль",
-        "confirmPassword": "Подтвердите пароль",
-        "phoneOptional": "Телефон (необязательно)"
-      },
-      "otp": {
-        "title": "Подтвердите вашу почту",
-        "sentTo": "Код был отправлен на",
-        "codePlaceholder": "Введите код подтверждения",
-        "verifyAndLogin": "Подтвердить и войти",
-        "verifying": "Проверка...",
-        "resend": "Отправить код повторно",
-        "backToLogin": "Вернуться ко входу"
-      },
-      "login": {
-        "submit": "Войти",
-        "loading": "Загрузка...",
-        "forgot": "Забыли пароль?",
-        "google": "Продолжить с Google"
-      },
-      "register": {
-        "submit": "Создать аккаунт",
-        "loading": "Создание..."
-      },
-      "forgot": {
-        "submit": "Отправить код",
-        "loading": "Отправка...",
-        "backToLogin": "Вернуться ко входу"
-      },
-      "reset": {
-        "email": "Электронная почта",
-        "otp": "OTP-код",
-        "newPassword": "Новый пароль",
-        "submit": "Сбросить пароль",
-        "loading": "Обновление..."
-      },
-      "switch": {
-        "haveAccount": "Уже есть аккаунт?",
-        "noAccount": "Нет аккаунта?"
-      }
-    }
-  },
-  "user": {
     "home": {
-      "badge": "Каталог инструментов",
-      "title": "Откройте AI-инструменты для продуктивной работы",
-      "subtitle": "Просматривайте новые инструменты, быстро переходите к деталям и изучайте каждую возможность в удобном каталоге.",
-      "statusActive": "Активен",
-      "statusInactive": "Неактивен",
-      "showButton": "Показать",
-      "showAria": "Показать детали для {name}",
-      "openAria": "Открыть {name}",
-      "coverAlt": "Изображение обложки AI-инструмента",
-      "coverAltWithName": "Изображение обложки {name}",
-      "empty": "Нет доступных инструментов"
+        "title": "AI-инструменты",
+        "description": "Выберите нужный инструмент"
     },
-    "toolShow": {
-      "badge": "Обзор инструмента",
-      "loadingTitle": "Загрузка инструмента...",
-      "back": "Назад",
-      "backAria": "Вернуться к списку инструментов",
-      "sectionTitle": "Связанные подинструменты",
-      "sectionSubtitle": "Связанные возможности, с которыми можно общаться",
-      "statusActive": "Активен",
-      "statusInactive": "Неактивен",
-      "chatButton": "Чат",
-      "chatAria": "Начать чат с {name}",
-      "empty": "Связанные подинструменты не найдены",
-      "untitledTool": "Инструмент без названия",
-      "untitledSubtool": "Подинструмент без названия",
-      "noDescription": "Описание отсутствует"
-    },
-    "chat": {
-      "workspaceAria": "Рабочая область AI-чата",
-      "workspaceTitle": "Рабочая область чата",
-      "conversations": "Беседы",
-      "closeSidebarAria": "Закрыть боковую панель бесед",
-      "openSidebarAria": "Открыть боковую панель бесед",
-      "creating": "Создание...",
-      "newChat": "Новый чат",
-      "recentChats": "Недавние чаты",
-      "noConversations": "Пока нет бесед",
-      "conversationFallback": "беседа",
-      "deleteConversationAria": "Удалить {name}",
-      "modelIconAria": "Иконка AI-модели",
-      "modelIconAriaWithName": "Иконка {name}",
-      "draft": "Черновик",
-      "newConversation": "Новая беседа",
-      "emptyWithConversation": "Начните отправлять сообщения в этой беседе.",
-      "emptyWithoutConversation": "Создайте новый чат или отправьте первое сообщение, чтобы начать.",
-      "inputAria": "Поле ввода сообщения чата",
-      "inputPlaceholder": "Напишите ваше сообщение здесь...",
-      "sendAria": "Отправить сообщение в чат",
-      "inputHint": "Enter — отправить, Shift+Enter — новая строка",
-      "conversationTitle": "Беседа {short}",
-      "conversationSubtitle": "UUID: {uuid}",
-      "genericError": "Что-то пошло не так.",
-      "connectionInterrupted": "Соединение прервано. Пожалуйста, попробуйте снова.",
-      "aiTool": "AI-инструмент",
-      "startConversation": "Начните беседу."
-    },
-    "contact": {
-      "badge": "Свяжитесь с нами",
-      "title": "Контакты",
-      "subtitle": "Мы здесь, чтобы ответить на ваши вопросы и помочь со всем, что вам нужно",
-      "infoTitle": "Контактная информация",
-      "addressLabel": "Адрес",
-      "addressValue": "улица Нил, Каир, Египет",
-      "phoneLabel": "Телефон",
-      "phoneValue": "+20 123 456 789",
-      "emailLabel": "Электронная почта",
-      "emailValue": "info@example.com",
-      "followUs": "Подписывайтесь на нас",
-      "socialAria": "Посетить нашу страницу {name}",
-      "formTitle": "Отправьте нам сообщение",
-      "nameLabel": "Полное имя",
-      "emailFieldLabel": "Электронная почта",
-      "subjectLabel": "Тема",
-      "messageLabel": "Сообщение",
-      "submit": "Отправить сообщение",
-      "successMessage": "Ваше сообщение успешно отправлено!"
-    },
-    "charge": {
-      "balanceSummaryAria": "Сводка баланса кошелька",
-      "formAria": "Форма пополнения кошелька",
-      "title": "Пополнить кошелёк",
-      "currentBalance": "Текущий баланс",
-      "selectPresetAria": "Выбрать готовую сумму {value} долларов",
-      "customAmountLabel": "Своя сумма",
-      "customAmountAria": "Пользовательская сумма пополнения",
-      "descriptionLabel": "Описание (необязательно)",
-      "descriptionAria": "Описание пополнения",
-      "descriptionPlaceholder": "Например: пополнение кошелька для покупки изображения",
-      "summaryAmount": "Сумма",
-      "summaryCurrency": "Валюта",
-      "summaryMethod": "Способ оплаты",
-      "loading": "Обработка...",
-      "payButton": "Оплатить через PayPal",
-      "amountError": "Введите корректную сумму больше 1",
-      "defaultDescription": "Пополнение кошелька",
-      "genericError": "Что-то пошло не так, попробуйте снова."
-    },
-    "profile": {
-      "title": "Мой профиль",
-      "openTabAria": "Открыть вкладку {tab}",
-      "avatarAlt": "Аватар {name}",
-      "previewAlt": "Предпросмотр профиля {name}",
-      "userFallback": "Пользователь",
-      "na": "Недоступно",
-      "tabs": {
-        "info": "Информация о пользователе",
-        "edit": "Редактировать данные",
-        "password": "Обновить пароль"
-      },
-      "fields": {
-        "name": "Имя",
-        "email": "Электронная почта",
-        "phone": "Телефон",
-        "image": "Изображение профиля",
-        "role": "Роль",
-        "status": "Статус",
-        "lastSeen": "Последняя активность"
-      },
-      "status": {
-        "active": "Активен",
-        "inactive": "Неактивен"
-      },
-      "placeholders": {
-        "name": "Введите ваше имя"
-      },
-      "chooseImage": "Выбрать изображение",
-      "uploadImageAria": "Загрузить изображение профиля",
-      "actions": {
-        "save": "Сохранить изменения",
-        "deleteAccount": "Удалить аккаунт",
-        "updatePassword": "Обновить пароль"
-      },
-      "loading": {
-        "save": "Сохранение...",
-        "delete": "Удаление...",
-        "updatePassword": "Обновление..."
-      },
-      "saveAria": "Сохранить изменения профиля",
-      "deleteAria": "Удалить аккаунт",
-      "updatePasswordAria": "Обновить пароль",
-      "password": {
-        "current": "Текущий пароль",
-        "new": "Новый пароль",
-        "confirm": "Подтвердите пароль",
-        "show": "Показать пароль",
-        "hide": "Скрыть пароль"
-      },
-      "messages": {
-        "nameEmailRequired": "Пожалуйста, заполните имя и электронную почту",
-        "profileUpdated": "Профиль успешно обновлён",
-        "accountDeleted": "Аккаунт успешно удалён",
-        "fillAllFields": "Пожалуйста, заполните все поля",
-        "passwordMismatch": "Пароли не совпадают",
-        "passwordTooShort": "Пароль должен содержать не менее 6 символов",
-        "passwordUpdated": "Пароль успешно обновлён"
-      },
-      "seoTitle": "Профиль пользователя | Ai Pro",
-      "seoDescription": "Управляйте профилем аккаунта, обновляйте личные данные и аватар, а также безопасно меняйте пароль на одной удобной странице настроек."
-    },
-    "wallet": {
-      "kicker": "Финансовая панель",
-      "title": "Мой кошелёк",
-      "subtitle": "Отслеживайте баланс, просматривайте движение транзакций и контролируйте активность кошелька в одном месте.",
-      "chargeAria": "Перейти на страницу пополнения кошелька",
-      "chargeButton": "Пополнить кошелёк",
-      "preparing": "Подготовка...",
-      "currentBalance": "Текущий баланс",
-      "points": "Баллы",
-      "walletId": "ID кошелька",
-      "creditsOnPage": "Зачисления на этой странице",
-      "debitsOnPage": "Списания на этой странице",
-      "credit": "Зачисление",
-      "debit": "Списание",
-      "transactionsLoaded": "Загруженные транзакции",
-      "lastUpdate": "Последнее обновление",
-      "tabWallet": "Кошелёк",
-      "tabTransactions": "Транзакции",
-      "accountHolder": "Владелец аккаунта",
-      "unknownUser": "Неизвестный пользователь",
-      "noEmail": "Электронная почта недоступна",
-      "walletStatus": "Статус кошелька",
-      "statusActive": "Активен",
-      "statusInactive": "Неактивен",
-      "statusActiveDesc": "Готов к зачислениям и списаниям.",
-      "statusInactiveDesc": "Активность кошелька приостановлена.",
-      "createdAt": "Дата создания",
-      "createdAtDesc": "Время создания кошелька",
-      "updatedAt": "Дата обновления",
-      "updatedAtDesc": "Последнее обновление кошелька",
-      "unavailableTitle": "Данные кошелька недоступны",
-      "unavailableDesc": "Не удалось загрузить данные кошелька прямо сейчас.",
-      "tryAgain": "Попробовать снова",
-      "transactionActivity": "Активность транзакций",
-      "transactionActivityDesc": "Просматривайте зачисления, списания и изменение баланса кошелька с течением времени.",
-      "viewTransactionAria": "Посмотреть детали транзакции {id}",
-      "unknownType": "неизвестно",
-      "noTransactions": "Транзакций пока нет",
-      "noTransactionsDesc": "Активность вашего кошелька появится здесь после записи зачислений или списаний.",
-      "previous": "Назад",
-      "next": "Вперёд",
-      "pagination": "Страница {current} из {last}",
-      "transactionsCount": "{count} транзакций",
-      "transactionDetails": "Детали транзакции",
-      "walletTransaction": "Транзакция кошелька",
-      "closeDetailsAria": "Закрыть окно деталей транзакции",
-      "type": "Тип",
-      "balanceBefore": "Баланс до",
-      "balanceAfter": "Баланс после",
-      "user": "Пользователь",
-      "email": "Электронная почта",
-      "transactionDate": "Дата транзакции",
-      "reference": "Ссылка",
-      "noWalletReference": "Ссылка на кошелёк отсутствует",
-      "loadWalletError": "Не удалось загрузить данные кошелька.",
-      "loadTransactionsError": "Не удалось загрузить транзакции кошелька.",
-      "loadDetailsError": "Не удалось загрузить детали транзакции.",
-      "na": "Недоступно"
-    },
-    "deposit": {
-      "success": {
-        "badge": "Баланс пополнен через PayPal",
-        "title": "Баланс успешно пополнен",
-        "subtitleHtml": "Сумма успешно добавлена в ваш кошелёк<br />Теперь вы можете использовать её для покупок",
-        "statusLabel": "Статус транзакции",
-        "statusValue": "Успешно",
-        "notificationLabel": "Уведомление",
-        "notificationValue": "Сообщение отправлено на вашу электронную почту",
-        "transactionIdLabel": "ID транзакции",
-        "walletButton": "Перейти к кошельку",
-        "walletAria": "Перейти на страницу кошелька",
-        "homeButton": "Вернуться на главную",
-        "homeAria": "Вернуться на главную страницу",
-        "fallbackTransactionId": "PP-{id}",
-        "seoTitle": "Успешное пополнение | Ai Pro",
-        "seoDescription": "Ваш кошелёк успешно пополнен. Проверьте детали транзакции, вернитесь к кошельку и продолжайте использовать инструменты с обновлённым балансом."
-      },
-      "failed": {
-        "badge": "Платёж PayPal не выполнен",
-        "title": "Платёж не выполнен",
-        "subtitleHtml": "Платёж не был успешно завершён<br />Вы можете попробовать снова или обратиться в поддержку",
-        "statusLabel": "Статус",
-        "statusValue": "Платёж не выполнен",
-        "reasonLabel": "Причина",
-        "noteLabel": "Примечание",
-        "noteValue": "Сумма не была списана",
-        "retryButton": "Повторить",
-        "retryAria": "Повторить платёж через PayPal",
-        "supportButton": "Связаться с поддержкой",
-        "supportAria": "Связаться с поддержкой",
-        "homeButton": "Вернуться на главную",
-        "homeAria": "Вернуться на главную страницу",
-        "reasons": {
-          "instrument_declined": "Платёжный инструмент был отклонён",
-          "payer_cannot_pay": "Недостаточно средств",
-          "transaction_refused": "Транзакция была отклонена PayPal",
-          "default": "Транзакция была отменена или платёж не удался"
+    "auth": {
+        "googleCallback": {
+            "signingInTitle": "Выполняется вход через Google...",
+            "signingInSubtitle": "Пожалуйста, подождите, пока мы завершим вход.",
+            "missingToken": "Токен от входа через Google не получен."
         },
-        "seoTitle": "Платёж не выполнен | Ai Pro",
-        "seoDescription": "Платёж не был завершён. Проверьте причину ошибки, безопасно повторите пополнение через PayPal или обратитесь в поддержку без потери баланса кошелька."
-      },
-      "waiting": {
-        "title": "Обработка платежа",
-        "subtitle": "Пожалуйста, подождите, пока мы подтвердим ваш платёж через PayPal...",
-        "hint": "Не закрывайте эту страницу"
-      }
+        "register": {
+            "logoAlt": "Логотип AI PRO",
+            "googleAlt": "Логотип Google",
+            "brandTagline": "Создавайте. Учитесь. Развивайтесь с ИИ",
+            "tabs": {
+                "login": "Вход",
+                "register": "Регистрация"
+            },
+            "fields": {
+                "fullName": "Полное имя",
+                "email": "Электронная почта",
+                "password": "Пароль",
+                "confirmPassword": "Подтвердите пароль",
+                "phoneOptional": "Телефон (необязательно)"
+            },
+            "otp": {
+                "title": "Подтвердите вашу почту",
+                "sentTo": "Код был отправлен на",
+                "codePlaceholder": "Введите код подтверждения",
+                "verifyAndLogin": "Подтвердить и войти",
+                "verifying": "Проверка...",
+                "resend": "Отправить код повторно",
+                "backToLogin": "Вернуться ко входу"
+            },
+            "login": {
+                "submit": "Войти",
+                "loading": "Загрузка...",
+                "forgot": "Забыли пароль?",
+                "google": "Продолжить с Google"
+            },
+            "register": {
+                "submit": "Создать аккаунт",
+                "loading": "Создание..."
+            },
+            "forgot": {
+                "submit": "Отправить код",
+                "loading": "Отправка...",
+                "backToLogin": "Вернуться ко входу"
+            },
+            "reset": {
+                "email": "Электронная почта",
+                "otp": "OTP-код",
+                "newPassword": "Новый пароль",
+                "submit": "Сбросить пароль",
+                "loading": "Обновление..."
+            },
+            "switch": {
+                "haveAccount": "Уже есть аккаунт?",
+                "noAccount": "Нет аккаунта?"
+            }
+        }
+    },
+    "user": {
+        "home": {
+            "badge": "Каталог инструментов",
+            "title": "Откройте AI-инструменты для продуктивной работы",
+            "subtitle": "Просматривайте новые инструменты, быстро переходите к деталям и изучайте каждую возможность в удобном каталоге.",
+            "statusActive": "Активен",
+            "statusInactive": "Неактивен",
+            "showButton": "Показать",
+            "showAria": "Показать детали для {name}",
+            "openAria": "Открыть {name}",
+            "coverAlt": "Изображение обложки AI-инструмента",
+            "coverAltWithName": "Изображение обложки {name}",
+            "empty": "Нет доступных инструментов"
+        },
+        "toolShow": {
+            "badge": "Обзор инструмента",
+            "loadingTitle": "Загрузка инструмента...",
+            "back": "Назад",
+            "backAria": "Вернуться к списку инструментов",
+            "sectionTitle": "Связанные подинструменты",
+            "sectionSubtitle": "Связанные возможности, с которыми можно общаться",
+            "statusActive": "Активен",
+            "statusInactive": "Неактивен",
+            "chatButton": "Чат",
+            "chatAria": "Начать чат с {name}",
+            "empty": "Связанные подинструменты не найдены",
+            "untitledTool": "Инструмент без названия",
+            "untitledSubtool": "Подинструмент без названия",
+            "noDescription": "Описание отсутствует"
+        },
+        "chat": {
+            "workspaceAria": "Рабочая область AI-чата",
+            "workspaceTitle": "Рабочая область чата",
+            "conversations": "Беседы",
+            "closeSidebarAria": "Закрыть боковую панель бесед",
+            "openSidebarAria": "Открыть боковую панель бесед",
+            "creating": "Создание...",
+            "newChat": "Новый чат",
+            "recentChats": "Недавние чаты",
+            "noConversations": "Пока нет бесед",
+            "conversationFallback": "беседа",
+            "deleteConversationAria": "Удалить {name}",
+            "modelIconAria": "Иконка AI-модели",
+            "modelIconAriaWithName": "Иконка {name}",
+            "draft": "Черновик",
+            "newConversation": "Новая беседа",
+            "emptyWithConversation": "Начните отправлять сообщения в этой беседе.",
+            "emptyWithoutConversation": "Создайте новый чат или отправьте первое сообщение, чтобы начать.",
+            "inputAria": "Поле ввода сообщения чата",
+            "inputPlaceholder": "Напишите ваше сообщение здесь...",
+            "sendAria": "Отправить сообщение в чат",
+            "inputHint": "Enter — отправить, Shift+Enter — новая строка",
+            "conversationTitle": "Беседа {short}",
+            "conversationSubtitle": "UUID: {uuid}",
+            "genericError": "Что-то пошло не так.",
+            "connectionInterrupted": "Соединение прервано. Пожалуйста, попробуйте снова.",
+            "aiTool": "AI-инструмент",
+            "startConversation": "Начните беседу."
+        },
+        "contact": {
+            "badge": "Свяжитесь с нами",
+            "title": "Контакты",
+            "subtitle": "Мы здесь, чтобы ответить на ваши вопросы и помочь со всем, что вам нужно",
+            "infoTitle": "Контактная информация",
+            "addressLabel": "Адрес",
+            "addressValue": "улица Нил, Каир, Египет",
+            "phoneLabel": "Телефон",
+            "phoneValue": "+20 123 456 789",
+            "emailLabel": "Электронная почта",
+            "emailValue": "info@example.com",
+            "followUs": "Подписывайтесь на нас",
+            "socialAria": "Посетить нашу страницу {name}",
+            "formTitle": "Отправьте нам сообщение",
+            "nameLabel": "Полное имя",
+            "emailFieldLabel": "Электронная почта",
+            "subjectLabel": "Тема",
+            "messageLabel": "Сообщение",
+            "submit": "Отправить сообщение",
+            "successMessage": "Ваше сообщение успешно отправлено!"
+        },
+        "charge": {
+            "balanceSummaryAria": "Сводка баланса кошелька",
+            "formAria": "Форма пополнения кошелька",
+            "title": "Пополнить кошелёк",
+            "currentBalance": "Текущий баланс",
+            "selectPresetAria": "Выбрать готовую сумму {value} долларов",
+            "customAmountLabel": "Своя сумма",
+            "customAmountAria": "Пользовательская сумма пополнения",
+            "descriptionLabel": "Описание (необязательно)",
+            "descriptionAria": "Описание пополнения",
+            "descriptionPlaceholder": "Например: пополнение кошелька для покупки изображения",
+            "summaryAmount": "Сумма",
+            "summaryCurrency": "Валюта",
+            "summaryMethod": "Способ оплаты",
+            "loading": "Обработка...",
+            "payButton": "Оплатить через PayPal",
+            "amountError": "Введите корректную сумму больше 1",
+            "defaultDescription": "Пополнение кошелька",
+            "genericError": "Что-то пошло не так, попробуйте снова."
+        },
+        "profile": {
+            "title": "Мой профиль",
+            "openTabAria": "Открыть вкладку {tab}",
+            "avatarAlt": "Аватар {name}",
+            "previewAlt": "Предпросмотр профиля {name}",
+            "userFallback": "Пользователь",
+            "na": "Недоступно",
+            "tabs": {
+                "conversations": "Беседы",
+                "info": "Информация о пользователе",
+                "edit": "Редактировать данные",
+                "password": "Обновить пароль"
+            },
+            "fields": {
+                "name": "Имя",
+                "email": "Электронная почта",
+                "phone": "Телефон",
+                "image": "Изображение профиля",
+                "role": "Роль",
+                "status": "Статус",
+                "lastSeen": "Последняя активность"
+            },
+            "status": {
+                "active": "Активен",
+                "inactive": "Неактивен"
+            },
+            "placeholders": {
+                "name": "Введите ваше имя"
+            },
+            "chooseImage": "Выбрать изображение",
+            "uploadImageAria": "Загрузить изображение профиля",
+            "actions": {
+                "save": "Сохранить изменения",
+                "deleteAccount": "Удалить аккаунт",
+                "updatePassword": "Обновить пароль"
+            },
+            "loading": {
+                "save": "Сохранение...",
+                "delete": "Удаление...",
+                "updatePassword": "Обновление..."
+            },
+            "saveAria": "Сохранить изменения профиля",
+            "deleteAria": "Удалить аккаунт",
+            "updatePasswordAria": "Обновить пароль",
+            "password": {
+                "current": "Текущий пароль",
+                "new": "Новый пароль",
+                "confirm": "Подтвердите пароль",
+                "show": "Показать пароль",
+                "hide": "Скрыть пароль"
+            },
+            "messages": {
+                "nameEmailRequired": "Пожалуйста, заполните имя и электронную почту",
+                "profileUpdated": "Профиль успешно обновлён",
+                "accountDeleted": "Аккаунт успешно удалён",
+                "fillAllFields": "Пожалуйста, заполните все поля",
+                "passwordMismatch": "Пароли не совпадают",
+                "passwordTooShort": "Пароль должен содержать не менее 6 символов",
+                "passwordUpdated": "Пароль успешно обновлён"
+            },
+            "seoTitle": "Профиль пользователя | Ai Pro",
+            "seoDescription": "Управляйте профилем аккаунта, обновляйте личные данные и аватар, а также безопасно меняйте пароль на одной удобной странице настроек."
+        },
+        "wallet": {
+            "kicker": "Финансовая панель",
+            "title": "Мой кошелёк",
+            "subtitle": "Отслеживайте баланс, просматривайте движение транзакций и контролируйте активность кошелька в одном месте.",
+            "chargeAria": "Перейти на страницу пополнения кошелька",
+            "chargeButton": "Пополнить кошелёк",
+            "preparing": "Подготовка...",
+            "currentBalance": "Текущий баланс",
+            "points": "Баллы",
+            "walletId": "ID кошелька",
+            "creditsOnPage": "Зачисления на этой странице",
+            "debitsOnPage": "Списания на этой странице",
+            "credit": "Зачисление",
+            "debit": "Списание",
+            "transactionsLoaded": "Загруженные транзакции",
+            "lastUpdate": "Последнее обновление",
+            "tabWallet": "Кошелёк",
+            "tabTransactions": "Транзакции",
+            "accountHolder": "Владелец аккаунта",
+            "unknownUser": "Неизвестный пользователь",
+            "noEmail": "Электронная почта недоступна",
+            "walletStatus": "Статус кошелька",
+            "statusActive": "Активен",
+            "statusInactive": "Неактивен",
+            "statusActiveDesc": "Готов к зачислениям и списаниям.",
+            "statusInactiveDesc": "Активность кошелька приостановлена.",
+            "createdAt": "Дата создания",
+            "createdAtDesc": "Время создания кошелька",
+            "updatedAt": "Дата обновления",
+            "updatedAtDesc": "Последнее обновление кошелька",
+            "unavailableTitle": "Данные кошелька недоступны",
+            "unavailableDesc": "Не удалось загрузить данные кошелька прямо сейчас.",
+            "tryAgain": "Попробовать снова",
+            "transactionActivity": "Активность транзакций",
+            "transactionActivityDesc": "Просматривайте зачисления, списания и изменение баланса кошелька с течением времени.",
+            "viewTransactionAria": "Посмотреть детали транзакции {id}",
+            "unknownType": "неизвестно",
+            "noTransactions": "Транзакций пока нет",
+            "noTransactionsDesc": "Активность вашего кошелька появится здесь после записи зачислений или списаний.",
+            "previous": "Назад",
+            "next": "Вперёд",
+            "pagination": "Страница {current} из {last}",
+            "transactionsCount": "{count} транзакций",
+            "transactionDetails": "Детали транзакции",
+            "walletTransaction": "Транзакция кошелька",
+            "closeDetailsAria": "Закрыть окно деталей транзакции",
+            "type": "Тип",
+            "balanceBefore": "Баланс до",
+            "balanceAfter": "Баланс после",
+            "user": "Пользователь",
+            "email": "Электронная почта",
+            "transactionDate": "Дата транзакции",
+            "reference": "Ссылка",
+            "noWalletReference": "Ссылка на кошелёк отсутствует",
+            "loadWalletError": "Не удалось загрузить данные кошелька.",
+            "loadTransactionsError": "Не удалось загрузить транзакции кошелька.",
+            "loadDetailsError": "Не удалось загрузить детали транзакции.",
+            "na": "Недоступно"
+        },
+        "deposit": {
+            "success": {
+                "badge": "Баланс пополнен через PayPal",
+                "title": "Баланс успешно пополнен",
+                "subtitleHtml": "Сумма успешно добавлена в ваш кошелёк<br />Теперь вы можете использовать её для покупок",
+                "statusLabel": "Статус транзакции",
+                "statusValue": "Успешно",
+                "notificationLabel": "Уведомление",
+                "notificationValue": "Сообщение отправлено на вашу электронную почту",
+                "transactionIdLabel": "ID транзакции",
+                "walletButton": "Перейти к кошельку",
+                "walletAria": "Перейти на страницу кошелька",
+                "homeButton": "Вернуться на главную",
+                "homeAria": "Вернуться на главную страницу",
+                "fallbackTransactionId": "PP-{id}",
+                "seoTitle": "Успешное пополнение | Ai Pro",
+                "seoDescription": "Ваш кошелёк успешно пополнен. Проверьте детали транзакции, вернитесь к кошельку и продолжайте использовать инструменты с обновлённым балансом."
+            },
+            "failed": {
+                "badge": "Платёж PayPal не выполнен",
+                "title": "Платёж не выполнен",
+                "subtitleHtml": "Платёж не был успешно завершён<br />Вы можете попробовать снова или обратиться в поддержку",
+                "statusLabel": "Статус",
+                "statusValue": "Платёж не выполнен",
+                "reasonLabel": "Причина",
+                "noteLabel": "Примечание",
+                "noteValue": "Сумма не была списана",
+                "retryButton": "Повторить",
+                "retryAria": "Повторить платёж через PayPal",
+                "supportButton": "Связаться с поддержкой",
+                "supportAria": "Связаться с поддержкой",
+                "homeButton": "Вернуться на главную",
+                "homeAria": "Вернуться на главную страницу",
+                "reasons": {
+                    "instrument_declined": "Платёжный инструмент был отклонён",
+                    "payer_cannot_pay": "Недостаточно средств",
+                    "transaction_refused": "Транзакция была отклонена PayPal",
+                    "default": "Транзакция была отменена или платёж не удался"
+                },
+                "seoTitle": "Платёж не выполнен | Ai Pro",
+                "seoDescription": "Платёж не был завершён. Проверьте причину ошибки, безопасно повторите пополнение через PayPal или обратитесь в поддержку без потери баланса кошелька."
+            },
+            "waiting": {
+                "title": "Обработка платежа",
+                "subtitle": "Пожалуйста, подождите, пока мы подтвердим ваш платёж через PayPal...",
+                "hint": "Не закрывайте эту страницу"
+            }
+        }
     }
-  }
 }
