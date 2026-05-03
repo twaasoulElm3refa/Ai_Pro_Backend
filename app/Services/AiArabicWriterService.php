@@ -119,17 +119,23 @@ class AiArabicWriterService
         }
 
         $paths = [
+            ['reply'],
             ['content'],
             ['response'],
             ['result'],
             ['output'],
             ['text'],
+
+            ['data', 'reply'],
             ['data', 'content'],
             ['data', 'response'],
             ['data', 'result'],
             ['data', 'output'],
             ['data', 'text'],
+
             ['message', 'content'],
+            ['choices', 0, 'message', 'content'],
+            ['choices', 0, 'text'],
         ];
 
         foreach ($paths as $path) {
