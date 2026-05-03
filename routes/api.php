@@ -43,7 +43,7 @@ Route::prefix('v1')->group(function () {
             ->middleware('guest');
         Route::get('google-callback', [GoogleAuthController::class, 'googleCallback'])
             ->middleware('guest')->withoutMiddleware(ApiKeyMiddleware::class);
-        Route::middleware(['auth:sanctum', 'throttle:15,1'])->group(function () {
+        Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
             Route::get('wallet', [WalletController::class, 'wallet']);
             Route::get('wallet/transactions', [WalletController::class, 'walletTransactions']);
             Route::get('wallet/transaction/{slug}', [WalletController::class, 'walletTransactionDetails']);
