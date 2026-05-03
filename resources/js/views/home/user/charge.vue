@@ -78,7 +78,7 @@ import homeService from "@/services/home/homeService"
    Axios Instance (with token)
 ========================= */
 const api = axios.create({
-    baseURL: "https://cageless-unstumbling-chadwick.ngrok-free.dev/api",
+    baseURL: "https://pro.aiarabic.com/api",
     headers: {
         Accept: "application/json",
     }

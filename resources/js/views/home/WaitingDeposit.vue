@@ -44,7 +44,7 @@ const checkStatus = async () => {
     try {
         attempts.value++;
 
-        const url = `/api/v1/wallet/order-status/${orderId}`;
+        const url = `https://pro.aiarabic.com/api/v1/wallet/order-status/${orderId}`;
         const token = localStorage.getItem("auth_token");
         const { data } = await axios.get(url, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
