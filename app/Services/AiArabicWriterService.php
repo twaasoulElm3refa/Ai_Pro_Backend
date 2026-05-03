@@ -10,6 +10,7 @@ use Throwable;
 class AiArabicWriterService
 {
     protected string $url;
+
     protected string $apiKey;
 
     public function __construct()
