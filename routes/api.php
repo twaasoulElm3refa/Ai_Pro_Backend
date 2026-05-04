@@ -57,7 +57,7 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    Route::prefix('tools')->middleware(['throttle:15,1'])->group(function () {
+    Route::prefix('tools')->middleware(['throttle:30,1'])->group(function () {
         Route::get('/', [HomeController::class, 'index']);
         Route::get('/{slug}', [HomeController::class, 'show']);
         Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);
@@ -78,7 +78,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/send', [MessageController::class, 'sendMessage']);
     });
 
-    Route::prefix('deposit')->middleware(['auth:sanctum', 'throttle:10,1'])->group(function () {
+    Route::prefix('deposit')->middleware(['auth:sanctum', 'throttle:15,1'])->group(function () {
         Route::post('/pay', [DepositController::class, 'create']);
     });
     Route::get('/wallet/success', [DepositController::class, 'success'])->name('wallet.success')->middleware('throttle:30,1')->withoutMiddleware(ApiKeyMiddleware::class);

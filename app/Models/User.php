@@ -59,4 +59,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ContactUs::class,'user_id');
     }
+
+    public function cost()
+    {
+        return $this->hasMany(CostLogger::class,'user_id');
+    }
 }
