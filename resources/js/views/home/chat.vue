@@ -124,6 +124,16 @@
                         <span class="char-count">{{ userInput.length }}</span>
                         <button
                             type="button"
+                            class="search-toggle-btn"
+                            :class="{ active: searchEnabled }"
+                            :aria-label="searchEnabled ? 'Disable web search' : 'Enable web search'"
+                            :disabled="sendingMessage || streamingAssistant"
+                            @click="searchEnabled = !searchEnabled"
+                        >
+                            <i class="bi bi-search"></i>
+                        </button>
+                        <button
+                            type="button"
                             class="send-btn"
                             :aria-label="t('user.chat.sendAria')"
                             :disabled="!userInput.trim() || sendingMessage || streamingAssistant"
@@ -176,6 +186,7 @@ const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
 const userInput = ref("");
+const searchEnabled = ref(false);
 const inputFocused = ref(false);
 const sidebarOpen = ref(false);
 const messagesContainer = ref(null);
@@ -606,12 +617,24 @@ const submitMessage = async () => {
     await scrollToBottom();
 
     try {
-        const response = await chatServices.sendMessage({
+        const payload = {
             content,
             conversation_id: conversation.id,
             role: "user",
             idempotency_key: idempotencyKey,
-        });
+        };
+
+        if (searchEnabled.value) {
+            payload.task_options = {
+                search_mode: "on",
+                web_search_max_results: 3,
+                web_search_total_results: 5,
+                max_tokens: 1000,
+                temperature: 0.45,
+            };
+        }
+
+        const response = await chatServices.sendMessage(payload);
 
         const savedMessage = response?.data?.message;
         if (savedMessage) {
@@ -1274,6 +1297,35 @@ watch(
 .char-count {
     font-size: 11px;
     color: #94a3b8;
+}
+
+.search-toggle-btn {
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.search-toggle-btn:hover:not(:disabled) {
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+}
+
+.search-toggle-btn.active {
+    background: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+}
+
+.search-toggle-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .send-btn {

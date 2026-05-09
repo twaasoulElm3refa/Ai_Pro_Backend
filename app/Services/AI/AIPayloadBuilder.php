@@ -68,6 +68,36 @@ class AIPayloadBuilder
         return $payload;
     }
 
+    public function withTaskOptions(array $payload, ?array $taskOptions): array
+    {
+        if (! is_array($taskOptions)) {
+            return $payload;
+        }
+
+        $searchMode = (string) ($taskOptions['search_mode'] ?? '');
+        if ($searchMode !== 'on') {
+            return $payload;
+        }
+
+        $payload['task_options'] = [
+            'search_mode' => 'on',
+            'web_search_max_results' => isset($taskOptions['web_search_max_results'])
+                ? (int) $taskOptions['web_search_max_results']
+                : 3,
+            'web_search_total_results' => isset($taskOptions['web_search_total_results'])
+                ? (int) $taskOptions['web_search_total_results']
+                : 5,
+            'max_tokens' => isset($taskOptions['max_tokens'])
+                ? (int) $taskOptions['max_tokens']
+                : 1000,
+            'temperature' => isset($taskOptions['temperature'])
+                ? (float) $taskOptions['temperature']
+                : 0.45,
+        ];
+
+        return $payload;
+    }
+
     public function cleanContext(string $context): string
     {
         return collect(preg_split('/\R/u', $context) ?: [])

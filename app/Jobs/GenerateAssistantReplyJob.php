@@ -25,7 +25,7 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
     public int $timeout = 90;
     public int $uniqueFor = 300;
 
-    public function __construct(public int $userMessageId)
+    public function __construct(public int $userMessageId, public ?array $taskOptions = null)
     {
     }
 
@@ -71,6 +71,7 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
 
             $conversation = $userMessage->conversation;
             $payload = $payloadBuilder->build($conversation, $userMessage);
+            $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
 
             if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
                 $payload = $payloadBuilder->withContext(

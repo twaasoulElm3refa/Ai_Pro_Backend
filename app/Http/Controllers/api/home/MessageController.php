@@ -52,6 +52,7 @@ class MessageController extends Controller
             $data['role'] = 'user';
             $data['content'] = trim((string) ($data['content'] ?? ''));
             $data['is_error'] = false;
+            $taskOptions = $this->normalizeTaskOptions($data['task_options'] ?? null);
 
             if ($data['conversation_id'] <= 0 || $data['content'] === '') {
                 Log::warning('Message send rejected due to invalid normalized payload.', [
@@ -81,7 +82,8 @@ class MessageController extends Controller
                 $data['created_at'],
                 $data['updated_at'],
                 $data['deleted_at'],
-                $data['reply_to_message_id']
+                $data['reply_to_message_id'],
+                $data['task_options']
             );
             $lockKey = $this->requestLockKey(
                 $userId,
@@ -153,8 +155,9 @@ class MessageController extends Controller
                     'user_id' => $userId,
                     'conversation_id' => $userMessage->conversation_id,
                     'message_id' => $userMessage->id,
+                    'task_options' => $taskOptions,
                 ]);
-                $this->dispatchAssistantReplyIfNeeded($userMessage);
+                $this->dispatchAssistantReplyIfNeeded($userMessage, $taskOptions);
             }
 
             Log::debug('Message send succeeded.', [
@@ -203,7 +206,7 @@ class MessageController extends Controller
         }
     }
 
-    protected function dispatchAssistantReplyIfNeeded(Message $userMessage): void
+    protected function dispatchAssistantReplyIfNeeded(Message $userMessage, ?array $taskOptions = null): void
     {
         $assistantExists = Message::where('role', 'assistant')
             ->where('reply_to_message_id', $userMessage->id)
@@ -219,7 +222,7 @@ class MessageController extends Controller
             return;
         }
 
-        GenerateAssistantReplyJob::dispatch($userMessage->id)->afterResponse();
+        GenerateAssistantReplyJob::dispatch($userMessage->id, $taskOptions)->afterResponse();
     }
 
     protected function requestLockKey(int $userId, int $conversationId, string $idempotencyKey): string
@@ -248,5 +251,33 @@ class MessageController extends Controller
         ]);
 
         return $trace;
+    }
+
+    protected function normalizeTaskOptions(mixed $taskOptions): ?array
+    {
+        if (! is_array($taskOptions)) {
+            return null;
+        }
+
+        $searchMode = (string) ($taskOptions['search_mode'] ?? '');
+        if ($searchMode !== 'on') {
+            return null;
+        }
+
+        return [
+            'search_mode' => 'on',
+            'web_search_max_results' => isset($taskOptions['web_search_max_results'])
+                ? (int) $taskOptions['web_search_max_results']
+                : 3,
+            'web_search_total_results' => isset($taskOptions['web_search_total_results'])
+                ? (int) $taskOptions['web_search_total_results']
+                : 5,
+            'max_tokens' => isset($taskOptions['max_tokens'])
+                ? (int) $taskOptions['max_tokens']
+                : 1000,
+            'temperature' => isset($taskOptions['temperature'])
+                ? (float) $taskOptions['temperature']
+                : 0.45,
+        ];
     }
 }
