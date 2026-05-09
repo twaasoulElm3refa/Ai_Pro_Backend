@@ -42,10 +42,10 @@ class MessageRequest extends FormRequest
             'role' => 'required|in:user',
             'idempotency_key' => 'required|uuid',
             'task_options' => ['nullable', 'array'],
-            'task_options.search_mode' => ['nullable', 'string', 'in:on,off'],
+            'task_options.search_mode' => ['required_with:task_options', 'string', 'in:on,off'],
             'task_options.web_search_max_results' => ['nullable', 'integer', 'min:1', 'max:10'],
             'task_options.web_search_total_results' => ['nullable', 'integer', 'min:1', 'max:20'],
-            'task_options.max_tokens' => ['nullable', 'integer', 'min:100', 'max:4000'],
+            'task_options.max_tokens' => ['nullable', 'integer', 'min:100', 'max:8000'],
             'task_options.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
         ];
     }

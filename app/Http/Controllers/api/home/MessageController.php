@@ -309,23 +309,21 @@ class MessageController extends Controller
     protected function normalizeTaskOptions(mixed $taskOptions): ?array
     {
         if (! is_array($taskOptions)) {
-            return null;
+            return [
+                'search_mode' => 'off',
+                'max_tokens' => 1000,
+                'temperature' => 0.45,
+            ];
         }
 
-        $searchMode = (string) ($taskOptions['search_mode'] ?? '');
+        $searchMode = (string) ($taskOptions['search_mode'] ?? 'off');
 
-        if ($searchMode !== 'on') {
-            return null;
+        if (! in_array($searchMode, ['on', 'off'], true)) {
+            $searchMode = 'off';
         }
 
-        return [
-            'search_mode' => 'on',
-            'web_search_max_results' => isset($taskOptions['web_search_max_results'])
-                ? (int) $taskOptions['web_search_max_results']
-                : 3,
-            'web_search_total_results' => isset($taskOptions['web_search_total_results'])
-                ? (int) $taskOptions['web_search_total_results']
-                : 5,
+        $normalized = [
+            'search_mode' => $searchMode,
             'max_tokens' => isset($taskOptions['max_tokens'])
                 ? (int) $taskOptions['max_tokens']
                 : 1000,
@@ -333,6 +331,18 @@ class MessageController extends Controller
                 ? (float) $taskOptions['temperature']
                 : 0.45,
         ];
+
+        if ($searchMode === 'on') {
+            $normalized['web_search_max_results'] = isset($taskOptions['web_search_max_results'])
+                ? (int) $taskOptions['web_search_max_results']
+                : 3;
+
+            $normalized['web_search_total_results'] = isset($taskOptions['web_search_total_results'])
+                ? (int) $taskOptions['web_search_total_results']
+                : 5;
+        }
+
+        return $normalized;
     }
 
     protected function countWords(?string $text): int

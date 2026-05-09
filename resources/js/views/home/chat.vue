@@ -602,17 +602,21 @@ const submitMessage = async () => {
             conversation_id: conversation.id,
             role: "user",
             idempotency_key: idempotencyKey,
+            task_options: searchEnabled.value
+                ? {
+                    search_mode: "on",
+                    web_search_max_results: 3,
+                    web_search_total_results: 5,
+                    max_tokens: 1000,
+                    temperature: 0.45,
+                }
+                : {
+                    search_mode: "off",
+                    max_tokens: 1000,
+                    temperature: 0.45,
+                },
         };
-
-        if (searchEnabled.value) {
-            payload.task_options = {
-                search_mode: "on",
-                web_search_max_results: 3,
-                web_search_total_results: 5,
-                max_tokens: 1000,
-                temperature: 0.45,
-            };
-        }
+        console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
 
         const response = await chatServices.sendMessage(payload);
 
