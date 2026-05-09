@@ -25,6 +25,9 @@ class AiArabicWriterService
             'url' => $this->url,
             'payload' => $payload,
         ]);
+        Log::info('AI model payload prepared', [
+            'payload' => $payload,
+        ]);
 
         try {
             $response = Http::timeout(45)

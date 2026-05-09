@@ -39,6 +39,12 @@ class MessageController extends Controller
             ]);
 
             $data = $request->validated();
+            Log::info('Chat sendMessage request received', [
+                'user_id' => auth()->id(),
+                'conversation_id' => $data['conversation_id'] ?? null,
+                'has_task_options' => array_key_exists('task_options', $data),
+                'task_options' => $data['task_options'] ?? null,
+            ]);
             Log::debug('Message send request validated.', [
                 'user_id' => auth()->id(),
                 'validated' => $data,

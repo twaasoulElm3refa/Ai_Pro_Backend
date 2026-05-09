@@ -45,6 +45,11 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
         ConversationMessageCacheService $messageCache,
         QdrantService $qdrantService
     ): void {
+        Log::info('GenerateAssistantReplyJob task options', [
+            'user_message_id' => $this->userMessageId,
+            'task_options' => $this->taskOptions,
+        ]);
+
         $lock = Cache::lock("assistant-reply-lock:{$this->userMessageId}", 120);
 
         if (! $lock->get()) {
