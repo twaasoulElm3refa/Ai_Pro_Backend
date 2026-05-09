@@ -9,7 +9,8 @@
                         <p class="brand-subtitle">{{ subtool.name || t("user.chat.workspaceTitle") }}</p>
                     </div>
                 </div>
-                <button type="button" class="icon-btn mobile-only" :aria-label="t('user.chat.closeSidebarAria')" @click="sidebarOpen = false">
+                <button type="button" class="icon-btn mobile-only" :aria-label="t('user.chat.closeSidebarAria')"
+                    @click="sidebarOpen = false">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -32,12 +33,8 @@
                 </div>
 
                 <TransitionGroup v-else name="history-item" tag="div" class="history-list">
-                    <div
-                        v-for="conversation in filteredConversations"
-                        :key="conversation.uuid"
-                        class="history-item"
-                        :class="{ active: activeConversation?.uuid === conversation.uuid }"
-                    >
+                    <div v-for="conversation in filteredConversations" :key="conversation.uuid" class="history-item"
+                        :class="{ active: activeConversation?.uuid === conversation.uuid }">
                         <button type="button" class="history-item-main" @click="openConversation(conversation)">
                             <i class="bi bi-chat-left-text"></i>
                             <div class="history-item-info">
@@ -46,7 +43,8 @@
                             </div>
                         </button>
                         <button type="button" class="history-delete"
-                            :aria-label="t('user.chat.deleteConversationAria', { name: conversation.title || t('user.chat.conversationFallback') })" @click="removeConversation(conversation)">
+                            :aria-label="t('user.chat.deleteConversationAria', { name: conversation.title || t('user.chat.conversationFallback') })"
+                            @click="removeConversation(conversation)">
                             <i class="bi bi-trash3"></i>
                         </button>
                     </div>
@@ -58,7 +56,8 @@
 
             <div class="messages-wrap" ref="messagesContainer">
                 <div v-if="loadingMessages" class="messages-skeleton">
-                    <div v-for="item in 4" :key="item" class="message-skeleton" :class="item % 2 === 0 ? 'assistant' : 'user'"></div>
+                    <div v-for="item in 4" :key="item" class="message-skeleton"
+                        :class="item % 2 === 0 ? 'assistant' : 'user'"></div>
                 </div>
 
                 <div v-else-if="messages.length === 0" class="empty-state">
@@ -67,21 +66,18 @@
                     </div>
                     <h2 class="empty-title">{{ subtool.name || t("user.chat.newConversation") }}</h2>
                     <p class="empty-desc">
-                        {{ activeConversation?.uuid ? t("user.chat.emptyWithConversation") : t("user.chat.emptyWithoutConversation") }}
+                        {{ activeConversation?.uuid ? t("user.chat.emptyWithConversation") :
+                            t("user.chat.emptyWithoutConversation") }}
                     </p>
-                    <button v-if="subtool.promptPlaceholder" type="button" class="suggestion-chip" @click="fillPlaceholder">
+                    <button v-if="subtool.promptPlaceholder" type="button" class="suggestion-chip"
+                        @click="fillPlaceholder">
                         <i class="bi bi-lightning-charge-fill"></i>
                         {{ subtool.promptPlaceholder }}
                     </button>
                 </div>
 
                 <TransitionGroup v-else name="msg" tag="div" class="messages-list">
-                    <div
-                        v-for="msg in messages"
-                        :key="msg.localKey"
-                        class="message-row"
-                        :class="msg.role"
-                    >
+                    <div v-for="msg in messages" :key="msg.localKey" class="message-row" :class="msg.role">
                         <div class="msg-avatar" v-if="msg.role === 'assistant'">
                             <i class="bi bi-stars"></i>
                         </div>
@@ -105,41 +101,25 @@
 
             <div class="input-area">
                 <div class="input-box" :class="{ focused: inputFocused }">
-                    <textarea
-                        ref="textareaRef"
-                        v-model="userInput"
-                        class="chat-input"
+                    <textarea ref="textareaRef" v-model="userInput" class="chat-input"
                         :aria-label="t('user.chat.inputAria')"
-                        :placeholder="subtool.promptPlaceholder || t('user.chat.inputPlaceholder')"
-                        rows="1"
-                        :disabled="sendingMessage || streamingAssistant"
-                        @focus="inputFocused = true"
-                        @blur="inputFocused = false"
-                        @keydown.enter.exact.prevent="submitMessage"
-                        @keydown.shift.enter.exact="newLine"
-                        @input="autoResize"
-                    ></textarea>
+                        :placeholder="subtool.promptPlaceholder || t('user.chat.inputPlaceholder')" rows="1"
+                        :disabled="sendingMessage || streamingAssistant" @focus="inputFocused = true"
+                        @blur="inputFocused = false" @keydown.enter.exact.prevent="submitMessage"
+                        @keydown.shift.enter.exact="newLine" @input="autoResize"></textarea>
 
                     <div class="input-actions">
                         <span class="char-count">{{ userInput.length }}</span>
-                        <button
-                            type="button"
-                            class="search-toggle-btn"
-                            :class="{ active: searchEnabled }"
+                        <button type="button" class="search-toggle-btn" :class="{ active: searchEnabled }"
                             :aria-label="searchEnabled ? 'Disable web search' : 'Enable web search'"
-                            :disabled="sendingMessage || streamingAssistant"
-                            @click="searchEnabled = !searchEnabled"
-                        >
+                            :disabled="sendingMessage || streamingAssistant" @click="searchEnabled = !searchEnabled">
                             <i class="bi bi-search"></i>
                         </button>
-                        <button
-                            type="button"
-                            class="send-btn"
-                            :aria-label="t('user.chat.sendAria')"
+                        <button type="button" class="send-btn" :aria-label="t('user.chat.sendAria')"
                             :disabled="!userInput.trim() || sendingMessage || streamingAssistant"
-                            @click="submitMessage"
-                        >
-                            <i class="bi" :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
+                            @click="submitMessage">
+                            <i class="bi"
+                                :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
                         </button>
                     </div>
                 </div>
@@ -1427,7 +1407,9 @@ watch(
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
 
@@ -1447,7 +1429,10 @@ watch(
 }
 
 @keyframes typing-bounce {
-    0%, 80%, 100% {
+
+    0%,
+    80%,
+    100% {
         opacity: 0.35;
         transform: translateY(0);
     }
@@ -1486,6 +1471,7 @@ watch(
 }
 
 @media (max-width: 720px) {
+
     .topbar,
     .input-area,
     .messages-wrap {

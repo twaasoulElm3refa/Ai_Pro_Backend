@@ -75,6 +75,18 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             }
 
             $conversation = $userMessage->conversation;
+
+            /*
+             * حساب عدد كلمات رسالة اليوزر
+             */
+            $userWordsCount = $this->countWords($userMessage->content);
+
+            Log::info('User message words count inside assistant job', [
+                'conversation_id' => $conversation->id,
+                'user_message_id' => $userMessage->id,
+                'user_words_count' => $userWordsCount,
+            ]);
+
             $payload = $payloadBuilder->build($conversation, $userMessage);
             $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
 
@@ -85,16 +97,36 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 );
             }
 
+            Log::info('AI model payload prepared', [
+                'conversation_id' => $conversation->id,
+                'user_message_id' => $userMessage->id,
+                'user_words_count' => $userWordsCount,
+                'payload' => $payload,
+            ]);
+
             $this->storeMessageInQdrant($userMessage, $qdrantService);
 
             try {
                 $content = $writerService->generateReply($payload);
                 $isError = false;
+
+                /*
+                 * حساب عدد كلمات رد الـ AI بعد رجوع الرد مباشرة
+                 */
+                $aiWordsCount = $this->countWords($content);
+
+                Log::info('AI response words count calculated', [
+                    'conversation_id' => $conversation->id,
+                    'user_message_id' => $userMessage->id,
+                    'user_words_count' => $userWordsCount,
+                    'ai_words_count' => $aiWordsCount,
+                ]);
             } catch (AiServiceException $th) {
                 Log::error('Assistant generation failed with AI service exception.', [
                     'conversation_id' => $conversation->id,
                     'message_id' => $userMessage->id,
                     'payload' => $payload,
+                    'user_words_count' => $userWordsCount,
                     'error_message' => $th->getMessage(),
                     'error_file' => $th->getFile(),
                     'error_line' => $th->getLine(),
@@ -108,6 +140,7 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                     'conversation_id' => $conversation->id,
                     'message_id' => $userMessage->id,
                     'payload' => $payload,
+                    'user_words_count' => $userWordsCount,
                     'error_message' => $th->getMessage(),
                     'error_file' => $th->getFile(),
                     'error_line' => $th->getLine(),
@@ -128,6 +161,15 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                     'is_error' => $isError,
                 ]
             );
+
+            Log::info('Assistant message saved with words count', [
+                'conversation_id' => $conversation->id,
+                'user_message_id' => $userMessage->id,
+                'assistant_message_id' => $assistantMessage->id,
+                'user_words_count' => $userWordsCount,
+                'ai_words_count' => $aiWordsCount ?? null,
+                'was_recently_created' => $assistantMessage->wasRecentlyCreated,
+            ]);
 
             if ($assistantMessage->wasRecentlyCreated) {
                 $assistantMessage->setRelation('conversation', $conversation);
@@ -176,5 +218,21 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 'created_at' => optional($message->created_at)->toISOString(),
             ]
         );
+    }
+
+    protected function countWords(?string $text): int
+    {
+        $text = trim((string) $text);
+
+        if ($text === '') {
+            return 0;
+        }
+
+        /*
+         * يحسب كلمات العربي والإنجليزي والأرقام
+         */
+        preg_match_all('/[\p{Arabic}\p{L}\p{N}]+/u', $text, $matches);
+
+        return count($matches[0] ?? []);
     }
 }

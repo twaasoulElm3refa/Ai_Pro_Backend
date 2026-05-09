@@ -20,6 +20,7 @@ class MessageController extends Controller
     use ApiResponse;
 
     private MessageInterface $message;
+
     private ConversationMessageCacheService $messageCache;
 
     public function __construct(
@@ -39,25 +40,48 @@ class MessageController extends Controller
             ]);
 
             $data = $request->validated();
+
             Log::info('Chat sendMessage request received', [
                 'user_id' => auth()->id(),
                 'conversation_id' => $data['conversation_id'] ?? null,
                 'has_task_options' => array_key_exists('task_options', $data),
                 'task_options' => $data['task_options'] ?? null,
             ]);
+
             Log::debug('Message send request validated.', [
                 'user_id' => auth()->id(),
                 'validated' => $data,
             ]);
 
             $userId = (int) auth()->id();
+
             if ($userId <= 0) {
                 return $this->unauthorized('Unauthorized.');
             }
+
             $data['conversation_id'] = (int) ($data['conversation_id'] ?? 0);
             $data['role'] = 'user';
             $data['content'] = trim((string) ($data['content'] ?? ''));
             $data['is_error'] = false;
+
+            /*
+             * حساب عدد كلمات رسالة اليوزر
+             */
+            $userWordsCount = $this->countWords($data['content']);
+
+            /*
+             * رد الـ AI لا يتولد هنا، لذلك داخل الكنترولر لا نعرف عدد كلماته الآن.
+             * هيتحسب فعليًا داخل GenerateAssistantReplyJob بعد رجوع الرد.
+             */
+            $aiWordsCount = null;
+
+            Log::info('Chat words count calculated', [
+                'user_id' => $userId,
+                'conversation_id' => $data['conversation_id'],
+                'user_words_count' => $userWordsCount,
+                'ai_words_count' => $aiWordsCount,
+            ]);
+
             $taskOptions = $this->normalizeTaskOptions($data['task_options'] ?? null);
 
             if ($data['conversation_id'] <= 0 || $data['content'] === '') {
@@ -71,15 +95,24 @@ class MessageController extends Controller
                     'conversation_id' => ['Conversation id is required.'],
                 ], 'Invalid message data.');
             }
+
             /*
              * مهم:
              * لو الفرونت مبعتش idempotency_key لأي سبب، بنولده هنا.
              * لكن الأفضل الفرونت يبعته عشان يمنع Retry duplication.
              */
             $data['idempotency_key'] = trim((string) ($data['idempotency_key'] ?? ''));
+
             if ($data['idempotency_key'] === '') {
                 $data['idempotency_key'] = (string) Str::uuid();
             }
+
+            /*
+             * لو عندك عمود words_count في جدول messages
+             * شيل الكومنت من السطر ده:
+             */
+            // $data['words_count'] = $userWordsCount;
+
             /*
              * احذف أي مفاتيح ممكن الفرونت يبعتها وتبوظ التخزين
              */
@@ -91,12 +124,15 @@ class MessageController extends Controller
                 $data['reply_to_message_id'],
                 $data['task_options']
             );
+
             $lockKey = $this->requestLockKey(
                 $userId,
                 $data['conversation_id'],
                 $data['idempotency_key']
             );
+
             $lock = Cache::lock($lockKey, 15);
+
             $processed = $lock->block(5, function () use ($data) {
                 return DB::transaction(function () use ($data) {
                     /*
@@ -162,7 +198,10 @@ class MessageController extends Controller
                     'conversation_id' => $userMessage->conversation_id,
                     'message_id' => $userMessage->id,
                     'task_options' => $taskOptions,
+                    'user_words_count' => $userWordsCount,
+                    'ai_words_count' => $aiWordsCount,
                 ]);
+
                 $this->dispatchAssistantReplyIfNeeded($userMessage, $taskOptions);
             }
 
@@ -171,6 +210,8 @@ class MessageController extends Controller
                 'conversation_id' => $userMessage->conversation_id,
                 'message_id' => $userMessage->id,
                 'was_created' => $wasCreated,
+                'user_words_count' => $userWordsCount,
+                'ai_words_count' => $aiWordsCount,
             ]);
 
             return $this->success([
@@ -178,6 +219,12 @@ class MessageController extends Controller
                 'conversation_id' => $userMessage->conversation_id,
                 'message' => $userMessage,
                 'was_created' => $wasCreated,
+
+                /*
+                 * دول المتغيرين اللي طلبتهم
+                 */
+                'user_words_count' => $userWordsCount,
+                'ai_words_count' => $aiWordsCount,
             ], 'Message Sent Successfully.');
         } catch (Throwable $th) {
             Log::error('Send message failed.', [
@@ -266,6 +313,7 @@ class MessageController extends Controller
         }
 
         $searchMode = (string) ($taskOptions['search_mode'] ?? '');
+
         if ($searchMode !== 'on') {
             return null;
         }
@@ -285,5 +333,25 @@ class MessageController extends Controller
                 ? (float) $taskOptions['temperature']
                 : 0.45,
         ];
+    }
+
+    protected function countWords(?string $text): int
+    {
+        $text = trim((string) $text);
+
+        if ($text === '') {
+            return 0;
+        }
+
+        /*
+         * يحسب كلمات العربي والإنجليزي والأرقام
+         * مثال:
+         * أهلا بالعالم = 2
+         * Hello world = 2
+         * GPT-5 update = 3 تقريبًا حسب الفصل بين الرموز
+         */
+        preg_match_all('/[\p{Arabic}\p{L}\p{N}]+/u', $text, $matches);
+
+        return count($matches[0] ?? []);
     }
 }
