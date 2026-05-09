@@ -25,7 +25,6 @@ use App\Http\Middleware\ConversationOwnerMiddleware;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-
     Route::prefix('users')->group(function () {
         Route::post('register', [RegisterController::class, 'register'])
             ->middleware('throttle:6,1');

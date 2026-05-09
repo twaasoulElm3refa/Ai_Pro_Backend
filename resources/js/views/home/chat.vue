@@ -55,41 +55,6 @@
         </aside>
         <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
         <div class="main-area">
-            <header class="topbar">
-                <div class="topbar-left">
-                    <button type="button" class="icon-btn menu-btn" :aria-label="t('user.chat.openSidebarAria')" @click="sidebarOpen = true">
-                        <i class="bi bi-list"></i>
-                    </button>
-
-                    <div class="model-info" v-if="!toolLoading">
-                        <div class="model-avatar">
-                            <img v-if="subtool.imageUrl" :src="subtool.optimizedImageUrl || subtool.imageUrl" loading="lazy"
-                                decoding="async" @error="onModelImageError"
-                                :alt="subtool.name ? t('user.chat.modelIconAriaWithName', { name: subtool.name }) : t('user.chat.modelIconAria')" />
-                            <i v-else class="bi bi-stars"></i>
-                        </div>
-                        <div>
-                            <p class="model-name">{{ subtool.name }}</p>
-                            <p class="model-desc">{{ subtool.description }}</p>
-                        </div>
-                    </div>
-
-                    <div v-else class="model-info">
-                        <div class="model-avatar skeleton-box"></div>
-                        <div>
-                            <div class="skel-line w-32"></div>
-                            <div class="skel-line w-48 mt-1"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="topbar-right">
-                    <div class="model-badge">
-                        <i class="bi bi-link-45deg"></i>
-                        {{ activeConversation?.uuid ? `#${activeConversation.uuid.slice(-6)}` : t("user.chat.draft") }}
-                    </div>
-                </div>
-            </header>
 
             <div class="messages-wrap" ref="messagesContainer">
                 <div v-if="loadingMessages" class="messages-skeleton">
@@ -1245,6 +1210,7 @@ watch(
 }
 
 .input-area {
+    margin-bottom: 3.5%;
     padding: 16px 22px 20px;
     border-top: 1px solid rgba(21, 70, 119, 0.08);
     background: rgba(255, 255, 255, 0.9);

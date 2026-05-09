@@ -34,7 +34,7 @@ class RegisterController extends Controller
                     'password'   => Hash::make($data['password']),
                     'role'       => 'user',
                     'is_active'  => true,
-                    'is_verified' => false,   // not verified حتى يعمل login
+                    'is_verified' => false,
                     'last_seen'  => now(),
                 ]);
 

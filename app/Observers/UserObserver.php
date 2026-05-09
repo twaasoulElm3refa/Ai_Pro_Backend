@@ -13,7 +13,7 @@ class UserObserver
      */
     public function created(User $user): void
     {
-        Mail::to($user->email)->queue(new WelcomeMail($user));
+
     }
 
     /**

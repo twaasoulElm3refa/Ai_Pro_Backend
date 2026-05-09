@@ -6,7 +6,7 @@
         <div class="auth-container position-relative z-2 d-flex flex-column flex-lg-row w-100 h-100">
             <div class="d-none d-lg-flex col-lg-5 align-items-center justify-content-center p-5 position-relative">
                 <div class="text-center">
-                    <img src="/images/Ai_logo.png" :alt="t('auth.register.logoAlt')" class="height-auto logo-glow" width="140"
+                    <img src="/images/Ai_logo.png" :alt="t('auth.register.logoAlt')" class="height-auto logo-glow" width="450"
                         height="140" fetchpriority="high" decoding="async" />
                     <h1 class="display-3 fw-black mb-3">AI PRO</h1>
                     <p class="lead fs-4 fw-medium opacity-90">{{ t("auth.register.brandTagline") }}</p>
@@ -391,6 +391,7 @@ const handleGoogleLogin = async () => {
 
 onMounted(() => authService.handleGoogleCallback());
 </script>
+
 <style scoped>
 .btn-apple {
     background: rgba(255, 255, 255, 0.08);
