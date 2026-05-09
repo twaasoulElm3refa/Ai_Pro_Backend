@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Exceptions\AiServiceException;
+use App\Models\CostLogger;
 use App\Models\Message;
 use App\Services\AI\AIPayloadBuilder;
 use App\Services\AiArabicWriterService;
@@ -22,7 +23,7 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
-    public int $timeout = 90;
+    public int $timeout = 300;
     public int $uniqueFor = 300;
 
     public function __construct(public int $userMessageId, public ?array $taskOptions = null)
@@ -77,14 +78,20 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             $conversation = $userMessage->conversation;
 
             /*
-             * حساب عدد كلمات رسالة اليوزر
+             * User message stats
              */
             $userWordsCount = $this->countWords($userMessage->content);
+            $userLanguage = $this->detectLanguage($userMessage->content);
+            $userTokenMultiplier = $this->tokenMultiplierByLanguage($userLanguage);
+            $inputTokens = (int) ceil($userWordsCount * $userTokenMultiplier);
 
-            Log::info('User message words count inside assistant job', [
+            Log::info('User message words/language calculated inside assistant job', [
                 'conversation_id' => $conversation->id,
                 'user_message_id' => $userMessage->id,
+                'user_language' => $userLanguage,
                 'user_words_count' => $userWordsCount,
+                'user_token_multiplier' => $userTokenMultiplier,
+                'input_tokens_estimated' => $inputTokens,
             ]);
 
             $payload = $payloadBuilder->build($conversation, $userMessage);
@@ -100,7 +107,9 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             Log::info('AI model payload prepared', [
                 'conversation_id' => $conversation->id,
                 'user_message_id' => $userMessage->id,
+                'user_language' => $userLanguage,
                 'user_words_count' => $userWordsCount,
+                'input_tokens_estimated' => $inputTokens,
                 'payload' => $payload,
             ]);
 
@@ -111,22 +120,34 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 $isError = false;
 
                 /*
-                 * حساب عدد كلمات رد الـ AI بعد رجوع الرد مباشرة
+                 * AI response stats
                  */
                 $aiWordsCount = $this->countWords($content);
+                $aiLanguage = $this->detectLanguage($content);
+                $aiTokenMultiplier = $this->tokenMultiplierByLanguage($aiLanguage);
+                $outputTokens = (int) ceil($aiWordsCount * $aiTokenMultiplier);
+                $totalTokens = $inputTokens + $outputTokens;
 
-                Log::info('AI response words count calculated', [
+                Log::info('AI response words/language calculated', [
                     'conversation_id' => $conversation->id,
                     'user_message_id' => $userMessage->id,
+                    'user_language' => $userLanguage,
                     'user_words_count' => $userWordsCount,
+                    'input_tokens_estimated' => $inputTokens,
+                    'ai_language' => $aiLanguage,
                     'ai_words_count' => $aiWordsCount,
+                    'ai_token_multiplier' => $aiTokenMultiplier,
+                    'output_tokens_estimated' => $outputTokens,
+                    'total_tokens_estimated' => $totalTokens,
                 ]);
             } catch (AiServiceException $th) {
                 Log::error('Assistant generation failed with AI service exception.', [
                     'conversation_id' => $conversation->id,
                     'message_id' => $userMessage->id,
                     'payload' => $payload,
+                    'user_language' => $userLanguage,
                     'user_words_count' => $userWordsCount,
+                    'input_tokens_estimated' => $inputTokens,
                     'error_message' => $th->getMessage(),
                     'error_file' => $th->getFile(),
                     'error_line' => $th->getLine(),
@@ -140,7 +161,9 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                     'conversation_id' => $conversation->id,
                     'message_id' => $userMessage->id,
                     'payload' => $payload,
+                    'user_language' => $userLanguage,
                     'user_words_count' => $userWordsCount,
+                    'input_tokens_estimated' => $inputTokens,
                     'error_message' => $th->getMessage(),
                     'error_file' => $th->getFile(),
                     'error_line' => $th->getLine(),
@@ -162,12 +185,17 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 ]
             );
 
-            Log::info('Assistant message saved with words count', [
+            Log::info('Assistant message saved with token estimate', [
                 'conversation_id' => $conversation->id,
                 'user_message_id' => $userMessage->id,
                 'assistant_message_id' => $assistantMessage->id,
+                'user_language' => $userLanguage,
                 'user_words_count' => $userWordsCount,
-                'ai_words_count' => $aiWordsCount ?? null,
+                'input_tokens' => $inputTokens,
+                'ai_language' => $aiLanguage,
+                'ai_words_count' => $aiWordsCount,
+                'output_tokens' => $outputTokens,
+                'total_tokens' => $totalTokens,
                 'was_recently_created' => $assistantMessage->wasRecentlyCreated,
             ]);
 
@@ -176,9 +204,26 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 $messageCache->updateAfterMessage($assistantMessage);
                 $this->storeMessageInQdrant($assistantMessage, $qdrantService);
             }
-            Log::info('Assistant message saved', [
-                'user_Count' => $userWordsCount,
-                'assistant_Count' => $aiWordsCount,
+
+            /*
+             * تسجيل التكلفة التقريبية
+             */
+            CostLogger::create([
+                'user_id' => $conversation->user_id,
+                'conversation_id' => $conversation->id,
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
+                'total_tokens' => $totalTokens,
+            ]);
+
+            Log::info('CostLogger row created', [
+                'user_id' => $conversation->user_id,
+                'conversation_id' => $conversation->id,
+                'user_language' => $userLanguage,
+                'ai_language' => $aiLanguage,
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
+                'total_tokens' => $totalTokens,
             ]);
         } finally {
             Cache::forget(self::dispatchMarkerKey($this->userMessageId));
@@ -233,10 +278,84 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
         }
 
         /*
-         * يحسب كلمات العربي والإنجليزي والأرقام
+         * يحسب كلمات العربي والإنجليزي والروسي والفرنسي والأرقام
+         * الصيني لا يحتوي دائمًا على مسافات، لذلك لو النص صيني يتم حساب الأحرف الصينية كوحدات تقريبية.
          */
+        $language = $this->detectLanguage($text);
+
+        if ($language === 'chinese') {
+            preg_match_all('/\p{Han}/u', $text, $matches);
+
+            return count($matches[0] ?? []);
+        }
+
         preg_match_all('/[\p{Arabic}\p{L}\p{N}]+/u', $text, $matches);
 
         return count($matches[0] ?? []);
+    }
+
+    protected function detectLanguage(?string $text): string
+    {
+        $text = trim((string) $text);
+
+        if ($text === '') {
+            return 'unknown';
+        }
+
+        /*
+         * نحسب عدد الحروف من كل Script
+         */
+        $patterns = [
+            'arabic' => '/\p{Arabic}/u',
+            'chinese' => '/\p{Han}/u',
+            'russian' => '/\p{Cyrillic}/u',
+            'latin' => '/\p{Latin}/u',
+        ];
+
+        $scores = [];
+
+        foreach ($patterns as $language => $pattern) {
+            preg_match_all($pattern, $text, $matches);
+            $scores[$language] = count($matches[0] ?? []);
+        }
+
+        arsort($scores);
+
+        $topLanguage = array_key_first($scores);
+        $topScore = $scores[$topLanguage] ?? 0;
+
+        if ($topScore <= 0) {
+            return 'unknown';
+        }
+
+        /*
+         * الفرنسي والإنجليزي الاتنين Latin.
+         * بنميز الفرنسي من الحروف المميزة.
+         * لو مفيش حروف فرنسية واضحة، هنعتبره English.
+         */
+        if ($topLanguage === 'latin') {
+            if (preg_match('/[àâçéèêëîïôûùüÿñæœ]/iu', $text)) {
+                return 'french';
+            }
+
+            return 'english';
+        }
+
+        return $topLanguage;
+    }
+
+    protected function tokenMultiplierByLanguage(string $language): float
+    {
+        return match ($language) {
+            /*
+             * متوسطات تقريبية وليست Tokenizer حقيقي
+             */
+            'arabic' => 2.2,
+            'chinese' => 2.5,
+            'russian' => 1.5,
+            'french' => 1.3,
+            'english' => 1.2,
+            default => 2.0,
+        };
     }
 }
