@@ -176,6 +176,10 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 $messageCache->updateAfterMessage($assistantMessage);
                 $this->storeMessageInQdrant($assistantMessage, $qdrantService);
             }
+            Log::info('Assistant message saved', [
+                'user_Count' => $userWordsCount,
+                'assistant_Count' => $aiWordsCount,
+            ]);
         } finally {
             Cache::forget(self::dispatchMarkerKey($this->userMessageId));
             $lock->release();

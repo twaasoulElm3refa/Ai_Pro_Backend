@@ -30,7 +30,7 @@ class AiArabicWriterService
         ]);
 
         try {
-            $response = Http::timeout(45)
+            $response = Http::timeout(300)
                 ->withHeaders([
                     'x-internal-api-key' => $this->apiKey,
                     'Content-Type' => 'application/json',
