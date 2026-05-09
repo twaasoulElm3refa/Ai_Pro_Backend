@@ -214,6 +214,9 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 'input_tokens' => $inputTokens,
                 'output_tokens' => $outputTokens,
                 'total_tokens' => $totalTokens,
+                'input_cost' => $inputTokens * 0.00001,
+                'output_cost' => $outputTokens * 0.00002,
+                'total_cost' => ($inputTokens * 0.00001) + ($outputTokens * 0.00002),
             ]);
 
             Log::info('CostLogger row created', [
