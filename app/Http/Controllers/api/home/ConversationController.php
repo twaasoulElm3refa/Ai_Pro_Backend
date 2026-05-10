@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api\home;
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\CostLogger;
 use App\Models\Message;
 use App\Repository\Conversation\ConversationInterface;
 use App\Repository\tools\SubToolInterface;
@@ -54,7 +55,7 @@ class ConversationController extends Controller
             $conversation = Conversation::where('uuid', $uuid)
                 ->where('user_id', auth()->id())
                 ->first();
-
+            $limit  = CostLogger::where('conversation_id', $conversation->id)->latest()->first();
             if (! $conversation) {
                 return $this->notFound('Conversation not found');
             }
@@ -66,7 +67,9 @@ class ConversationController extends Controller
             }
 
             $conversation->setRelation('message', collect($this->messageCache->toResponseMessages($messages)));
-
+            if($limit->input_tokens >= 10000 ){
+                return $this->success($conversation,'Limit Exceeded');
+            }
             return $this->success($conversation,'Conversation Fetched Successfully');
         } catch (\Throwable $th) {
             Log::error($th);

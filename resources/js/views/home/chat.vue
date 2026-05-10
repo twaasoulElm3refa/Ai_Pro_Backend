@@ -100,11 +100,25 @@
             </div>
 
             <div class="input-area">
+                <div v-if="conversationLimitExceeded" class="limit-warning">
+                    <div class="limit-warning-icon">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </div>
+                    <div class="limit-warning-content">
+                        <strong>وصلت هذه المحادثة إلى الحد الأقصى</strong>
+                        <span>ابدأ محادثة جديدة للمتابعة برسائل إضافية.</span>
+                    </div>
+                    <button type="button" class="limit-warning-action" :disabled="creatingConversation" @click="startNewChat">
+                        محادثة جديدة
+                    </button>
+                </div>
                 <div class="input-box" :class="{ focused: inputFocused }">
                     <textarea ref="textareaRef" v-model="userInput" class="chat-input"
                         :aria-label="t('user.chat.inputAria')"
-                        :placeholder="subtool.promptPlaceholder || t('user.chat.inputPlaceholder')" rows="1"
-                        :disabled="sendingMessage || streamingAssistant" @focus="inputFocused = true"
+                        :placeholder="conversationLimitExceeded
+                            ? 'وصلت هذه المحادثة إلى الحد الأقصى. ابدأ محادثة جديدة للمتابعة.'
+                            : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))" rows="1"
+                        :disabled="chatSendDisabled" @focus="inputFocused = true"
                         @blur="inputFocused = false" @keydown.enter.exact.prevent="submitMessage"
                         @keydown.shift.enter.exact="newLine" @input="autoResize"></textarea>
 
@@ -112,11 +126,11 @@
                         <span class="char-count">{{ userInput.length }}</span>
                         <button type="button" class="search-toggle-btn" :class="{ active: searchEnabled }"
                             :aria-label="searchEnabled ? 'Disable web search' : 'Enable web search'"
-                            :disabled="sendingMessage || streamingAssistant" @click="searchEnabled = !searchEnabled">
+                            :disabled="chatSendDisabled" @click="searchEnabled = !searchEnabled">
                             <i class="bi bi-search"></i>
                         </button>
                         <button type="button" class="send-btn" :aria-label="t('user.chat.sendAria')"
-                            :disabled="!userInput.trim() || sendingMessage || streamingAssistant"
+                            :disabled="!userInput.trim() || chatSendDisabled"
                             @click="submitMessage">
                             <i class="bi"
                                 :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
@@ -152,6 +166,7 @@ const loadingMessages = ref(false);
 const creatingConversation = ref(false);
 const sendingMessage = ref(false);
 const streamingAssistant = ref(false);
+const conversationLimitExceeded = ref(false);
 const removingConversationUuid = ref("");
 
 const subtool = ref({
@@ -180,6 +195,11 @@ const filteredConversations = computed(() =>
     conversations.value.filter((conversation) =>
         !subtool.value.id || conversation.sub_tool_id === subtool.value.id
     )
+);
+const chatSendDisabled = computed(() =>
+    conversationLimitExceeded.value ||
+    sendingMessage.value ||
+    streamingAssistant.value
 );
 const seoTitle = computed(() =>
     isArabic.value
@@ -474,18 +494,29 @@ const loadConversationDetails = async (uuid) => {
     if (!isAuthenticated.value) {
         activeConversation.value = null;
         messages.value = [];
+        conversationLimitExceeded.value = false;
         return;
     }
 
     if (!uuid) {
         activeConversation.value = null;
         messages.value = [];
+        conversationLimitExceeded.value = false;
         return;
     }
 
     loadingMessages.value = true;
     try {
         const response = await chatServices.getConversation(uuid);
+        const apiMessage = response?.message || response?.data?.message || "";
+        conversationLimitExceeded.value = String(apiMessage).toLowerCase().includes("limit exceeded");
+        // Temporary debug log: limit state comes from API message "Limit Exceeded".
+        console.info("[chat] conversation limit state resolved", {
+            uuid,
+            apiMessage,
+            conversationLimitExceeded: conversationLimitExceeded.value,
+        });
+
         const conversation = response?.data || null;
         activeConversation.value = conversation
             ? formatConversation({
@@ -506,6 +537,7 @@ const syncRouteConversation = async () => {
     if (!route.params.uuid) {
         activeConversation.value = null;
         messages.value = [];
+        conversationLimitExceeded.value = false;
         return;
     }
 
@@ -539,6 +571,7 @@ const startNewChat = async () => {
         conversations.value = [conversation, ...conversations.value.filter((item) => item.uuid !== conversation.uuid)];
         activeConversation.value = conversation;
         messages.value = [];
+        conversationLimitExceeded.value = false;
         sidebarOpen.value = false;
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -563,6 +596,9 @@ const ensureConversation = async () => {
 
 const submitMessage = async () => {
     const content = userInput.value.trim();
+    if (conversationLimitExceeded.value) {
+        return;
+    }
     if (!content || sendingMessage.value || streamingAssistant.value) return;
 
     sendingMessage.value = true;
@@ -1225,6 +1261,73 @@ watch(
     flex-shrink: 0;
 }
 
+.limit-warning {
+    max-width: 920px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: #fff7ed;
+    border: 1px solid rgba(234, 88, 12, 0.18);
+    color: #9a3412;
+    box-shadow: 0 14px 28px rgba(154, 52, 18, 0.08);
+}
+
+.limit-warning-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    background: rgba(234, 88, 12, 0.12);
+    color: #ea580c;
+    flex-shrink: 0;
+}
+
+.limit-warning-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.limit-warning-content strong {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.limit-warning-content span {
+    color: #b45309;
+}
+
+.limit-warning-action {
+    border: none;
+    background: #ea580c;
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.limit-warning-action:hover:not(:disabled) {
+    background: #c2410c;
+    transform: scale(1.03);
+    box-shadow: 0 12px 22px rgba(234, 88, 12, 0.18);
+}
+
+.limit-warning-action:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 .input-box {
     display: flex;
     align-items: flex-end;
@@ -1480,6 +1583,15 @@ watch(
     .input-area,
     .messages-wrap {
         padding-inline: 14px;
+    }
+
+    .limit-warning {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .limit-warning-action {
+        width: 100%;
     }
 
     .msg-bubble {
