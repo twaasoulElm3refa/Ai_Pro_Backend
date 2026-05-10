@@ -126,17 +126,40 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             $this->storeMessageInQdrant($userMessage, $qdrantService);
 
             try {
-                $content = $writerService->generateReply($payload);
+                $response = method_exists($writerService, 'generateReplyWithUsage')
+                    ? $writerService->generateReplyWithUsage($payload)
+                    : $writerService->generateReply($payload);
+
+                if (is_array($response)) {
+                    $content = (string) ($response['reply'] ?? $response['content'] ?? '');
+                    $usage = is_array($response['usage'] ?? null) ? $response['usage'] : [];
+                } else {
+                    $content = (string) $response;
+                    $usage = [];
+                }
+
                 $isError = false;
 
                 /*
                  * AI response stats
                  */
-                $aiWordsCount = $this->countWords($content);
-                $aiLanguage = $this->detectLanguage($content);
-                $aiTokenMultiplier = $this->tokenMultiplierByLanguage($aiLanguage);
-                $outputTokens = (int) ceil($aiWordsCount * $aiTokenMultiplier);
-                $totalTokens = $inputTokens + $outputTokens;
+                Log::info('AI usage received', [
+                    'conversation_id' => $conversation->id,
+                    'user_message_id' => $userMessage->id,
+                    'usage' => $usage,
+                ]);
+
+                $estimatedOutputTokens = $this->estimateOutputTokens($content);
+                $inputTokens = (int) ($usage['input_tokens'] ?? $inputTokens);
+                $outputTokens = (int) ($usage['output_tokens'] ?? $estimatedOutputTokens);
+                $totalTokens = (int) ($usage['total_tokens'] ?? ($inputTokens + $outputTokens));
+
+                Log::info('Cost logger tokens resolved', [
+                    'input_tokens' => $inputTokens,
+                    'output_tokens' => $outputTokens,
+                    'total_tokens' => $totalTokens,
+                    'source' => ! empty($usage) ? 'provider_usage' : 'estimated',
+                ]);
 
             } catch (AiServiceException $th) {
                 Log::error('Assistant generation failed with AI service exception.', [
@@ -336,6 +359,15 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             'english' => 1.2,
             default => 2.0,
         };
+    }
+
+    protected function estimateOutputTokens(string $content): int
+    {
+        $aiWordsCount = $this->countWords($content);
+        $aiLanguage = $this->detectLanguage($content);
+        $aiTokenMultiplier = $this->tokenMultiplierByLanguage($aiLanguage);
+
+        return (int) ceil($aiWordsCount * $aiTokenMultiplier);
     }
 
     public function clearProfileCache($userId = null): void

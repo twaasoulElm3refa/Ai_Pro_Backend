@@ -21,6 +21,13 @@ class AiArabicWriterService
 
     public function generateReply(array $payload): string
     {
+        $response = $this->generateReplyWithUsage($payload);
+
+        return (string) ($response['reply'] ?? '');
+    }
+
+    public function generateReplyWithUsage(array $payload): array
+    {
         Log::debug('AI request started.', [
             'url' => $this->url,
             'payload' => $payload,
@@ -83,7 +90,8 @@ class AiArabicWriterService
             'response' => $response->json(),
         ]);
 
-        $content = $this->extractContent($response->json());
+        $responsePayload = $response->json();
+        $content = $this->extractContent($responsePayload);
 
         if ($content === '') {
             Log::error('AI response missing content.', [
@@ -108,7 +116,11 @@ class AiArabicWriterService
             'content_length' => mb_strlen($content),
         ]);
 
-        return $content;
+        return [
+            'reply' => $content,
+            'usage' => $this->extractUsage($responsePayload),
+            'raw' => is_array($responsePayload) ? $responsePayload : null,
+        ];
     }
 
     protected function extractContent(mixed $payload): string
@@ -159,5 +171,34 @@ class AiArabicWriterService
         }
 
         return '';
+    }
+
+    protected function extractUsage(mixed $payload): array
+    {
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        $usage = $payload['usage'] ?? [];
+
+        if (! is_array($usage)) {
+            return [];
+        }
+
+        $normalized = [
+            'input_tokens' => isset($usage['input_tokens']) ? (int) $usage['input_tokens'] : null,
+            'output_tokens' => isset($usage['output_tokens']) ? (int) $usage['output_tokens'] : null,
+            'total_tokens' => isset($usage['total_tokens']) ? (int) $usage['total_tokens'] : null,
+        ];
+
+        if (
+            $normalized['input_tokens'] === null
+            && $normalized['output_tokens'] === null
+            && $normalized['total_tokens'] === null
+        ) {
+            return [];
+        }
+
+        return $normalized;
     }
 }
