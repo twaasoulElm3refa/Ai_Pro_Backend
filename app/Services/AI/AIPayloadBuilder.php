@@ -83,7 +83,7 @@ class AIPayloadBuilder
             'search_mode' => $searchMode,
             'max_tokens' => isset($taskOptions['max_tokens'])
                 ? (int) $taskOptions['max_tokens']
-                : 1000,
+                : 4000,
             'temperature' => isset($taskOptions['temperature'])
                 ? (float) $taskOptions['temperature']
                 : 0.45,
