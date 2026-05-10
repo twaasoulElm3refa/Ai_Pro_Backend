@@ -229,7 +229,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             ]);
             $inputPoints = $cost->input_tokens * 0.00017;
             $outputPoints = $cost->output_tokens * 0.0012;
-            $totalPoints = $inputPoints + $outputPoints;
+            $totalPoints = (int) ceil($inputPoints + $outputPoints);
 
             $user = User::find($conversation->user_id);
             $wallet = $user->wallet;
