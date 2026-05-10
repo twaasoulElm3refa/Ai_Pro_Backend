@@ -232,7 +232,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $totalPoints = $inputPoints + $outputPoints;
             $user=User::find($conversation->user_id);
             $wallet = $user->wallet;
-            $wallet->points -= $totalPoints;
+            $wallet->balance -= $totalPoints;
             $wallet->save();
             $this->clearProfileCache($conversation->user_id);
         } finally {
