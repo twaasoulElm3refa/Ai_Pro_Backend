@@ -97,11 +97,17 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             $payload = $payloadBuilder->build($conversation, $userMessage);
             $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
 
+            /*
+             * Inject last 6 messages from Qdrant collection as context.
+             * This uses latestMessagesPayloads() from QdrantService,
+             * not vector search.
+             */
             if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
-                $payload = $payloadBuilder->withContext(
-                    $payload,
-                    $this->qdrantContext($userMessage, $qdrantService)
-                );
+                $context = $this->qdrantContext($userMessage, $qdrantService);
+
+                if ($context !== '') {
+                    $payload = $payloadBuilder->withContext($payload, $context);
+                }
             }
 
             Log::info('AI model payload prepared', [
@@ -113,6 +119,10 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 'payload' => $payload,
             ]);
 
+            /*
+             * Store the current user message in Qdrant.
+             * ملاحظة: ده بعد تجهيز الـ payload، عشان آخر 6 رسائل ما يبقاش فيهم نفس رسالة المستخدم الحالية مرتين.
+             */
             $this->storeMessageInQdrant($userMessage, $qdrantService);
 
             try {
@@ -188,11 +198,12 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 'input_tokens' => $inputTokens,
                 'output_tokens' => $outputTokens,
                 'total_tokens' => $totalTokens,
-                'input_cost' => ($inputTokens /1000000) * 1.25 ,
+                'input_cost' => ($inputTokens / 1000000) * 1.25,
                 'output_cost' => ($outputTokens / 1000000) * 10,
-                'total_cost' => ($totalTokens / 1000000) * 1.25 + ($totalTokens / 1000000) * 10,
+                'total_cost' => (($inputTokens / 1000000) * 1.25) + (($outputTokens / 1000000) * 10),
             ]);
 
+            $this->clearProfileCache($conversation->user_id);
         } finally {
             Cache::forget(self::dispatchMarkerKey($this->userMessageId));
             $lock->release();
@@ -201,20 +212,18 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
 
     protected function qdrantContext(Message $userMessage, QdrantService $qdrantService): string
     {
-        $matches = $qdrantService->searchMessages(
+        $messages = $qdrantService->latestMessagesPayloads(
             $qdrantService->collectionName((int) $userMessage->conversation_id),
-            $userMessage->content,
-            5
+            6,
+            true
         );
 
-        $context = collect($matches)
-            ->pluck('payload.content')
+        return collect($messages)
+            ->pluck('content')
             ->filter()
             ->unique()
             ->values()
             ->implode("\n");
-
-        return $context;
     }
 
     protected function storeMessageInQdrant(Message $message, QdrantService $qdrantService): void
@@ -231,8 +240,10 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 'conversation_id' => $message->conversation_id,
                 'message_id' => $message->id,
                 'content' => $message->content,
+                'role' => $message->role,
+                'sender_type' => $message->role,
                 'user_id' => $conversation->user_id,
-                'created_at' => optional($message->created_at)->toISOString(),
+                'created_at' => optional($message->created_at)->toISOString() ?? now()->toISOString(),
             ]
         );
     }
@@ -325,5 +336,16 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             'english' => 1.2,
             default => 2.0,
         };
+    }
+
+    public function clearProfileCache($userId = null): void
+    {
+        $userId = $userId ?? auth()->id();
+
+        if (! $userId) {
+            return;
+        }
+
+        Cache::forget("user_profile_{$userId}");
     }
 }

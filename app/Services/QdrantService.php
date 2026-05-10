@@ -24,9 +24,13 @@ class QdrantService
         }
 
         try {
-            return Http::timeout(5)->get($this->baseUrl . '/collections')->json();
+            return Http::timeout(15)
+                ->get($this->baseUrl . '/collections')
+                ->json();
         } catch (\Throwable $th) {
-            Log::warning('Qdrant collections fetch failed.', ['error' => $th->getMessage()]);
+            Log::warning('Qdrant collections fetch failed.', [
+                'error' => $th->getMessage(),
+            ]);
 
             return [];
         }
@@ -46,6 +50,10 @@ class QdrantService
                 ],
             ]);
 
+            if ($response->successful()) {
+                $this->createCreatedAtIndex($name);
+            }
+
             return $response->successful();
         } catch (\Throwable $th) {
             Log::warning('Qdrant collection creation failed.', [
@@ -64,9 +72,12 @@ class QdrantService
         }
 
         try {
-            $response = Http::timeout(5)->get($this->baseUrl . "/collections/{$name}");
+            $response = Http::timeout(5)
+                ->get($this->baseUrl . "/collections/{$name}");
 
             if ($response->successful()) {
+                $this->createCreatedAtIndex($name);
+
                 return true;
             }
 
@@ -84,6 +95,40 @@ class QdrantService
         } catch (\Throwable $th) {
             Log::warning('Qdrant collection lookup failed.', [
                 'collection' => $name,
+                'error' => $th->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    public function createCreatedAtIndex(string $collection): bool
+    {
+        if (! $this->isConfigured()) {
+            return false;
+        }
+
+        try {
+            $response = Http::timeout(10)->put(
+                $this->baseUrl . "/collections/{$collection}/index?wait=true",
+                [
+                    'field_name' => 'created_at',
+                    'field_schema' => 'datetime',
+                ]
+            );
+
+            if (! $response->successful()) {
+                Log::warning('Qdrant created_at index creation failed.', [
+                    'collection' => $collection,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+            }
+
+            return $response->successful();
+        } catch (\Throwable $th) {
+            Log::warning('Qdrant created_at index creation failed.', [
+                'collection' => $collection,
                 'error' => $th->getMessage(),
             ]);
 
@@ -115,6 +160,8 @@ class QdrantService
                             'conversation_id' => $data['conversation_id'] ?? null,
                             'message_id' => $messageId,
                             'content' => $content,
+                            'role' => $data['role'] ?? null,
+                            'sender_type' => $data['sender_type'] ?? null,
                             'user_id' => $data['user_id'] ?? null,
                             'created_at' => $data['created_at'] ?? now()->toISOString(),
                         ],
@@ -154,7 +201,9 @@ class QdrantService
                 'with_payload' => true,
             ]);
 
-            return $response->successful() ? ($response->json('result') ?? []) : [];
+            return $response->successful()
+                ? ($response->json('result') ?? [])
+                : [];
         } catch (\Throwable $th) {
             Log::warning('Qdrant message search failed.', [
                 'collection' => $collection,
@@ -165,6 +214,60 @@ class QdrantService
         }
     }
 
+    public function latestMessages(string $collection, int $limit = 6, bool $chronological = true): array
+    {
+        if (! $this->isConfigured()) {
+            return [];
+        }
+
+        try {
+            $response = Http::timeout(10)->post(
+                $this->baseUrl . "/collections/{$collection}/points/scroll",
+                [
+                    'limit' => $limit,
+                    'with_payload' => true,
+                    'with_vector' => false,
+                    'order_by' => [
+                        'key' => 'created_at',
+                        'direction' => 'desc',
+                    ],
+                ]
+            );
+
+            if (! $response->successful()) {
+                Log::warning('Qdrant latest messages fetch failed.', [
+                    'collection' => $collection,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return [];
+            }
+
+            $points = $response->json('result.points') ?? [];
+
+            return $chronological ? array_reverse($points) : $points;
+        } catch (\Throwable $th) {
+            Log::warning('Qdrant latest messages fetch failed.', [
+                'collection' => $collection,
+                'error' => $th->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
+    public function latestMessagesPayloads(string $collection, int $limit = 6, bool $chronological = true): array
+    {
+        $points = $this->latestMessages($collection, $limit, $chronological);
+
+        return collect($points)
+            ->pluck('payload')
+            ->filter()
+            ->values()
+            ->toArray();
+    }
+
     public function deleteCollection(string $name): bool
     {
         if (! $this->isConfigured()) {
@@ -172,7 +275,8 @@ class QdrantService
         }
 
         try {
-            $response = Http::timeout(10)->delete($this->baseUrl . "/collections/{$name}");
+            $response = Http::timeout(10)
+                ->delete($this->baseUrl . "/collections/{$name}");
 
             return $response->successful() || $response->status() === 404;
         } catch (\Throwable $th) {
@@ -204,18 +308,24 @@ class QdrantService
             $vector[$index] += 1.0;
         }
 
-        $magnitude = sqrt(array_sum(array_map(static fn ($value) => $value * $value, $vector)));
+        $magnitude = sqrt(array_sum(array_map(
+            static fn ($value) => $value * $value,
+            $vector
+        )));
 
         if ($magnitude <= 0) {
             return $vector;
         }
 
-        return array_map(static fn ($value) => $value / $magnitude, $vector);
+        return array_map(
+            static fn ($value) => $value / $magnitude,
+            $vector
+        );
     }
 
     protected function isConfigured(): bool
     {
-        if ($this->baseUrl !== '') {
+        if (! empty($this->baseUrl)) {
             return true;
         }
 
