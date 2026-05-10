@@ -67,7 +67,7 @@ class ConversationController extends Controller
             }
 
             $conversation->setRelation('message', collect($this->messageCache->toResponseMessages($messages)));
-            if($limit->input_tokens >= 10000 ){
+            if($limit->total_tokens >= 10000 ){
                 return $this->success($conversation,'Limit Exceeded');
             }
             return $this->success($conversation,'Conversation Fetched Successfully');
