@@ -108,9 +108,6 @@
                         <strong>وصلت هذه المحادثة إلى الحد الأقصى</strong>
                         <span>ابدأ محادثة جديدة للمتابعة برسائل إضافية.</span>
                     </div>
-                    <button type="button" class="limit-warning-action" :disabled="creatingConversation" @click="startNewChat">
-                        محادثة جديدة
-                    </button>
                 </div>
                 <div class="input-box" :class="{ focused: inputFocused }">
                     <textarea ref="textareaRef" v-model="userInput" class="chat-input"
