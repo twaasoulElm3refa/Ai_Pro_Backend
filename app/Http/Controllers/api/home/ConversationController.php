@@ -20,9 +20,13 @@ use Laravel\Sanctum\PersonalAccessToken;
 class ConversationController extends Controller
 {
     use ApiResponse;
+
     private $conversation;
+
     private $subToolRepository;
+
     private ConversationMessageCacheService $messageCache;
+
     private QdrantService $qdrantService;
 
     public function __construct(
@@ -30,8 +34,7 @@ class ConversationController extends Controller
         SubToolInterface $subToolRepository,
         ConversationMessageCacheService $messageCache,
         QdrantService $qdrantService
-    )
-    {
+    ) {
         $this->conversation = $conversation;
         $this->subToolRepository = $subToolRepository;
         $this->messageCache = $messageCache;
@@ -42,9 +45,11 @@ class ConversationController extends Controller
     {
         try {
             $conversations = $this->conversation->index();
-            return $this->success($conversations,'Conversations Fetched Successfully');
+
+            return $this->success($conversations, 'Conversations Fetched Successfully');
         } catch (\Throwable $th) {
             Log::error($th);
+
             return $this->error('Something went wrong');
         }
     }
@@ -55,13 +60,7 @@ class ConversationController extends Controller
             $conversation = Conversation::where('uuid', $uuid)
                 ->where('user_id', auth()->id())
                 ->first();
-            $limit  = CostLogger::where('conversation_id', $conversation->id)->latest()->first();
-            if(!$limit){
-                CostLogger::create([
-                    'conversation_id' => $conversation->id,
-                    'total_tokens' => 0
-                ]);
-            }
+            $limit = CostLogger::where('conversation_id', $conversation->id)->latest()->first();
             if (! $conversation) {
                 return $this->notFound('Conversation not found');
             }
@@ -73,12 +72,14 @@ class ConversationController extends Controller
             }
 
             $conversation->setRelation('message', collect($this->messageCache->toResponseMessages($messages)));
-            if($limit->total_tokens >= 10000 ){
-                return $this->success($conversation,'Limit Exceeded');
+            if ($limit->total_tokens >= 10000) {
+                return $this->success($conversation, 'Limit Exceeded');
             }
-            return $this->success($conversation,'Conversation Fetched Successfully');
+
+            return $this->success($conversation, 'Conversation Fetched Successfully');
         } catch (\Throwable $th) {
             Log::error($th);
+
             return $this->error('Something went wrong');
         }
     }
@@ -145,7 +146,7 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function createConversation(Request $request ,$slug)
+    public function createConversation(Request $request, $slug)
     {
         try {
             $subTool = $this->subToolRepository->showBySlug($slug);
@@ -160,9 +161,22 @@ class ConversationController extends Controller
                 'uuid' => (string) Str::uuid(),
             ];
             $conversation = $this->conversation->create($data);
-            return $this->success($conversation,'Conversation Created Successfully');
+            CostLogger::create([
+                'conversation_id' => $conversation->id,
+                'total_tokens' => 0,
+                'sub_tool_id' => $subTool->id,
+                'user_id' => auth()->id(),
+                'input_tokens' => 0,
+                'output_tokens' => 0,
+                'input_cost' => 0,
+                'output_cost' => 0,
+                'total_cost' => 0,
+            ]);
+
+            return $this->success($conversation, 'Conversation Created Successfully');
         } catch (\Throwable $th) {
             Log::error($th);
+
             return $this->error('Something went wrong');
         }
     }
@@ -183,9 +197,10 @@ class ConversationController extends Controller
                 );
             }
 
-            return $this->success($conversation,'Conversation Deleted Successfully');
+            return $this->success($conversation, 'Conversation Deleted Successfully');
         } catch (\Throwable $th) {
             Log::error($th);
+
             return $this->error('Something went wrong');
         }
     }
@@ -232,12 +247,12 @@ class ConversationController extends Controller
 
     protected function chunkText(string $text, int $size = 12): array
     {
-        return preg_split('/(.{1,' . $size . '})/us', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
+        return preg_split('/(.{1,'.$size.'})/us', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
     }
 
     protected function sendSseEvent(array $payload): void
     {
-        echo 'data: ' . json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n\n";
+        echo 'data: '.json_encode($payload, JSON_UNESCAPED_UNICODE)."\n\n";
 
         if (ob_get_level() > 0) {
             @ob_flush();
@@ -245,5 +260,4 @@ class ConversationController extends Controller
 
         flush();
     }
-
 }
