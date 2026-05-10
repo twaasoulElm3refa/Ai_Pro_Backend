@@ -25,4 +25,9 @@ class CostLogger extends Model
     {
         return $this->belongsTo(SubTools::class, 'sub_tool_id');
     }
+
+    public function conversation()
+    {
+        return $this->belongsTo(Conversation::class, 'conversation_id');
+    }
 }

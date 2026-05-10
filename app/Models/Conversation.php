@@ -35,4 +35,9 @@ class Conversation extends Model
     {
         return $this->message();
     }
+
+    public function cost()
+    {
+        return $this->hasMany(CostLogger::class,'conversation_id');
+    }
 }

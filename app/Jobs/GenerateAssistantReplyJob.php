@@ -216,6 +216,7 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
              * تسجيل التكلفة التقريبية
              */
             CostLogger::create([
+                'conversation_id' => $conversation->id,
                 'user_id' => $conversation->user_id,
                 'sub_tool_id' => $conversation->sub_tool_id ?? 1,
                 'input_tokens' => $inputTokens,
