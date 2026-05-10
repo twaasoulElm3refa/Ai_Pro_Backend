@@ -227,12 +227,13 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'output_cost' => ($outputTokens / 1000000) * 10,
                 'total_cost' => (($inputTokens / 1000000) * 1.25) + (($outputTokens / 1000000) * 10),
             ]);
-            // $inputPoints= $cost->input_tokens * 0.00017;
-            // $outputPoints= $cost->output_tokens * 0.0012;
-            // $totalPoints = $inputPoints + $outputPoints;
-            // $user=User::find($conversation->user_id);
-            // $wallet = $user->wallet;
-
+            $inputPoints= $cost->input_tokens * 0.00017;
+            $outputPoints= $cost->output_tokens * 0.0012;
+            $totalPoints = $inputPoints + $outputPoints;
+            $user=User::find($conversation->user_id);
+            $wallet = $user->wallet;
+            $wallet->points -= $totalPoints;
+            $wallet->save();
             $this->clearProfileCache($conversation->user_id);
         } finally {
             Cache::forget(self::dispatchMarkerKey($this->userMessageId));
