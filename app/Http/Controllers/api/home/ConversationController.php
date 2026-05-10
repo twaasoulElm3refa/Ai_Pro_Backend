@@ -56,6 +56,12 @@ class ConversationController extends Controller
                 ->where('user_id', auth()->id())
                 ->first();
             $limit  = CostLogger::where('conversation_id', $conversation->id)->latest()->first();
+            if(!$limit){
+                CostLogger::create([
+                    'conversation_id' => $conversation->id,
+                    'total_tokens' => 0
+                ]);
+            }
             if (! $conversation) {
                 return $this->notFound('Conversation not found');
             }
