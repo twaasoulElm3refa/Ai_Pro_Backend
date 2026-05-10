@@ -128,18 +128,6 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 $outputTokens = (int) ceil($aiWordsCount * $aiTokenMultiplier);
                 $totalTokens = $inputTokens + $outputTokens;
 
-                Log::info('AI response words/language calculated', [
-                    'conversation_id' => $conversation->id,
-                    'user_message_id' => $userMessage->id,
-                    'user_language' => $userLanguage,
-                    'user_words_count' => $userWordsCount,
-                    'input_tokens_estimated' => $inputTokens,
-                    'ai_language' => $aiLanguage,
-                    'ai_words_count' => $aiWordsCount,
-                    'ai_token_multiplier' => $aiTokenMultiplier,
-                    'output_tokens_estimated' => $outputTokens,
-                    'total_tokens_estimated' => $totalTokens,
-                ]);
             } catch (AiServiceException $th) {
                 Log::error('Assistant generation failed with AI service exception.', [
                     'conversation_id' => $conversation->id,
@@ -185,20 +173,6 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 ]
             );
 
-            Log::info('Assistant message saved with token estimate', [
-                'conversation_id' => $conversation->id,
-                'user_message_id' => $userMessage->id,
-                'assistant_message_id' => $assistantMessage->id,
-                'user_language' => $userLanguage,
-                'user_words_count' => $userWordsCount,
-                'input_tokens' => $inputTokens,
-                'ai_language' => $aiLanguage,
-                'ai_words_count' => $aiWordsCount,
-                'output_tokens' => $outputTokens,
-                'total_tokens' => $totalTokens,
-                'was_recently_created' => $assistantMessage->wasRecentlyCreated,
-            ]);
-
             if ($assistantMessage->wasRecentlyCreated) {
                 $assistantMessage->setRelation('conversation', $conversation);
                 $messageCache->updateAfterMessage($assistantMessage);
@@ -214,20 +188,11 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 'input_tokens' => $inputTokens,
                 'output_tokens' => $outputTokens,
                 'total_tokens' => $totalTokens,
-                'input_cost' => $inputTokens * 0.00001,
-                'output_cost' => $outputTokens * 0.00002,
-                'total_cost' => ($inputTokens * 0.00001) + ($outputTokens * 0.00002),
+                'input_cost' => ($inputTokens /1000000) * 1.25 ,
+                'output_cost' => ($outputTokens / 1000000) * 10,
+                'total_cost' => ($totalTokens / 1000000) * 1.25 + ($totalTokens / 1000000) * 10,
             ]);
 
-            Log::info('CostLogger row created', [
-                'user_id' => $conversation->user_id,
-                'conversation_id' => $conversation->id,
-                'user_language' => $userLanguage,
-                'ai_language' => $aiLanguage,
-                'input_tokens' => $inputTokens,
-                'output_tokens' => $outputTokens,
-                'total_tokens' => $totalTokens,
-            ]);
         } finally {
             Cache::forget(self::dispatchMarkerKey($this->userMessageId));
             $lock->release();

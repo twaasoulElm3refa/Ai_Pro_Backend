@@ -88,7 +88,6 @@ Route::prefix('v1')->group(function () {
         ->withoutMiddleware(ApiKeyMiddleware::class);
 });
 
-
 Route::prefix('admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:5,1');
     Route::prefix('')->middleware(['auth:sanctum', AdminMiddleware::class, 'throttle:60,1'])->group(function () {
