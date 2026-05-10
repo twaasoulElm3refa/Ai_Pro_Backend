@@ -214,7 +214,7 @@ class QdrantService
         }
     }
 
-    public function latestMessages(string $collection, int $limit = 6, bool $chronological = true): array
+    public function latestMessages(string $collection, int $limit = 0, bool $chronological = true): array
     {
         if (! $this->isConfigured()) {
             return [];
@@ -257,7 +257,7 @@ class QdrantService
         }
     }
 
-    public function latestMessagesPayloads(string $collection, int $limit = 6, bool $chronological = true): array
+    public function latestMessagesPayloads(string $collection, int $limit = 0, bool $chronological = true): array
     {
         $points = $this->latestMessages($collection, $limit, $chronological);
 
@@ -275,7 +275,7 @@ class QdrantService
         }
 
         try {
-            $response = Http::timeout(10)
+            $response = Http::timeout(15)
                 ->delete($this->baseUrl . "/collections/{$name}");
 
             return $response->successful() || $response->status() === 404;

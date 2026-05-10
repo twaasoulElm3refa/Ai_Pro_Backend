@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Exceptions\AiServiceException;
 use App\Models\CostLogger;
 use App\Models\Message;
+use App\Models\User;
 use App\Services\AI\AIPayloadBuilder;
 use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
@@ -18,17 +19,17 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
+class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
+
     public int $timeout = 300;
+
     public int $uniqueFor = 300;
 
-    public function __construct(public int $userMessageId, public ?array $taskOptions = null)
-    {
-    }
+    public function __construct(public int $userMessageId, public ?array $taskOptions = null) {}
 
     public function uniqueId(): string
     {
@@ -215,7 +216,7 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
             /*
              * تسجيل التكلفة التقريبية
              */
-            CostLogger::create([
+            $cost = CostLogger::create([
                 'conversation_id' => $conversation->id,
                 'user_id' => $conversation->user_id,
                 'sub_tool_id' => $conversation->sub_tool_id ?? 1,
@@ -226,6 +227,11 @@ class GenerateAssistantReplyJob implements ShouldQueue, ShouldBeUnique
                 'output_cost' => ($outputTokens / 1000000) * 10,
                 'total_cost' => (($inputTokens / 1000000) * 1.25) + (($outputTokens / 1000000) * 10),
             ]);
+            // $inputPoints= $cost->input_tokens * 0.00017;
+            // $outputPoints= $cost->output_tokens * 0.0012;
+            // $totalPoints = $inputPoints + $outputPoints;
+            // $user=User::find($conversation->user_id);
+            // $wallet = $user->wallet;
 
             $this->clearProfileCache($conversation->user_id);
         } finally {
