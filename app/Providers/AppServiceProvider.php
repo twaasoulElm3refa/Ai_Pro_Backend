@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Observers\UserObserver;
 use App\Repository\Conversation\ConversationInterface;
 use App\Repository\Conversation\ConversationRepository;
+use App\Repository\cost\CostInterface;
+use App\Repository\cost\CostRepository;
 use App\Repository\Messages\MessageInterface;
 use App\Repository\Messages\MessageRepository;
 use App\Repository\payment\AdminPaymentInterface;
@@ -34,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AdminPaymentInterface::class, AdminPaymentRepository::class);
         $this->app->bind(ConversationInterface::class, ConversationRepository::class);
         $this->app->bind(MessageInterface::class, MessageRepository::class);
+        $this->app->bind(CostInterface::class, CostRepository::class);
     }
 
     /**

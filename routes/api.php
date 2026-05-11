@@ -3,6 +3,7 @@
 use App\Http\Controllers\api\admin\AdminUserController;
 use App\Http\Controllers\api\admin\auth\AdminAuthController;
 use App\Http\Controllers\api\admin\contact\ContactController;
+use App\Http\Controllers\api\admin\cost\AdminCostController;
 use App\Http\Controllers\api\admin\dashboard\AdminDashboardController;
 use App\Http\Controllers\api\admin\footer\FooterController;
 use App\Http\Controllers\api\admin\payment\AdminPaymentController;
@@ -133,6 +134,13 @@ Route::prefix('admin')->group(function () {
         Route::get('/{id}', [AdminPaymentController::class, 'show']);
         Route::post('/{id}', [AdminPaymentController::class, 'update']);
         Route::delete('/{id}', [AdminPaymentController::class, 'destroy']);
+    });
+
+    Route::prefix('cost')->middleware(['auth:sanctum', AdminMiddleware::class, 'throttle:60,1'])->group(function () {
+        Route::get('/', [AdminCostController::class, 'index']);
+        Route::get('today', [AdminCostController::class, 'today']);
+        Route::get('show/{id}', [AdminCostController::class, 'show']);
+        Route::delete('/{id}', [AdminCostController::class, 'destroy']);
     });
     // 64 Api For Now
 });
