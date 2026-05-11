@@ -218,6 +218,13 @@ class MessageController extends Controller
                 'message_id' => $userMessage->id,
                 'conversation_id' => $userMessage->conversation_id,
                 'message' => $userMessage,
+                'assistant' => null,
+                'usage' => null,
+                'cost' => null,
+                'wallet' => [
+                    'points_charged' => null,
+                    'balance' => null,
+                ],
                 'was_created' => $wasCreated,
 
                 /*

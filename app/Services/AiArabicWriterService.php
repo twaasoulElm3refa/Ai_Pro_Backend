@@ -23,10 +23,14 @@ class AiArabicWriterService
     {
         $response = $this->generateReplyWithUsage($payload);
 
-        return (string) ($response['reply'] ?? '');
+        if (is_array($response)) {
+            return (string) ($response['reply'] ?? $response['content'] ?? '');
+        }
+
+        return (string) $response;
     }
 
-    public function generateReplyWithUsage(array $payload): array
+    public function generateReplyWithUsage(array $payload): array|string
     {
         Log::debug('AI request started.', [
             'url' => $this->url,
@@ -119,6 +123,15 @@ class AiArabicWriterService
         return [
             'reply' => $content,
             'usage' => $this->extractUsage($responsePayload),
+            'cost' => $this->extractCost($responsePayload),
+            'request_id' => $this->extractScalarString($responsePayload, [
+                ['request_id'],
+                ['data', 'request_id'],
+            ]),
+            'model_key' => $this->extractScalarString($responsePayload, [
+                ['model_key'],
+                ['data', 'model_key'],
+            ]),
             'raw' => is_array($responsePayload) ? $responsePayload : null,
         ];
     }
@@ -200,5 +213,85 @@ class AiArabicWriterService
         }
 
         return $normalized;
+    }
+
+    protected function extractCost(mixed $payload): array
+    {
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        $cost = $payload['cost'] ?? ($payload['data']['cost'] ?? []);
+
+        if (! is_array($cost)) {
+            return [];
+        }
+
+        $normalized = [
+            'input_cost' => $this->normalizeDecimal($cost['input_cost'] ?? null),
+            'output_cost' => $this->normalizeDecimal($cost['output_cost'] ?? null),
+            'web_search_cost' => $this->normalizeDecimal($cost['web_search_cost'] ?? null),
+            'total_cost' => $this->normalizeDecimal($cost['total_cost'] ?? null),
+            'currency' => isset($cost['currency']) && is_scalar($cost['currency'])
+                ? strtoupper(trim((string) $cost['currency']))
+                : null,
+        ];
+
+        $hasAnyCostValue = $normalized['input_cost'] !== null
+            || $normalized['output_cost'] !== null
+            || $normalized['web_search_cost'] !== null
+            || $normalized['total_cost'] !== null;
+
+        if (! $hasAnyCostValue && $normalized['currency'] === null) {
+            return [];
+        }
+
+        return array_filter(
+            $normalized,
+            static fn ($value) => $value !== null && $value !== ''
+        );
+    }
+
+    protected function normalizeDecimal(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    protected function extractScalarString(mixed $payload, array $paths): ?string
+    {
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        foreach ($paths as $path) {
+            $value = $payload;
+
+            foreach ($path as $segment) {
+                if (! is_array($value) || ! array_key_exists($segment, $value)) {
+                    $value = null;
+                    break;
+                }
+
+                $value = $value[$segment];
+            }
+
+            if (is_scalar($value)) {
+                $text = trim((string) $value);
+
+                if ($text !== '') {
+                    return $text;
+                }
+            }
+        }
+
+        return null;
     }
 }

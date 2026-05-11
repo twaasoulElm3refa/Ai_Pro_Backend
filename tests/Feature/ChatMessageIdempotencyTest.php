@@ -141,10 +141,27 @@ class ChatMessageIdempotencyTest extends TestCase
         ]);
 
         $writer = Mockery::mock(AiArabicWriterService::class);
-        $writer->shouldReceive('generateReply')->once()->andReturn('Assistant answer');
+        $writer->shouldReceive('generateReplyWithUsage')->once()->andReturn([
+            'reply' => 'Assistant answer',
+            'usage' => [
+                'input_tokens' => 100,
+                'output_tokens' => 50,
+                'total_tokens' => 150,
+            ],
+            'cost' => [
+                'input_cost' => 0.000125,
+                'output_cost' => 0.0005,
+                'web_search_cost' => 0,
+                'total_cost' => 0.000625,
+                'currency' => 'USD',
+            ],
+            'request_id' => (string) Str::uuid(),
+            'model_key' => 'writer_pro',
+        ]);
 
         $payloadBuilder = Mockery::mock(AIPayloadBuilder::class);
         $payloadBuilder->shouldReceive('build')->once()->andReturn(['dummy' => true]);
+        $payloadBuilder->shouldReceive('withTaskOptions')->once()->andReturn(['dummy' => true]);
 
         $qdrant = Mockery::mock(QdrantService::class);
         $qdrant->shouldReceive('collectionName')->andReturn("conversation_{$conversation->id}");

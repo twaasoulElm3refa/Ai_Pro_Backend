@@ -640,12 +640,12 @@ const submitMessage = async () => {
                     search_mode: "on",
                     web_search_max_results: 3,
                     web_search_total_results: 5,
-                    max_tokens: 5000,
+                    max_tokens: 2500,
                     temperature: 0.45,
                 }
                 : {
                     search_mode: "off",
-                    max_tokens: 5000,
+                    max_tokens: 2500,
                     temperature: 0.45,
                 },
         };

@@ -5,7 +5,7 @@ namespace App\Jobs;
 use App\Exceptions\AiServiceException;
 use App\Models\CostLogger;
 use App\Models\Message;
-use App\Models\User;
+use App\Models\Wallet;
 use App\Services\AI\AIPayloadBuilder;
 use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
@@ -17,6 +17,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
@@ -126,6 +127,11 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
              */
             $this->storeMessageInQdrant($userMessage, $qdrantService);
 
+            $providerCost = [];
+            $providerRequestId = null;
+            $modelKey = null;
+            $providerHasTotalCost = false;
+
             try {
                 $response = method_exists($writerService, 'generateReplyWithUsage')
                     ? $writerService->generateReplyWithUsage($payload)
@@ -134,6 +140,9 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 if (is_array($response)) {
                     $content = (string) ($response['reply'] ?? $response['content'] ?? '');
                     $usage = is_array($response['usage'] ?? null) ? $response['usage'] : [];
+                    $providerCost = is_array($response['cost'] ?? null) ? $response['cost'] : [];
+                    $providerRequestId = isset($response['request_id']) ? (string) $response['request_id'] : null;
+                    $modelKey = isset($response['model_key']) ? (string) $response['model_key'] : null;
                 } else {
                     $content = (string) $response;
                     $usage = [];
@@ -144,10 +153,13 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 /*
                  * AI response stats
                  */
-                Log::info('AI usage received', [
+                Log::info('AI provider usage and cost received', [
                     'conversation_id' => $conversation->id,
                     'user_message_id' => $userMessage->id,
                     'usage' => $usage,
+                    'cost' => $providerCost,
+                    'provider_request_id' => $providerRequestId,
+                    'model_key' => $modelKey,
                 ]);
 
                 $estimatedOutputTokens = $this->estimateOutputTokens($content);
@@ -161,6 +173,13 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     'total_tokens' => $totalTokens,
                     'source' => ! empty($usage) ? 'provider_usage' : 'estimated',
                 ]);
+
+                $inputCost = (float) ($providerCost['input_cost'] ?? (($inputTokens / 1000000) * 1.25));
+                $outputCost = (float) ($providerCost['output_cost'] ?? (($outputTokens / 1000000) * 10));
+                $webSearchCost = (float) ($providerCost['web_search_cost'] ?? 0);
+                $totalCost = (float) ($providerCost['total_cost'] ?? ($inputCost + $outputCost + $webSearchCost));
+                $currency = (string) ($providerCost['currency'] ?? 'USD');
+                $providerHasTotalCost = isset($providerCost['total_cost']) && is_numeric($providerCost['total_cost']);
 
             } catch (AiServiceException $th) {
                 Log::error('Assistant generation failed with AI service exception.', [
@@ -223,23 +242,56 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'input_tokens' => $inputTokens,
                 'output_tokens' => $outputTokens,
                 'total_tokens' => $totalTokens,
-                'input_cost' => ($inputTokens / 1000000) * 1.25,
-                'output_cost' => ($outputTokens / 1000000) * 10,
-                'total_cost' => (($inputTokens / 1000000) * 1.25) + (($outputTokens / 1000000) * 10),
+                'input_cost' => $inputCost,
+                'output_cost' => $outputCost,
+                'web_search_cost' => $webSearchCost,
+                'total_cost' => $totalCost,
+                'currency' => $currency,
+                'provider_request_id' => $providerRequestId,
+                'model_key' => $modelKey,
             ]);
-            $inputPoints = $cost->input_tokens * 0.00017;
-            $outputPoints = $cost->output_tokens * 0.0012;
-            $totalPoints = (int) ceil($inputPoints + $outputPoints);
 
-            $user = User::find($conversation->user_id);
-            $wallet = $user->wallet;
-            $wallet->balance -= $totalPoints;
-            $wallet->save();
-            Log::info('Cost logger created', [
-                'total_points' => $totalPoints,
-                'output_points' => $outputPoints,
-                'input_points' => $inputPoints,
-                'wallet' => $wallet->balance,
+            Log::info('CostLogger saved from provider cost', [
+                'input_cost' => $inputCost,
+                'output_cost' => $outputCost,
+                'web_search_cost' => $webSearchCost,
+                'total_cost' => $totalCost,
+                'currency' => $currency,
+            ]);
+
+            $totalPoints = $providerHasTotalCost
+                ? (int) ceil(max($totalCost, 0) * 100)
+                : (int) ceil(($inputTokens * 0.000125) + ($outputTokens * 0.001));
+
+            $walletBalance = null;
+
+            DB::transaction(function () use ($conversation, $totalPoints, &$walletBalance): void {
+                $wallet = Wallet::query()
+                    ->where('user_id', $conversation->user_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $wallet) {
+                    Log::warning('Wallet not found while charging conversation cost', [
+                        'conversation_id' => $conversation->id,
+                        'user_id' => $conversation->user_id,
+                        'points_charged' => $totalPoints,
+                    ]);
+
+                    return;
+                }
+
+                $wallet->balance -= $totalPoints;
+                $wallet->save();
+                $walletBalance = (int) $wallet->balance;
+            });
+
+            Log::info('Wallet charged from conversation cost', [
+                'conversation_id' => $conversation->id,
+                'user_id' => $conversation->user_id,
+                'cost_logger_id' => $cost->id,
+                'points_charged' => $totalPoints,
+                'wallet_balance' => $walletBalance,
             ]);
             $this->clearProfileCache($conversation->user_id);
         } finally {

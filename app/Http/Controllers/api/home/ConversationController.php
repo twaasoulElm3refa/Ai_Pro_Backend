@@ -60,10 +60,15 @@ class ConversationController extends Controller
             $conversation = Conversation::where('uuid', $uuid)
                 ->where('user_id', auth()->id())
                 ->first();
-            $limit = CostLogger::where('conversation_id', $conversation->id)->latest()->first();
+
             if (! $conversation) {
                 return $this->notFound('Conversation not found');
             }
+
+            $usageSummary = [
+                'total_tokens' => (int) CostLogger::where('conversation_id', $conversation->id)->sum('total_tokens'),
+                'total_cost' => (float) CostLogger::where('conversation_id', $conversation->id)->sum('total_cost'),
+            ];
 
             $messages = $this->messageCache->get($uuid);
 
@@ -72,7 +77,9 @@ class ConversationController extends Controller
             }
 
             $conversation->setRelation('message', collect($this->messageCache->toResponseMessages($messages)));
-            if ($limit->total_tokens >= 10000) {
+            $conversation->setAttribute('usage_summary', $usageSummary);
+
+            if ($usageSummary['total_tokens'] >= 10000) {
                 return $this->success($conversation, 'Limit Exceeded');
             }
 
@@ -127,6 +134,33 @@ class ConversationController extends Controller
                 usleep(25000);
             }
 
+            $latestCost = CostLogger::where('conversation_id', $conversation->id)
+                ->latest('id')
+                ->first();
+
+            $usage = $latestCost ? [
+                'input_tokens' => (int) ($latestCost->input_tokens ?? 0),
+                'output_tokens' => (int) ($latestCost->output_tokens ?? 0),
+                'total_tokens' => (int) ($latestCost->total_tokens ?? 0),
+            ] : null;
+
+            $cost = $latestCost ? [
+                'input_cost' => (float) ($latestCost->input_cost ?? 0),
+                'output_cost' => (float) ($latestCost->output_cost ?? 0),
+                'web_search_cost' => (float) ($latestCost->web_search_cost ?? 0),
+                'total_cost' => (float) ($latestCost->total_cost ?? 0),
+                'currency' => (string) ($latestCost->currency ?? 'USD'),
+            ] : null;
+
+            $pointsCharged = null;
+            if ($latestCost) {
+                $pointsCharged = (float) ($latestCost->total_cost ?? 0) > 0
+                    ? (int) ceil(((float) $latestCost->total_cost) * 100)
+                    : (int) ceil(((int) $latestCost->input_tokens * 0.000125) + ((int) $latestCost->output_tokens * 0.001));
+            }
+
+            $walletBalance = optional($conversation->user()->with('wallet')->first()?->wallet)->balance;
+
             $this->sendSseEvent([
                 'type' => 'done',
                 'message' => [
@@ -136,6 +170,12 @@ class ConversationController extends Controller
                     'content' => $assistantMessage->content,
                     'is_error' => (bool) $assistantMessage->is_error,
                     'created_at' => optional($assistantMessage->created_at)->toISOString(),
+                ],
+                'usage' => $usage,
+                'cost' => $cost,
+                'wallet' => [
+                    'points_charged' => $pointsCharged,
+                    'balance' => $walletBalance !== null ? (int) $walletBalance : null,
                 ],
             ]);
         }, 200, [
@@ -170,7 +210,9 @@ class ConversationController extends Controller
                 'output_tokens' => 0,
                 'input_cost' => 0,
                 'output_cost' => 0,
+                'web_search_cost' => 0,
                 'total_cost' => 0,
+                'currency' => 'USD',
             ]);
 
             return $this->success($conversation, 'Conversation Created Successfully');
