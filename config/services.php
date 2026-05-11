@@ -31,6 +31,7 @@ return [
         'url' => env('AIARABIC_WRITER_URL', 'https://api.aiarabic.com/tasks/writer'),
         'key' => env('AIARABIC_INTERNAL_API_KEY', 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy'),
         'inject_qdrant_context' => env('AIARABIC_INJECT_QDRANT_CONTEXT', false),
+        'conversation_token_limit' => env('AI_CONVERSATION_TOKEN_LIMIT', 7000),
     ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),

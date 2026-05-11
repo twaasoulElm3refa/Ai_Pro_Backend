@@ -4,8 +4,11 @@ namespace App\Repository\cost;
 
 interface CostInterface
 {
-    public function index();
-    public function today();
-    public function show($id);
-    public function destroy($id);
+    public function paginate(array $filters): array;
+
+    public function today(array $filters): array;
+
+    public function find(int $id): mixed;
+
+    public function destroy(int $id): bool;
 }
