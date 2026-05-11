@@ -4,9 +4,7 @@ namespace App\Repository\cost;
 
 use App\Models\CostLogger;
 use Carbon\Carbon;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 class CostRepository implements CostInterface
 {
@@ -30,15 +28,18 @@ class CostRepository implements CostInterface
 
         $summary = $this->buildSummary(clone $query);
 
+        $this->applyListSelect($query);
         $this->applySorting($query, $filters);
 
         $paginator = $query
-            ->with($this->relations())
             ->paginate($this->normalizePerPage($filters))
             ->appends($filters)
             ->through(fn (CostLogger $log) => $this->mapItem($log));
 
-        return $this->formatPaginatedPayload($paginator, $filters, $summary);
+        return [
+            'data' => $paginator,
+            'summary' => $summary,
+        ];
     }
 
     public function today(array $filters): array
@@ -51,29 +52,34 @@ class CostRepository implements CostInterface
 
     public function find(int $id): mixed
     {
-        $query = $this->baseQuery()
-            ->where('cost_loggers.id', $id)
+        $cost = CostLogger::query()
             ->with([
                 'user:id,name,email',
                 'conversation:id,uuid,user_id,sub_tool_id,created_at',
                 'conversation.user:id,name,email',
                 'conversation.subTool:id,name,slug',
                 'subTool:id,name,slug',
-            ]);
-
-        /** @var CostLogger|null $cost */
-        $cost = $query->first();
+            ])
+            ->find($id);
 
         if (! $cost) {
             return null;
         }
 
+        $conversationTotalTokens = 0;
+        if ($cost->conversation_id) {
+            $conversationTotalTokens = (int) CostLogger::query()
+                ->where('conversation_id', $cost->conversation_id)
+                ->sum('total_tokens');
+        }
+
+        $cost->setAttribute('conversation_total_tokens', $conversationTotalTokens);
+        $cost->setAttribute('is_limited', $conversationTotalTokens >= $this->conversationTokenLimit());
+
         $conversationSummary = $this->conversationSummary($cost->conversation_id);
+        $cost->setAttribute('conversation_cost_summary', $conversationSummary);
 
-        $item = $this->mapItem($cost);
-        $item->setAttribute('conversation_cost_summary', $conversationSummary);
-
-        return $item;
+        return $cost;
     }
 
     public function destroy(int $id): bool
@@ -89,8 +95,6 @@ class CostRepository implements CostInterface
 
     private function baseQuery(): Builder
     {
-        $tokenLimit = $this->conversationTokenLimit();
-
         $conversationTotals = CostLogger::query()
             ->select('conversation_id')
             ->selectRaw('SUM(total_tokens) as conversation_total_tokens')
@@ -98,12 +102,22 @@ class CostRepository implements CostInterface
             ->groupBy('conversation_id');
 
         return CostLogger::query()
-            ->select('cost_loggers.*')
             ->leftJoinSub($conversationTotals, 'conversation_totals', function ($join) {
                 $join->on('conversation_totals.conversation_id', '=', 'cost_loggers.conversation_id');
             })
-            ->addSelect(DB::raw('COALESCE(conversation_totals.conversation_total_tokens, 0) as conversation_total_tokens'))
-            ->addSelect(DB::raw("CASE WHEN COALESCE(conversation_totals.conversation_total_tokens, 0) >= {$tokenLimit} THEN 1 ELSE 0 END as is_limited"));
+            ->with($this->relations());
+    }
+
+    private function applyListSelect(Builder $query): void
+    {
+        $limit = $this->conversationTokenLimit();
+
+        $query->select('cost_loggers.*')
+            ->selectRaw('COALESCE(conversation_totals.conversation_total_tokens, 0) as conversation_total_tokens')
+            ->selectRaw(
+                'CASE WHEN COALESCE(conversation_totals.conversation_total_tokens, 0) >= ? THEN 1 ELSE 0 END as is_limited',
+                [$limit]
+            );
     }
 
     private function applyFilters(Builder $query, array $filters): void
@@ -219,9 +233,11 @@ class CostRepository implements CostInterface
 
     private function buildSummary(Builder $query): array
     {
-        $tokenLimit = $this->conversationTokenLimit();
+        $limit = $this->conversationTokenLimit();
 
-        $aggregates = $query
+        $query->setEagerLoads([]);
+
+        $row = $query
             ->reorder()
             ->selectRaw('COUNT(cost_loggers.id) as logs_count')
             ->selectRaw('COALESCE(SUM(cost_loggers.total_tokens), 0) as total_tokens')
@@ -230,18 +246,21 @@ class CostRepository implements CostInterface
             ->selectRaw('COALESCE(SUM(cost_loggers.total_cost), 0) as total_cost')
             ->selectRaw('COALESCE(SUM(cost_loggers.input_cost), 0) as input_cost')
             ->selectRaw('COALESCE(SUM(cost_loggers.output_cost), 0) as output_cost')
-            ->selectRaw("COUNT(DISTINCT CASE WHEN COALESCE(conversation_totals.conversation_total_tokens, 0) >= {$tokenLimit} THEN cost_loggers.conversation_id END) as limited_conversations_count")
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN COALESCE(conversation_totals.conversation_total_tokens, 0) >= ? THEN cost_loggers.conversation_id END) as limited_conversations_count',
+                [$limit]
+            )
             ->first();
 
         return [
-            'logs_count' => (int) ($aggregates->logs_count ?? 0),
-            'total_tokens' => (int) ($aggregates->total_tokens ?? 0),
-            'input_tokens' => (int) ($aggregates->input_tokens ?? 0),
-            'output_tokens' => (int) ($aggregates->output_tokens ?? 0),
-            'total_cost' => (float) ($aggregates->total_cost ?? 0),
-            'input_cost' => (float) ($aggregates->input_cost ?? 0),
-            'output_cost' => (float) ($aggregates->output_cost ?? 0),
-            'limited_conversations_count' => (int) ($aggregates->limited_conversations_count ?? 0),
+            'logs_count' => (int) ($row->logs_count ?? 0),
+            'total_tokens' => (int) ($row->total_tokens ?? 0),
+            'input_tokens' => (int) ($row->input_tokens ?? 0),
+            'output_tokens' => (int) ($row->output_tokens ?? 0),
+            'total_cost' => (float) ($row->total_cost ?? 0),
+            'input_cost' => (float) ($row->input_cost ?? 0),
+            'output_cost' => (float) ($row->output_cost ?? 0),
+            'limited_conversations_count' => (int) ($row->limited_conversations_count ?? 0),
         ];
     }
 
@@ -308,44 +327,6 @@ class CostRepository implements CostInterface
             'user:id,name,email',
             'conversation:id,uuid,user_id,sub_tool_id,created_at',
             'subTool:id,name,slug',
-        ];
-    }
-
-    private function formatPaginatedPayload(LengthAwarePaginator $paginator, array $filters, array $summary): array
-    {
-        return [
-            'data' => $paginator->items(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'last_page' => $paginator->lastPage(),
-                'filters' => $this->exposedFilters($filters),
-                'summary' => $summary,
-            ],
-        ];
-    }
-
-    private function exposedFilters(array $filters): array
-    {
-        return [
-            'page' => isset($filters['page']) ? (int) $filters['page'] : 1,
-            'per_page' => $this->normalizePerPage($filters),
-            'search' => $filters['search'] ?? null,
-            'user_id' => isset($filters['user_id']) ? (int) $filters['user_id'] : null,
-            'conversation_id' => isset($filters['conversation_id']) ? (int) $filters['conversation_id'] : null,
-            'conversation_uuid' => $filters['conversation_uuid'] ?? null,
-            'sub_tool_id' => isset($filters['sub_tool_id']) ? (int) $filters['sub_tool_id'] : null,
-            'date_from' => $filters['date_from'] ?? null,
-            'date_to' => $filters['date_to'] ?? null,
-            'today' => $this->toNullableBoolean($filters['today'] ?? null),
-            'limited' => $this->toNullableBoolean($filters['limited'] ?? null),
-            'min_total_tokens' => isset($filters['min_total_tokens']) ? (int) $filters['min_total_tokens'] : null,
-            'max_total_tokens' => isset($filters['max_total_tokens']) ? (int) $filters['max_total_tokens'] : null,
-            'min_total_cost' => isset($filters['min_total_cost']) ? (float) $filters['min_total_cost'] : null,
-            'max_total_cost' => isset($filters['max_total_cost']) ? (float) $filters['max_total_cost'] : null,
-            'sort_by' => $filters['sort_by'] ?? 'created_at',
-            'sort_direction' => strtolower((string) ($filters['sort_direction'] ?? 'desc')),
         ];
     }
 
