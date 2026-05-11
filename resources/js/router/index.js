@@ -202,6 +202,24 @@ const routes = [
         meta: adminMeta,
     },
     {
+        path: "/admin/cost",
+        name: "admin.cost.index",
+        component: () => import("../views/admin/cost/CostIndex.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/cost/today",
+        name: "admin.cost.today",
+        component: () => import("../views/admin/cost/CostToday.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/cost/show/:id",
+        name: "admin.cost.show",
+        component: () => import("../views/admin/cost/CostShow.vue"),
+        meta: adminMeta,
+    },
+    {
         path: "/admin/statistics",
         name: "admin.statistics",
         component: () => import("../views/admin/statistics/Statistics.vue"),

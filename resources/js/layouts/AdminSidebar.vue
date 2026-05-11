@@ -97,6 +97,30 @@
                 </div>
             </div>
 
+            <!-- COST LOGS -->
+            <div v-if="sidebarItems.costs" class="sidebar-group">
+                <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: costsActive }"
+                    @click="toggle('costs')">
+                    <span class="sidebar-link-content">
+                        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                            <circle cx="18" cy="18" r="3" stroke="currentColor" stroke-width="1.8" />
+                        </svg>
+                        <span>Cost Logs</span>
+                    </span>
+                    <span class="arrow" :class="{ open: openMenus.costs }"></span>
+                </button>
+
+                <div v-if="openMenus.costs" class="dropdown">
+                    <RouterLink to="/admin/cost" class="sidebar-btn dropdown-item mt-2" @click="$emit('close')">
+                        All Cost Logs
+                    </RouterLink>
+                    <RouterLink to="/admin/cost/today" class="sidebar-btn dropdown-item" @click="$emit('close')">
+                        Today Costs
+                    </RouterLink>
+                </div>
+            </div>
+
             <!-- SETTINGS -->
             <div v-if="sidebarItems.settings" class="sidebar-group">
 
@@ -189,7 +213,7 @@
 </template>
 
 <script setup>
-import { reactive, computed } from "vue"
+import { reactive, computed, watch } from "vue"
 import { useRoute } from "vue-router"
 
 defineProps({
@@ -206,6 +230,7 @@ const sidebarItems = reactive({
     users: true,
     tools: true,
     payments: true,
+    costs: true,
     settings: true,
     adminSettings: true,
     logout: true,
@@ -215,6 +240,7 @@ const sidebarItems = reactive({
 const openMenus = reactive({
     users: route.path.startsWith('/admin/users'),
     payments: route.path.startsWith('/admin/payments'),
+    costs: route.path.startsWith('/admin/cost'),
     settings: route.path.startsWith('/admin/contacts') || route.path.startsWith('/admin/footer'),
     adminSettings: route.path.startsWith('/admin/profile') || route.path.startsWith('/admin/password'),
 })
@@ -237,6 +263,10 @@ const paymentsActive = computed(() =>
     route.path.startsWith('/admin/payments')
 )
 
+const costsActive = computed(() =>
+    route.path.startsWith('/admin/cost')
+)
+
 const adminSettingsActive = computed(() =>
     route.path.startsWith('/admin/profile') ||
     route.path.startsWith('/admin/password')
@@ -246,6 +276,17 @@ const adminSettingsActive = computed(() =>
 const toggleSidebarItem = (key) => {
     sidebarItems[key] = !sidebarItems[key]
 }
+
+watch(
+    () => route.path,
+    (path) => {
+        if (path.startsWith('/admin/users')) openMenus.users = true
+        if (path.startsWith('/admin/payments')) openMenus.payments = true
+        if (path.startsWith('/admin/cost')) openMenus.costs = true
+        if (path.startsWith('/admin/contacts') || path.startsWith('/admin/footer')) openMenus.settings = true
+        if (path.startsWith('/admin/profile') || path.startsWith('/admin/password')) openMenus.adminSettings = true
+    }
+)
 </script>
 
 <style scoped>
