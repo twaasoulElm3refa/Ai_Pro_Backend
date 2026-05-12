@@ -28,7 +28,8 @@ class ProfileController extends Controller
             Wallet::firstOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'balance' => 0,
+                    'ip_address' => request()->ip(),
+                    'balance' => 10,
                     'uuid' => Str::uuid(),
                 ]
             );
@@ -47,6 +48,7 @@ class ProfileController extends Controller
                     'created_at' => $user->created_at,
                 ];
             });
+
             return $this->success(
                 ['user' => $profile],
                 'Profile fetched successfully.'
