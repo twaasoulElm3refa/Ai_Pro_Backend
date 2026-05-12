@@ -84,7 +84,7 @@
                                 <!-- Wallet -->
                                 <td class="td-wallet">
                                     <div class="wallet-info">
-                                        <span class="wallet-icon">﷼</span>
+                                        <span class="wallet-icon">نقاط</span>
                                         <span class="wallet-balance">
                                             {{ formatBalance(user.wallet?.balance) }}
                                         </span>

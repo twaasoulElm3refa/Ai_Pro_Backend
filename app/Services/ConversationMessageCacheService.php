@@ -136,11 +136,9 @@ class ConversationMessageCacheService
             return null;
         }
 
-        if ((bool) ($message->is_error ?? false)) {
-            return null;
-        }
+        $isError = (bool) ($message->is_error ?? false);
 
-        if ($role === 'assistant' && $this->looksLikeFallbackError($content)) {
+        if ($role === 'assistant' && ! $isError && $this->looksLikeFallbackError($content)) {
             return null;
         }
 
@@ -149,7 +147,7 @@ class ConversationMessageCacheService
             'role' => $role,
             'content' => $content,
             'created_at' => optional($message->created_at)->toISOString(),
-            'is_error' => false,
+            'is_error' => $isError,
         ];
     }
 
@@ -166,11 +164,9 @@ class ConversationMessageCacheService
             return false;
         }
 
-        if ((bool) ($message['is_error'] ?? false)) {
-            return false;
-        }
+        $isError = (bool) ($message['is_error'] ?? false);
 
-        if ($role === 'assistant' && $this->looksLikeFallbackError($content)) {
+        if ($role === 'assistant' && ! $isError && $this->looksLikeFallbackError($content)) {
             return false;
         }
 

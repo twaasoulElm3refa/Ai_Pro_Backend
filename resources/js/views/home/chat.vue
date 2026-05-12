@@ -83,7 +83,7 @@
                         </div>
 
                         <div class="msg-bubble">
-                            <div class="msg-content">
+                            <div class="msg-content" :class="{ 'error-message': msg.is_error }">
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
                                 </span>
@@ -109,11 +109,25 @@
                         <span>ابدأ محادثة جديدة للمتابعة برسائل إضافية.</span>
                     </div>
                 </div>
+                <div v-if="insufficientPoints" class="points-warning">
+                    <div class="points-warning-icon">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+                    <div class="points-warning-content">
+                        <strong>Insufficient points</strong>
+                        <span>Please recharge your wallet or start a new chat after adding points.</span>
+                    </div>
+                    <button type="button" class="points-warning-action" @click="goToWallet">
+                        Recharge wallet
+                    </button>
+                </div>
                 <div class="input-box" :class="{ focused: inputFocused }">
                     <textarea ref="textareaRef" v-model="userInput" class="chat-input"
                         :aria-label="t('user.chat.inputAria')"
-                        :placeholder="conversationLimitExceeded
-                            ? 'وصلت هذه المحادثة إلى الحد الأقصى. ابدأ محادثة جديدة للمتابعة.'
+                        :placeholder="insufficientPoints
+                            ? 'Insufficient points. Please recharge your wallet to continue.'
+                            : conversationLimitExceeded
+                            ? 'This conversation has reached the maximum limit. Start a new chat to continue.'
                             : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))" rows="1"
                         :disabled="chatSendDisabled" @focus="inputFocused = true"
                         @blur="inputFocused = false" @keydown.enter.exact.prevent="submitMessage"
@@ -164,6 +178,7 @@ const creatingConversation = ref(false);
 const sendingMessage = ref(false);
 const streamingAssistant = ref(false);
 const conversationLimitExceeded = ref(false);
+const insufficientPoints = ref(false);
 const removingConversationUuid = ref("");
 
 const subtool = ref({
@@ -194,6 +209,7 @@ const filteredConversations = computed(() =>
     )
 );
 const chatSendDisabled = computed(() =>
+    insufficientPoints.value ||
     conversationLimitExceeded.value ||
     sendingMessage.value ||
     streamingAssistant.value
@@ -321,6 +337,27 @@ const formatMessage = (text = "") =>
         .replace(/\*(.*?)\*/g, "<em>$1</em>")
         .replace(/`(.*?)`/g, "<code>$1</code>");
 
+const hasInsufficientPointsContent = (content = "") => {
+    const normalized = String(content || "").toLowerCase();
+
+    return (
+        normalized.includes("insufficient points") ||
+        normalized.includes("recharge your wallet") ||
+        normalized.includes("wallet to continue")
+    );
+};
+
+const resolveInsufficientPointsState = (rows = []) => {
+    const lastAssistantMessage = [...rows]
+        .reverse()
+        .find((message) => message?.role === "assistant");
+
+    insufficientPoints.value = Boolean(
+        lastAssistantMessage?.is_error === true &&
+        hasInsufficientPointsContent(lastAssistantMessage?.content || "")
+    );
+};
+
 const scrollToBottom = async () => {
     await nextTick();
     if (messagesContainer.value) {
@@ -409,6 +446,14 @@ const openAssistantStream = async (conversation, afterId) => {
                 },
                 index
             );
+
+            if (
+                payload.message?.is_error === true &&
+                hasInsufficientPointsContent(payload.message?.content || "")
+            ) {
+                insufficientPoints.value = true;
+            }
+
             closeAssistantStream();
             await scrollToBottom();
         }
@@ -435,6 +480,10 @@ const fillPlaceholder = () => {
     userInput.value = subtool.value.promptPlaceholder;
     textareaRef.value?.focus();
     autoResize();
+};
+
+const goToWallet = async () => {
+    await router.push(`/${homeService.getLang()}/wallet`);
 };
 
 const onModelImageError = (event) => {
@@ -474,6 +523,7 @@ const loadConversations = async () => {
     if (!isAuthenticated.value) {
         conversations.value = [];
         loadingConversations.value = false;
+        insufficientPoints.value = false;
         return;
     }
 
@@ -492,6 +542,7 @@ const loadConversationDetails = async (uuid) => {
         activeConversation.value = null;
         messages.value = [];
         conversationLimitExceeded.value = false;
+        insufficientPoints.value = false;
         return;
     }
 
@@ -499,6 +550,7 @@ const loadConversationDetails = async (uuid) => {
         activeConversation.value = null;
         messages.value = [];
         conversationLimitExceeded.value = false;
+        insufficientPoints.value = false;
         return;
     }
 
@@ -524,6 +576,7 @@ const loadConversationDetails = async (uuid) => {
 
         const rows = Array.isArray(conversation?.message) ? conversation.message : [];
         messages.value = rows.map((message, index) => mapMessage(message, index));
+        resolveInsufficientPointsState(rows);
         await scrollToBottom();
     } finally {
         loadingMessages.value = false;
@@ -535,6 +588,7 @@ const syncRouteConversation = async () => {
         activeConversation.value = null;
         messages.value = [];
         conversationLimitExceeded.value = false;
+        insufficientPoints.value = false;
         return;
     }
 
@@ -569,6 +623,7 @@ const startNewChat = async () => {
         activeConversation.value = conversation;
         messages.value = [];
         conversationLimitExceeded.value = false;
+        insufficientPoints.value = false;
         sidebarOpen.value = false;
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -587,13 +642,14 @@ const ensureConversation = async () => {
     const conversation = formatConversation(response?.data || {});
     conversations.value = [conversation, ...conversations.value.filter((item) => item.uuid !== conversation.uuid)];
     activeConversation.value = conversation;
+    insufficientPoints.value = false;
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     return conversation;
 };
 
 const submitMessage = async () => {
     const content = userInput.value.trim();
-    if (conversationLimitExceeded.value) {
+    if (conversationLimitExceeded.value || insufficientPoints.value) {
         return;
     }
     if (!content || sendingMessage.value || streamingAssistant.value) return;
@@ -691,6 +747,7 @@ const removeConversation = async (conversation) => {
         if (activeConversation.value?.uuid === conversation.uuid || route.params.uuid === conversation.uuid) {
             activeConversation.value = null;
             messages.value = [];
+            insufficientPoints.value = false;
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }
     } finally {
@@ -1220,6 +1277,12 @@ watch(
     border-radius: 6px 18px 18px 18px;
 }
 
+.message-row.assistant .msg-content.error-message {
+    border-color: rgba(220, 38, 38, 0.25);
+    background: #fff1f2;
+    color: #991b1b;
+}
+
 .typing-indicator {
     display: inline-flex;
     align-items: center;
@@ -1323,6 +1386,61 @@ watch(
 .limit-warning-action:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+}
+
+.points-warning {
+    max-width: 920px;
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: #fff1f2;
+    border: 1px solid rgba(220, 38, 38, 0.18);
+    color: #991b1b;
+    box-shadow: 0 14px 28px rgba(153, 27, 27, 0.08);
+}
+
+.points-warning-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+    flex-shrink: 0;
+}
+
+.points-warning-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.points-warning-content strong {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.points-warning-action {
+    border: none;
+    background: #dc2626;
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.points-warning-action:hover:not(:disabled) {
+    background: #b91c1c;
 }
 
 .input-box {
@@ -1588,6 +1706,15 @@ watch(
     }
 
     .limit-warning-action {
+        width: 100%;
+    }
+
+    .points-warning {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .points-warning-action {
         width: 100%;
     }
 

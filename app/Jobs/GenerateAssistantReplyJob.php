@@ -78,10 +78,30 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             }
 
             $conversation = $userMessage->conversation;
+            $insufficientPointsMessage = 'Insufficient points. Please recharge your wallet to continue.';
 
-            /*
-             * User message stats
-             */
+            $walletBalanceBefore = Wallet::query()
+                ->where('user_id', $conversation->user_id)
+                ->value('balance');
+
+            if (($walletBalanceBefore ?? 0) <= 0) {
+                Log::warning('Assistant reply blocked due to insufficient points before provider call', [
+                    'conversation_id' => $conversation->id,
+                    'user_id' => $conversation->user_id,
+                    'wallet_balance' => $walletBalanceBefore !== null ? (int) $walletBalanceBefore : null,
+                ]);
+
+                $this->createAssistantErrorMessage(
+                    $userMessage,
+                    $insufficientPointsMessage,
+                    $messageCache
+                );
+
+                $this->clearProfileCache($conversation->user_id);
+
+                return;
+            }
+
             $userWordsCount = $this->countWords($userMessage->content);
             $userLanguage = $this->detectLanguage($userMessage->content);
             $userTokenMultiplier = $this->tokenMultiplierByLanguage($userLanguage);
@@ -99,11 +119,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $payload = $payloadBuilder->build($conversation, $userMessage);
             $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
 
-            /*
-             * Inject last 6 messages from Qdrant collection as context.
-             * This uses latestMessagesPayloads() from QdrantService,
-             * not vector search.
-             */
             if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
                 $context = $this->qdrantContext($userMessage, $qdrantService);
 
@@ -121,10 +136,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'payload' => $payload,
             ]);
 
-            /*
-             * Store the current user message in Qdrant.
-             * ملاحظة: ده بعد تجهيز الـ payload، عشان آخر 6 رسائل ما يبقاش فيهم نفس رسالة المستخدم الحالية مرتين.
-             */
             $this->storeMessageInQdrant($userMessage, $qdrantService);
 
             $providerCost = [];
@@ -150,9 +161,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
 
                 $isError = false;
 
-                /*
-                 * AI response stats
-                 */
                 Log::info('AI provider usage and cost received', [
                     'conversation_id' => $conversation->id,
                     'user_message_id' => $userMessage->id,
@@ -180,7 +188,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 $totalCost = (float) ($providerCost['total_cost'] ?? ($inputCost + $outputCost + $webSearchCost));
                 $currency = (string) ($providerCost['currency'] ?? 'USD');
                 $providerHasTotalCost = isset($providerCost['total_cost']) && is_numeric($providerCost['total_cost']);
-
             } catch (AiServiceException $th) {
                 Log::error('Assistant generation failed with AI service exception.', [
                     'conversation_id' => $conversation->id,
@@ -214,6 +221,67 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 throw $th;
             }
 
+            $totalPoints = $providerHasTotalCost
+                ? (int) ceil(max($totalCost, 0) * 100)
+                : (int) ceil(($inputTokens * 0.000125) + ($outputTokens * 0.001));
+
+            $walletBalance = null;
+            $charged = false;
+
+            DB::transaction(function () use ($conversation, $totalPoints, &$walletBalance, &$charged): void {
+                $wallet = Wallet::query()
+                    ->where('user_id', $conversation->user_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $wallet) {
+                    Log::warning('Wallet not found while charging conversation cost', [
+                        'conversation_id' => $conversation->id,
+                        'user_id' => $conversation->user_id,
+                        'points_charged' => $totalPoints,
+                    ]);
+                    $walletBalance = null;
+
+                    return;
+                }
+
+                if ($wallet->balance < $totalPoints) {
+                    Log::warning('Not enough balance to charge conversation cost', [
+                        'conversation_id' => $conversation->id,
+                        'user_id' => $conversation->user_id,
+                        'points_charged' => $totalPoints,
+                        'wallet_balance' => $wallet->balance,
+                    ]);
+                    $walletBalance = (int) $wallet->balance;
+
+                    return;
+                }
+
+                $wallet->balance -= $totalPoints;
+                $wallet->save();
+                $walletBalance = (int) $wallet->balance;
+                $charged = true;
+            });
+
+            if (! $charged) {
+                Log::warning('Assistant reply blocked due to insufficient points', [
+                    'conversation_id' => $conversation->id,
+                    'user_id' => $conversation->user_id,
+                    'points_required' => $totalPoints,
+                    'wallet_balance' => $walletBalance,
+                ]);
+
+                $this->createAssistantErrorMessage(
+                    $userMessage,
+                    $insufficientPointsMessage,
+                    $messageCache
+                );
+
+                $this->clearProfileCache($conversation->user_id);
+
+                return;
+            }
+
             $assistantMessage = Message::firstOrCreate(
                 [
                     'reply_to_message_id' => $userMessage->id,
@@ -232,9 +300,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 $this->storeMessageInQdrant($assistantMessage, $qdrantService);
             }
 
-            /*
-             * تسجيل التكلفة التقريبية
-             */
             $cost = CostLogger::create([
                 'conversation_id' => $conversation->id,
                 'user_id' => $conversation->user_id,
@@ -259,33 +324,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'currency' => $currency,
             ]);
 
-            $totalPoints = $providerHasTotalCost
-                ? (int) ceil(max($totalCost, 0) * 100)
-                : (int) ceil(($inputTokens * 0.000125) + ($outputTokens * 0.001));
-
-            $walletBalance = null;
-
-            DB::transaction(function () use ($conversation, $totalPoints, &$walletBalance): void {
-                $wallet = Wallet::query()
-                    ->where('user_id', $conversation->user_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $wallet) {
-                    Log::warning('Wallet not found while charging conversation cost', [
-                        'conversation_id' => $conversation->id,
-                        'user_id' => $conversation->user_id,
-                        'points_charged' => $totalPoints,
-                    ]);
-
-                    return;
-                }
-
-                $wallet->balance -= $totalPoints;
-                $wallet->save();
-                $walletBalance = (int) $wallet->balance;
-            });
-
             Log::info('Wallet charged from conversation cost', [
                 'conversation_id' => $conversation->id,
                 'user_id' => $conversation->user_id,
@@ -293,10 +331,40 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'points_charged' => $totalPoints,
                 'wallet_balance' => $walletBalance,
             ]);
+
             $this->clearProfileCache($conversation->user_id);
         } finally {
             Cache::forget(self::dispatchMarkerKey($this->userMessageId));
             $lock->release();
+        }
+    }
+
+    protected function createAssistantErrorMessage(
+        Message $userMessage,
+        string $content,
+        ConversationMessageCacheService $messageCache
+    ): void {
+        $conversation = $userMessage->conversation;
+
+        if (! $conversation) {
+            return;
+        }
+
+        $assistantMessage = Message::firstOrCreate(
+            [
+                'reply_to_message_id' => $userMessage->id,
+            ],
+            [
+                'conversation_id' => $conversation->id,
+                'content' => $content,
+                'role' => 'assistant',
+                'is_error' => true,
+            ]
+        );
+
+        if ($assistantMessage->wasRecentlyCreated) {
+            $assistantMessage->setRelation('conversation', $conversation);
+            $messageCache->updateAfterMessage($assistantMessage);
         }
     }
 
@@ -346,10 +414,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             return 0;
         }
 
-        /*
-         * يحسب كلمات العربي والإنجليزي والروسي والفرنسي والأرقام
-         * الصيني لا يحتوي دائمًا على مسافات، لذلك لو النص صيني يتم حساب الأحرف الصينية كوحدات تقريبية.
-         */
         $language = $this->detectLanguage($text);
 
         if ($language === 'chinese') {
@@ -371,9 +435,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             return 'unknown';
         }
 
-        /*
-         * نحسب عدد الحروف من كل Script
-         */
         $patterns = [
             'arabic' => '/\p{Arabic}/u',
             'chinese' => '/\p{Han}/u',
@@ -397,11 +458,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             return 'unknown';
         }
 
-        /*
-         * الفرنسي والإنجليزي الاتنين Latin.
-         * بنميز الفرنسي من الحروف المميزة.
-         * لو مفيش حروف فرنسية واضحة، هنعتبره English.
-         */
         if ($topLanguage === 'latin') {
             if (preg_match('/[àâçéèêëîïôûùüÿñæœ]/iu', $text)) {
                 return 'french';
@@ -416,9 +472,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
     protected function tokenMultiplierByLanguage(string $language): float
     {
         return match ($language) {
-            /*
-             * متوسطات تقريبية وليست Tokenizer حقيقي
-             */
             'arabic' => 2.2,
             'chinese' => 2.5,
             'russian' => 1.5,
@@ -448,3 +501,4 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
         Cache::forget("user_profile_{$userId}");
     }
 }
+
