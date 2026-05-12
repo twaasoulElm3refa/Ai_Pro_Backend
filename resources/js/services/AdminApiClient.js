@@ -11,10 +11,10 @@ toastr.options = {
 let redirectingToLogin = false;
 
 const api = axios.create({
-    baseURL: "/api",
+    baseURL: "https://pro.aiarabic.com/api",
     headers: {
         Accept: "application/json",
-        'x-api-key': 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y'
+        'x-api-key': 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy'
     },
 });
 
