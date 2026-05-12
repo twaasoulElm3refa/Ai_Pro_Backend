@@ -5,9 +5,11 @@ import router from "./router";
 
 // your imports (bootstrap, css, etc.)
 import "./bootstrap";
-import "../css/app.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "bootstrap/dist/css/bootstrap.min.css";
+import "toastr/build/toastr.min.css";
+// Keep app.css last so our toast overrides win over Bootstrap/Toastr defaults.
+import "../css/app.css";
 
 // My components imports
 import navbarComponent from "./components/layouts/Navbar.vue";

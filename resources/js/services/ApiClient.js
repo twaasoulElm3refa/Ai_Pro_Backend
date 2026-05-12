@@ -1,6 +1,5 @@
 import axios from "axios";
 import toastr from "toastr";
-import "toastr/build/toastr.min.css";
 
 const LANG_KEY = "lang";
 const SUPPORTED_LANGS = ["ar", "en", "ru", "fr", "zh"];
