@@ -25,15 +25,22 @@ class ProfileController extends Controller
             if (! $user) {
                 return $this->unauthorized('Unauthenticated.');
             }
+
+            $ipAddress = request()->ip();
+
+            $ipAlreadyUsed = Wallet::where('ip_address', $ipAddress)->exists();
+
             Wallet::firstOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'ip_address' => request()->ip(),
-                    'balance' => 10,
+                    'ip_address' => $ipAddress,
+                    'balance' => $ipAlreadyUsed ? 0 : 10,
                     'uuid' => Str::uuid(),
                 ]
             );
+
             $cacheKey = "user_profile_{$user->id}";
+
             $profile = Cache::remember($cacheKey, 600, function () use ($user) {
                 return [
                     'id' => $user->id,
