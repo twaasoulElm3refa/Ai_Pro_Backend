@@ -37,11 +37,7 @@
                         {{ isArabic ? "الأدوات" : "Tools" }}
                     </a>
 
-                    <a :href="homeUrl" class="nb-nav-link">
-                        {{ isArabic ? "عن المنصة" : "About Us" }}
-                    </a>
-
-                    <a :href="homeUrl" class="nb-nav-link">
+                    <a :href="contactUrl" class="nb-nav-link">
                         {{ isArabic ? "تواصل معنا" : "Contact Us" }}
                     </a>
                 </nav>
@@ -284,6 +280,7 @@ const currentDir = computed(() => {
 });
 
 const homeUrl = computed(() => `/${currentLocale.value}`);
+const contactUrl = computed(() => `/${currentLocale.value}/contact`);
 const toolsUrl = computed(() => `/${currentLocale.value}/tools`);
 const profileUrl = computed(() => `/${currentLocale.value}/profile`);
 const authUrl = computed(() => `/${currentLocale.value}/auth`);
