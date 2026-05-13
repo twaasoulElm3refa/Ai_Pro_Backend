@@ -32,19 +32,27 @@
                 </div>
 
                 <!-- TOOLS -->
-                <TransitionGroup v-else-if="tools.length" :key="listKey" name="tool-card" tag="div" class="tools-layout">
-                    <article v-for="(tool, index) in tools" :key="tool.id" class="tool-card group cursor-pointer" role="button"
-                        tabindex="0" :aria-label="t('user.home.openAria', { name: tool.title || tool.slug })" @click="goToTool(tool.slug)"
-                        @keyup.enter="goToTool(tool.slug)" @keyup.space.prevent="goToTool(tool.slug)">
-                        <!-- IMAGE -->
+                <TransitionGroup v-else-if="tools.length" :key="listKey" name="tool-card" tag="div"
+                    class="tools-layout">
+                    <article v-for="(tool, index) in tools" :key="tool.id" class="tool-card group cursor-pointer"
+                        role="button" tabindex="0"
+                        :aria-label="t('user.home.openAria', { name: tool.title || tool.slug })"
+                        @click="goToTool(tool.slug)" @keyup.enter="goToTool(tool.slug)"
+                        @keyup.space.prevent="goToTool(tool.slug)">
+                        <!-- ICON AREA -->
                         <div class="relative overflow-hidden rounded-2xl">
-                            <img v-if="tool.imageUrl" :src="tool.optimizedImageUrl || tool.imageUrl"
-                                :alt="tool.title ? t('user.home.coverAltWithName', { name: tool.title }) : t('user.home.coverAlt')" class="tool-image"
-                                :loading="index <= 1 ? 'eager' : 'lazy'" :fetchpriority="index === 0 ? 'high' : 'auto'"
-                                decoding="async" width="640" height="160" @error="onToolImageError($event, tool.imageUrl)" />
+                            <div class="tool-image tool-icon-card">
+                                <div class="tool-icon-glow"></div>
 
-                            <div v-else class="tool-image tool-image-fallback">
-                                <i class="bi bi-grid-3x3-gap-fill text-2xl"></i>
+                                <div class="tool-icon-main">
+                                    <i class="bi bi-pencil-square"></i>
+                                </div>
+
+                                <div class="tool-mini-icons">
+                                    <span><i class="bi bi-magic"></i></span>
+                                    <span><i class="bi bi-file-text"></i></span>
+                                    <span><i class="bi bi-tools"></i></span>
+                                </div>
                             </div>
 
                             <!-- BADGE -->
@@ -53,7 +61,7 @@
                                     {{ tool.is_active ? t("user.home.statusActive") : t("user.home.statusInactive") }}
                                 </span>
                             </div>
-                        </div>
+                        </div>>
 
                         <!-- CONTENT -->
                         <div class="mt-2.5">
@@ -70,7 +78,8 @@
                                     {{ tool.slug }}
                                 </span>
 
-                                <button type="button" class="show-btn" :aria-label="t('user.home.showAria', { name: tool.title || tool.slug })"
+                                <button type="button" class="show-btn"
+                                    :aria-label="t('user.home.showAria', { name: tool.title || tool.slug })"
                                     @click.stop="goToTool(tool.slug)">
                                     {{ t("user.home.showButton") }}
                                 </button>
