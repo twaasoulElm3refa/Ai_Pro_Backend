@@ -78,7 +78,22 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             }
 
             $conversation = $userMessage->conversation;
+            $endpoint = trim((string) ($conversation->subTool?->endpoint ?? ''));
             $insufficientPointsMessage = 'Insufficient points. Please recharge your wallet to continue.';
+
+            if ($endpoint === '') {
+                Log::error('Sub tool endpoint is missing before AI provider call.', [
+                    'conversation_id' => $conversation->id,
+                    'sub_tool_id' => $conversation->sub_tool_id,
+                    'user_message_id' => $userMessage->id,
+                ]);
+
+                throw new AiServiceException('Sub tool endpoint is missing.', [
+                    'conversation_id' => $conversation->id,
+                    'sub_tool_id' => $conversation->sub_tool_id,
+                    'user_message_id' => $userMessage->id,
+                ]);
+            }
 
             /*
              |--------------------------------------------------------------------------
@@ -200,8 +215,8 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
 
             try {
                 $response = method_exists($writerService, 'generateReplyWithUsage')
-                    ? $writerService->generateReplyWithUsage($payload)
-                    : $writerService->generateReply($payload);
+                    ? $writerService->generateReplyWithUsage($payload, $endpoint)
+                    : $writerService->generateReply($payload, $endpoint);
 
                 if (is_array($response)) {
                     $content = (string) ($response['reply'] ?? $response['content'] ?? '');

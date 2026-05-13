@@ -15,13 +15,13 @@ class AiArabicWriterService
 
     public function __construct()
     {
-        $this->url = (string) config('services.aiarabic.url', 'https://api.aiarabic.com/tasks/writer');
+        $this->url = (string) config('services.aiarabic.url', 'https://api.aiarabic.com');
         $this->apiKey = (string) config('services.aiarabic.key', 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy');
     }
 
-    public function generateReply(array $payload): string
+    public function generateReply(array $payload, ?string $endpoint = null): string
     {
-        $response = $this->generateReplyWithUsage($payload);
+        $response = $this->generateReplyWithUsage($payload, $endpoint);
 
         if (is_array($response)) {
             return (string) ($response['reply'] ?? $response['content'] ?? '');
@@ -30,13 +30,20 @@ class AiArabicWriterService
         return (string) $response;
     }
 
-    public function generateReplyWithUsage(array $payload): array|string
+    public function generateReplyWithUsage(array $payload, ?string $endpoint = null): array|string
     {
+        $targetUrl = $this->buildTargetUrl($endpoint);
+
         Log::debug('AI request started.', [
-            'url' => $this->url,
+            'base_url' => $this->url,
+            'endpoint' => $endpoint,
+            'target_url' => $targetUrl,
             'payload' => $payload,
         ]);
         Log::info('AI model payload prepared', [
+            'base_url' => $this->url,
+            'endpoint' => $endpoint,
+            'target_url' => $targetUrl,
             'payload' => $payload,
         ]);
 
@@ -46,10 +53,12 @@ class AiArabicWriterService
                     'x-internal-api-key' => $this->apiKey,
                     'Content-Type' => 'application/json',
                 ])
-                ->post($this->url, $payload);
+                ->post($targetUrl, $payload);
         } catch (Throwable $th) {
             Log::error('AI request failed before receiving response.', [
-                'url' => $this->url,
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
                 'payload' => $payload,
                 'error_message' => $th->getMessage(),
                 'error_file' => $th->getFile(),
@@ -60,7 +69,9 @@ class AiArabicWriterService
             throw new AiServiceException(
                 'AI request transport failure: '.$th->getMessage(),
                 [
-                    'url' => $this->url,
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
                     'payload' => $payload,
                     'error' => $th->getMessage(),
                 ],
@@ -71,7 +82,9 @@ class AiArabicWriterService
 
         if (! $response->successful()) {
             Log::error('AI request returned non-success status.', [
-                'url' => $this->url,
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
                 'payload' => $payload,
                 'status' => $response->status(),
                 'body' => $response->body(),
@@ -80,7 +93,9 @@ class AiArabicWriterService
             throw new AiServiceException(
                 'AI request failed with status '.$response->status(),
                 [
-                    'url' => $this->url,
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
                     'payload' => $payload,
                     'status' => $response->status(),
                     'response_body' => $response->body(),
@@ -89,7 +104,9 @@ class AiArabicWriterService
         }
 
         Log::debug('AI request completed.', [
-            'url' => $this->url,
+            'base_url' => $this->url,
+            'endpoint' => $endpoint,
+            'target_url' => $targetUrl,
             'status' => $response->status(),
             'response' => $response->json(),
         ]);
@@ -99,7 +116,9 @@ class AiArabicWriterService
 
         if ($content === '') {
             Log::error('AI response missing content.', [
-                'url' => $this->url,
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
                 'payload' => $payload,
                 'body' => $response->body(),
             ]);
@@ -107,7 +126,9 @@ class AiArabicWriterService
             throw new AiServiceException(
                 'AI response is empty.',
                 [
-                    'url' => $this->url,
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
                     'payload' => $payload,
                     'status' => $response->status(),
                     'response_body' => $response->body(),
@@ -293,5 +314,22 @@ class AiArabicWriterService
         }
 
         return null;
+    }
+
+    protected function buildTargetUrl(?string $endpoint): string
+    {
+        $baseUrl = rtrim($this->url, '/');
+        $endpoint = trim((string) $endpoint);
+
+        if ($endpoint === '') {
+            throw new AiServiceException('AI endpoint is missing.', [
+                'base_url' => $baseUrl,
+                'endpoint' => $endpoint,
+            ]);
+        }
+
+        $endpoint = '/'.ltrim($endpoint, '/');
+
+        return $baseUrl.$endpoint;
     }
 }
