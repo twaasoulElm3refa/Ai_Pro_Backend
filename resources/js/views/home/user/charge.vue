@@ -86,7 +86,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem("auth_token")
-    const Api_key = 'K7xP9mQ2vR8tL3sNf6GdJ1aB9zW4cH0y'
+    const Api_key = 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy'
     config.headers["Accept-Language"] = homeService.getLang();
     if (token) {
         config.headers.Authorization = `Bearer ${token}`
