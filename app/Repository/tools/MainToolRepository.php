@@ -25,7 +25,9 @@ class MainToolRepository implements MainToolInterface
     {
         return MainTools::with([
             'translation',
-            'subTools',
+            'subTools' => function ($query) {
+                $query->where('is_active', 1);
+            },
         ])->where('slug', $slug)->first();
     }
 
