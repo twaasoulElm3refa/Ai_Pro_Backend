@@ -7,6 +7,7 @@ const Register = () => import("../views/auth/register.vue");
 const Profile = () => import("../views/home/user/profile.vue");
 const GoogleCallback = () => import("../views/auth/GoogleCallback.vue");
 const Contact = () => import("../views/home/contact.vue");
+const tools = () => import("../views/home/tools.vue");
 const wallet = () => import("../views/home/user/wallet.vue");
 const show = () => import("../views/home/show.vue");
 const chat = () => import("../views/home/chat.vue");
@@ -38,6 +39,11 @@ const routes = [
     {
         path: "/:lang/tool/:slug",
         component: show,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/tools",
+        component: tools,
         meta: { hideNavbar: false, hideFooter: false },
     },
     {

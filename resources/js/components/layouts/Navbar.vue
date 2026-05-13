@@ -33,7 +33,7 @@
                         {{ t("navbar.home") }}
                     </a>
 
-                    <a :href="homeUrl" class="nb-nav-link">
+                    <a :href="toolsUrl" class="nb-nav-link">
                         {{ isArabic ? "الأدوات" : "Tools" }}
                     </a>
 
@@ -284,6 +284,7 @@ const currentDir = computed(() => {
 });
 
 const homeUrl = computed(() => `/${currentLocale.value}`);
+const toolsUrl = computed(() => `/${currentLocale.value}/tools`);
 const profileUrl = computed(() => `/${currentLocale.value}/profile`);
 const authUrl = computed(() => `/${currentLocale.value}/auth`);
 const walletUrl = computed(() => `/${currentLocale.value}/wallet`);
