@@ -15,32 +15,48 @@
 
         <div class="nb-shell">
             <div class="nb-inner">
-                <a class="nb-logo" :href="homeUrl" :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'">
-                    <div class="nb-logo-mark">
-                        <img
-                            src="/images/Ai_logo.png"
-                            alt="AiPro Logo"
-                            width="42"
-                            height="42"
-                            fetchpriority="high"
-                            decoding="async"
-                        />
-                    </div>
-                </a>
-
-                <nav class="nb-center-links" :aria-label="isArabic ? 'روابط التنقل الرئيسية' : 'Main navigation links'">
-                    <a :href="homeUrl" class="nb-nav-link">
-                        {{ t("navbar.home") }}
+                <!-- LOGO + LINKS -->
+                <div class="nb-brand-zone">
+                    <a class="nb-logo" :href="homeUrl" :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'">
+                        <div class="nb-logo-mark">
+                            <img
+                                src="/images/Ai_logo.png"
+                                alt="AiPro Logo"
+                                width="42"
+                                height="42"
+                                fetchpriority="high"
+                                decoding="async"
+                            />
+                        </div>
                     </a>
 
-                    <a :href="toolsUrl" class="nb-nav-link">
-                        {{ isArabic ? "الأدوات" : "Tools" }}
-                    </a>
+                    <button
+                        type="button"
+                        class="nb-links-toggle"
+                        :class="{ active: navLinksOpen }"
+                        :aria-expanded="navLinksOpen"
+                        :aria-label="isArabic ? 'فتح روابط التنقل' : 'Open navigation links'"
+                        @click.stop="toggleNavLinks"
+                    >
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
 
-                    <a :href="contactUrl" class="nb-nav-link">
-                        {{ isArabic ? "تواصل معنا" : "Contact Us" }}
-                    </a>
-                </nav>
+                    <nav
+                        class="nb-center-links"
+                        :class="{ open: navLinksOpen }"
+                        :aria-label="isArabic ? 'روابط التنقل الرئيسية' : 'Main navigation links'"
+                    >
+                        <a :href="homeUrl" class="nb-nav-link">
+                            <span>{{ t("navbar.home") }}</span>
+                        </a>
+
+                        <a :href="contactUrl" class="nb-nav-link">
+                            <span>{{ isArabic ? "تواصل معنا" : "Contact Us" }}</span>
+                        </a>
+                    </nav>
+                </div>
 
                 <div class="nb-actions">
                     <!-- Language Dropdown -->
@@ -229,6 +245,7 @@ const isLoggedIn = ref(false);
 const WalletBalance = ref(0);
 const dropdownOpen = ref(false);
 const langDropdownOpen = ref(false);
+const navLinksOpen = ref(false);
 
 const PROFILE_CACHE_PREFIX = "navbar_profile_cache_v1";
 const WALLET_CACHE_PREFIX = "navbar_wallet_cache_v1";
@@ -250,7 +267,7 @@ const languages = [
     {
         code: "ru",
         label: "Russian",
-        nativeName: "Русский",
+        nativeName: "Русскиي̆",
         dir: "ltr",
     },
     {
@@ -336,6 +353,7 @@ const changeLanguage = async (newLocale) => {
     document.documentElement.setAttribute("dir", selectedLanguage.dir);
 
     langDropdownOpen.value = false;
+    navLinksOpen.value = false;
 
     await router.push(replaceLocaleInPath(newLocale));
 
@@ -346,6 +364,13 @@ const changeLanguage = async (newLocale) => {
 const toggleLangDropdown = () => {
     langDropdownOpen.value = !langDropdownOpen.value;
     dropdownOpen.value = false;
+    navLinksOpen.value = false;
+};
+
+const toggleNavLinks = () => {
+    navLinksOpen.value = !navLinksOpen.value;
+    dropdownOpen.value = false;
+    langDropdownOpen.value = false;
 };
 
 watch(locale, () => {
@@ -473,6 +498,7 @@ const logout = async () => {
     WalletBalance.value = null;
     dropdownOpen.value = false;
     langDropdownOpen.value = false;
+    navLinksOpen.value = false;
 
     window.location.href = homeUrl.value;
 };
@@ -480,6 +506,7 @@ const logout = async () => {
 const toggleDropdown = () => {
     dropdownOpen.value = !dropdownOpen.value;
     langDropdownOpen.value = false;
+    navLinksOpen.value = false;
 };
 
 const handleDocumentClick = (e) => {
@@ -489,6 +516,10 @@ const handleDocumentClick = (e) => {
 
     if (!e.target.closest(".nb-lang-wrap")) {
         langDropdownOpen.value = false;
+    }
+
+    if (!e.target.closest(".nb-brand-zone")) {
+        navLinksOpen.value = false;
     }
 };
 
@@ -566,12 +597,11 @@ onBeforeUnmount(() => {
 
 .nb-inner {
     pointer-events: auto;
-}
-.nb-inner {
     min-height: 84px;
     width: 100%;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 18px;
     padding: 0 16px;
     border-radius: 22px;
@@ -579,6 +609,15 @@ onBeforeUnmount(() => {
     box-shadow: 0 20px 55px rgba(15, 23, 42, 0.18);
     border: 1px solid rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(16px);
+}
+
+/* LOGO + LINKS */
+.nb-brand-zone {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
 }
 
 .nb-logo {
@@ -592,7 +631,7 @@ onBeforeUnmount(() => {
     width: 138px;
     height: 50px;
     background: rgba(255, 255, 255, 0.96);
-    border-radius: 9px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -606,35 +645,158 @@ onBeforeUnmount(() => {
     object-fit: contain;
 }
 
+/* NAV LINKS */
 .nb-center-links {
-    flex: 1;
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 34px;
+    gap: 6px;
     min-width: 0;
+    padding: 6px;
+    border-radius: 999px;
+    isolation: isolate;
+}
+
+.nb-center-links::before,
+.nb-center-links::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: #2ba6de;
+    opacity: 0.55;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.nb-center-links::before {
+    inset-inline-start: 10px;
+}
+
+.nb-center-links::after {
+    inset-inline-end: 10px;
 }
 
 .nb-nav-link {
-    color: #1f2937;
+    position: relative;
+    z-index: 1;
+    min-height: 38px;
+    padding: 0 16px;
+    border-radius: 999px;
+    color: #154677;
     text-decoration: none;
-    font-size: 14px;
-    font-weight: 900;
+    font-size: 16px;
+    font-weight: 950;
     letter-spacing: 0.01em;
     white-space: nowrap;
-    transition: color 0.2s ease, transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition:
+        color 0.22s ease,
+        transform 0.22s ease,
+        box-shadow 0.22s ease;
+}
+
+.nb-nav-link span {
+    position: relative;
+    z-index: 3;
+}
+
+.nb-nav-link::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    opacity: 0;
+    transform: scale(0.82);
+    transition:
+        opacity 0.25s ease,
+        transform 0.25s ease;
+}
+
+.nb-nav-link::after {
+    content: "";
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 7px;
+    height: 2px;
+    border-radius: 999px;
+    background: #ffffff;
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition:
+        opacity 0.25s ease,
+        transform 0.25s ease;
 }
 
 .nb-nav-link:hover {
-    color: #154677;
+    color: #ffffff;
     transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(21, 70, 119, 0.12);
 }
 
+.nb-nav-link:hover::before {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.nb-nav-link:hover::after {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+/* MOBILE LINKS TOGGLE */
+.nb-links-toggle {
+    display: none;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 14px;
+    background: #154677;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.16);
+}
+
+.nb-links-toggle span {
+    width: 18px;
+    height: 2px;
+    border-radius: 999px;
+    background: #ffffff;
+    transition:
+        transform 0.22s ease,
+        opacity 0.22s ease;
+}
+
+.nb-links-toggle.active span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nb-links-toggle.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.nb-links-toggle.active span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ACTIONS */
 .nb-actions {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
+    margin-inline-start: auto;
 }
 
 .nb-lang-wrap {
@@ -907,7 +1069,7 @@ onBeforeUnmount(() => {
     z-index: 5;
     max-width: 1620px;
     margin: 0 auto;
-    padding: 96px 24px 145px;
+    padding: 190px 24px 145px;
     display: flex;
     align-items: center;
 }
@@ -918,6 +1080,7 @@ onBeforeUnmount(() => {
 }
 
 .nb-hero-badge {
+    margin-top: 5%;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -998,12 +1161,9 @@ onBeforeUnmount(() => {
 
 /* RESPONSIVE */
 @media (max-width: 1180px) {
-    .nb-center-links {
-        gap: 18px;
-    }
-
     .nb-nav-link {
-        font-size: 13px;
+        font-size: 12px;
+        padding-inline: 13px;
     }
 
     .nb-user-name {
@@ -1013,7 +1173,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 920px) {
     .nb-shell {
-        padding: 18px 14px 0;
+        top: 14px;
+        padding: 0 14px;
     }
 
     .nb-inner {
@@ -1023,23 +1184,55 @@ onBeforeUnmount(() => {
         border-radius: 20px;
     }
 
+    .nb-brand-zone {
+        gap: 8px;
+    }
+
     .nb-logo-mark {
         width: 92px;
         height: 46px;
     }
 
     .nb-center-links {
-        order: 3;
-        width: 100%;
-        justify-content: flex-start;
-        overflow-x: auto;
-        padding: 8px 2px 2px;
-        gap: 18px;
-        scrollbar-width: none;
+        position: absolute;
+        top: calc(100% + 12px);
+        inset-inline-start: 0;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        min-width: 190px;
+        padding: 10px;
+        border-radius: 20px;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-8px) scale(0.98);
+        transform-origin: top;
+        transition:
+            opacity 0.22s ease,
+            visibility 0.22s ease,
+            transform 0.22s ease;
     }
 
-    .nb-center-links::-webkit-scrollbar {
+    .nb-center-links.open {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+    }
+
+    .nb-center-links::before,
+    .nb-center-links::after {
         display: none;
+    }
+
+    .nb-nav-link {
+        justify-content: flex-start;
+        width: 100%;
+        min-height: 42px;
+        padding-inline: 16px;
+    }
+
+    .nb-links-toggle {
+        display: inline-flex;
     }
 
     .nb-actions {
@@ -1047,7 +1240,7 @@ onBeforeUnmount(() => {
     }
 
     .nb-hero-content {
-        padding: 70px 18px 120px;
+        padding: 170px 18px 120px;
     }
 }
 
@@ -1085,7 +1278,7 @@ onBeforeUnmount(() => {
     }
 
     .nb-hero-content {
-        padding-top: 58px;
+        padding-top: 160px;
     }
 
     .nb-hero-copy h1 {
