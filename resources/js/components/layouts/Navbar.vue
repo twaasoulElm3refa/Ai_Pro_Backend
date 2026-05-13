@@ -1,118 +1,219 @@
 <template>
-    <header class="nb-root" :dir="currentDir">
-        <div class="nb-inner">
-            <a class="nb-logo" :href="homeUrl">
-                <div class="nb-logo-mark">
-                    <img src="/images/Ai_logo.png" alt="AiPro Logo" width="42" height="42" fetchpriority="high"
-                        decoding="async" />
-                </div>
+    <header class="nb-hero" :dir="currentDir">
+        <!-- SEO / LAZY HERO IMAGE -->
+        <img
+            class="nb-hero-bg"
+            :src="heroBackground"
+            :alt="isArabic ? 'خلفية ذكاء اصطناعي لأدوات AiPro' : 'AI tools background for AiPro'"
+            loading="lazy"
+            decoding="async"
+            width="1920"
+            height="900"
+        />
 
-                <span class="nb-logo-text">
-                    Ai<span>Pro</span>
-                </span>
-            </a>
+        <div class="nb-hero-overlay"></div>
 
-            <div class="nb-spacer"></div>
-
-            <div class="nb-actions">
-                <a :href="homeUrl" class="nb-home-link">
-                    {{ t("navbar.home") }}
+        <div class="nb-shell">
+            <div class="nb-inner">
+                <a class="nb-logo" :href="homeUrl" :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'">
+                    <div class="nb-logo-mark">
+                        <img
+                            src="/images/Ai_logo.png"
+                            alt="AiPro Logo"
+                            width="42"
+                            height="42"
+                            fetchpriority="high"
+                            decoding="async"
+                        />
+                    </div>
                 </a>
 
-                <!-- Language Dropdown -->
-                <div class="nb-lang-wrap" @click.stop>
-                    <button class="nb-lang-btn" type="button" @click="toggleLangDropdown">
-                        <span>{{ currentLanguage.label }}</span>
-                        <span class="nb-chevron" :class="{ open: langDropdownOpen }">▼</span>
-                    </button>
+                <nav class="nb-center-links" :aria-label="isArabic ? 'روابط التنقل الرئيسية' : 'Main navigation links'">
+                    <a :href="homeUrl" class="nb-nav-link">
+                        {{ t("navbar.home") }}
+                    </a>
 
-                    <div v-if="langDropdownOpen" class="nb-lang-dropdown">
-                        <button v-for="language in languages" :key="language.code" type="button" class="nb-lang-item"
-                            :class="{ active: language.code === currentLocale }" @click="changeLanguage(language.code)">
-                            <span>{{ language.nativeName }}</span>
-                            <small>{{ language.label }}</small>
+                    <a :href="homeUrl" class="nb-nav-link">
+                        {{ isArabic ? "الأدوات" : "Tools" }}
+                    </a>
+
+                    <a :href="homeUrl" class="nb-nav-link">
+                        {{ isArabic ? "عن المنصة" : "About Us" }}
+                    </a>
+
+                    <a :href="homeUrl" class="nb-nav-link">
+                        {{ isArabic ? "تواصل معنا" : "Contact Us" }}
+                    </a>
+                </nav>
+
+                <div class="nb-actions">
+                    <!-- Language Dropdown -->
+                    <div class="nb-lang-wrap" @click.stop>
+                        <button class="nb-lang-btn" type="button" @click="toggleLangDropdown">
+                            <i class="bi bi-globe2"></i>
+                            <span>{{ currentLanguage.nativeName }}</span>
+                            <span class="nb-chevron" :class="{ open: langDropdownOpen }">▼</span>
                         </button>
-                    </div>
-                </div>
 
-                <div class="nb-divider"></div>
-
-                <button class="nb-wallet-btn" type="button" @click="goToWallet" :title="t('navbar.wallet')">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <rect x="2" y="6" width="20" height="14" rx="3" stroke="white" stroke-width="1.6" />
-                        <path d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z" fill="white" />
-                        <path d="M2 10h20" stroke="white" stroke-width="1.6" />
-                    </svg>
-
-                    <span v-if="WalletBalance !== null" class="nb-badge">
-                        {{ WalletBalance }}
-                    </span>
-                </button>
-
-                <template v-if="isLoggedIn">
-                    <div class="nb-user-btn" @click.stop="toggleDropdown">
-                        <div class="nb-avatar">
-                            {{ userName ? userName.charAt(0) : t("navbar.user").charAt(0) }}
-                        </div>
-
-                        <span>{{ userName }}</span>
-
-                        <span class="nb-chevron" :class="{ open: dropdownOpen }">
-                            ▼
-                        </span>
-
-                        <div v-if="dropdownOpen" class="nb-dropdown">
-                            <div class="nb-dd-header">
-                                <div class="nb-dd-name">{{ userName }}</div>
-                                <div class="nb-dd-label">
-                                    {{ t("navbar.personalAccount") }}
-                                </div>
-                            </div>
-
-                            <a :href="profileUrl" class="nb-dd-item">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="8" r="4" stroke="#154677" stroke-width="1.6" />
-                                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#154677" stroke-width="1.6"
-                                        stroke-linecap="round" />
-                                </svg>
-
-                                {{ t("navbar.profile") }}
-                            </a>
-
-                            <div class="nb-dd-sep"></div>
-
-                            <button class="nb-dd-item danger" type="button" @click="logout">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#154677"
-                                        stroke-width="1.6" stroke-linecap="round" />
-                                    <polyline points="16 17 21 12 16 7" stroke="#154677" stroke-width="1.6"
-                                        stroke-linecap="round" stroke-linejoin="round" />
-                                    <line x1="21" y1="12" x2="9" y2="12" stroke="#154677" stroke-width="1.6"
-                                        stroke-linecap="round" />
-                                </svg>
-
-                                {{ t("navbar.logout") }}
+                        <div v-if="langDropdownOpen" class="nb-lang-dropdown">
+                            <button
+                                v-for="language in languages"
+                                :key="language.code"
+                                type="button"
+                                class="nb-lang-item"
+                                :class="{ active: language.code === currentLocale }"
+                                @click="changeLanguage(language.code)"
+                            >
+                                <span>{{ language.nativeName }}</span>
+                                <small>{{ language.label }}</small>
                             </button>
                         </div>
                     </div>
-                </template>
 
-                <template v-else>
-                    <a :href="authUrl" class="nb-login-btn">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="white" stroke-width="1.8"
-                                stroke-linecap="round" />
-                            <polyline points="10 17 15 12 10 7" stroke="white" stroke-width="1.8" stroke-linecap="round"
-                                stroke-linejoin="round" />
-                            <line x1="15" y1="12" x2="3" y2="12" stroke="white" stroke-width="1.8"
-                                stroke-linecap="round" />
+                    <button class="nb-wallet-btn" type="button" @click="goToWallet" :title="t('navbar.wallet')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <rect x="2" y="6" width="20" height="14" rx="3" stroke="white" stroke-width="1.6" />
+                            <path d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z" fill="white" />
+                            <path d="M2 10h20" stroke="white" stroke-width="1.6" />
                         </svg>
 
-                        {{ t("navbar.login") }}
-                    </a>
-                </template>
+                        <span v-if="WalletBalance !== null" class="nb-badge">
+                            {{ WalletBalance }}
+                        </span>
+                    </button>
+
+                    <template v-if="isLoggedIn">
+                        <div class="nb-user-btn" @click.stop="toggleDropdown">
+                            <div class="nb-avatar">
+                                {{ userName ? userName.charAt(0) : t("navbar.user").charAt(0) }}
+                            </div>
+
+                            <span class="nb-user-name">{{ userName }}</span>
+
+                            <span class="nb-chevron" :class="{ open: dropdownOpen }">
+                                ▼
+                            </span>
+
+                            <div v-if="dropdownOpen" class="nb-dropdown">
+                                <div class="nb-dd-header">
+                                    <div class="nb-dd-name">{{ userName }}</div>
+                                    <div class="nb-dd-label">
+                                        {{ t("navbar.personalAccount") }}
+                                    </div>
+                                </div>
+
+                                <a :href="profileUrl" class="nb-dd-item">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                                        <circle cx="12" cy="8" r="4" stroke="#154677" stroke-width="1.6" />
+                                        <path
+                                            d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
+                                            stroke="#154677"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                        />
+                                    </svg>
+
+                                    {{ t("navbar.profile") }}
+                                </a>
+
+                                <div class="nb-dd-sep"></div>
+
+                                <button class="nb-dd-item danger" type="button" @click="logout">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                                        <path
+                                            d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+                                            stroke="#154677"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                        />
+                                        <polyline
+                                            points="16 17 21 12 16 7"
+                                            stroke="#154677"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                        <line
+                                            x1="21"
+                                            y1="12"
+                                            x2="9"
+                                            y2="12"
+                                            stroke="#154677"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                        />
+                                    </svg>
+
+                                    {{ t("navbar.logout") }}
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template v-else>
+                        <a :href="authUrl" class="nb-login-btn">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                                <path
+                                    d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
+                                    stroke="white"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+                                <polyline
+                                    points="10 17 15 12 10 7"
+                                    stroke="white"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                                <line
+                                    x1="15"
+                                    y1="12"
+                                    x2="3"
+                                    y2="12"
+                                    stroke="white"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+
+                            {{ t("navbar.login") }}
+                        </a>
+                    </template>
+                </div>
             </div>
         </div>
+
+        <section class="nb-hero-content">
+            <div class="nb-hero-copy">
+                <span class="nb-hero-badge">
+                    <i class="bi bi-stars"></i>
+                    {{ isArabic ? "منصة أدوات ذكاء اصطناعي" : "AI Tools Platform" }}
+                </span>
+
+                <h1>
+                    {{ isArabic ? "أدوات ذكية لإنجاز أسرع" : "Smart AI Tools for Faster Work" }}
+                </h1>
+
+                <p>
+                    {{
+                        isArabic
+                            ? "اكتب، لخص، حرّر، ونظّم مهامك من مكان واحد بتجربة بسيطة وسريعة."
+                            : "Write, summarize, edit, and organize your tasks from one simple workspace."
+                    }}
+                </p>
+
+                <div class="nb-hero-actions">
+                    <a :href="homeUrl" class="nb-primary-cta">
+                        {{ isArabic ? "استكشف الأدوات" : "Explore Tools" }}
+                    </a>
+
+                    <a :href="authUrl" class="nb-secondary-cta">
+                        {{ isArabic ? "ابدأ الآن" : "Get Started" }}
+                    </a>
+                </div>
+            </div>
+        </section>
     </header>
 </template>
 
@@ -125,6 +226,8 @@ import homeService from "@/services/home/homeService";
 
 const { t, locale } = useI18n();
 const router = useRouter();
+
+const heroBackground = "/images/hero.png";
 
 const isLoggedIn = ref(false);
 const WalletBalance = ref(0);
@@ -148,14 +251,12 @@ const languages = [
         nativeName: "English",
         dir: "ltr",
     },
-
     {
         code: "ru",
         label: "Russian",
         nativeName: "Русский",
         dir: "ltr",
     },
-
     {
         code: "fr",
         label: "French",
@@ -171,6 +272,8 @@ const languages = [
 ];
 
 const currentLocale = computed(() => locale.value || "ar");
+
+const isArabic = computed(() => String(currentLocale.value || "ar").toLowerCase() === "ar");
 
 const currentLanguage = computed(() => {
     return languages.find((language) => language.code === currentLocale.value) || languages[0];
@@ -192,7 +295,9 @@ const scopedCacheKey = (prefix) => `${prefix}:${homeService.getLang()}`;
 const clearNavbarCache = () => {
     for (let i = sessionStorage.length - 1; i >= 0; i -= 1) {
         const key = sessionStorage.key(i);
+
         if (!key) continue;
+
         if (key.startsWith(`${PROFILE_CACHE_PREFIX}:`) || key.startsWith(`${WALLET_CACHE_PREFIX}:`)) {
             sessionStorage.removeItem(key);
         }
@@ -235,6 +340,7 @@ const changeLanguage = async (newLocale) => {
     langDropdownOpen.value = false;
 
     await router.push(replaceLocaleInPath(newLocale));
+
     clearNavbarCache();
     refreshUserState();
 };
@@ -421,15 +527,109 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.nb-root {
+.nb-hero {
+    position: relative;
+    min-height: 760px;
+    overflow: hidden;
     font-family: 'Cairo', sans-serif;
-    background: linear-gradient(135deg, #154677, #2ba6de);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: 0 16px 36px rgba(21, 70, 119, 0.18);
-    backdrop-filter: blur(14px);
+    background: #154677;
+}
+
+.nb-hero-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    transform: scale(1.02);
+}
+
+.nb-hero-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        linear-gradient(180deg, rgba(21, 70, 119, 0.28) 0%, rgba(21, 70, 119, 0.42) 52%, rgba(248, 250, 252, 1) 100%),
+        radial-gradient(circle at 70% 20%, rgba(43, 166, 222, 0.22), transparent 34%);
+}
+
+.nb-shell {
+    position: relative;
+    z-index: 10;
+    max-width: 1620px;
+    margin: 0 auto;
+    padding: 34px 24px 0;
+}
+
+.nb-inner {
+    min-height: 84px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 0 16px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 20px 55px rgba(15, 23, 42, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+}
+
+.nb-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.nb-logo-mark {
+    width: 138px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(21, 70, 119, 0.08);
+    box-shadow: 0 10px 20px rgba(21, 70, 119, 0.08);
+}
+
+.nb-logo-mark img {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+}
+
+.nb-center-links {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 34px;
+    min-width: 0;
+}
+
+.nb-nav-link {
+    color: #1f2937;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.nb-nav-link:hover {
+    color: #154677;
+    transform: translateY(-1px);
+}
+
+.nb-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
 .nb-lang-wrap {
@@ -440,20 +640,25 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: rgba(255, 255, 255, 0.92);
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: #1f2937;
+    background: #eef3fa;
+    border: 1px solid rgba(21, 70, 119, 0.08);
     font-size: 13px;
-    font-weight: 800;
-    padding: 9px 14px;
+    font-weight: 900;
+    padding: 10px 14px;
     border-radius: 999px;
     white-space: nowrap;
     cursor: pointer;
     transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
+.nb-lang-btn i {
+    color: #154677;
+    font-size: 15px;
+}
+
 .nb-lang-btn:hover {
-    background: rgba(255, 255, 255, 0.18);
+    background: #f4fbff;
     transform: translateY(-1px);
 }
 
@@ -469,12 +674,12 @@ onBeforeUnmount(() => {
     z-index: 9999;
 }
 
-.nb-root[dir="rtl"] .nb-lang-dropdown {
+.nb-hero[dir="rtl"] .nb-lang-dropdown {
     left: 0;
     right: auto;
 }
 
-.nb-root[dir="ltr"] .nb-lang-dropdown {
+.nb-hero[dir="ltr"] .nb-lang-dropdown {
     right: 0;
     left: auto;
 }
@@ -493,12 +698,12 @@ onBeforeUnmount(() => {
     transition: background 0.2s ease;
 }
 
-.nb-root[dir="rtl"] .nb-lang-item {
+.nb-hero[dir="rtl"] .nb-lang-item {
     text-align: right;
     align-items: flex-end;
 }
 
-.nb-root[dir="ltr"] .nb-lang-item {
+.nb-hero[dir="ltr"] .nb-lang-item {
     text-align: left;
     align-items: flex-start;
 }
@@ -514,119 +719,37 @@ onBeforeUnmount(() => {
     background: #f4fbff;
 }
 
-.nb-inner {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    padding: 0 24px;
-    min-height: 72px;
-    gap: 18px;
-}
-
-.nb-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-decoration: none;
-    flex-shrink: 0;
-}
-
-.nb-logo-mark {
-    width: 56px;
-    height: 56px;
-    background: rgba(255, 255, 255, 0.94);
-    border-radius: 1.1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.12);
-}
-
-.nb-logo-mark img {
-    width: 42px;
-    height: 42px;
-    object-fit: contain;
-}
-
-.nb-logo-text {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: #fff;
-}
-
-.nb-logo-text span {
-    color: rgba(255, 255, 255, 0.82);
-}
-
-.nb-spacer {
-    flex: 1;
-}
-
-.nb-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-}
-
-.nb-home-link,
-.nb-wallet-btn,
-.nb-user-btn {
-    transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.nb-home-link {
-    color: rgba(255, 255, 255, 0.92);
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 9px 16px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    white-space: nowrap;
-}
-
-.nb-home-link:hover {
-    background: rgba(255, 255, 255, 0.12);
-    transform: translateY(-1px);
-}
-
-.nb-divider {
-    width: 1px;
-    height: 28px;
-    background: rgba(255, 255, 255, 0.18);
-}
-
 .nb-wallet-btn {
     position: relative;
-    width: 44px;
-    height: 44px;
-    border-radius: 1rem;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: #154677;
+    border: 1px solid rgba(21, 70, 119, 0.16);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.18);
+    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .nb-wallet-btn:hover {
-    background: rgba(255, 255, 255, 0.18);
+    background: #2ba6de;
     transform: translateY(-1px);
+    box-shadow: 0 16px 28px rgba(21, 70, 119, 0.22);
 }
 
 .nb-badge {
     position: absolute;
-    top: -6px;
-    left: -6px;
-    min-width: 20px;
-    height: 20px;
+    top: -7px;
+    left: -7px;
+    min-width: 21px;
+    height: 21px;
     background: #ffffff;
     color: #154677;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 900;
     border-radius: 999px;
     display: flex;
     align-items: center;
@@ -639,20 +762,21 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 14px;
+    padding: 8px 13px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    color: #fff;
+    background: #eef3fa;
+    border: 1px solid rgba(21, 70, 119, 0.08);
+    color: #154677;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 800;
     position: relative;
     white-space: nowrap;
+    transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
 .nb-user-btn:hover {
-    background: rgba(255, 255, 255, 0.18);
+    background: #f4fbff;
     transform: translateY(-1px);
 }
 
@@ -660,18 +784,24 @@ onBeforeUnmount(() => {
     width: 32px;
     height: 32px;
     border-radius: 999px;
-    background: #ffffff;
-    color: #154677;
+    background: #154677;
+    color: #ffffff;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 900;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
+.nb-user-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .nb-chevron {
     font-size: 10px;
-    opacity: 0.7;
+    opacity: 0.75;
     transition: transform 0.2s ease;
 }
 
@@ -748,41 +878,222 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 18px;
+    padding: 11px 18px;
     border-radius: 999px;
-    background: #ffffff;
-    color: #154677;
+    background: #154677;
+    color: #ffffff;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 900;
     text-decoration: none;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     white-space: nowrap;
-    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.12);
+    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.18);
 }
 
 .nb-login-btn:hover {
-    background: #f4fbff;
+    background: #2ba6de;
     transform: translateY(-1px);
-    box-shadow: 0 16px 30px rgba(21, 70, 119, 0.16);
+    box-shadow: 0 16px 30px rgba(21, 70, 119, 0.2);
 }
 
-@media (max-width: 768px) {
+/* HERO CONTENT */
+.nb-hero-content {
+    position: relative;
+    z-index: 5;
+    max-width: 1620px;
+    margin: 0 auto;
+    padding: 96px 24px 145px;
+    display: flex;
+    align-items: center;
+}
+
+.nb-hero-copy {
+    width: min(680px, 100%);
+    color: #ffffff;
+}
+
+.nb-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #154677;
+    padding: 8px 15px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 900;
+    box-shadow: 0 12px 25px rgba(15, 23, 42, 0.14);
+}
+
+.nb-hero-badge i {
+    color: #2ba6de;
+}
+
+.nb-hero-copy h1 {
+    margin: 22px 0 0;
+    font-size: clamp(36px, 5vw, 74px);
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    text-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+}
+
+.nb-hero-copy p {
+    margin: 18px 0 0;
+    max-width: 600px;
+    font-size: 17px;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+}
+
+.nb-hero-actions {
+    margin-top: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.nb-primary-cta,
+.nb-secondary-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 22px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 900;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.nb-primary-cta {
+    background: #154677;
+    color: #ffffff;
+    box-shadow: 0 14px 28px rgba(21, 70, 119, 0.28);
+}
+
+.nb-primary-cta:hover {
+    background: #2ba6de;
+    transform: translateY(-2px);
+}
+
+.nb-secondary-cta {
+    background: rgba(255, 255, 255, 0.94);
+    color: #154677;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.16);
+}
+
+.nb-secondary-cta:hover {
+    transform: translateY(-2px);
+    background: #ffffff;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1180px) {
+    .nb-center-links {
+        gap: 18px;
+    }
+
+    .nb-nav-link {
+        font-size: 13px;
+    }
+
+    .nb-user-name {
+        display: none;
+    }
+}
+
+@media (max-width: 920px) {
+    .nb-shell {
+        padding: 18px 14px 0;
+    }
+
     .nb-inner {
-        padding: 10px 16px;
-        min-height: 68px;
-        gap: 12px;
+        min-height: auto;
+        padding: 12px;
         flex-wrap: wrap;
+        border-radius: 20px;
+    }
+
+    .nb-logo-mark {
+        width: 92px;
+        height: 46px;
+    }
+
+    .nb-center-links {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding: 8px 2px 2px;
+        gap: 18px;
+        scrollbar-width: none;
+    }
+
+    .nb-center-links::-webkit-scrollbar {
+        display: none;
     }
 
     .nb-actions {
-        width: 100%;
-        justify-content: flex-end;
+        margin-inline-start: auto;
     }
 
-    .nb-home-link,
-    .nb-login-btn,
-    .nb-user-btn {
+    .nb-hero-content {
+        padding: 70px 18px 120px;
+    }
+}
+
+@media (max-width: 640px) {
+    .nb-hero {
+        min-height: 610px;
+    }
+
+    .nb-inner {
+        gap: 10px;
+    }
+
+    .nb-logo-mark {
+        width: 76px;
+        height: 42px;
+    }
+
+    .nb-logo-mark img {
+        width: 36px;
+        height: 36px;
+    }
+
+    .nb-lang-btn span:not(.nb-chevron) {
+        display: none;
+    }
+
+    .nb-wallet-btn {
+        width: 42px;
+        height: 42px;
+    }
+
+    .nb-login-btn {
+        padding: 10px 13px;
         font-size: 13px;
+    }
+
+    .nb-hero-content {
+        padding-top: 58px;
+    }
+
+    .nb-hero-copy h1 {
+        font-size: 38px;
+    }
+
+    .nb-hero-copy p {
+        font-size: 15px;
+    }
+
+    .nb-primary-cta,
+    .nb-secondary-cta {
+        width: 100%;
     }
 }
 </style>
