@@ -555,13 +555,20 @@ onBeforeUnmount(() => {
 }
 
 .nb-shell {
-    position: relative;
-    z-index: 10;
+    position: fixed;
+    top: 24px;
+    left: 0;
+    right: 0;
+    z-index: 5000;
     max-width: 1620px;
     margin: 0 auto;
-    padding: 34px 24px 0;
+    padding: 0 24px;
+    pointer-events: none;
 }
 
+.nb-inner {
+    pointer-events: auto;
+}
 .nb-inner {
     min-height: 84px;
     width: 100%;
