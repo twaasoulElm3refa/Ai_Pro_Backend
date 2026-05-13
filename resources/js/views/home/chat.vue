@@ -9,8 +9,12 @@
                         <p class="brand-subtitle">{{ subtool.name || t("user.chat.workspaceTitle") }}</p>
                     </div>
                 </div>
-                <button type="button" class="icon-btn mobile-only" :aria-label="t('user.chat.closeSidebarAria')"
-                    @click="sidebarOpen = false">
+                <button
+                    type="button"
+                    class="icon-btn mobile-only"
+                    :aria-label="t('user.chat.closeSidebarAria')"
+                    @click="sidebarOpen = false"
+                >
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -33,8 +37,12 @@
                 </div>
 
                 <TransitionGroup v-else name="history-item" tag="div" class="history-list">
-                    <div v-for="conversation in filteredConversations" :key="conversation.uuid" class="history-item"
-                        :class="{ active: activeConversation?.uuid === conversation.uuid }">
+                    <div
+                        v-for="conversation in filteredConversations"
+                        :key="conversation.uuid"
+                        class="history-item"
+                        :class="{ active: activeConversation?.uuid === conversation.uuid }"
+                    >
                         <button type="button" class="history-item-main" @click="openConversation(conversation)">
                             <i class="bi bi-chat-left-text"></i>
                             <div class="history-item-info">
@@ -42,22 +50,33 @@
                                 <span class="history-item-date">{{ conversation.subtitle }}</span>
                             </div>
                         </button>
-                        <button type="button" class="history-delete"
-                            :aria-label="t('user.chat.deleteConversationAria', { name: conversation.title || t('user.chat.conversationFallback') })"
-                            @click="removeConversation(conversation)">
+
+                        <button
+                            type="button"
+                            class="history-delete"
+                            :aria-label="t('user.chat.deleteConversationAria', {
+                                name: conversation.title || t('user.chat.conversationFallback')
+                            })"
+                            @click="removeConversation(conversation)"
+                        >
                             <i class="bi bi-trash3"></i>
                         </button>
                     </div>
                 </TransitionGroup>
             </div>
         </aside>
-        <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
-        <div class="main-area">
 
+        <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
+
+        <div class="main-area">
             <div class="messages-wrap" ref="messagesContainer">
                 <div v-if="loadingMessages" class="messages-skeleton">
-                    <div v-for="item in 4" :key="item" class="message-skeleton"
-                        :class="item % 2 === 0 ? 'assistant' : 'user'"></div>
+                    <div
+                        v-for="item in 4"
+                        :key="item"
+                        class="message-skeleton"
+                        :class="item % 2 === 0 ? 'assistant' : 'user'"
+                    ></div>
                 </div>
 
                 <div v-else-if="messages.length === 0" class="empty-state">
@@ -66,11 +85,18 @@
                     </div>
                     <h2 class="empty-title">{{ subtool.name || t("user.chat.newConversation") }}</h2>
                     <p class="empty-desc">
-                        {{ activeConversation?.uuid ? t("user.chat.emptyWithConversation") :
-                            t("user.chat.emptyWithoutConversation") }}
+                        {{
+                            activeConversation?.uuid
+                                ? t("user.chat.emptyWithConversation")
+                                : t("user.chat.emptyWithoutConversation")
+                        }}
                     </p>
-                    <button v-if="subtool.promptPlaceholder" type="button" class="suggestion-chip"
-                        @click="fillPlaceholder">
+                    <button
+                        v-if="subtool.promptPlaceholder"
+                        type="button"
+                        class="suggestion-chip"
+                        @click="fillPlaceholder"
+                    >
                         <i class="bi bi-lightning-charge-fill"></i>
                         {{ subtool.promptPlaceholder }}
                     </button>
@@ -109,45 +135,67 @@
                         <span>ابدأ محادثة جديدة للمتابعة برسائل إضافية.</span>
                     </div>
                 </div>
-                <div v-if="insufficientPoints" class="points-warning">
+
+                <div v-if="insufficientPoints && !conversationLimitExceeded" class="points-warning">
                     <div class="points-warning-icon">
                         <i class="bi bi-wallet2"></i>
                     </div>
                     <div class="points-warning-content">
                         <strong>Insufficient points</strong>
-                        <span>Please recharge your wallet or start a new chat after adding points.</span>
+                        <span>You can send again, but the assistant may return insufficient points until you recharge.</span>
                     </div>
                     <button type="button" class="points-warning-action" @click="goToWallet">
                         Recharge wallet
                     </button>
                 </div>
+
                 <div class="input-box" :class="{ focused: inputFocused }">
-                    <textarea ref="textareaRef" v-model="userInput" class="chat-input"
+                    <textarea
+                        ref="textareaRef"
+                        v-model="userInput"
+                        class="chat-input"
                         :aria-label="t('user.chat.inputAria')"
-                        :placeholder="insufficientPoints
-                            ? 'Insufficient points. Please recharge your wallet to continue.'
-                            : conversationLimitExceeded
+                        :placeholder="conversationLimitExceeded
                             ? 'This conversation has reached the maximum limit. Start a new chat to continue.'
-                            : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))" rows="1"
-                        :disabled="chatSendDisabled" @focus="inputFocused = true"
-                        @blur="inputFocused = false" @keydown.enter.exact.prevent="submitMessage"
-                        @keydown.shift.enter.exact="newLine" @input="autoResize"></textarea>
+                            : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))"
+                        rows="1"
+                        :disabled="chatSendDisabled"
+                        @focus="inputFocused = true"
+                        @blur="inputFocused = false"
+                        @keydown.enter.exact.prevent="submitMessage"
+                        @keydown.shift.enter.exact="newLine"
+                        @input="autoResize"
+                    ></textarea>
 
                     <div class="input-actions">
                         <span class="char-count">{{ userInput.length }}</span>
-                        <button type="button" class="search-toggle-btn" :class="{ active: searchEnabled }"
+
+                        <button
+                            type="button"
+                            class="search-toggle-btn"
+                            :class="{ active: searchEnabled }"
                             :aria-label="searchEnabled ? 'Disable web search' : 'Enable web search'"
-                            :disabled="chatSendDisabled" @click="searchEnabled = !searchEnabled">
+                            :disabled="chatSendDisabled"
+                            @click="searchEnabled = !searchEnabled"
+                        >
                             <i class="bi bi-search"></i>
                         </button>
-                        <button type="button" class="send-btn" :aria-label="t('user.chat.sendAria')"
+
+                        <button
+                            type="button"
+                            class="send-btn"
+                            :aria-label="t('user.chat.sendAria')"
                             :disabled="!userInput.trim() || chatSendDisabled"
-                            @click="submitMessage">
-                            <i class="bi"
-                                :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
+                            @click="submitMessage"
+                        >
+                            <i
+                                class="bi"
+                                :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"
+                            ></i>
                         </button>
                     </div>
                 </div>
+
                 <p class="input-hint">
                     <i class="bi bi-info-circle"></i>
                     {{ t("user.chat.inputHint") }}
@@ -168,7 +216,11 @@ import useSeoMeta from "@/composables/useSeoMeta";
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
-const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
+
+const isArabic = computed(() =>
+    String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
+);
+
 const isAuthenticated = computed(() => Boolean(localStorage.getItem("auth_token")));
 
 const toolLoading = ref(true);
@@ -189,6 +241,7 @@ const subtool = ref({
     imageUrl: "",
     optimizedImageUrl: "",
 });
+
 const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
@@ -200,6 +253,7 @@ const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const activeEventSource = ref(null);
 const streamingConversationUuid = ref("");
+
 const PENDING_SEND_TTL = 5 * 60 * 1000;
 const inFlightSignatures = new Set();
 
@@ -208,17 +262,24 @@ const filteredConversations = computed(() =>
         !subtool.value.id || conversation.sub_tool_id === subtool.value.id
     )
 );
+
+/**
+ * مهم:
+ * هنا insufficientPoints اتشالت من التعطيل.
+ * المحادثة تتقفل فقط عند limit أو أثناء الإرسال/الستريم.
+ */
 const chatSendDisabled = computed(() =>
-    insufficientPoints.value ||
     conversationLimitExceeded.value ||
     sendingMessage.value ||
     streamingAssistant.value
 );
+
 const seoTitle = computed(() =>
     isArabic.value
         ? `${subtool.value.name || t("user.chat.workspaceTitle")} | Ai Pro`
         : `${subtool.value.name || t("user.chat.workspaceTitle")} | Ai Pro`
 );
+
 const seoDescription = computed(() =>
     isArabic.value
         ? "تحدث مع الأداة الفرعية المختارة، نظّم سجل المحادثات، وأرسل رسائلك في مساحة عمل مركزة مع استجابات فورية وسياق واضح لكل محادثة."
@@ -243,7 +304,8 @@ const createClientMessageId = () => {
     return `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const pendingSendStorageKey = (conversationUuid) => `chat-pending-send:${conversationUuid || "unknown"}`;
+const pendingSendStorageKey = (conversationUuid) =>
+    `chat-pending-send:${conversationUuid || "unknown"}`;
 
 const readPendingSend = (conversationUuid) => {
     if (!conversationUuid) return null;
@@ -253,6 +315,7 @@ const readPendingSend = (conversationUuid) => {
         if (!raw) return null;
 
         const parsed = JSON.parse(raw);
+
         if (!parsed?.idempotencyKey || !parsed?.content || !parsed?.expiresAt) {
             sessionStorage.removeItem(pendingSendStorageKey(conversationUuid));
             return null;
@@ -305,20 +368,28 @@ const resolveIdempotencyKey = (conversationUuid, content) => {
 
     const idempotencyKey = createClientMessageId();
     writePendingSend(conversationUuid, content, idempotencyKey);
+
     return idempotencyKey;
 };
 
 const formatConversation = (conversation) => ({
     ...conversation,
-    title: t("user.chat.conversationTitle", { short: String(conversation.uuid || "").slice(-6) || conversation.id }),
-    subtitle: t("user.chat.conversationSubtitle", { uuid: conversation.uuid }),
+    title: t("user.chat.conversationTitle", {
+        short: String(conversation.uuid || "").slice(-6) || conversation.id,
+    }),
+    subtitle: t("user.chat.conversationSubtitle", {
+        uuid: conversation.uuid,
+    }),
 });
 
 const mapMessage = (message, index = 0) => ({
     ...message,
     localKey: `${message.role || "message"}-${index}-${message.id || message.created_at || message.content}`,
     time: message.created_at
-        ? new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))
+        ? new Intl.DateTimeFormat("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+        }).format(new Date(message.created_at))
         : now(),
 });
 
@@ -347,6 +418,11 @@ const hasInsufficientPointsContent = (content = "") => {
     );
 };
 
+/**
+ * مهم:
+ * الدالة دي تفضل موجودة عشان تعرض التحذير فقط.
+ * لكنها لا تقفل المحادثة لأن chatSendDisabled لا يعتمد على insufficientPoints.
+ */
 const resolveInsufficientPointsState = (rows = []) => {
     const lastAssistantMessage = [...rows]
         .reverse()
@@ -360,6 +436,7 @@ const resolveInsufficientPointsState = (rows = []) => {
 
 const scrollToBottom = async () => {
     await nextTick();
+
     if (messagesContainer.value) {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
     }
@@ -368,6 +445,7 @@ const scrollToBottom = async () => {
 const autoResize = () => {
     const el = textareaRef.value;
     if (!el) return;
+
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
 };
@@ -390,6 +468,7 @@ const closeAssistantStream = () => {
 
 const streamUrl = (uuid, afterId) => {
     const token = localStorage.getItem("auth_token") || "";
+
     const params = new URLSearchParams({
         after_id: String(afterId || 0),
         token,
@@ -414,6 +493,7 @@ const openAssistantStream = async (conversation, afterId) => {
     messages.value.push(assistantMessage);
     streamingAssistant.value = true;
     streamingConversationUuid.value = conversation.uuid;
+
     await scrollToBottom();
 
     const source = new EventSource(streamUrl(conversation.uuid, afterId));
@@ -431,8 +511,16 @@ const openAssistantStream = async (conversation, afterId) => {
         }
 
         if (payload.type === "error") {
-            messages.value[index].content = payload.content || t("user.chat.genericError");
+            const errorContent = payload.content || t("user.chat.genericError");
+
+            messages.value[index].content = errorContent;
             messages.value[index].streaming = false;
+            messages.value[index].is_error = true;
+
+            if (hasInsufficientPointsContent(errorContent)) {
+                insufficientPoints.value = true;
+            }
+
             closeAssistantStream();
         }
 
@@ -465,6 +553,7 @@ const openAssistantStream = async (conversation, afterId) => {
         if (index !== -1 && !messages.value[index].content) {
             messages.value[index].content = t("user.chat.connectionInterrupted");
             messages.value[index].streaming = false;
+            messages.value[index].is_error = true;
         }
 
         closeAssistantStream();
@@ -494,16 +583,20 @@ const onModelImageError = (event) => {
 
 const loadSubtool = async () => {
     toolLoading.value = true;
+
     try {
         const res = await homeService.showSubtool(route.params.slug);
         const data = res?.data || {};
+
         subtool.value = {
             id: data.id || null,
             name: data.name || data.translation?.name || t("user.chat.aiTool"),
             description: data.description || data.translation?.description || "",
             promptPlaceholder: data.prompt_placeholder || "",
             imageUrl: data.image ? `/storage/${data.image}` : "",
-            optimizedImageUrl: data.image ? `/storage/${data.image}`.replace(/\.(png|jpe?g)$/i, ".webp") : "",
+            optimizedImageUrl: data.image
+                ? `/storage/${data.image}`.replace(/\.(png|jpe?g)$/i, ".webp")
+                : "",
         };
     } catch {
         subtool.value = {
@@ -528,6 +621,7 @@ const loadConversations = async () => {
     }
 
     loadingConversations.value = true;
+
     try {
         const response = await chatServices.getConversations();
         const rows = Array.isArray(response?.data) ? response.data : [];
@@ -555,11 +649,18 @@ const loadConversationDetails = async (uuid) => {
     }
 
     loadingMessages.value = true;
+
     try {
         const response = await chatServices.getConversation(uuid);
         const apiMessage = response?.message || response?.data?.message || "";
-        conversationLimitExceeded.value = String(apiMessage).toLowerCase().includes("limit exceeded");
-        // Temporary debug log: limit state comes from API message "Limit Exceeded".
+
+        /**
+         * هنا فقط الحد الأقصى هو اللي يقفل المحادثة.
+         */
+        conversationLimitExceeded.value = String(apiMessage)
+            .toLowerCase()
+            .includes("limit exceeded");
+
         console.info("[chat] conversation limit state resolved", {
             uuid,
             apiMessage,
@@ -567,6 +668,7 @@ const loadConversationDetails = async (uuid) => {
         });
 
         const conversation = response?.data || null;
+
         activeConversation.value = conversation
             ? formatConversation({
                 ...(conversations.value.find((item) => item.uuid === uuid) || {}),
@@ -576,7 +678,9 @@ const loadConversationDetails = async (uuid) => {
 
         const rows = Array.isArray(conversation?.message) ? conversation.message : [];
         messages.value = rows.map((message, index) => mapMessage(message, index));
+
         resolveInsufficientPointsState(rows);
+
         await scrollToBottom();
     } finally {
         loadingMessages.value = false;
@@ -593,6 +697,7 @@ const syncRouteConversation = async () => {
     }
 
     const existing = conversations.value.find((item) => item.uuid === route.params.uuid);
+
     if (existing) {
         activeConversation.value = existing;
     }
@@ -602,6 +707,7 @@ const syncRouteConversation = async () => {
 
 const openConversation = async (conversation) => {
     sidebarOpen.value = false;
+
     if (!conversation?.uuid) return;
 
     if (route.params.uuid === conversation.uuid) {
@@ -616,15 +722,22 @@ const startNewChat = async () => {
     if (!isAuthenticated.value || creatingConversation.value) return;
 
     creatingConversation.value = true;
+
     try {
         const response = await chatServices.createConversation(route.params.slug);
         const conversation = formatConversation(response?.data || {});
-        conversations.value = [conversation, ...conversations.value.filter((item) => item.uuid !== conversation.uuid)];
+
+        conversations.value = [
+            conversation,
+            ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
+        ];
+
         activeConversation.value = conversation;
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         sidebarOpen.value = false;
+
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
         creatingConversation.value = false;
@@ -640,27 +753,46 @@ const ensureConversation = async () => {
 
     const response = await chatServices.createConversation(route.params.slug);
     const conversation = formatConversation(response?.data || {});
-    conversations.value = [conversation, ...conversations.value.filter((item) => item.uuid !== conversation.uuid)];
+
+    conversations.value = [
+        conversation,
+        ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
+    ];
+
     activeConversation.value = conversation;
     insufficientPoints.value = false;
+
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
+
     return conversation;
 };
 
 const submitMessage = async () => {
     const content = userInput.value.trim();
-    if (conversationLimitExceeded.value || insufficientPoints.value) {
+
+    /**
+     * مهم:
+     * هنا شلنا insufficientPoints من شرط المنع.
+     * يعني لو آخر رد كان Insufficient، المستخدم يقدر يبعت تاني.
+     * القفل فقط عند limit exceeded.
+     */
+    if (conversationLimitExceeded.value) {
         return;
     }
-    if (!content || sendingMessage.value || streamingAssistant.value) return;
+
+    if (!content || sendingMessage.value || streamingAssistant.value) {
+        return;
+    }
 
     sendingMessage.value = true;
 
     const conversation = await ensureConversation();
+
     if (!conversation) {
         sendingMessage.value = false;
         return;
     }
+
     const idempotencyKey = resolveIdempotencyKey(conversation.uuid, content);
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
@@ -683,6 +815,7 @@ const submitMessage = async () => {
     messages.value.push(optimisticMessage);
     userInput.value = "";
     resetTextarea();
+
     await scrollToBottom();
 
     try {
@@ -705,13 +838,16 @@ const submitMessage = async () => {
                     temperature: 0.45,
                 },
         };
+
         console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
 
         const response = await chatServices.sendMessage(payload);
 
         const savedMessage = response?.data?.message;
+
         if (savedMessage) {
             const lastIndex = messages.value.findIndex((item) => item.localKey === optimisticMessage.localKey);
+
             if (lastIndex !== -1) {
                 messages.value[lastIndex] = mapMessage(savedMessage, lastIndex);
             }
@@ -722,6 +858,7 @@ const submitMessage = async () => {
         }
 
         clearPendingSend(conversation.uuid);
+
         await openAssistantStream(conversation, response?.data?.message_id);
     } catch {
         messages.value = messages.value.filter((item) => item.localKey !== optimisticMessage.localKey);
@@ -736,18 +873,21 @@ const removeConversation = async (conversation) => {
     if (!conversation?.uuid || removingConversationUuid.value === conversation.uuid) return;
 
     removingConversationUuid.value = conversation.uuid;
+
     try {
         if (streamingConversationUuid.value === conversation.uuid) {
             closeAssistantStream();
         }
 
         await chatServices.deleteConversation(conversation.uuid);
+
         conversations.value = conversations.value.filter((item) => item.uuid !== conversation.uuid);
 
         if (activeConversation.value?.uuid === conversation.uuid || route.params.uuid === conversation.uuid) {
             activeConversation.value = null;
             messages.value = [];
             insufficientPoints.value = false;
+
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }
     } finally {
@@ -755,10 +895,29 @@ const removeConversation = async (conversation) => {
     }
 };
 
+const handleLangChanged = async () => {
+    locale.value = homeService.getLang();
+
+    closeAssistantStream();
+
+    await Promise.all([
+        loadSubtool(),
+        loadConversations(),
+    ]);
+
+    await syncRouteConversation();
+};
+
 onMounted(async () => {
     locale.value = homeService.getLang();
-    await Promise.all([loadSubtool(), loadConversations()]);
+
+    await Promise.all([
+        loadSubtool(),
+        loadConversations(),
+    ]);
+
     await syncRouteConversation();
+
     window.addEventListener("lang-changed", handleLangChanged);
 });
 
@@ -767,18 +926,16 @@ onUnmounted(() => {
     window.removeEventListener("lang-changed", handleLangChanged);
 });
 
-const handleLangChanged = async () => {
-    locale.value = homeService.getLang();
-    closeAssistantStream();
-    await Promise.all([loadSubtool(), loadConversations()]);
-    await syncRouteConversation();
-};
-
 watch(
     () => route.params.slug,
     async () => {
         closeAssistantStream();
-        await Promise.all([loadSubtool(), loadConversations()]);
+
+        await Promise.all([
+            loadSubtool(),
+            loadConversations(),
+        ]);
+
         await syncRouteConversation();
     }
 );
@@ -795,6 +952,7 @@ watch(
     () => route.params.lang,
     async (nextLang, prevLang) => {
         if (!nextLang || nextLang === prevLang) return;
+
         await handleLangChanged();
     }
 );
