@@ -43,7 +43,7 @@ const routes = [
     {
         path: "/:lang/subtool/:slug/chat/:uuid?",
         component: chat,
-        meta: { hideNavbar: false, hideFooter: true },
+        meta: { hideNavbar: true, hideFooter: true },
     },
     {
         path: "/:lang/profile",
