@@ -44,43 +44,43 @@ const routes = [
     {
         path: "/:lang/tools",
         component: tools,
-        meta: { hideNavbar: false, hideFooter: false },
+        meta: { hideNavbar: false, hideFooter: false , hideHeader: true },
     },
     {
         path: "/:lang/subtool/:slug/chat/:uuid?",
         component: chat,
-        meta: { hideNavbar: true, hideFooter: true },
+        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
     },
     {
         path: "/:lang/profile",
         component: Profile,
-        meta: { hideNavbar: false, hideFooter: true },
+        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
     },
     {
         path: "/:lang/wallet",
         component: wallet,
-        meta: { hideNavbar: false, hideFooter: true },
+        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
     },
     {
         path: "/:lang/Deposit/waiting",
         component: WaitingDeposit,
-        meta: { hideNavbar: false, hideFooter: false },
+        meta: { hideNavbar: false, hideFooter: false ,hideHeader: true },
     },
     {
         path: "/:lang/deposit/success",
         component: success,
-        meta: { hideNavbar: false, hideFooter: false },
+        meta: { hideNavbar: false, hideFooter: false ,hideHeader: true },
     },
     {
         path: "/:lang/failed",
         component: failed,
-        meta: { hideNavbar: false, hideFooter: false },
+        meta: { hideNavbar: false, hideFooter: false ,hideHeader: true },
     },
     {
         path: "/:lang/wallet/charge/:uuid",
         name: "charge-wallet",
         component: charge,
-        meta: { hideNavbar: false, hideFooter: true },
+        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
     },
     {
         path: "/:lang/contact",

@@ -1,23 +1,33 @@
 <template>
-    <header class="nb-hero" :dir="currentDir">
+    <header
+        class="nb-hero"
+        :class="{ 'nb-hero-compact': hideHeader }"
+        :dir="currentDir"
+    >
         <!-- SEO / LAZY HERO IMAGE -->
-        <img
-            class="nb-hero-bg"
-            :src="heroBackground"
-            :alt="isArabic ? 'خلفية ذكاء اصطناعي لأدوات AiPro' : 'AI tools background for AiPro'"
-            loading="lazy"
-            decoding="async"
-            width="1920"
-            height="900"
-        />
+        <template v-if="!hideHeader">
+            <img
+                class="nb-hero-bg"
+                :src="heroBackground"
+                :alt="isArabic ? 'خلفية ذكاء اصطناعي لأدوات AiPro' : 'AI tools background for AiPro'"
+                loading="lazy"
+                decoding="async"
+                width="1920"
+                height="900"
+            />
 
-        <div class="nb-hero-overlay"></div>
+            <div class="nb-hero-overlay"></div>
+        </template>
 
         <div class="nb-shell">
             <div class="nb-inner">
                 <!-- LOGO + LINKS -->
                 <div class="nb-brand-zone">
-                    <a class="nb-logo" :href="homeUrl" :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'">
+                    <a
+                        class="nb-logo"
+                        :href="homeUrl"
+                        :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'"
+                    >
                         <div class="nb-logo-mark">
                             <img
                                 src="/images/Ai_logo.png"
@@ -52,7 +62,11 @@
                             <span>{{ t("navbar.home") }}</span>
                         </a>
 
-                        <!-- <a :href="contactUrl" class="nb-nav-link">
+                        <!-- <a :href="toolsUrl" class="nb-nav-link">
+                            <span>{{ isArabic ? "الأدوات" : "Tools" }}</span>
+                        </a>
+
+                        <a :href="contactUrl" class="nb-nav-link">
                             <span>{{ isArabic ? "تواصل معنا" : "Contact Us" }}</span>
                         </a> -->
                     </nav>
@@ -196,7 +210,7 @@
             </div>
         </div>
 
-        <section class="nb-hero-content">
+        <section v-if="!hideHeader" class="nb-hero-content">
             <div class="nb-hero-copy">
                 <span class="nb-hero-badge">
                     <i class="bi bi-stars"></i>
@@ -216,7 +230,7 @@
                 </p>
 
                 <div class="nb-hero-actions">
-                    <a :href="homeUrl" class="nb-primary-cta">
+                    <a :href="toolsUrl" class="nb-primary-cta">
                         {{ isArabic ? "استكشف الأدوات" : "Explore Tools" }}
                     </a>
 
@@ -235,6 +249,13 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import api from "@/services/ApiClient";
 import homeService from "@/services/home/homeService";
+
+const props = defineProps({
+    hideHeader: {
+        type: Boolean,
+        default: false,
+    },
+});
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -267,13 +288,13 @@ const languages = [
     {
         code: "ru",
         label: "Russian",
-        nativeName: "Русскиي̆",
+        nativeName: "Русский",
         dir: "ltr",
     },
     {
         code: "fr",
         label: "French",
-        nativeName: "Français",
+        nativeName: "Français",
         dir: "ltr",
     },
     {
@@ -284,7 +305,7 @@ const languages = [
     },
 ];
 
-const currentLocale = computed(() => locale.value || "ar");
+const currentLocale = computed(() => locale.value || homeService.getLang() || "ar");
 
 const isArabic = computed(() => String(currentLocale.value || "ar").toLowerCase() === "ar");
 
@@ -293,7 +314,7 @@ const currentLanguage = computed(() => {
 });
 
 const currentDir = computed(() => {
-    return currentLanguage.value.dir || "ltr";
+    return currentLanguage.value.dir || "rtl";
 });
 
 const homeUrl = computed(() => `/${currentLocale.value}`);
@@ -560,8 +581,14 @@ onBeforeUnmount(() => {
     position: relative;
     min-height: 760px;
     overflow: hidden;
-    font-family: 'Cairo', sans-serif;
+    font-family: "Cairo", sans-serif;
     background: #154677;
+}
+
+.nb-hero-compact {
+    min-height: 118px;
+    background: #f4f8fb;
+    overflow: visible;
 }
 
 .nb-hero-bg {
@@ -1249,11 +1276,19 @@ onBeforeUnmount(() => {
     .nb-hero-content {
         padding: 170px 18px 120px;
     }
+
+    .nb-hero-compact {
+        min-height: 104px;
+    }
 }
 
 @media (max-width: 640px) {
     .nb-hero {
         min-height: 610px;
+    }
+
+    .nb-hero-compact {
+        min-height: 96px;
     }
 
     .nb-inner {

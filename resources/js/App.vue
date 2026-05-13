@@ -1,6 +1,9 @@
 <template>
     <div class="d-flex flex-column min-vh-100">
-        <navbar-component v-if="showNavbar" />
+        <navbar-component
+            v-if="showNavbar"
+            :hide-header="hideHeader"
+        />
 
         <main class="flex-fill">
             <router-view />
@@ -18,7 +21,10 @@ export default {
         showNavbar() {
             return !this.$route.meta.hideNavbar;
         },
+
+        hideHeader() {
+            return this.$route.meta.hideHeader === true;
+        },
     },
 };
 </script>
-
