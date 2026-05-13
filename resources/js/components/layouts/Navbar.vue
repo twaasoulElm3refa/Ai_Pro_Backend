@@ -52,9 +52,9 @@
                             <span>{{ t("navbar.home") }}</span>
                         </a>
 
-                        <a :href="contactUrl" class="nb-nav-link">
+                        <!-- <a :href="contactUrl" class="nb-nav-link">
                             <span>{{ isArabic ? "تواصل معنا" : "Contact Us" }}</span>
-                        </a>
+                        </a> -->
                     </nav>
                 </div>
 
@@ -654,6 +654,13 @@ onBeforeUnmount(() => {
     min-width: 0;
     padding: 6px;
     border-radius: 999px;
+    background:
+        linear-gradient(180deg, rgba(21, 70, 119, 0.08), rgba(43, 166, 222, 0.06)),
+        rgba(238, 243, 250, 0.92);
+    border: 1px solid rgba(21, 70, 119, 0.10);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.82),
+        0 10px 22px rgba(21, 70, 119, 0.06);
     isolation: isolate;
 }
 
