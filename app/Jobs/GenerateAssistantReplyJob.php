@@ -84,8 +84,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
              |--------------------------------------------------------------------------
              | 1) Before AI Call: settle old payback first
              |--------------------------------------------------------------------------
-             | لو عليه payback قديم، نسدده من الرصيد الحالي الأول.
-             | لو بعد التسديد الرصيد بقى صفر، ممنوع نكلم الـ AI.
              */
             $canCallProvider = false;
             $walletBalanceBeforeProvider = 0;
@@ -227,24 +225,81 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     'model_key' => $modelKey,
                 ]);
 
+                /*
+                 |--------------------------------------------------------------------------
+                 | Normalize Provider Tokens
+                 |--------------------------------------------------------------------------
+                 | المهم هنا:
+                 | لو الـ API رجّع input_tokens/output_tokens/total_tokens، نخزنهم كما هم.
+                 | التقدير يستخدم فقط لو الـ provider مرجعش القيمة.
+                 */
                 $estimatedOutputTokens = $this->estimateOutputTokens($content);
-                $inputTokens = (int) ($usage['input_tokens'] ?? $inputTokens);
-                $outputTokens = (int) ($usage['output_tokens'] ?? $estimatedOutputTokens);
-                $totalTokens = (int) ($usage['total_tokens'] ?? ($inputTokens + $outputTokens));
 
-                Log::info('Cost logger tokens resolved', [
-                    'input_tokens' => $inputTokens,
-                    'output_tokens' => $outputTokens,
-                    'total_tokens' => $totalTokens,
-                    'source' => ! empty($usage) ? 'provider_usage' : 'estimated',
+                $providerInputTokens = $usage['input_tokens']
+                    ?? $usage['input_token']
+                    ?? $usage['prompt_tokens']
+                    ?? null;
+
+                $providerOutputTokens = $usage['output_tokens']
+                    ?? $usage['output_token']
+                    ?? $usage['completion_tokens']
+                    ?? null;
+
+                $providerTotalTokens = $usage['total_tokens']
+                    ?? $usage['total_token']
+                    ?? null;
+
+                $inputTokens = is_numeric($providerInputTokens)
+                    ? (int) $providerInputTokens
+                    : (int) $inputTokens;
+
+                $outputTokens = is_numeric($providerOutputTokens)
+                    ? (int) $providerOutputTokens
+                    : (int) $estimatedOutputTokens;
+
+                $totalTokens = is_numeric($providerTotalTokens)
+                    ? (int) $providerTotalTokens
+                    : ((int) $inputTokens + (int) $outputTokens);
+
+                Log::info('Normalized provider tokens before cost logger save', [
+                    'conversation_id' => $conversation->id,
+                    'user_message_id' => $userMessage->id,
+                    'raw_usage' => $usage,
+                    'provider_input_tokens' => $providerInputTokens,
+                    'provider_output_tokens' => $providerOutputTokens,
+                    'provider_total_tokens' => $providerTotalTokens,
+                    'input_tokens_final' => $inputTokens,
+                    'output_tokens_final' => $outputTokens,
+                    'total_tokens_final' => $totalTokens,
+                    'estimated_output_tokens' => $estimatedOutputTokens,
+                    'used_provider_input_tokens' => is_numeric($providerInputTokens),
+                    'used_provider_output_tokens' => is_numeric($providerOutputTokens),
+                    'used_provider_total_tokens' => is_numeric($providerTotalTokens),
                 ]);
 
+                /*
+                 |--------------------------------------------------------------------------
+                 | Normalize Provider Cost
+                 |--------------------------------------------------------------------------
+                 */
                 $inputCost = (float) ($providerCost['input_cost'] ?? (($inputTokens / 1000000) * 1.25));
                 $outputCost = (float) ($providerCost['output_cost'] ?? (($outputTokens / 1000000) * 10));
                 $webSearchCost = (float) ($providerCost['web_search_cost'] ?? 0);
                 $totalCost = (float) ($providerCost['total_cost'] ?? ($inputCost + $outputCost + $webSearchCost));
                 $currency = (string) ($providerCost['currency'] ?? 'USD');
                 $providerHasTotalCost = isset($providerCost['total_cost']) && is_numeric($providerCost['total_cost']);
+
+                Log::info('Cost logger cost resolved', [
+                    'conversation_id' => $conversation->id,
+                    'user_message_id' => $userMessage->id,
+                    'input_cost' => $inputCost,
+                    'output_cost' => $outputCost,
+                    'web_search_cost' => $webSearchCost,
+                    'total_cost' => $totalCost,
+                    'currency' => $currency,
+                    'provider_has_total_cost' => $providerHasTotalCost,
+                    'source' => ! empty($providerCost) ? 'provider_cost' : 'calculated_cost',
+                ]);
             } catch (AiServiceException $th) {
                 Log::error('Assistant generation failed with AI service exception.', [
                     'conversation_id' => $conversation->id,
@@ -280,19 +335,17 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
 
             /*
              |--------------------------------------------------------------------------
-             | 2) Convert provider cost to points
+             | 2) Convert final provider cost to points
              |--------------------------------------------------------------------------
+             | هنا بنحسب النقاط من totalCost النهائي.
+             | كده web_search_cost داخل في الحساب لو موجود.
              */
-            $totalPoints = $providerHasTotalCost
-                ? (int) ceil(max($totalCost, 0) * 100)
-                : (int) ceil(($inputTokens * 0.000125) + ($outputTokens * 0.001));
+            $totalPoints = (int) ceil(max($totalCost, 0) * 100);
 
             /*
              |--------------------------------------------------------------------------
              | 3) After AI Call: never block the answer
              |--------------------------------------------------------------------------
-             | هنا خلاص كلمنا الـ AI، فممنوع نرجع Insufficient.
-             | نخصم المتاح، ولو التكلفة أكبر من الرصيد نحط الفرق في payback_balance.
              */
             $walletBalance = null;
             $paybackBalance = null;
@@ -397,6 +450,11 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
 
             Log::info('CostLogger saved from provider cost', [
                 'cost_logger_id' => $cost->id,
+                'conversation_id' => $conversation->id,
+                'user_id' => $conversation->user_id,
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
+                'total_tokens' => $totalTokens,
                 'input_cost' => $inputCost,
                 'output_cost' => $outputCost,
                 'web_search_cost' => $webSearchCost,
