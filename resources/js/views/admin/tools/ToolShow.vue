@@ -188,6 +188,12 @@
                             </div>
 
                             <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Endpoint</label>
+                                <input v-model.trim="editor.form.endpoint" type="text" placeholder="/api/v1/ai/text-writer" class="w-full rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200 dark:border-slate-700 dark:bg-[#154677] dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800" />
+                                <p v-if="editor.errors.endpoint" class="mt-2 text-sm text-[#154677]">{{ editor.errors.endpoint }}</p>
+                            </div>
+
+                            <div>
                                 <label class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Image</label>
                                 <input type="file" accept="image/*" class="block w-full rounded-2xl border border-[#154677]/10 bg-white px-4 py-3 text-sm file:mr-4 file:rounded-xl file:border-0 file:bg-[#154677] file:px-3 file:py-2 file:text-white dark:border-slate-700 dark:bg-[#154677] dark:text-white dark:file:bg-[#2ba6de] dark:file:text-[#154677]" @change="onFileChange" />
                                 <p v-if="editor.errors.image" class="mt-2 text-sm text-[#154677]">{{ editor.errors.image }}</p>
@@ -244,6 +250,7 @@ const editor = reactive({
         name: "",
         description: "",
         prompt_placeholder: "",
+        endpoint: "",
         image: null,
     },
     previewUrl: "",
@@ -251,6 +258,7 @@ const editor = reactive({
         name: "",
         description: "",
         prompt_placeholder: "",
+        endpoint: "",
         image: "",
     },
 });
@@ -292,6 +300,7 @@ const resetEditor = () => {
     editor.form.name = "";
     editor.form.description = "";
     editor.form.prompt_placeholder = "";
+    editor.form.endpoint = "";
     editor.form.image = null;
     editor.previewUrl = "";
     clearErrors();
@@ -370,6 +379,7 @@ const startEdit = async (subtool) => {
         editor.form.name = payload.name || "";
         editor.form.description = payload.description || "";
         editor.form.prompt_placeholder = payload.prompt_placeholder || "";
+        editor.form.endpoint = payload.endpoint || "";
         editor.form.image = null;
         editor.previewUrl = payload.image_url || "";
         clearErrors();
@@ -393,6 +403,7 @@ const submitSubtool = async () => {
             name: editor.form.name,
             description: editor.form.description,
             prompt_placeholder: editor.form.prompt_placeholder,
+            endpoint: editor.form.endpoint,
             image: editor.form.image,
         };
 

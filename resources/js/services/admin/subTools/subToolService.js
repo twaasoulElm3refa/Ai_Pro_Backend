@@ -7,7 +7,7 @@ const buildPayload = (data = {}) => {
 
     Object.entries(data).forEach(([key, value]) => {
         if (value === undefined || value === null || value === "") {
-            if (["description", "prompt_placeholder"].includes(key)) {
+            if (["description", "prompt_placeholder", "endpoint"].includes(key)) {
                 formData.append(key, "");
             }
             return;
