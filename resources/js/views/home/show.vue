@@ -6,16 +6,22 @@
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div class="max-w-3xl">
                     <span class="badge">{{ t("user.toolShow.badge") }}</span>
+
                     <h1 class="mt-6 text-4xl font-bold sm:text-5xl text-main">
                         {{ loading ? t("user.toolShow.loadingTitle") : tool.title }}
                     </h1>
+
                     <p class="mt-4 text-base sm:text-lg text-muted">
                         {{ tool.description }}
                     </p>
                 </div>
 
-                <button type="button" class="back-button" :aria-label="t('user.toolShow.backAria')"
-                    @click="router.push(`/${homeService.getLang()}`)">
+                <button
+                    type="button"
+                    class="back-button"
+                    :aria-label="t('user.toolShow.backAria')"
+                    @click="router.push(`/${homeService.getLang()}`)"
+                >
                     <i class="bi bi-arrow-left"></i>
                     <span>{{ t("user.toolShow.back") }}</span>
                 </button>
@@ -24,6 +30,7 @@
             <!-- LOADING -->
             <div v-if="loading" class="mt-10 space-y-6">
                 <div class="tool-card h-72 animate-pulse"></div>
+
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
                     <div v-for="i in 3" :key="i" class="tool-card h-52 animate-pulse"></div>
                 </div>
@@ -38,6 +45,7 @@
                             <h2 class="section-title">{{ t("user.toolShow.sectionTitle") }}</h2>
                             <p class="section-sub">{{ t("user.toolShow.sectionSubtitle") }}</p>
                         </div>
+
                         <span class="count-badge">{{ subtools.length }}</span>
                     </div>
 
@@ -54,9 +62,63 @@
                         >
                             <!-- TOP ROW -->
                             <div class="subtool-top">
-                                <div class="subtool-icon">
-                                    <i class="bi bi-cpu"></i>
+                                <div
+                                    class="subtool-icon"
+                                    :class="getSubtoolIconClass(subtool)"
+                                    :aria-label="subtool.title"
+                                >
+                                    <!-- TEXT EDITOR ICON -->
+                                    <template v-if="isTextEditorSubtool(subtool)">
+                                        <div class="icon-orbit"></div>
+
+                                        <span class="icon-main">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </span>
+
+                                        <span class="icon-mini icon-mini-one">
+                                            <i class="bi bi-type"></i>
+                                        </span>
+
+                                        <span class="icon-mini icon-mini-two">
+                                            <i class="bi bi-magic"></i>
+                                        </span>
+                                    </template>
+
+                                    <!-- TEXT SUMMARIZER ICON -->
+                                    <template v-else-if="isTextSummarizerSubtool(subtool)">
+                                        <div class="icon-orbit"></div>
+
+                                        <span class="icon-main">
+                                            <i class="bi bi-file-earmark-text"></i>
+                                        </span>
+
+                                        <span class="icon-mini icon-mini-one">
+                                            <i class="bi bi-filter-left"></i>
+                                        </span>
+
+                                        <span class="icon-mini icon-mini-two">
+                                            <i class="bi bi-arrow-down-up"></i>
+                                        </span>
+                                    </template>
+
+                                    <!-- DEFAULT ICON -->
+                                    <template v-else>
+                                        <div class="icon-orbit"></div>
+
+                                        <span class="icon-main">
+                                            <i class="bi bi-stars"></i>
+                                        </span>
+
+                                        <span class="icon-mini icon-mini-one">
+                                            <i class="bi bi-cpu"></i>
+                                        </span>
+
+                                        <span class="icon-mini icon-mini-two">
+                                            <i class="bi bi-tools"></i>
+                                        </span>
+                                    </template>
                                 </div>
+
                                 <span :class="['status-chip', subtool.is_active ? 'active' : 'inactive']">
                                     {{ subtool.is_active ? t("user.toolShow.statusActive") : t("user.toolShow.statusInactive") }}
                                 </span>
@@ -76,6 +138,7 @@
                                         <i class="bi bi-chat-dots"></i>
                                         {{ subtool.promptPlaceholder }}
                                     </p>
+
                                     <p v-if="subtool.providerName" class="meta-text">
                                         <i class="bi bi-server"></i>
                                         {{ subtool.providerName }}
@@ -118,10 +181,14 @@ const { t, locale } = useI18n();
 
 const loading = ref(true);
 const rawTool = ref({});
-const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
+
+const isArabic = computed(() =>
+    String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
+);
 
 const mapMainTool = (payload = {}) => {
     const translation = payload?.translation;
+
     return {
         ...payload,
         title: translation?.name || t("user.toolShow.untitledTool"),
@@ -142,13 +209,70 @@ const mapSubtool = (payload = {}) => {
     };
 };
 
+const normalizeText = (value = "") => {
+    return String(value || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[\u064B-\u065F\u0670]/g, "")
+        .replace(/[أإآ]/g, "ا")
+        .replace(/ة/g, "ه")
+        .replace(/ى/g, "ي");
+};
+
+const isTextEditorSubtool = (subtool = {}) => {
+    const text = normalizeText(`${subtool.title || ""} ${subtool.slug || ""}`);
+
+    return (
+        text.includes("محرر النصوص") ||
+        text.includes("محرر نصوص") ||
+        text.includes("تحرير النصوص") ||
+        text.includes("كاتب النصوص") ||
+        text.includes("كاتب نصوص") ||
+        text.includes("text editor") ||
+        text.includes("text-editor") ||
+        text.includes("editor") ||
+        text.includes("writer")
+    );
+};
+
+const isTextSummarizerSubtool = (subtool = {}) => {
+    const text = normalizeText(`${subtool.title || ""} ${subtool.slug || ""}`);
+
+    return (
+        text.includes("ملخص النصوص") ||
+        text.includes("ملخص نصوص") ||
+        text.includes("تلخيص النصوص") ||
+        text.includes("تلخيص") ||
+        text.includes("summarizer") ||
+        text.includes("summary") ||
+        text.includes("summarize")
+    );
+};
+
+const getSubtoolIconClass = (subtool = {}) => {
+    if (isTextEditorSubtool(subtool)) {
+        return "subtool-icon-editor";
+    }
+
+    if (isTextSummarizerSubtool(subtool)) {
+        return "subtool-icon-summarizer";
+    }
+
+    return "subtool-icon-default";
+};
+
 const tool = computed(() => mapMainTool(rawTool.value));
-const subtools = computed(() => (rawTool.value?.sub_tools || []).map(mapSubtool));
+
+const subtools = computed(() =>
+    (rawTool.value?.sub_tools || []).map(mapSubtool)
+);
+
 const seoTitle = computed(() =>
     isArabic.value
         ? `${tool.value.title || "تفاصيل الأداة"} | Ai Pro`
         : `${tool.value.title || "Tool Details"} | Ai Pro`
 );
+
 const seoDescription = computed(() =>
     isArabic.value
         ? "اعرض تفاصيل الأداة بوضوح، استكشف الأدوات الفرعية المرتبطة، وابدأ تجربة الدردشة المناسبة بسرعة عبر معلومات منظمة وحالة تشغيل دقيقة."
@@ -163,6 +287,7 @@ useSeoMeta({
 const loadTool = async () => {
     locale.value = homeService.getLang();
     loading.value = true;
+
     try {
         const response = await homeService.showTool(route.params.slug);
         rawTool.value = response?.data || {};
@@ -191,6 +316,7 @@ watch(
     () => [route.params.slug, route.params.lang],
     async ([nextSlug, nextLang], [prevSlug, prevLang]) => {
         if (nextSlug === prevSlug && nextLang === prevLang) return;
+
         await loadTool();
     }
 );
@@ -202,8 +328,13 @@ watch(
 }
 
 /* TEXT */
-.text-main { color: #154677; }
-.text-muted { color: #6b7280; }
+.text-main {
+    color: #154677;
+}
+
+.text-muted {
+    color: #6b7280;
+}
 
 /* BADGE */
 .badge {
@@ -233,9 +364,12 @@ watch(
     white-space: nowrap;
     align-self: flex-start;
 }
-.back-button:hover { background: #2ba6de; }
 
-/* ─── HERO CARD ─────────────────────────────── */
+.back-button:hover {
+    background: #2ba6de;
+}
+
+/* HERO CARD */
 .tool-hero-card {
     display: flex;
     gap: 24px;
@@ -288,7 +422,7 @@ watch(
     line-height: 1.6;
 }
 
-/* ─── SUBTOOLS SECTION ─────────────────────── */
+/* SUBTOOLS SECTION */
 .subtools-header {
     display: flex;
     align-items: center;
@@ -320,43 +454,171 @@ watch(
     font-weight: 700;
 }
 
-/* ─── SUBTOOL CARD ─────────────────────────── */
+/* SUBTOOL CARD */
 .subtool-card {
-    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 18% 10%, rgba(21, 70, 119, 0.06), transparent 30%),
+        linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
     border: 1px solid #e5e7eb;
-    border-radius: 16px;
+    border-radius: 18px;
     padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.subtool-card::after {
+    content: "";
+    position: absolute;
+    right: -70px;
+    bottom: -80px;
+    width: 170px;
+    height: 170px;
+    border-radius: 999px;
+    background: rgba(43, 166, 222, 0.07);
+    pointer-events: none;
 }
 
 .subtool-card:hover {
     transform: translateY(-4px);
+    border-color: rgba(21, 70, 119, 0.18);
     box-shadow: 0 12px 32px rgba(7, 67, 119, 0.1);
 }
 
 .subtool-top {
+    position: relative;
+    z-index: 2;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
 }
 
+/* ICONS */
 .subtool-icon {
-    width: 40px;
-    height: 40px;
-    background: #eef3fa;
-    border-radius: 10px;
+    position: relative;
+    width: 72px;
+    height: 72px;
+    border-radius: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #154677;
-    font-size: 18px;
+    isolation: isolate;
 }
 
+.icon-orbit {
+    position: absolute;
+    inset: 7px;
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.95), transparent 28%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.48));
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 16px 30px rgba(21, 70, 119, 0.12);
+}
+
+.icon-main {
+    position: relative;
+    z-index: 3;
+    width: 43px;
+    height: 43px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    box-shadow: 0 10px 20px rgba(21, 70, 119, 0.12);
+}
+
+.icon-main i {
+    font-size: 22px;
+}
+
+.icon-mini {
+    position: absolute;
+    z-index: 4;
+    width: 24px;
+    height: 24px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid rgba(21, 70, 119, 0.08);
+    box-shadow: 0 8px 15px rgba(21, 70, 119, 0.11);
+}
+
+.icon-mini i {
+    font-size: 12px;
+}
+
+.icon-mini-one {
+    top: 2px;
+    right: 0;
+}
+
+.icon-mini-two {
+    left: 0;
+    bottom: 4px;
+}
+
+/* EDITOR ICON */
+.subtool-icon-editor {
+    background:
+        radial-gradient(circle at 30% 22%, rgba(43, 166, 222, 0.20), transparent 32%),
+        linear-gradient(135deg, #eef8ff 0%, #edf4ff 48%, #ffffff 100%);
+    color: #154677;
+    border: 1px solid rgba(43, 166, 222, 0.22);
+}
+
+.subtool-icon-editor .icon-main {
+    color: #154677;
+}
+
+.subtool-icon-editor .icon-mini {
+    color: #2ba6de;
+}
+
+/* SUMMARIZER ICON */
+.subtool-icon-summarizer {
+    background:
+        radial-gradient(circle at 70% 25%, rgba(21, 70, 119, 0.18), transparent 34%),
+        linear-gradient(135deg, #f3f7fb 0%, #eef3fa 48%, #ffffff 100%);
+    color: #154677;
+    border: 1px solid rgba(21, 70, 119, 0.18);
+}
+
+.subtool-icon-summarizer .icon-main {
+    color: #154677;
+}
+
+.subtool-icon-summarizer .icon-mini {
+    color: #154677;
+}
+
+/* DEFAULT ICON */
+.subtool-icon-default {
+    background:
+        radial-gradient(circle at 35% 25%, rgba(21, 70, 119, 0.15), transparent 34%),
+        linear-gradient(135deg, #eef3fa 0%, #ffffff 100%);
+    color: #154677;
+    border: 1px solid rgba(21, 70, 119, 0.14);
+}
+
+.subtool-icon-default .icon-main,
+.subtool-icon-default .icon-mini {
+    color: #154677;
+}
+
+/* STATUS */
 .status-chip {
-    padding: 3px 10px;
+    position: relative;
+    z-index: 2;
+    padding: 4px 10px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
@@ -372,20 +634,27 @@ watch(
     color: #154677;
 }
 
+/* TEXT */
 .subtool-title {
-    font-size: 15px;
-    font-weight: 700;
+    position: relative;
+    z-index: 2;
+    font-size: 16px;
+    font-weight: 800;
     color: #154677;
-    margin: 0;
+    margin: 4px 0 0;
 }
 
 .subtool-slug {
+    position: relative;
+    z-index: 2;
     font-size: 11px;
     color: #9ca3af;
     margin: 0;
 }
 
 .subtool-desc {
+    position: relative;
+    z-index: 2;
     font-size: 13px;
     color: #6b7280;
     line-height: 1.55;
@@ -394,6 +663,8 @@ watch(
 
 /* FOOTER */
 .subtool-footer {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
@@ -460,6 +731,7 @@ watch(
 .subtool-card-leave-active {
     transition: all 0.3s ease;
 }
+
 .subtool-card-enter-from,
 .subtool-card-leave-to {
     opacity: 0;
@@ -471,9 +743,20 @@ watch(
     .tool-hero-card {
         flex-direction: column;
     }
+
     .tool-hero-image-wrap {
         width: 100%;
         height: 180px;
+    }
+
+    .subtool-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .chat-button {
+        justify-content: center;
+        width: 100%;
     }
 }
 </style>
