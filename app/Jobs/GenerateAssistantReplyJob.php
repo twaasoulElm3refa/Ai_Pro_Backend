@@ -80,15 +80,72 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $conversation = $userMessage->conversation;
             $insufficientPointsMessage = 'Insufficient points. Please recharge your wallet to continue.';
 
-            $walletBalanceBefore = Wallet::query()
-                ->where('user_id', $conversation->user_id)
-                ->value('balance');
+            /*
+             |--------------------------------------------------------------------------
+             | 1) Before AI Call: settle old payback first
+             |--------------------------------------------------------------------------
+             | لو عليه payback قديم، نسدده من الرصيد الحالي الأول.
+             | لو بعد التسديد الرصيد بقى صفر، ممنوع نكلم الـ AI.
+             */
+            $canCallProvider = false;
+            $walletBalanceBeforeProvider = 0;
+            $paybackBalanceBeforeProvider = 0;
 
-            if (($walletBalanceBefore ?? 0) <= 0) {
-                Log::warning('Assistant reply blocked due to insufficient points before provider call', [
+            DB::transaction(function () use (
+                $conversation,
+                &$canCallProvider,
+                &$walletBalanceBeforeProvider,
+                &$paybackBalanceBeforeProvider
+            ): void {
+                $wallet = Wallet::query()
+                    ->where('user_id', $conversation->user_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $wallet) {
+                    $canCallProvider = false;
+                    $walletBalanceBeforeProvider = 0;
+                    $paybackBalanceBeforeProvider = 0;
+
+                    Log::warning('Wallet not found before provider call', [
+                        'conversation_id' => $conversation->id,
+                        'user_id' => $conversation->user_id,
+                    ]);
+
+                    return;
+                }
+
+                $balance = (int) $wallet->balance;
+                $paybackBalance = (int) ($wallet->payback_balance ?? 0);
+
+                if ($paybackBalance > 0 && $balance > 0) {
+                    $paybackPaid = min($balance, $paybackBalance);
+
+                    $wallet->balance = $balance - $paybackPaid;
+                    $wallet->payback_balance = $paybackBalance - $paybackPaid;
+                    $wallet->save();
+
+                    Log::info('Wallet old payback settled before provider call', [
+                        'conversation_id' => $conversation->id,
+                        'user_id' => $conversation->user_id,
+                        'payback_paid' => $paybackPaid,
+                        'wallet_balance_after_payback' => (int) $wallet->balance,
+                        'payback_balance_after_payback' => (int) $wallet->payback_balance,
+                    ]);
+                }
+
+                $walletBalanceBeforeProvider = (int) $wallet->balance;
+                $paybackBalanceBeforeProvider = (int) ($wallet->payback_balance ?? 0);
+
+                $canCallProvider = $walletBalanceBeforeProvider > 0;
+            });
+
+            if (! $canCallProvider) {
+                Log::warning('Assistant reply blocked before provider call due to insufficient wallet after payback settlement', [
                     'conversation_id' => $conversation->id,
                     'user_id' => $conversation->user_id,
-                    'wallet_balance' => $walletBalanceBefore !== null ? (int) $walletBalanceBefore : null,
+                    'wallet_balance' => $walletBalanceBeforeProvider,
+                    'payback_balance' => $paybackBalanceBeforeProvider,
                 ]);
 
                 $this->createAssistantErrorMessage(
@@ -221,67 +278,84 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 throw $th;
             }
 
+            /*
+             |--------------------------------------------------------------------------
+             | 2) Convert provider cost to points
+             |--------------------------------------------------------------------------
+             */
             $totalPoints = $providerHasTotalCost
                 ? (int) ceil(max($totalCost, 0) * 100)
                 : (int) ceil(($inputTokens * 0.000125) + ($outputTokens * 0.001));
 
+            /*
+             |--------------------------------------------------------------------------
+             | 3) After AI Call: never block the answer
+             |--------------------------------------------------------------------------
+             | هنا خلاص كلمنا الـ AI، فممنوع نرجع Insufficient.
+             | نخصم المتاح، ولو التكلفة أكبر من الرصيد نحط الفرق في payback_balance.
+             */
             $walletBalance = null;
-            $charged = false;
+            $paybackBalance = null;
+            $pointsCharged = 0;
+            $pointsAddedToPayback = 0;
 
-            DB::transaction(function () use ($conversation, $totalPoints, &$walletBalance, &$charged): void {
+            DB::transaction(function () use (
+                $conversation,
+                $totalPoints,
+                &$walletBalance,
+                &$paybackBalance,
+                &$pointsCharged,
+                &$pointsAddedToPayback
+            ): void {
                 $wallet = Wallet::query()
                     ->where('user_id', $conversation->user_id)
                     ->lockForUpdate()
                     ->first();
 
                 if (! $wallet) {
-                    Log::warning('Wallet not found while charging conversation cost', [
+                    Log::warning('Wallet not found after provider call while charging conversation cost', [
                         'conversation_id' => $conversation->id,
                         'user_id' => $conversation->user_id,
-                        'points_charged' => $totalPoints,
+                        'points_required' => $totalPoints,
                     ]);
+
                     $walletBalance = null;
+                    $paybackBalance = null;
+                    $pointsCharged = 0;
+                    $pointsAddedToPayback = $totalPoints;
 
                     return;
                 }
 
-                if ($wallet->balance < $totalPoints) {
-                    Log::warning('Not enough balance to charge conversation cost', [
-                        'conversation_id' => $conversation->id,
-                        'user_id' => $conversation->user_id,
-                        'points_charged' => $totalPoints,
-                        'wallet_balance' => $wallet->balance,
-                    ]);
-                    $walletBalance = (int) $wallet->balance;
+                $currentBalance = (int) $wallet->balance;
+                $currentPaybackBalance = (int) ($wallet->payback_balance ?? 0);
 
-                    return;
-                }
+                $pointsCharged = min($currentBalance, $totalPoints);
+                $pointsAddedToPayback = max($totalPoints - $pointsCharged, 0);
 
-                $wallet->balance -= $totalPoints;
+                $wallet->balance = $currentBalance - $pointsCharged;
+                $wallet->payback_balance = $currentPaybackBalance + $pointsAddedToPayback;
                 $wallet->save();
-                $walletBalance = (int) $wallet->balance;
-                $charged = true;
-            });
 
-            if (! $charged) {
-                Log::warning('Assistant reply blocked due to insufficient points', [
+                $walletBalance = (int) $wallet->balance;
+                $paybackBalance = (int) $wallet->payback_balance;
+
+                Log::info('Wallet charged after provider call with payback support', [
                     'conversation_id' => $conversation->id,
                     'user_id' => $conversation->user_id,
                     'points_required' => $totalPoints,
+                    'points_charged' => $pointsCharged,
+                    'points_added_to_payback' => $pointsAddedToPayback,
                     'wallet_balance' => $walletBalance,
+                    'payback_balance' => $paybackBalance,
                 ]);
+            });
 
-                $this->createAssistantErrorMessage(
-                    $userMessage,
-                    $insufficientPointsMessage,
-                    $messageCache
-                );
-
-                $this->clearProfileCache($conversation->user_id);
-
-                return;
-            }
-
+            /*
+             |--------------------------------------------------------------------------
+             | 4) Create assistant message
+             |--------------------------------------------------------------------------
+             */
             $assistantMessage = Message::firstOrCreate(
                 [
                     'reply_to_message_id' => $userMessage->id,
@@ -300,6 +374,11 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 $this->storeMessageInQdrant($assistantMessage, $qdrantService);
             }
 
+            /*
+             |--------------------------------------------------------------------------
+             | 5) Save cost logger
+             |--------------------------------------------------------------------------
+             */
             $cost = CostLogger::create([
                 'conversation_id' => $conversation->id,
                 'user_id' => $conversation->user_id,
@@ -317,19 +396,28 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             ]);
 
             Log::info('CostLogger saved from provider cost', [
+                'cost_logger_id' => $cost->id,
                 'input_cost' => $inputCost,
                 'output_cost' => $outputCost,
                 'web_search_cost' => $webSearchCost,
                 'total_cost' => $totalCost,
                 'currency' => $currency,
+                'points_required' => $totalPoints,
+                'points_charged' => $pointsCharged,
+                'points_added_to_payback' => $pointsAddedToPayback,
+                'wallet_balance' => $walletBalance,
+                'payback_balance' => $paybackBalance,
             ]);
 
-            Log::info('Wallet charged from conversation cost', [
+            Log::info('Assistant reply completed successfully', [
                 'conversation_id' => $conversation->id,
                 'user_id' => $conversation->user_id,
                 'cost_logger_id' => $cost->id,
-                'points_charged' => $totalPoints,
+                'points_required' => $totalPoints,
+                'points_charged' => $pointsCharged,
+                'points_added_to_payback' => $pointsAddedToPayback,
                 'wallet_balance' => $walletBalance,
+                'payback_balance' => $paybackBalance,
             ]);
 
             $this->clearProfileCache($conversation->user_id);
@@ -501,4 +589,3 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
         Cache::forget("user_profile_{$userId}");
     }
 }
-
