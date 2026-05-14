@@ -9,12 +9,8 @@
                         <p class="brand-subtitle">{{ subtool.name || t("user.chat.workspaceTitle") }}</p>
                     </div>
                 </div>
-                <button
-                    type="button"
-                    class="icon-btn mobile-only"
-                    :aria-label="t('user.chat.closeSidebarAria')"
-                    @click="sidebarOpen = false"
-                >
+                <button type="button" class="icon-btn mobile-only" :aria-label="t('user.chat.closeSidebarAria')"
+                    @click="sidebarOpen = false">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -37,12 +33,8 @@
                 </div>
 
                 <TransitionGroup v-else name="history-item" tag="div" class="history-list">
-                    <div
-                        v-for="conversation in filteredConversations"
-                        :key="conversation.uuid"
-                        class="history-item"
-                        :class="{ active: activeConversation?.uuid === conversation.uuid }"
-                    >
+                    <div v-for="conversation in filteredConversations" :key="conversation.uuid" class="history-item"
+                        :class="{ active: activeConversation?.uuid === conversation.uuid }">
                         <button type="button" class="history-item-main" @click="openConversation(conversation)">
                             <i class="bi bi-chat-left-text"></i>
                             <div class="history-item-info">
@@ -51,14 +43,9 @@
                             </div>
                         </button>
 
-                        <button
-                            type="button"
-                            class="history-delete"
-                            :aria-label="t('user.chat.deleteConversationAria', {
-                                name: conversation.title || t('user.chat.conversationFallback')
-                            })"
-                            @click="removeConversation(conversation)"
-                        >
+                        <button type="button" class="history-delete" :aria-label="t('user.chat.deleteConversationAria', {
+                            name: conversation.title || t('user.chat.conversationFallback')
+                        })" @click="removeConversation(conversation)">
                             <i class="bi bi-trash3"></i>
                         </button>
                     </div>
@@ -71,12 +58,8 @@
         <div class="main-area">
             <div class="messages-wrap" ref="messagesContainer">
                 <div v-if="loadingMessages" class="messages-skeleton">
-                    <div
-                        v-for="item in 4"
-                        :key="item"
-                        class="message-skeleton"
-                        :class="item % 2 === 0 ? 'assistant' : 'user'"
-                    ></div>
+                    <div v-for="item in 4" :key="item" class="message-skeleton"
+                        :class="item % 2 === 0 ? 'assistant' : 'user'"></div>
                 </div>
 
                 <div v-else-if="messages.length === 0" class="empty-state">
@@ -91,12 +74,8 @@
                                 : t("user.chat.emptyWithoutConversation")
                         }}
                     </p>
-                    <button
-                        v-if="subtool.promptPlaceholder"
-                        type="button"
-                        class="suggestion-chip"
-                        @click="fillPlaceholder"
-                    >
+                    <button v-if="subtool.promptPlaceholder" type="button" class="suggestion-chip"
+                        @click="fillPlaceholder">
                         <i class="bi bi-lightning-charge-fill"></i>
                         {{ subtool.promptPlaceholder }}
                     </button>
@@ -142,7 +121,8 @@
                     </div>
                     <div class="points-warning-content">
                         <strong>Insufficient points</strong>
-                        <span>You can send again, but the assistant may return insufficient points until you recharge.</span>
+                        <span>You can send again, but the assistant may return insufficient points until you
+                            recharge.</span>
                     </div>
                     <button type="button" class="points-warning-action" @click="goToWallet">
                         Recharge wallet
@@ -150,48 +130,28 @@
                 </div>
 
                 <div class="input-box" :class="{ focused: inputFocused }">
-                    <textarea
-                        ref="textareaRef"
-                        v-model="userInput"
-                        class="chat-input"
-                        :aria-label="t('user.chat.inputAria')"
-                        :placeholder="conversationLimitExceeded
+                    <textarea ref="textareaRef" v-model="userInput" class="chat-input"
+                        :aria-label="t('user.chat.inputAria')" :placeholder="conversationLimitExceeded
                             ? 'This conversation has reached the maximum limit. Start a new chat to continue.'
-                            : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))"
-                        rows="1"
-                        :disabled="chatSendDisabled"
-                        @focus="inputFocused = true"
-                        @blur="inputFocused = false"
-                        @keydown.enter.exact.prevent="submitMessage"
-                        @keydown.shift.enter.exact="newLine"
-                        @input="autoResize"
-                    ></textarea>
+                            : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))" rows="1"
+                        :disabled="chatSendDisabled" @focus="inputFocused = true" @blur="inputFocused = false"
+                        @keydown.enter.exact.prevent="submitMessage" @keydown.shift.enter.exact="newLine"
+                        @input="autoResize"></textarea>
 
                     <div class="input-actions">
                         <span class="char-count">{{ userInput.length }}</span>
 
-                        <button
-                            type="button"
-                            class="search-toggle-btn"
+                        <button v-if="!hideSearchToggle" type="button" class="search-toggle-btn"
                             :class="{ active: searchEnabled }"
                             :aria-label="searchEnabled ? 'Disable web search' : 'Enable web search'"
-                            :disabled="chatSendDisabled"
-                            @click="searchEnabled = !searchEnabled"
-                        >
+                            :disabled="chatSendDisabled" @click="searchEnabled = !searchEnabled">
                             <i class="bi bi-search"></i>
                         </button>
 
-                        <button
-                            type="button"
-                            class="send-btn"
-                            :aria-label="t('user.chat.sendAria')"
-                            :disabled="!userInput.trim() || chatSendDisabled"
-                            @click="submitMessage"
-                        >
-                            <i
-                                class="bi"
-                                :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"
-                            ></i>
+                        <button type="button" class="send-btn" :aria-label="t('user.chat.sendAria')"
+                            :disabled="!userInput.trim() || chatSendDisabled" @click="submitMessage">
+                            <i class="bi"
+                                :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
                         </button>
                     </div>
                 </div>
@@ -570,6 +530,10 @@ const openAssistantStream = async (conversation, afterId) => {
         closeAssistantStream();
     };
 };
+
+const hideSearchToggle = computed(() =>
+    Number(subtool.value?.id) === 2
+);
 
 const newLine = () => {
     userInput.value += "\n";
