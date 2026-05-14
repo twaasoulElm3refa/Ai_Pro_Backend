@@ -355,7 +355,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
              | هنا بنحسب النقاط من totalCost النهائي.
              | كده web_search_cost داخل في الحساب لو موجود.
              */
-            $totalPoints = (int) ceil(max($totalCost, 0) * 100);
+            $totalPoints = max((int) $totalTokens, 0);
 
             /*
              |--------------------------------------------------------------------------
