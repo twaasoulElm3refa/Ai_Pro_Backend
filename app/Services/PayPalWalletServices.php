@@ -308,7 +308,7 @@ class PayPalWalletServices implements PaymentInterface
             );
 
             $before = $wallet->balance;
-            $points = (int) ($order->amount * 10);
+            $points = (int) ($order->amount * 1000000);
 
             $wallet->increment('balance', $points);
 
