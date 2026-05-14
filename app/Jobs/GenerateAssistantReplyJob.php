@@ -48,10 +48,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
         ConversationMessageCacheService $messageCache,
         QdrantService $qdrantService
     ): void {
-        Log::info('GenerateAssistantReplyJob task options', [
-            'user_message_id' => $this->userMessageId,
-            'task_options' => $this->taskOptions,
-        ]);
+
 
         $lock = Cache::lock("assistant-reply-lock:{$this->userMessageId}", 120);
 
@@ -82,11 +79,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $insufficientPointsMessage = 'Insufficient points. Please recharge your wallet to continue.';
 
             if ($endpoint === '') {
-                Log::error('Sub tool endpoint is missing before AI provider call.', [
-                    'conversation_id' => $conversation->id,
-                    'sub_tool_id' => $conversation->sub_tool_id,
-                    'user_message_id' => $userMessage->id,
-                ]);
 
                 throw new AiServiceException('Sub tool endpoint is missing.', [
                     'conversation_id' => $conversation->id,
@@ -120,11 +112,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     $walletBalanceBeforeProvider = 0;
                     $paybackBalanceBeforeProvider = 0;
 
-                    Log::warning('Wallet not found before provider call', [
-                        'conversation_id' => $conversation->id,
-                        'user_id' => $conversation->user_id,
-                    ]);
-
                     return;
                 }
 
@@ -137,14 +124,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     $wallet->balance = $balance - $paybackPaid;
                     $wallet->payback_balance = $paybackBalance - $paybackPaid;
                     $wallet->save();
-
-                    Log::info('Wallet old payback settled before provider call', [
-                        'conversation_id' => $conversation->id,
-                        'user_id' => $conversation->user_id,
-                        'payback_paid' => $paybackPaid,
-                        'wallet_balance_after_payback' => (int) $wallet->balance,
-                        'payback_balance_after_payback' => (int) $wallet->payback_balance,
-                    ]);
                 }
 
                 $walletBalanceBeforeProvider = (int) $wallet->balance;
@@ -154,13 +133,9 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             });
 
             if (! $canCallProvider) {
-                Log::warning('Assistant reply blocked before provider call due to insufficient wallet after payback settlement', [
+                Log::warning('Wallet balance is 0 before provider call', [
                     'conversation_id' => $conversation->id,
-                    'user_id' => $conversation->user_id,
-                    'wallet_balance' => $walletBalanceBeforeProvider,
-                    'payback_balance' => $paybackBalanceBeforeProvider,
                 ]);
-
                 $this->createAssistantErrorMessage(
                     $userMessage,
                     $insufficientPointsMessage,
@@ -177,15 +152,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $userTokenMultiplier = $this->tokenMultiplierByLanguage($userLanguage);
             $inputTokens = (int) ceil($userWordsCount * $userTokenMultiplier);
 
-            Log::info('User message words/language calculated inside assistant job', [
-                'conversation_id' => $conversation->id,
-                'user_message_id' => $userMessage->id,
-                'user_language' => $userLanguage,
-                'user_words_count' => $userWordsCount,
-                'user_token_multiplier' => $userTokenMultiplier,
-                'input_tokens_estimated' => $inputTokens,
-            ]);
-
             $payload = $payloadBuilder->build($conversation, $userMessage);
             $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
 
@@ -196,15 +162,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     $payload = $payloadBuilder->withContext($payload, $context);
                 }
             }
-
-            Log::info('AI model payload prepared', [
-                'conversation_id' => $conversation->id,
-                'user_message_id' => $userMessage->id,
-                'user_language' => $userLanguage,
-                'user_words_count' => $userWordsCount,
-                'input_tokens_estimated' => $inputTokens,
-                'payload' => $payload,
-            ]);
 
             $this->storeMessageInQdrant($userMessage, $qdrantService);
 
@@ -230,15 +187,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 }
 
                 $isError = false;
-
-                Log::info('AI provider usage and cost received', [
-                    'conversation_id' => $conversation->id,
-                    'user_message_id' => $userMessage->id,
-                    'usage' => $usage,
-                    'cost' => $providerCost,
-                    'provider_request_id' => $providerRequestId,
-                    'model_key' => $modelKey,
-                ]);
 
                 /*
                  |--------------------------------------------------------------------------
@@ -276,21 +224,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     ? (int) $providerTotalTokens
                     : ((int) $inputTokens + (int) $outputTokens);
 
-                Log::info('Normalized provider tokens before cost logger save', [
-                    'conversation_id' => $conversation->id,
-                    'user_message_id' => $userMessage->id,
-                    'raw_usage' => $usage,
-                    'provider_input_tokens' => $providerInputTokens,
-                    'provider_output_tokens' => $providerOutputTokens,
-                    'provider_total_tokens' => $providerTotalTokens,
-                    'input_tokens_final' => $inputTokens,
-                    'output_tokens_final' => $outputTokens,
-                    'total_tokens_final' => $totalTokens,
-                    'estimated_output_tokens' => $estimatedOutputTokens,
-                    'used_provider_input_tokens' => is_numeric($providerInputTokens),
-                    'used_provider_output_tokens' => is_numeric($providerOutputTokens),
-                    'used_provider_total_tokens' => is_numeric($providerTotalTokens),
-                ]);
 
                 /*
                  |--------------------------------------------------------------------------
@@ -304,47 +237,9 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 $currency = (string) ($providerCost['currency'] ?? 'USD');
                 $providerHasTotalCost = isset($providerCost['total_cost']) && is_numeric($providerCost['total_cost']);
 
-                Log::info('Cost logger cost resolved', [
-                    'conversation_id' => $conversation->id,
-                    'user_message_id' => $userMessage->id,
-                    'input_cost' => $inputCost,
-                    'output_cost' => $outputCost,
-                    'web_search_cost' => $webSearchCost,
-                    'total_cost' => $totalCost,
-                    'currency' => $currency,
-                    'provider_has_total_cost' => $providerHasTotalCost,
-                    'source' => ! empty($providerCost) ? 'provider_cost' : 'calculated_cost',
-                ]);
             } catch (AiServiceException $th) {
-                Log::error('Assistant generation failed with AI service exception.', [
-                    'conversation_id' => $conversation->id,
-                    'message_id' => $userMessage->id,
-                    'payload' => $payload,
-                    'user_language' => $userLanguage,
-                    'user_words_count' => $userWordsCount,
-                    'input_tokens_estimated' => $inputTokens,
-                    'error_message' => $th->getMessage(),
-                    'error_file' => $th->getFile(),
-                    'error_line' => $th->getLine(),
-                    'error_trace' => $th->getTraceAsString(),
-                    'ai_context' => $th->context(),
-                ]);
-
                 throw $th;
             } catch (\Throwable $th) {
-                Log::error('Assistant generation failed with unexpected exception.', [
-                    'conversation_id' => $conversation->id,
-                    'message_id' => $userMessage->id,
-                    'payload' => $payload,
-                    'user_language' => $userLanguage,
-                    'user_words_count' => $userWordsCount,
-                    'input_tokens_estimated' => $inputTokens,
-                    'error_message' => $th->getMessage(),
-                    'error_file' => $th->getFile(),
-                    'error_line' => $th->getLine(),
-                    'error_trace' => $th->getTraceAsString(),
-                ]);
-
                 throw $th;
             }
 
@@ -461,36 +356,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'currency' => $currency,
                 'provider_request_id' => $providerRequestId,
                 'model_key' => $modelKey,
-            ]);
-
-            Log::info('CostLogger saved from provider cost', [
-                'cost_logger_id' => $cost->id,
-                'conversation_id' => $conversation->id,
-                'user_id' => $conversation->user_id,
-                'input_tokens' => $inputTokens,
-                'output_tokens' => $outputTokens,
-                'total_tokens' => $totalTokens,
-                'input_cost' => $inputCost,
-                'output_cost' => $outputCost,
-                'web_search_cost' => $webSearchCost,
-                'total_cost' => $totalCost,
-                'currency' => $currency,
-                'points_required' => $totalPoints,
-                'points_charged' => $pointsCharged,
-                'points_added_to_payback' => $pointsAddedToPayback,
-                'wallet_balance' => $walletBalance,
-                'payback_balance' => $paybackBalance,
-            ]);
-
-            Log::info('Assistant reply completed successfully', [
-                'conversation_id' => $conversation->id,
-                'user_id' => $conversation->user_id,
-                'cost_logger_id' => $cost->id,
-                'points_required' => $totalPoints,
-                'points_charged' => $pointsCharged,
-                'points_added_to_payback' => $pointsAddedToPayback,
-                'wallet_balance' => $walletBalance,
-                'payback_balance' => $paybackBalance,
             ]);
 
             $this->clearProfileCache($conversation->user_id);
