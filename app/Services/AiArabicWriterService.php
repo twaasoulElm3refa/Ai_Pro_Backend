@@ -30,6 +30,7 @@ class AiArabicWriterService
         return (string) $response;
     }
 
+
     public function generateReplyWithUsage(array $payload, ?string $endpoint = null): array|string
     {
         $targetUrl = $this->buildTargetUrl($endpoint);

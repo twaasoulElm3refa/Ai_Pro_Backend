@@ -401,12 +401,23 @@ const escapeHtml = (text = "") =>
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 
-const formatMessage = (text = "") =>
-    escapeHtml(text)
+const cleanAssistantText = (text = "") =>
+    String(text || "")
+        .replace(/["'#]/g, "")
+        .replace(/[“”‘’]/g, "")
+        .trim();
+
+const formatMessage = (text = "", role = "") => {
+    const finalText = role === "assistant"
+        ? cleanAssistantText(text)
+        : String(text || "");
+
+    return escapeHtml(finalText)
         .replace(/\n/g, "<br>")
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
         .replace(/\*(.*?)\*/g, "<em>$1</em>")
         .replace(/`(.*?)`/g, "<code>$1</code>");
+};
 
 const hasInsufficientPointsContent = (content = "") => {
     const normalized = String(content || "").toLowerCase();
