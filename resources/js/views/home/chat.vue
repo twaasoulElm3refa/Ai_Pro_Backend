@@ -113,7 +113,7 @@
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
                                 </span>
-                                <span v-else v-html="formatMessage(msg.content)"></span>
+                                <span v-else v-html="formatMessage(msg.content, msg.role)"></span>
                             </div>
                             <span class="msg-time">{{ msg.time }}</span>
                         </div>
@@ -403,7 +403,7 @@ const escapeHtml = (text = "") =>
 
 const cleanAssistantText = (text = "") =>
     String(text || "")
-        .replace(/["'#]/g, "")
+        .replace(/["'#$%^&*]/g, "")
         .replace(/[“”‘’]/g, "")
         .trim();
 
