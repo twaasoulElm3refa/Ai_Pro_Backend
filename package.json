@@ -26,6 +26,8 @@
     "dependencies": {
         "animate.css": "^4.1.1",
         "bootstrap-icons": "^1.12.1",
+        "dompurify": "^3.4.3",
+        "markdown-it": "^14.1.1",
         "toastr": "^2.1.4",
         "uuid": "^14.0.0",
         "vue-i18n": "^9.14.5",

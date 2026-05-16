@@ -92,7 +92,7 @@
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
                                 </span>
-                                <span v-else v-html="formatMessage(msg.content, msg.role)"></span>
+                                <div v-else class="markdown-body" v-html="formatMessage(msg.content)"></div>
                             </div>
                             <span class="msg-time">{{ msg.time }}</span>
                         </div>
@@ -169,6 +169,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
+import MarkdownIt from "markdown-it";
+import DOMPurify from "dompurify";
 import homeService from "@/services/home/homeService";
 import chatServices from "@/services/chat/chatServices";
 import useSeoMeta from "@/composables/useSeoMeta";
@@ -353,30 +355,19 @@ const mapMessage = (message, index = 0) => ({
         : now(),
 });
 
-const escapeHtml = (text = "") =>
-    String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+const markdownParser = new MarkdownIt({
+    html: false,
+    breaks: true,
+    linkify: true,
+    typographer: true,
+});
 
-const cleanAssistantText = (text = "") =>
-    String(text || "")
-        .replace(/["'#$%^&*]/g, "")
-        .replace(/[“”‘’]/g, "")
-        .trim();
+const formatMessage = (text = "") => {
+    const renderedHtml = markdownParser.render(String(text || ""));
 
-const formatMessage = (text = "", role = "") => {
-    const finalText = role === "assistant"
-        ? cleanAssistantText(text)
-        : String(text || "");
-
-    return escapeHtml(finalText)
-        .replace(/\n/g, "<br>")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>")
-        .replace(/`(.*?)`/g, "<code>$1</code>");
+    return DOMPurify.sanitize(renderedHtml, {
+        USE_PROFILES: { html: true },
+    });
 };
 
 const hasInsufficientPointsContent = (content = "") => {
@@ -1395,6 +1386,102 @@ watch(
     line-height: 1.75;
     word-break: break-word;
     box-shadow: 0 18px 32px rgba(21, 70, 119, 0.08);
+}
+
+.markdown-body {
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.markdown-body :deep(*) {
+    word-break: break-word;
+}
+
+.markdown-body :deep(p) {
+    margin: 0;
+}
+
+.markdown-body :deep(p + p) {
+    margin-top: 10px;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+    margin: 0 0 8px;
+    line-height: 1.35;
+    font-weight: 800;
+}
+
+.markdown-body :deep(h1) {
+    font-size: 1.45rem;
+}
+
+.markdown-body :deep(h2) {
+    font-size: 1.28rem;
+}
+
+.markdown-body :deep(h3) {
+    font-size: 1.14rem;
+}
+
+.markdown-body :deep(strong) {
+    font-weight: 800;
+}
+
+.markdown-body :deep(em) {
+    font-style: italic;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+    margin: 8px 0;
+    padding-inline-start: 20px;
+}
+
+.markdown-body :deep(li + li) {
+    margin-top: 4px;
+}
+
+.markdown-body :deep(code) {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.08);
+    font-size: 0.9em;
+    font-family: "Cascadia Code", "Consolas", monospace;
+}
+
+.markdown-body :deep(pre) {
+    margin: 10px 0;
+    padding: 12px;
+    border-radius: 12px;
+    overflow-x: auto;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+.markdown-body :deep(pre code) {
+    display: block;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 0.92em;
+}
+
+.markdown-body :deep(blockquote) {
+    margin: 10px 0;
+    padding: 8px 12px;
+    border-inline-start: 3px solid rgba(43, 166, 222, 0.45);
+    background: rgba(43, 166, 222, 0.08);
+    border-radius: 10px;
+}
+
+.markdown-body :deep(a) {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
 }
 
 .message-row.user .msg-content {
