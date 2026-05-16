@@ -115,7 +115,7 @@
 
                     <button type="button" @click="deleteProfile" :disabled="profileLoading"
                         :aria-label="t('user.profile.deleteAria')"
-                        class="bg-slate-1000 hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
+                        class="bg-red-500 hover:bg-red-700 active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
                         {{ profileLoading ? t('user.profile.loading.delete') : t('user.profile.actions.deleteAccount')
                         }}
                     </button>

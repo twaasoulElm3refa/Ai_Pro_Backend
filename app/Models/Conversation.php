@@ -47,4 +47,9 @@ class Conversation extends Model
     {
         return $this->hasMany(CostLogger::class,'conversation_id');
     }
+
+    public function firstMessage()
+    {
+        return $this->firstUserMessage();
+    }
 }
