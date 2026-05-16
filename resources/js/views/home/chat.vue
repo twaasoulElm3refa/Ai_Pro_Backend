@@ -38,8 +38,7 @@
                         <button type="button" class="history-item-main" @click="openConversation(conversation)">
                             <i class="bi bi-chat-left-text"></i>
                             <div class="history-item-info">
-                                <!-- <span class="history-item-title">{{ conversation.title }}</span> -->
-                                <span class="history-item-date">{{ conversation.subtitle }}</span>
+                                <span class="history-item-title">{{ conversation.title }}</span>
                             </div>
                         </button>
 
@@ -334,11 +333,74 @@ const resolveIdempotencyKey = (conversationUuid, content) => {
     return idempotencyKey;
 };
 
+const cleanConversationTitleText = (text = "") =>
+    String(text || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/[#*_`"'$%^&]/g, "")
+        .replace(/[“”‘’]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const getFirstUserMessageContent = (conversation = {}) => {
+    if (typeof conversation.first_user_message_content === "string") {
+        return conversation.first_user_message_content;
+    }
+
+    if (typeof conversation.first_message_content === "string") {
+        return conversation.first_message_content;
+    }
+
+    if (typeof conversation.first_user_message === "string") {
+        return conversation.first_user_message;
+    }
+
+    if (typeof conversation.first_message === "string") {
+        return conversation.first_message;
+    }
+
+    if (conversation.first_user_message?.content) {
+        return conversation.first_user_message.content;
+    }
+
+    if (conversation.first_message?.content) {
+        return conversation.first_message.content;
+    }
+
+    const rows = Array.isArray(conversation.message)
+        ? conversation.message
+        : Array.isArray(conversation.messages)
+            ? conversation.messages
+            : [];
+
+    const firstUserMessage = rows.find((message) =>
+        message?.role === "user" && message?.content
+    );
+
+    return firstUserMessage?.content || "";
+};
+
+const makeConversationTitle = (conversation = {}) => {
+    const firstUserContent = cleanConversationTitleText(
+        getFirstUserMessageContent(conversation)
+    );
+
+    const words = firstUserContent
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 3);
+
+    if (words.length) {
+        return words.join(" ");
+    }
+
+    return t("user.chat.conversationTitle", {
+        short: String(conversation.uuid || "").slice(-6) || conversation.id,
+    });
+};
+
 const formatConversation = (conversation) => ({
     ...conversation,
-    title: t("user.chat.conversationTitle", {
-        short: String(conversation.uuid || "").slice(-6) || conversation.id,
-    }),
+    title: makeConversationTitle(conversation),
     subtitle: t("user.chat.conversationSubtitle", {
         uuid: conversation.uuid,
     }),
@@ -634,15 +696,28 @@ const loadConversationDetails = async (uuid) => {
         });
 
         const conversation = response?.data || null;
+        const rows = Array.isArray(conversation?.message) ? conversation.message : [];
 
-        activeConversation.value = conversation
-            ? formatConversation({
+        if (conversation) {
+            const formattedConversation = formatConversation({
                 ...(conversations.value.find((item) => item.uuid === uuid) || {}),
                 ...conversation,
-            })
-            : null;
+            });
 
-        const rows = Array.isArray(conversation?.message) ? conversation.message : [];
+            activeConversation.value = formattedConversation;
+
+            conversations.value = conversations.value.map((item) =>
+                item.uuid === uuid
+                    ? {
+                        ...item,
+                        title: formattedConversation.title,
+                    }
+                    : item
+            );
+        } else {
+            activeConversation.value = null;
+        }
+
         messages.value = rows.map((message, index) => mapMessage(message, index));
 
         resolveInsufficientPointsState(rows);

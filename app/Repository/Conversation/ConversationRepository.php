@@ -19,9 +19,20 @@ class ConversationRepository implements ConversationInterface
             $userId = auth()->id();
             return Cache::tags(['conversations', "user_{$userId}"])
                 ->remember("conversations_user_{$userId}", now()->addMinutes(10), function () use ($userId) {
-                    return Conversation::where('user_id', $userId)
+                    return Conversation::with([
+                        'firstUserMessage:id,conversation_id,content',
+                    ])
+                        ->where('user_id', $userId)
                         ->latest()
-                        ->get();
+                        ->get()
+                        ->map(function ($conversation) {
+                            $conversation->setAttribute(
+                                'first_user_message_content',
+                                optional($conversation->firstUserMessage)->content
+                            );
+
+                            return $conversation->makeHidden('firstUserMessage');
+                        });
                 });
         } catch (\Throwable $th) {
             Log::error($th);

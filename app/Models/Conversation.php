@@ -36,6 +36,13 @@ class Conversation extends Model
         return $this->message();
     }
 
+    public function firstUserMessage()
+    {
+        return $this->hasOne(Message::class, 'conversation_id')
+            ->where('role', 'user')
+            ->oldestOfMany();
+    }
+
     public function cost()
     {
         return $this->hasMany(CostLogger::class,'conversation_id');
