@@ -1,18 +1,20 @@
 <template>
-    <main :dir="currentDir" :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']"
+    <main :dir="currentDir"
+        :class="['min-h-50 py-10 px-4 transition-colors duration-300', isDark ? 'bg-slate-900' : 'bg-slate-100']"
         aria-labelledby="profile-page-title">
         <div :class="['max-w-3xl mx-auto rounded-2xl shadow-2xl border p-6 transition-colors duration-300',
             isDark ? 'bg-[#154677] text-white border-slate-800' : 'bg-white text-[#154677] border-[#154677]/10']">
 
             <div class="mb-6">
-                <h1 id="profile-page-title" class="text-2xl font-bold" :class="isDark ? 'text-[#2ba6de]' : 'text-[#154677]'">
+                <h1 id="profile-page-title" class="text-2xl font-bold"
+                    :class="isDark ? 'text-[#2ba6de]' : 'text-[#154677]'">
                     {{ t("user.profile.title") }}
                 </h1>
             </div>
 
             <div :class="['flex border-b mb-6', isDark ? 'border-slate-800' : 'border-[#154677]/10']">
-                <button v-for="tab in tabs" :key="tab.id" type="button" :aria-label="t('user.profile.openTabAria', { tab: tab.label })"
-                    @click="currentTab = tab.id" :class="[
+                <button v-for="tab in tabs" :key="tab.id" type="button"
+                    :aria-label="t('user.profile.openTabAria', { tab: tab.label })" @click="currentTab = tab.id" :class="[
                         'py-3 px-4 text-sm font-medium transition-colors',
                         currentTab === tab.id
                             ? isDark
@@ -57,28 +59,33 @@
             <div v-if="currentTab === 2" class="space-y-4">
 
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.name") }}</label>
-                    <input v-model="editData.name" :class="inputClass" :placeholder="t('user.profile.placeholders.name')" />
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{
+                        t("user.profile.fields.name") }}</label>
+                    <input v-model="editData.name" :class="inputClass"
+                        :placeholder="t('user.profile.placeholders.name')" />
                 </div>
 
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.email") }}</label>
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{
+                        t("user.profile.fields.email") }}</label>
                     <input v-model="editData.email" type="email" :class="inputClass" placeholder="example@email.com" />
                 </div>
 
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.phone") }}</label>
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{
+                        t("user.profile.fields.phone") }}</label>
                     <input v-model="editData.phone" type="tel" :class="inputClass" placeholder="+201xxxxxxxxx" />
                 </div>
 
                 <div>
-                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{ t("user.profile.fields.image") }}</label>
+                    <label :class="['block text-sm mb-1', isDark ? 'text-slate-400' : 'text-slate-500']">{{
+                        t("user.profile.fields.image") }}</label>
                     <div class="flex items-center gap-4">
                         <div class="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 shadow">
                             <img v-if="imagePreview || profile.user.image"
                                 :src="imagePreview || getImageUrl(profile.user.image)"
-                                :alt="t('user.profile.previewAlt', { name: profile.user.name || t('user.profile.userFallback') })" class="w-full h-full object-cover"
-                                loading="lazy" decoding="async" />
+                                :alt="t('user.profile.previewAlt', { name: profile.user.name || t('user.profile.userFallback') })"
+                                class="w-full h-full object-cover" loading="lazy" decoding="async" />
                             <div v-else
                                 class="w-full h-full bg-[#154677] flex items-center justify-center text-white font-bold text-lg">
                                 {{ avatarInitials }}
@@ -89,10 +96,11 @@
                                 ? 'border-slate-600 text-slate-300 hover:border-[#154677] hover:text-[#154677]'
                                 : 'border-slate-300 text-slate-600 hover:border-[#154677] hover:text-[#154677]']">
                             {{ t("user.profile.chooseImage") }}
-                            <input type="file" accept="image/*" class="hidden" :aria-label="t('user.profile.uploadImageAria')"
-                                @change="handleImageUpload" />
+                            <input type="file" accept="image/*" class="hidden"
+                                :aria-label="t('user.profile.uploadImageAria')" @change="handleImageUpload" />
                         </label>
-                        <span v-if="editData.image" class="text-xs text-[#154677] dark:text-[#2ba6de] truncate max-w-[140px]">
+                        <span v-if="editData.image"
+                            class="text-xs text-[#154677] dark:text-[#2ba6de] truncate max-w-[140px]">
                             {{ editData.image.name }}
                         </span>
                     </div>
@@ -108,49 +116,52 @@
                     <button type="button" @click="deleteProfile" :disabled="profileLoading"
                         :aria-label="t('user.profile.deleteAria')"
                         class="bg-slate-1000 hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded shadow-md disabled:opacity-60">
-                        {{ profileLoading ? t('user.profile.loading.delete') : t('user.profile.actions.deleteAccount') }}
+                        {{ profileLoading ? t('user.profile.loading.delete') : t('user.profile.actions.deleteAccount')
+                        }}
                     </button>
                 </div>
             </div>
 
             <div v-if="currentTab === 3" class="space-y-4">
-                <PasswordInput :label="t('user.profile.password.current')" v-model="passwordData.current_password" :isDark="isDark" />
-                <PasswordInput :label="t('user.profile.password.new')" v-model="passwordData.new_password" :isDark="isDark" />
-                <PasswordInput :label="t('user.profile.password.confirm')" v-model="passwordData.confirm_password" :isDark="isDark" />
+                <PasswordInput :label="t('user.profile.password.current')" v-model="passwordData.current_password"
+                    :isDark="isDark" />
+                <PasswordInput :label="t('user.profile.password.new')" v-model="passwordData.new_password"
+                    :isDark="isDark" />
+                <PasswordInput :label="t('user.profile.password.confirm')" v-model="passwordData.confirm_password"
+                    :isDark="isDark" />
 
                 <button type="button" @click="updatePassword" :disabled="passwordLoading"
                     :aria-label="t('user.profile.updatePasswordAria')"
                     class="bg-[#154677] hover:bg-[#2ba6de] active:scale-95 transition text-white font-medium px-6 py-2.5 rounded-lg shadow-md disabled:opacity-60">
-                    {{ passwordLoading ? t('user.profile.loading.updatePassword') : t('user.profile.actions.updatePassword') }}
+                    {{ passwordLoading ? t('user.profile.loading.updatePassword') :
+                        t('user.profile.actions.updatePassword') }}
                 </button>
             </div>
 
             <div v-if="currentTab === 4" class="space-y-3">
-                <div v-if="conversationsLoading" :class="['px-4 py-3 rounded-xl text-sm', isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-50 text-slate-600']">
+                <div v-if="conversationsLoading"
+                    :class="['px-4 py-3 rounded-xl text-sm', isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-50 text-slate-600']">
                     Loading conversations...
                 </div>
 
-                <div v-else-if="conversations.length === 0" :class="['px-4 py-3 rounded-xl text-sm', isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-50 text-slate-600']">
+                <div v-else-if="conversations.length === 0"
+                    :class="['px-4 py-3 rounded-xl text-sm', isDark ? 'bg-slate-900 text-slate-300' : 'bg-slate-50 text-slate-600']">
                     No conversations found.
                 </div>
 
                 <template v-else>
-                    <button
-                        v-for="conversation in conversations"
-                        :key="conversation.uuid"
-                        type="button"
-                        @click="openConversation(conversation)"
-                        :class="[
+                    <button v-for="conversation in conversations" :key="conversation.uuid" type="button"
+                        @click="openConversation(conversation)" :class="[
                             'w-full text-left rounded-xl border px-4 py-3 transition-colors',
                             isDark
                                 ? 'bg-slate-900 border-slate-700 hover:border-[#2ba6de] hover:bg-slate-800'
                                 : 'bg-white border-slate-200 hover:border-[#154677] hover:bg-slate-50'
-                        ]"
-                    >
+                        ]">
                         <p class="font-semibold">
-                            {{ conversation.sub_tool?.name || "Unknown Tool" }}
+                            {{ (conversation.first_user_message?.content || "Unknown Tool").slice(0, 12) }}
                         </p>
-                        <p v-if="conversation.created_at" :class="['text-xs mt-1', isDark ? 'text-slate-400' : 'text-slate-500']">
+                        <p v-if="conversation.created_at"
+                            :class="['text-xs mt-1', isDark ? 'text-slate-400' : 'text-slate-500']">
                             {{ formatConversationDate(conversation.created_at) }}
                         </p>
                     </button>
@@ -162,7 +173,8 @@
                     statusIsError
                         ? 'bg-slate-1000/10 border border-[#154677]/20 text-[#154677]'
                         : 'bg-[#154677]/10 border border-[#154677]/30 text-[#154677] dark:text-[#2ba6de]']">
-                    <i class="bi" :class="statusIsError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'" aria-hidden="true"></i>
+                    <i class="bi" :class="statusIsError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'"
+                        aria-hidden="true"></i>
                     {{ statusMessage }}
                 </div>
             </transition>
