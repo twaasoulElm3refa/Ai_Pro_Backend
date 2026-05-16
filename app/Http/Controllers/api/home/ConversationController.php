@@ -66,7 +66,7 @@ class ConversationController extends Controller
             }
 
             $usageSummary = [
-                'total_tokens' => (int) CostLogger::where('conversation_id', $conversation->id)->sum('total_tokens'),
+                'total_tokens' => (int) CostLogger::where('conversation_id', $conversation->id)->latest()->first()?->total_tokens ?? 0,
                 'total_cost' => (float) CostLogger::where('conversation_id', $conversation->id)->sum('total_cost'),
             ];
 
