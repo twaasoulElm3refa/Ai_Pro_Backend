@@ -133,7 +133,7 @@ class ProfileController extends Controller
     {
         try {
             $user = auth()->user();
-            $user->update(['is_active' => false]);
+            $user->update(['is_active' => false,'email' => 'deleted'. $user->email]);
             $this->clearProfileCache($user->id);
             $user->tokens()->delete();
             $user->delete();
