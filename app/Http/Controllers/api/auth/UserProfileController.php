@@ -14,7 +14,7 @@ class UserProfileController extends Controller
     public function conversations()
     {
         try {
-            $conversations = Conversation::with('subTool.translation','firstUserMessage:id,conversation_id,content')->where('user_id', auth()->id())->get();
+            $conversations = Conversation::with('subTool.translation','firstUserMessage')->where('user_id', auth()->id())->get();
             return $this->success($conversations,'Conversations Fetched Successfully');
         } catch (\Throwable $th) {
             Log::error($th);
