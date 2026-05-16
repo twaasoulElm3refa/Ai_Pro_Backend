@@ -150,21 +150,24 @@
                 </div>
 
                 <template v-else>
-                    <button v-for="conversation in conversations" :key="conversation.uuid" type="button"
-                        @click="openConversation(conversation)" :class="[
-                            'w-full text-left rounded-xl border px-4 py-3 transition-colors',
-                            isDark
-                                ? 'bg-slate-900 border-slate-700 hover:border-[#2ba6de] hover:bg-slate-800'
-                                : 'bg-white border-slate-200 hover:border-[#154677] hover:bg-slate-50'
-                        ]">
-                        <p class="font-semibold">
-                            {{ (conversation.first_user_message?.content || "Unknown Tool").slice(0, 12) }}
-                        </p>
-                        <p v-if="conversation.created_at"
-                            :class="['text-xs mt-1', isDark ? 'text-slate-400' : 'text-slate-500']">
-                            {{ formatConversationDate(conversation.created_at) }}
-                        </p>
-                    </button>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button v-for="conversation in conversations" :key="conversation.uuid" type="button"
+                            @click="openConversation(conversation)" :class="[
+                                'w-full text-left rounded-xl border px-4 py-3 transition-colors',
+                                isDark
+                                    ? 'bg-slate-900 border-slate-700 hover:border-[#2ba6de] hover:bg-slate-800'
+                                    : 'bg-white border-slate-200 hover:border-[#154677] hover:bg-slate-50'
+                            ]">
+                            <p class="font-semibold truncate">
+                                {{ (conversation.first_user_message?.content || "Unknown Tool").slice(0, 12) }}
+                            </p>
+
+                            <p v-if="conversation.created_at"
+                                :class="['text-xs mt-1', isDark ? 'text-slate-400' : 'text-slate-500']">
+                                {{ formatConversationDate(conversation.created_at) }}
+                            </p>
+                        </button>
+                    </div>
                 </template>
             </div>
 
