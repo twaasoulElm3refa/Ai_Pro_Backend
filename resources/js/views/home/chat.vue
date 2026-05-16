@@ -38,7 +38,7 @@
                         <button type="button" class="history-item-main" @click="openConversation(conversation)">
                             <i class="bi bi-chat-left-text"></i>
                             <div class="history-item-info">
-                                <span class="history-item-title">{{ conversation.title }}</span>
+                                <!-- <span class="history-item-title">{{ conversation.title }}</span> -->
                                 <span class="history-item-date">{{ conversation.subtitle }}</span>
                             </div>
                         </button>
