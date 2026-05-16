@@ -319,7 +319,7 @@ const currentDir = computed(() => {
 
 const homeUrl = computed(() => `/${currentLocale.value}`);
 const contactUrl = computed(() => `/${currentLocale.value}/contact`);
-const toolsUrl = computed(() => `/${currentLocale.value}/tools`);
+const toolsUrl = computed(() => `/${currentLocale.value}/tool/كاتب-النصوص-الذكي`);
 const profileUrl = computed(() => `/${currentLocale.value}/profile`);
 const authUrl = computed(() => `/${currentLocale.value}/auth`);
 const walletUrl = computed(() => `/${currentLocale.value}/wallet`);

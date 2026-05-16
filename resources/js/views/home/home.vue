@@ -1,5 +1,4 @@
 <template>
-
     <section class="home-tools-page" :dir="locale === 'ar' ? 'rtl' : 'ltr'">
         <div class="home-shell">
 
