@@ -20,7 +20,13 @@ class ConversationRepository implements ConversationInterface
             return Cache::tags(['conversations', "user_{$userId}"])
                 ->remember("conversations_user_{$userId}", now()->addMinutes(10), function () use ($userId) {
                     return Conversation::with([
-                        'firstUserMessage:id,conversation_id,content',
+                        'firstUserMessage' => function ($query) {
+                            $query->select([
+                                'messages.id',
+                                'messages.conversation_id',
+                                'messages.content',
+                            ])->where('messages.role', 'user');
+                        },
                     ])
                         ->where('user_id', $userId)
                         ->latest()
