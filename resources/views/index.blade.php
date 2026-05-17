@@ -7,7 +7,7 @@
     <title>Ai Pro</title>
 
     <!-- Favicon / Browser Tab Logo -->
-    <link rel="icon" type="image/png" href="/images/ai_logo.png">
+    <link rel="icon" type="image/png" href="/images/Ai_logo.png">
     <link rel="shortcut icon" type="image/png" href="/images/ai_logo.png">
 
     <!-- Apple / Mobile Icon -->
