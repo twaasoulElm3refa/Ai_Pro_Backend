@@ -5,7 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ai Pro</title>
-    <link rel="preload" href="/images/ai_logo.png" as="image" type="image/webp" fetchpriority="high">
+
+    <!-- Favicon / Browser Tab Logo -->
+    <link rel="icon" type="image/png" href="/images/ai_logo.png">
+    <link rel="shortcut icon" type="image/png" href="/images/ai_logo.png">
+
+    <!-- Apple / Mobile Icon -->
+    <link rel="apple-touch-icon" href="/images/ai_logo.png">
+
+    <!-- Preload Important Images -->
+    <link rel="preload" href="/images/ai_logo.png" as="image" type="image/png" fetchpriority="high">
     <link rel="preload" href="/images/google_logo.webp" as="image" type="image/webp">
 
     <script>
@@ -21,8 +30,6 @@
 
 <body class="app-body">
     <div id="app"></div>
-
 </body>
 
 </html>
-
