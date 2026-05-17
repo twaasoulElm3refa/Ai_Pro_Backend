@@ -5,9 +5,11 @@ namespace App\Http\Controllers\api\auth;
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\userResource;
+use App\Models\FreeCreditClaim;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -17,7 +19,7 @@ class ProfileController extends Controller
 {
     use ApiResponse;
 
-    public function profile()
+    public function profile(Request $request)
     {
         try {
             $user = auth()->user();
@@ -26,18 +28,50 @@ class ProfileController extends Controller
                 return $this->unauthorized('Unauthenticated.');
             }
 
-            $ipAddress = request()->ip();
+            DB::transaction(function () use ($user) {
+                $ipAddress = request()->ip();
+                $deviceFingerprint = request()->header('X-Device-Fingerprint');
+                $userAgent = request()->userAgent();
 
-            $ipAlreadyUsed = Wallet::where('ip_address', $ipAddress)->exists();
+                $wallet = Wallet::firstOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'ip_address' => $ipAddress,
+                        'balance' => 0,
+                        'uuid' => Str::uuid(),
+                    ]
+                );
 
-            Wallet::firstOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'ip_address' => $ipAddress,
-                    'balance' => $ipAlreadyUsed ? 0 : 10,
-                    'uuid' => Str::uuid(),
-                ]
-            );
+                $alreadyClaimed = FreeCreditClaim::where('user_id', $user->id)
+                    ->orWhere('email', $user->email)
+                    ->when($deviceFingerprint, function ($query) use ($deviceFingerprint) {
+                        $query->orWhere('device_fingerprint', $deviceFingerprint);
+                    })
+                    ->orWhere('ip_address', $ipAddress)
+                    ->exists();
+
+                $canGiveFreeCredit =
+                    ! $alreadyClaimed &&
+                    ! empty($user->email_verified_at);
+
+                if ($canGiveFreeCredit) {
+                    $wallet->increment('balance', 1000000);
+
+                    $wallet->update([
+                        'ip_address' => $ipAddress,
+                    ]);
+
+                    FreeCreditClaim::create([
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'ip_address' => $ipAddress,
+                        'device_fingerprint' => $deviceFingerprint,
+                        'user_agent' => $userAgent,
+                        'amount' => 1000000,
+                        'claimed_at' => now(),
+                    ]);
+                }
+            });
 
             $cacheKey = "user_profile_{$user->id}";
 
@@ -133,7 +167,7 @@ class ProfileController extends Controller
     {
         try {
             $user = auth()->user();
-            $user->update(['is_active' => false,'email' => 'deleted'. $user->email.$user->id]);
+            $user->update(['is_active' => false, 'email' => 'deleted'.$user->email.$user->id]);
             $this->clearProfileCache($user->id);
             $user->tokens()->delete();
             $user->delete();
@@ -148,11 +182,9 @@ class ProfileController extends Controller
     public function clearProfileCache($userId = null)
     {
         $userId = $userId ?? auth()->id();
-
         if (! $userId) {
             return;
         }
-
         Cache::forget("user_profile_{$userId}");
     }
 }

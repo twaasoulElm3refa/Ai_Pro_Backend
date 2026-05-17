@@ -1,11 +1,40 @@
 import axios from "axios";
 import toastr from "toastr";
+import FingerprintJS from "@fingerprintjs/fingerprintjs";
+
+let fingerprintPromise = null;
 
 const LANG_KEY = "lang";
+const FINGERPRINT_KEY = "device_fingerprint";
+
 const SUPPORTED_LANGS = ["ar", "en", "ru", "fr", "zh"];
+
 const getLang = () => {
     const lang = String(localStorage.getItem(LANG_KEY) || "").toLowerCase();
+
     return SUPPORTED_LANGS.includes(lang) ? lang : "ar";
+};
+
+const getDeviceFingerprint = async () => {
+    const cachedFingerprint = localStorage.getItem(FINGERPRINT_KEY);
+
+    if (cachedFingerprint) {
+        return cachedFingerprint;
+    }
+
+    if (!fingerprintPromise) {
+        fingerprintPromise = FingerprintJS.load()
+            .then((fp) => fp.get())
+            .then((result) => result.visitorId);
+    }
+
+    const visitorId = await fingerprintPromise;
+
+    if (visitorId) {
+        localStorage.setItem(FINGERPRINT_KEY, visitorId);
+    }
+
+    return visitorId || "";
 };
 
 toastr.options = {
@@ -20,7 +49,7 @@ const api = axios.create({
     headers: {
         Accept: "application/json",
         "Accept-Language": getLang(),
-        "x-api-key": "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy"
+        "x-api-key": "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy",
     },
 });
 
@@ -32,6 +61,7 @@ syncAcceptLanguageHeader();
 
 window.addEventListener("lang-changed", (event) => {
     const lang = event?.detail?.lang || getLang();
+
     api.defaults.headers.common["Accept-Language"] = lang;
 });
 
@@ -42,14 +72,25 @@ window.addEventListener("storage", (event) => {
 });
 
 api.interceptors.request.use(
-    (config) => {
+    async (config) => {
         const token = localStorage.getItem("auth_token");
         const lang = getLang();
 
+        config.headers = config.headers || {};
         config.headers["Accept-Language"] = lang;
 
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+        }
+
+        try {
+            const fingerprint = await getDeviceFingerprint();
+
+            if (fingerprint) {
+                config.headers["X-Device-Fingerprint"] = fingerprint;
+            }
+        } catch (error) {
+            console.warn("Unable to resolve device fingerprint", error);
         }
 
         return config;
@@ -61,8 +102,10 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         const status = error.response?.status;
+
         if (!error.response) {
             toastr.error("في مشكلة في الاتصال بالسيرفر");
+
             return Promise.reject(error);
         }
 
@@ -75,6 +118,7 @@ api.interceptors.response.use(
                 toastr.error("يجب تسجيل الدخول");
 
                 localStorage.removeItem("auth_token");
+
                 setTimeout(() => {
                     window.location.href = `/${getLang()}/auth`;
                 }, 1500);
@@ -88,7 +132,7 @@ api.interceptors.response.use(
                 toastr.error("المورد غير موجود");
                 break;
 
-            case 422:
+            case 422: {
                 const errors = error.response.data.errors;
 
                 if (errors) {
@@ -98,7 +142,9 @@ api.interceptors.response.use(
                 } else {
                     toastr.error("بيانات غير صالحة");
                 }
+
                 break;
+            }
 
             case 429:
                 toastr.warning("عدد محاولات كبير، حاول لاحقًا");

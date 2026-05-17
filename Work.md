@@ -1,4 +1,3 @@
-https://www.figma.com/make/tPjAeeLRUUrL6Sjy6HYb2W/User-request?p=f&t=4gcM8eRcsgZc9UMW-0&fullscreen=1
 في لوحة الأدمن:
 
 إجمالي التوكنز اليوم.
@@ -31,7 +30,7 @@ https://www.figma.com/make/tPjAeeLRUUrL6Sjy6HYb2W/User-request?p=f&t=4gcM8eRcsgZ
 
 مش آخر 6 بس.
 
-8. Conversation Summary
+1. Conversation Summary
 
 بدل ما كل مرة تبعت كل التاريخ، اعمل جدول:
 
@@ -79,87 +78,7 @@ tokens_used
 ده يعطي شفافية للمستخدم.
 
 
+fingerprintJavascript
+clientjs
+creepjs
 
- <section class="ai-overlap-section" :dir="locale === 'ar' ? 'rtl' : 'ltr'">
-        <div class="ai-premium-container">
-
-            <!-- TOP BADGES -->
-            <div class="ai-container-badges">
-                <span class="ai-main-badge">
-                    AI PLATFORM
-                </span>
-
-                <span class="ai-soft-badge">
-                    <span class="ai-dot"></span>
-                    Smart Writing
-                </span>
-            </div>
-
-            <!-- CONTENT GRID -->
-            <div class="ai-container-grid">
-
-                <!-- LEFT CONTENT -->
-                <div class="ai-container-content">
-                    <div class="ai-brand-line">
-                        <div class="ai-mini-logo">
-                            <img
-                                src="/images/Ai_logo.png"
-                                alt="AiPro Logo"
-                                width="42"
-                                height="42"
-                                loading="lazy"
-                                decoding="async"
-                            />
-                        </div>
-
-                        <span>PREMIUM AI PLATFORM</span>
-                    </div>
-
-                    <h1 class="ai-container-title">
-                        أدوات ذكية لإنجاز أسرع
-                    </h1>
-
-                    <p class="ai-container-desc">
-                        اكتب، لخص، وحرّر محتواك من مكان واحد بتجربة بسيطة وسريعة.
-                    </p>
-
-                    <div class="ai-info-cards">
-                        <div class="ai-info-card">
-                            <h3>كتابة أذكى</h3>
-                            <p>أنشئ محتوى واضحًا ومنظمًا خلال ثوانٍ.</p>
-                        </div>
-
-                        <div class="ai-info-card">
-                            <h3>تجربة سهلة</h3>
-                            <p>اختر الأداة المناسبة وابدأ مباشرة بدون تعقيد.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- RIGHT VISUAL -->
-                <div class="ai-container-visual">
-                    <div class="ai-feature-chip">
-                        <div class="ai-feature-icon">
-                            <i class="bi bi-stars"></i>
-                        </div>
-
-                        <div>
-                            <strong>AI Writer</strong>
-                            <span>Smart Content Generation</span>
-                        </div>
-                    </div>
-
-                    <div class="ai-preview-card">
-                        <div class="ai-preview-overlay"></div>
-
-                        <div class="ai-preview-content">
-                            <span>AiPro</span>
-                            <h2>Smart Writing Assistant</h2>
-                            <p>Generate, refine and summarize content with AI.</p>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </section>
