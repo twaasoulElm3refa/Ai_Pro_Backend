@@ -7,14 +7,18 @@
     <title>Ai Pro</title>
 
     <!-- Favicon / Browser Tab Logo -->
-    <link rel="icon" type="image/png" href="/images/Ai_logo.png">
-    <link rel="shortcut icon" type="image/png" href="/images/ai_logo.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/Ai_logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/Ai_logo.png">
+    <link rel="icon" type="image/png" sizes="48x48" href="/images/Ai_logo.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/Ai_logo.png">
+
+    <link rel="shortcut icon" type="image/png" href="/images/Ai_logo.png">
 
     <!-- Apple / Mobile Icon -->
-    <link rel="apple-touch-icon" href="/images/ai_logo.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/Ai_logo.png">
 
     <!-- Preload Important Images -->
-    <link rel="preload" href="/images/ai_logo.png" as="image" type="image/png" fetchpriority="high">
+    <link rel="preload" href="/images/Ai_logo.png" as="image" type="image/png" fetchpriority="high">
     <link rel="preload" href="/images/google_logo.webp" as="image" type="image/webp">
 
     <script>
