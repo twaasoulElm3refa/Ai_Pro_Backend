@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <main class="chat-root" :dir="locale === 'ar' ? 'rtl' : 'ltr'" :aria-label="t('user.chat.workspaceAria')">
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-header">
@@ -91,6 +91,7 @@
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
                                 </span>
+                                <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{ msg.content }}</div>
                                 <div v-else class="markdown-body" v-html="formatMessage(msg.content)"></div>
                             </div>
                             <span class="msg-time">{{ msg.time }}</span>
@@ -109,8 +110,8 @@
                         <i class="bi bi-exclamation-triangle-fill"></i>
                     </div>
                     <div class="limit-warning-content">
-                        <strong>وصلت هذه المحادثة إلى الحد الأقصى</strong>
-                        <span>ابدأ محادثة جديدة للمتابعة برسائل إضافية.</span>
+                        <strong>ÙˆØµÙ„Øª Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰</strong>
+                        <span>Ø§Ø¨Ø¯Ø£ Ù…Ø­Ø§Ø¯Ø«Ø© Ø¬Ø¯ÙŠØ¯Ø© Ù„Ù„Ù…ØªØ§Ø¨Ø¹Ø© Ø¨Ø±Ø³Ø§Ø¦Ù„ Ø¥Ø¶Ø§ÙÙŠØ©.</span>
                     </div>
                 </div>
 
@@ -225,9 +226,9 @@ const filteredConversations = computed(() =>
 );
 
 /**
- * مهم:
- * هنا insufficientPoints اتشالت من التعطيل.
- * المحادثة تتقفل فقط عند limit أو أثناء الإرسال/الستريم.
+ * Ù…Ù‡Ù…:
+ * Ù‡Ù†Ø§ insufficientPoints Ø§ØªØ´Ø§Ù„Øª Ù…Ù† Ø§Ù„ØªØ¹Ø·ÙŠÙ„.
+ * Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© ØªØªÙ‚ÙÙ„ ÙÙ‚Ø· Ø¹Ù†Ø¯ limit Ø£Ùˆ Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ø¥Ø±Ø³Ø§Ù„/Ø§Ù„Ø³ØªØ±ÙŠÙ….
  */
 const chatSendDisabled = computed(() =>
     conversationLimitExceeded.value ||
@@ -243,7 +244,7 @@ const seoTitle = computed(() =>
 
 const seoDescription = computed(() =>
     isArabic.value
-        ? "تحدث مع الأداة الفرعية المختارة، نظّم سجل المحادثات، وأرسل رسائلك في مساحة عمل مركزة مع استجابات فورية وسياق واضح لكل محادثة."
+        ? "ØªØ­Ø¯Ø« Ù…Ø¹ Ø§Ù„Ø£Ø¯Ø§Ø© Ø§Ù„ÙØ±Ø¹ÙŠØ© Ø§Ù„Ù…Ø®ØªØ§Ø±Ø©ØŒ Ù†Ø¸Ù‘Ù… Ø³Ø¬Ù„ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø§ØªØŒ ÙˆØ£Ø±Ø³Ù„ Ø±Ø³Ø§Ø¦Ù„Ùƒ ÙÙŠ Ù…Ø³Ø§Ø­Ø© Ø¹Ù…Ù„ Ù…Ø±ÙƒØ²Ø© Ù…Ø¹ Ø§Ø³ØªØ¬Ø§Ø¨Ø§Øª ÙÙˆØ±ÙŠØ© ÙˆØ³ÙŠØ§Ù‚ ÙˆØ§Ø¶Ø­ Ù„ÙƒÙ„ Ù…Ø­Ø§Ø¯Ø«Ø©."
         : "Chat with your selected AI subtool, manage conversation history, and send messages in a focused workspace with real-time responses and organized context."
 );
 
@@ -337,7 +338,7 @@ const cleanConversationTitleText = (text = "") =>
     String(text || "")
         .replace(/<[^>]*>/g, " ")
         .replace(/[#*_`"'$%^&]/g, "")
-        .replace(/[“”‘’]/g, "")
+        .replace(/[â€œâ€â€˜â€™]/g, "")
         .replace(/\s+/g, " ")
         .trim();
 
@@ -424,8 +425,17 @@ const markdownParser = new MarkdownIt({
     typographer: true,
 });
 
+const escapeHtml = (text = "") =>
+    String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
 const formatMessage = (text = "") => {
-    const renderedHtml = markdownParser.render(String(text || ""));
+    const safeText = escapeHtml(String(text || ""));
+    const renderedHtml = markdownParser.render(safeText);
 
     return DOMPurify.sanitize(renderedHtml, {
         USE_PROFILES: { html: true },
@@ -443,9 +453,9 @@ const hasInsufficientPointsContent = (content = "") => {
 };
 
 /**
- * مهم:
- * الدالة دي تفضل موجودة عشان تعرض التحذير فقط.
- * لكنها لا تقفل المحادثة لأن chatSendDisabled لا يعتمد على insufficientPoints.
+ * Ù…Ù‡Ù…:
+ * Ø§Ù„Ø¯Ø§Ù„Ø© Ø¯ÙŠ ØªÙØ¶Ù„ Ù…ÙˆØ¬ÙˆØ¯Ø© Ø¹Ø´Ø§Ù† ØªØ¹Ø±Ø¶ Ø§Ù„ØªØ­Ø°ÙŠØ± ÙÙ‚Ø·.
+ * Ù„ÙƒÙ†Ù‡Ø§ Ù„Ø§ ØªÙ‚ÙÙ„ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© Ù„Ø£Ù† chatSendDisabled Ù„Ø§ ÙŠØ¹ØªÙ…Ø¯ Ø¹Ù„Ù‰ insufficientPoints.
  */
 const resolveInsufficientPointsState = (rows = []) => {
     const lastAssistantMessage = [...rows]
@@ -610,8 +620,129 @@ const extractorFlowConversationKey = ref("");
 const getExtractorConversationKey = () =>
     activeConversation.value?.uuid || route.params.uuid || "__draft__";
 
-const buildExtractorDebugMessage = (payload) =>
-    `\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+const FIELD_LABELS = {
+    content: "الموضوع",
+    content_type: "نوع المحتوى",
+    goal: "الهدف",
+    language: "اللغة",
+    tone: "النبرة",
+    number_of_headlines: "عدد العناوين",
+    headline_length: "طول العنوان",
+    extra_options: "خيارات إضافية",
+};
+
+const stripDangerousText = (value = "") =>
+    String(value || "")
+        .replace(/[<>]/g, "")
+        .replace(/[$\\]/g, "")
+        .replace(/\b(select|insert|update|delete|drop|alter|truncate|union|where|from|script|iframe|onerror|onload)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const sanitizeExtractorState = (state = {}) => ({
+    content: state.content ? stripDangerousText(state.content).slice(0, 500) : null,
+    content_type: state.content_type ? stripDangerousText(state.content_type).slice(0, 80) : null,
+    goal: state.goal ? stripDangerousText(state.goal).slice(0, 120) : null,
+    language: state.language ? stripDangerousText(state.language).slice(0, 50) : null,
+    tone: state.tone ? stripDangerousText(state.tone).slice(0, 50) : null,
+    number_of_headlines: Number.isFinite(Number(state.number_of_headlines))
+        ? Math.min(Math.max(Number(state.number_of_headlines), 1), 20)
+        : null,
+    headline_length: state.headline_length ? stripDangerousText(state.headline_length).slice(0, 50) : null,
+    extra_options: Array.isArray(state.extra_options)
+        ? state.extra_options
+            .map((item) => stripDangerousText(item).slice(0, 120))
+            .filter(Boolean)
+            .slice(0, 10)
+        : [],
+});
+
+const sanitizeExtractorUpdates = (updates = {}) => {
+    const safe = {};
+
+    if (Object.prototype.hasOwnProperty.call(updates, "content")) {
+        safe.content = updates.content ? stripDangerousText(updates.content).slice(0, 500) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "content_type")) {
+        safe.content_type = updates.content_type ? stripDangerousText(updates.content_type).slice(0, 80) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "goal")) {
+        safe.goal = updates.goal ? stripDangerousText(updates.goal).slice(0, 120) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "language")) {
+        safe.language = updates.language ? stripDangerousText(updates.language).slice(0, 50) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "tone")) {
+        safe.tone = updates.tone ? stripDangerousText(updates.tone).slice(0, 50) : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "number_of_headlines")) {
+        safe.number_of_headlines = Number.isFinite(Number(updates.number_of_headlines))
+            ? Math.min(Math.max(Number(updates.number_of_headlines), 1), 20)
+            : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "headline_length")) {
+        safe.headline_length = updates.headline_length
+            ? stripDangerousText(updates.headline_length).slice(0, 50)
+            : null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "extra_options")) {
+        safe.extra_options = Array.isArray(updates.extra_options)
+            ? updates.extra_options
+                .map((item) => stripDangerousText(item).slice(0, 120))
+                .filter(Boolean)
+                .slice(0, 10)
+            : [];
+    }
+
+    return safe;
+};
+
+const formatExtractorValue = (value) => {
+    if (value === null || value === undefined || value === "") {
+        return "غير محدد";
+    }
+
+    if (Array.isArray(value)) {
+        return value.length ? value.join("، ") : "غير محدد";
+    }
+
+    return String(value);
+};
+
+const buildExtractorSummaryText = (state, missing = []) => {
+    const completedLines = Object.entries(state || {})
+        .filter(([, value]) => {
+            if (Array.isArray(value)) return value.length > 0;
+            return value !== null && value !== undefined && value !== "";
+        })
+        .map(([key, value]) => `• ${FIELD_LABELS[key] || key}: ${formatExtractorValue(value)}`);
+
+    const missingLines = missing.map((key) => `• ${FIELD_LABELS[key] || key}`);
+
+    let text = "تمام ✅\n\n";
+
+    if (completedLines.length) {
+        text += `البيانات التي تم تجميعها:\n${completedLines.join("\n")}`;
+    }
+
+    if (missingLines.length) {
+        text += `\n\nلسه ناقص:\n${missingLines.join("\n")}`;
+    }
+
+    return text.trim();
+};
+
+const buildExtractorMissingQuestion = (missing = []) => {
+    const labels = missing.map((key) => FIELD_LABELS[key] || key).join("، ");
+    return `لسه ناقص: ${labels}.\nاكتبهم لي بشكل مختصر من فضلك.`;
+};
 
 const addAssistantLocalMessage = async (content, extra = {}) => {
     messages.value.push(
@@ -620,6 +751,7 @@ const addAssistantLocalMessage = async (content, extra = {}) => {
                 content,
                 role: "assistant",
                 created_at: new Date().toISOString(),
+                plainText: true,
                 ...extra,
             },
             messages.value.length
@@ -636,6 +768,7 @@ const addUserLocalMessage = async (content) => {
                 content,
                 role: "user",
                 created_at: new Date().toISOString(),
+                plainText: true,
             },
             messages.value.length
         )
@@ -650,7 +783,7 @@ const startExtractorFlow = async () => {
     extractorFlowConversationKey.value = getExtractorConversationKey();
 
     await addAssistantLocalMessage(
-        "مرحبًا بك 👋\nهساعدك نجهز بيانات توليد العناوين خطوة بخطوة.\nأولًا: عاوز العناوين عن أي موضوع؟ وهل تريدها SEO؟ وكم عنوان تريد؟"
+        "مرحبًا بك 👋\nهساعدك نجهز بيانات توليد العناوين خطوة بخطوة.\n\nأولًا: عايز العناوين عن أي موضوع؟ وهل تريدها SEO؟ وكم عنوان تريد؟"
     );
 };
 
@@ -665,14 +798,11 @@ const normalizeExtractorText = (text = "") =>
 
 const parseExtractorStepOne = (text) => {
     const raw = normalizeExtractorText(text);
-    const normalized = raw.toLowerCase();
     const numberMatch = raw.match(/(\d+)/);
     const number_of_headlines = numberMatch ? Number(numberMatch[1]) : null;
 
     const hasSeo = /(seo|سيو|السيو|تحسين\s*محركات\s*البحث)/i.test(raw);
-    const extra_options = hasSeo
-        ? ["Include SEO-friendly headlines"]
-        : null;
+    const extra_options = hasSeo ? ["Include SEO-friendly headlines"] : [];
 
     const markerMatch = raw.match(/(?:لمقال\s+عن|عن|حول|بخصوص)\s+(.+)$/i);
     let content = markerMatch?.[1]?.trim() || null;
@@ -693,12 +823,8 @@ const parseExtractorStepOne = (text) => {
             .trim();
     }
 
-    if (!content) {
-        content = null;
-    }
-
     return {
-        content,
+        content: content || null,
         number_of_headlines,
         extra_options,
     };
@@ -799,7 +925,6 @@ const validateExtractorState = (state) => {
         errors.push("number_of_headlines must be a number");
     } else {
         const headlinesCount = Number(state.number_of_headlines);
-
         if (headlinesCount < 1 || headlinesCount > 20) {
             errors.push("number_of_headlines must be between 1 and 20");
         }
@@ -820,10 +945,8 @@ const validateExtractorState = (state) => {
     };
 };
 
-const buildExtractorValidationPayload = (extractedUpdates = {}, reply = "") => ({
-    state: {
-        ...extractorState.value,
-    },
+const buildExtractorValidationPayload = (extractedUpdates = {}) => ({
+    state: sanitizeExtractorState(extractorState.value),
     extracted_updates: {
         content: extractedUpdates.content ?? null,
         content_type: extractedUpdates.content_type ?? null,
@@ -834,54 +957,62 @@ const buildExtractorValidationPayload = (extractedUpdates = {}, reply = "") => (
         headline_length: extractedUpdates.headline_length ?? null,
         extra_options: extractedUpdates.extra_options ?? null,
     },
-    reply,
+    reply: "تم تحديث بيانات النموذج.",
 });
 
 const applyExtractorUpdates = (updates = {}) => {
-    if (updates.content !== null && updates.content !== undefined) {
-        extractorState.value.content = String(updates.content).trim() || null;
+    const nextState = { ...extractorState.value };
+
+    if (updates.content !== undefined && updates.content !== null && updates.content !== "") {
+        nextState.content = updates.content;
     }
 
-    if (updates.content_type !== null && updates.content_type !== undefined) {
-        extractorState.value.content_type = updates.content_type;
+    if (updates.content_type !== undefined && updates.content_type !== null && updates.content_type !== "") {
+        nextState.content_type = updates.content_type;
     }
 
-    if (updates.goal !== null && updates.goal !== undefined) {
-        extractorState.value.goal = updates.goal;
+    if (updates.goal !== undefined && updates.goal !== null && updates.goal !== "") {
+        nextState.goal = updates.goal;
     }
 
-    if (updates.language !== null && updates.language !== undefined) {
-        extractorState.value.language = updates.language;
+    if (updates.language !== undefined && updates.language !== null && updates.language !== "") {
+        nextState.language = updates.language;
     }
 
-    if (updates.tone !== null && updates.tone !== undefined) {
-        extractorState.value.tone = updates.tone;
+    if (updates.tone !== undefined && updates.tone !== null && updates.tone !== "") {
+        nextState.tone = updates.tone;
     }
 
-    if (updates.number_of_headlines !== null && updates.number_of_headlines !== undefined) {
-        extractorState.value.number_of_headlines = Number(updates.number_of_headlines);
+    if (
+        updates.number_of_headlines !== undefined &&
+        updates.number_of_headlines !== null &&
+        Number.isFinite(Number(updates.number_of_headlines))
+    ) {
+        nextState.number_of_headlines = Number(updates.number_of_headlines);
     }
 
-    if (updates.headline_length !== null && updates.headline_length !== undefined) {
-        extractorState.value.headline_length = updates.headline_length;
+    if (updates.headline_length !== undefined && updates.headline_length !== null && updates.headline_length !== "") {
+        nextState.headline_length = updates.headline_length;
     }
 
-    if (updates.extra_options !== null && updates.extra_options !== undefined) {
-        extractorState.value.extra_options = Array.isArray(updates.extra_options)
+    if (updates.extra_options !== undefined) {
+        nextState.extra_options = Array.isArray(updates.extra_options)
             ? updates.extra_options
             : [];
     }
+
+    extractorState.value = sanitizeExtractorState(nextState);
 };
 
 const getMissingPrompt = (field) => {
     const prompts = {
         content: "محتاج أعرف الموضوع الأساسي للعناوين. العناوين عن أي موضوع؟",
         number_of_headlines: "محتاج أعرف عدد العناوين المطلوب. تحب كام عنوان؟",
-        language: "محتاج تحدد اللغة المطلوبة للعناوين.",
-        tone: "محتاج تحدد نبرة العناوين (مثال: قوية، رسمية، تسويقية).",
-        content_type: "محتاج أعرف نوع المحتوى (مقال، خبر، منتج، بوست).",
-        headline_length: "محتاج تحدد طول العنوان (تلقائي، قصير، متوسط، طويل).",
-        goal: "محتاج تحدد الهدف الأساسي (مثل: تحسين SEO أو زيادة CTR).",
+        language: "دلوقتي محتاج اللغة. مثال: عربي أو English.",
+        tone: "دلوقتي محتاج نبرة العناوين. مثال: قوية أو رسمية.",
+        content_type: "دلوقتي محتاج نوع المحتوى. مثال: مقال أو خبر.",
+        headline_length: "اختار طول العنوان. مثال: قصير أو تلقائي.",
+        goal: "حدد الهدف الأساسي. مثال: تحسين SEO أو زيادة CTR.",
     };
 
     return prompts[field] || "من فضلك أكمل البيانات الناقصة.";
@@ -902,14 +1033,14 @@ const resolveNextExtractorStep = (missingFields = []) => {
 const askExtractorStepQuestion = async (step) => {
     if (step === 2) {
         await addAssistantLocalMessage(
-            "تمام. محتاج اللغة، ونبرة العناوين، ونوع المحتوى.\nمثال: عربي، قوية، مقال."
+            "تمام ✅\nدلوقتي محتاج اللغة، ونبرة العناوين، ونوع المحتوى.\nمثال: عربي، قوية، مقال."
         );
         return;
     }
 
     if (step === 3) {
         await addAssistantLocalMessage(
-            "آخر حاجة: طول العنوان والهدف الأساسي.\nمثال: تلقائي، تحسين SEO."
+            "آخر خطوة ✨\nاختار طول العنوان والهدف الأساسي.\nمثال: قصير، تحسين SEO."
         );
     }
 };
@@ -933,7 +1064,6 @@ const ensureExtractorFlowForCurrentConversation = async () => {
 
     await startExtractorFlow();
 };
-
 const newLine = () => {
     userInput.value += "\n";
     nextTick(autoResize);
@@ -1031,7 +1161,7 @@ const loadConversationDetails = async (uuid) => {
         const apiMessage = response?.message || response?.data?.message || "";
 
         /**
-         * هنا فقط الحد الأقصى هو اللي يقفل المحادثة.
+         * Ù‡Ù†Ø§ ÙÙ‚Ø· Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ Ù‡Ùˆ Ø§Ù„Ù„ÙŠ ÙŠÙ‚ÙÙ„ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©.
          */
         conversationLimitExceeded.value = String(apiMessage)
             .toLowerCase()
@@ -1158,14 +1288,22 @@ const ensureConversation = async () => {
     return conversation;
 };
 
-const sendExtractorToAi = async (finalExtractorPrompt) => {
+const sendExtractorToAi = async () => {
     if (conversationLimitExceeded.value) {
         return false;
     }
 
-    if (!finalExtractorPrompt || sendingMessage.value || streamingAssistant.value) {
+    if (sendingMessage.value || streamingAssistant.value) {
         return false;
     }
+
+    const safeState = sanitizeExtractorState(extractorState.value);
+
+    const finalExtractorPrompt = [
+        "Generate headlines using this extracted state only.",
+        "Return the final headlines only.",
+        JSON.stringify(safeState, null, 2),
+    ].join("\n\n");
 
     sendingMessage.value = true;
 
@@ -1196,14 +1334,12 @@ const sendExtractorToAi = async (finalExtractorPrompt) => {
                 search_mode: "off",
                 max_tokens: 2500,
                 temperature: 0.45,
-                extractor_state: {
-                    ...extractorState.value,
-                },
                 source: "extractor_guided_form",
+                extractor_state: safeState,
             },
         };
 
-        console.log("Extractor payload before send:", JSON.stringify(payload, null, 2));
+        console.log("Extractor payload before send:", payload);
 
         const response = await chatServices.sendMessage(payload);
 
@@ -1225,123 +1361,93 @@ const sendExtractorToAi = async (finalExtractorPrompt) => {
 };
 
 const handleExtractorSubmit = async (text) => {
-    const content = String(text || "").trim();
+    const inputText = String(text || "").trim();
+    const safeUserText = stripDangerousText(inputText).slice(0, 1500);
 
-    if (!content || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+    if (!safeUserText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
         return;
     }
 
-    await addUserLocalMessage(content);
+    await addUserLocalMessage(safeUserText);
     userInput.value = "";
     resetTextarea();
 
-    let extractedUpdates = {};
-    let reply = "";
+    let updates = {};
 
     if (extractorStep.value === 1) {
-        extractedUpdates = parseExtractorStepOne(content);
-        applyExtractorUpdates(extractedUpdates);
+        updates = parseExtractorStepOne(safeUserText);
+    } else if (extractorStep.value === 2) {
+        updates = parseExtractorStepTwo(safeUserText);
+    } else {
+        updates = parseExtractorStepThree(safeUserText);
+    }
 
-        const missingStepOne = [];
-        if (!extractorState.value.content) missingStepOne.push("content");
-        if (extractorState.value.number_of_headlines === null) missingStepOne.push("number_of_headlines");
+    const safeUpdates = sanitizeExtractorUpdates(updates);
 
-        reply = missingStepOne.length
-            ? `لسه ناقص: ${missingStepOne.join(", ")}`
-            : "تمام، انتقلنا للخطوة التالية.";
+    applyExtractorUpdates(safeUpdates);
 
-        await addAssistantLocalMessage(
-            `${reply}\n\n${buildExtractorDebugMessage(buildExtractorValidationPayload(extractedUpdates, reply))}`
+    const validation = validateExtractorState(extractorState.value);
+    console.log("Extractor validation payload", buildExtractorValidationPayload(safeUpdates));
+
+    if (extractorStep.value === 1) {
+        const missingStepOne = ["content", "number_of_headlines"].filter((key) =>
+            validation.missing.includes(key)
         );
 
         if (missingStepOne.length) {
-            await addAssistantLocalMessage(getMissingPrompt(missingStepOne[0]));
+            if (missingStepOne.length === 1) {
+                await addAssistantLocalMessage(getMissingPrompt(missingStepOne[0]));
+            } else {
+                await addAssistantLocalMessage(buildExtractorMissingQuestion(missingStepOne));
+            }
             return;
         }
 
         extractorStep.value = 2;
-        await askExtractorStepQuestion(2);
+        await addAssistantLocalMessage(
+            `${buildExtractorSummaryText(extractorState.value, validation.missing)}\n\nتمام ✅\nدلوقتي محتاج اللغة، ونبرة العناوين، ونوع المحتوى.\nمثال: عربي، قوية، مقال.`
+        );
         return;
     }
 
     if (extractorStep.value === 2) {
-        extractedUpdates = parseExtractorStepTwo(content);
-        applyExtractorUpdates(extractedUpdates);
-
-        const missingStepTwo = [];
-        if (!extractorState.value.language) missingStepTwo.push("language");
-        if (!extractorState.value.tone) missingStepTwo.push("tone");
-        if (!extractorState.value.content_type) missingStepTwo.push("content_type");
-
-        reply = missingStepTwo.length
-            ? `لسه ناقص: ${missingStepTwo.join(", ")}`
-            : "ممتاز، نكمل آخر خطوة.";
-
-        await addAssistantLocalMessage(
-            `${reply}\n\n${buildExtractorDebugMessage(buildExtractorValidationPayload(extractedUpdates, reply))}`
+        const missingStepTwo = ["language", "tone", "content_type"].filter((key) =>
+            validation.missing.includes(key)
         );
 
         if (missingStepTwo.length) {
-            await addAssistantLocalMessage(getMissingPrompt(missingStepTwo[0]));
+            await addAssistantLocalMessage(buildExtractorMissingQuestion(missingStepTwo));
             return;
         }
 
         extractorStep.value = 3;
-        await askExtractorStepQuestion(3);
+        await addAssistantLocalMessage(
+            `${buildExtractorSummaryText(extractorState.value, validation.missing)}\n\nآخر خطوة ✨\nاختار طول العنوان والهدف الأساسي.\nمثال: قصير، تحسين SEO.`
+        );
         return;
     }
-
-    extractedUpdates = parseExtractorStepThree(content);
-    applyExtractorUpdates(extractedUpdates);
-
-    const validation = validateExtractorState(extractorState.value);
-    reply = validation.valid
-        ? "تمام، البيانات أصبحت جاهزة لتوليد العناوين."
-        : `لسه ناقص: ${validation.missing.join(", ")}`;
-
-    await addAssistantLocalMessage(
-        `${reply}\n\n${buildExtractorDebugMessage(buildExtractorValidationPayload(extractedUpdates, reply))}`
-    );
 
     if (!validation.valid) {
-        const hasHeadlineCountError = validation.errors.some((error) =>
-            error.includes("number_of_headlines")
-        );
         const nextStep = resolveNextExtractorStep(validation.missing);
-        extractorStep.value = hasHeadlineCountError ? 1 : nextStep;
+        extractorStep.value = nextStep;
 
-        if (validation.errors.length) {
-            await addAssistantLocalMessage(`فيه أخطاء: ${validation.errors.join(" | ")}`);
-        }
-
-        if (hasHeadlineCountError) {
-            await addAssistantLocalMessage(getMissingPrompt("number_of_headlines"));
-        } else if (validation.missing.length) {
-            await addAssistantLocalMessage(getMissingPrompt(validation.missing[0]));
-        } else {
-            await askExtractorStepQuestion(nextStep);
-        }
-
+        await addAssistantLocalMessage(
+            `${buildExtractorSummaryText(extractorState.value, validation.missing)}\n\n${buildExtractorMissingQuestion(validation.missing)}`
+        );
         return;
     }
 
-    const finalExtractorPrompt = `Generate headlines using this extracted state only.
-Return the final headlines only.
-
-${JSON.stringify(extractorState.value, null, 2)}`;
-
-    await addAssistantLocalMessage("تمام، البيانات أصبحت جاهزة لتوليد العناوين. جاري الإرسال...");
-    await sendExtractorToAi(finalExtractorPrompt);
+    await addAssistantLocalMessage("تمام ✅ البيانات أصبحت جاهزة لتوليد العناوين.\nجاري توليد العناوين الآن...");
+    await sendExtractorToAi();
 };
-
 const submitMessage = async () => {
     const content = userInput.value.trim();
 
     /**
-     * مهم:
-     * هنا شلنا insufficientPoints من شرط المنع.
-     * يعني لو آخر رد كان Insufficient، المستخدم يقدر يبعت تاني.
-     * القفل فقط عند limit exceeded.
+     * Ù…Ù‡Ù…:
+     * Ù‡Ù†Ø§ Ø´Ù„Ù†Ø§ insufficientPoints Ù…Ù† Ø´Ø±Ø· Ø§Ù„Ù…Ù†Ø¹.
+     * ÙŠØ¹Ù†ÙŠ Ù„Ùˆ Ø¢Ø®Ø± Ø±Ø¯ ÙƒØ§Ù† InsufficientØŒ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙŠÙ‚Ø¯Ø± ÙŠØ¨Ø¹Øª ØªØ§Ù†ÙŠ.
+     * Ø§Ù„Ù‚ÙÙ„ ÙÙ‚Ø· Ø¹Ù†Ø¯ limit exceeded.
      */
     if (conversationLimitExceeded.value) {
         return;
@@ -2015,6 +2121,10 @@ watch(
     margin-top: 10px;
 }
 
+.plain-text-message {
+    white-space: pre-line;
+}
+
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
 .markdown-body :deep(h3) {
@@ -2553,3 +2663,5 @@ watch(
     }
 }
 </style>
+
+
