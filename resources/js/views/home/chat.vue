@@ -134,7 +134,7 @@
                             ? 'This conversation has reached the maximum limit. Start a new chat to continue.'
                             : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))" rows="1"
                         :disabled="chatSendDisabled" @focus="inputFocused = true" @blur="inputFocused = false"
-                        @keydown.enter.exact.prevent="submitMessage" @keydown.shift.enter.exact="newLine"
+                        @keydown.enter.exact.prevent="onSubmitMessage" @keydown.shift.enter.exact="newLine"
                         @input="autoResize"></textarea>
 
                     <div class="input-actions">
@@ -148,7 +148,7 @@
                         </button>
 
                         <button type="button" class="send-btn" :aria-label="t('user.chat.sendAria')"
-                            :disabled="!userInput.trim() || chatSendDisabled" @click="submitMessage">
+                            :disabled="!userInput.trim() || chatSendDisabled" @click="onSubmitMessage">
                             <i class="bi"
                                 :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
                         </button>
@@ -588,6 +588,352 @@ const hideSearchToggle = computed(() =>
     Number(subtool.value?.id) === 2
 );
 
+const extractorTool = computed(() =>
+    Number(subtool.value?.id) === 3 // extractor
+);
+
+const getInitialExtractorState = () => ({
+    content: null,
+    content_type: null,
+    goal: null,
+    language: null,
+    tone: null,
+    number_of_headlines: null,
+    headline_length: null,
+    extra_options: [],
+});
+
+const extractorState = ref(getInitialExtractorState());
+const extractorStep = ref(1);
+const extractorFlowConversationKey = ref("");
+
+const getExtractorConversationKey = () =>
+    activeConversation.value?.uuid || route.params.uuid || "__draft__";
+
+const buildExtractorDebugMessage = (payload) =>
+    `\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+
+const addAssistantLocalMessage = async (content, extra = {}) => {
+    messages.value.push(
+        mapMessage(
+            {
+                content,
+                role: "assistant",
+                created_at: new Date().toISOString(),
+                ...extra,
+            },
+            messages.value.length
+        )
+    );
+
+    await scrollToBottom();
+};
+
+const addUserLocalMessage = async (content) => {
+    messages.value.push(
+        mapMessage(
+            {
+                content,
+                role: "user",
+                created_at: new Date().toISOString(),
+            },
+            messages.value.length
+        )
+    );
+
+    await scrollToBottom();
+};
+
+const startExtractorFlow = async () => {
+    extractorState.value = getInitialExtractorState();
+    extractorStep.value = 1;
+    extractorFlowConversationKey.value = getExtractorConversationKey();
+
+    await addAssistantLocalMessage(
+        "مرحبًا بك 👋\nهساعدك نجهز بيانات توليد العناوين خطوة بخطوة.\nأولًا: عاوز العناوين عن أي موضوع؟ وهل تريدها SEO؟ وكم عنوان تريد؟"
+    );
+};
+
+const resetExtractorFlow = () => {
+    extractorState.value = getInitialExtractorState();
+    extractorStep.value = 1;
+    extractorFlowConversationKey.value = "";
+};
+
+const normalizeExtractorText = (text = "") =>
+    String(text || "").trim();
+
+const parseExtractorStepOne = (text) => {
+    const raw = normalizeExtractorText(text);
+    const normalized = raw.toLowerCase();
+    const numberMatch = raw.match(/(\d+)/);
+    const number_of_headlines = numberMatch ? Number(numberMatch[1]) : null;
+
+    const hasSeo = /(seo|سيو|السيو|تحسين\s*محركات\s*البحث)/i.test(raw);
+    const extra_options = hasSeo
+        ? ["Include SEO-friendly headlines"]
+        : null;
+
+    const markerMatch = raw.match(/(?:لمقال\s+عن|عن|حول|بخصوص)\s+(.+)$/i);
+    let content = markerMatch?.[1]?.trim() || null;
+
+    if (!content) {
+        content = raw
+            .replace(/\d+/g, " ")
+            .replace(/(?:عايز|عاوز|أريد|اريد|عناوين|عنوان|قوية|قوي|سيو|seo|مقال|article|headlines?|powerful|strong)/gi, " ")
+            .replace(/[،,.:;!?؟]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    if (content) {
+        content = content
+            .replace(/(?:وسيو|والسيو|seo|سيو|تحسين\s*محركات\s*البحث)/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    if (!content) {
+        content = null;
+    }
+
+    return {
+        content,
+        number_of_headlines,
+        extra_options,
+    };
+};
+
+const pickMappedValue = (text, dictionary = []) => {
+    const normalized = String(text || "").toLowerCase();
+    const hit = dictionary.find((entry) =>
+        entry.keywords.some((keyword) => normalized.includes(keyword))
+    );
+
+    return hit?.value ?? null;
+};
+
+const parseExtractorStepTwo = (text) => {
+    const normalized = normalizeExtractorText(text).toLowerCase();
+
+    const language = pickMappedValue(normalized, [
+        { value: "Arabic", keywords: ["arabic", "عربي", "العربية"] },
+        { value: "English", keywords: ["english", "انجليزي", "إنجليزي"] },
+        { value: "French", keywords: ["french", "فرنسي"] },
+        { value: "Russian", keywords: ["russian", "روسي"] },
+        { value: "Chinese", keywords: ["chinese", "صيني"] },
+    ]);
+
+    const tone = pickMappedValue(normalized, [
+        { value: "Powerful", keywords: ["powerful", "قوي", "قوية"] },
+        { value: "Formal", keywords: ["formal", "رسمي"] },
+        { value: "Professional", keywords: ["professional", "احترافي"] },
+        { value: "Marketing", keywords: ["marketing", "تسويقي"] },
+        { value: "Simple", keywords: ["simple", "بسيط"] },
+    ]);
+
+    const content_type = pickMappedValue(normalized, [
+        { value: "Article", keywords: ["article", "مقال"] },
+        { value: "News", keywords: ["news", "خبر"] },
+        { value: "Product", keywords: ["product", "منتج"] },
+        { value: "Social Post", keywords: ["post", "بوست"] },
+    ]);
+
+    return {
+        language,
+        tone,
+        content_type,
+    };
+};
+
+const parseExtractorStepThree = (text) => {
+    const normalized = normalizeExtractorText(text).toLowerCase();
+
+    const headline_length = pickMappedValue(normalized, [
+        { value: "Auto", keywords: ["auto", "تلقائي"] },
+        { value: "Short", keywords: ["short", "قصير"] },
+        { value: "Medium", keywords: ["medium", "متوسط"] },
+        { value: "Long", keywords: ["long", "طويل"] },
+    ]);
+
+    const goal = pickMappedValue(normalized, [
+        { value: "Improve SEO", keywords: ["تحسين السيو", "improve seo", "seo"] },
+        { value: "Increase CTR", keywords: ["زيادة النقر", "click", "ctr"] },
+        { value: "Attract Attention", keywords: ["جذب الانتباه"] },
+        { value: "News Style", keywords: ["إخباري", "خبري"] },
+    ]);
+
+    return {
+        headline_length,
+        goal,
+    };
+};
+
+const validateExtractorState = (state) => {
+    const missing = [];
+    const errors = [];
+
+    if (!state?.content || !String(state.content).trim()) {
+        missing.push("content");
+    }
+
+    if (!state?.content_type) {
+        missing.push("content_type");
+    }
+
+    if (!state?.goal) {
+        missing.push("goal");
+    }
+
+    if (!state?.language) {
+        missing.push("language");
+    }
+
+    if (!state?.tone) {
+        missing.push("tone");
+    }
+
+    if (state?.number_of_headlines === null || state?.number_of_headlines === undefined) {
+        missing.push("number_of_headlines");
+    } else if (!Number.isFinite(Number(state.number_of_headlines))) {
+        errors.push("number_of_headlines must be a number");
+    } else {
+        const headlinesCount = Number(state.number_of_headlines);
+
+        if (headlinesCount < 1 || headlinesCount > 20) {
+            errors.push("number_of_headlines must be between 1 and 20");
+        }
+    }
+
+    if (!state?.headline_length) {
+        missing.push("headline_length");
+    }
+
+    if (!Array.isArray(state?.extra_options)) {
+        errors.push("extra_options must be an array");
+    }
+
+    return {
+        valid: missing.length === 0 && errors.length === 0,
+        missing,
+        errors,
+    };
+};
+
+const buildExtractorValidationPayload = (extractedUpdates = {}, reply = "") => ({
+    state: {
+        ...extractorState.value,
+    },
+    extracted_updates: {
+        content: extractedUpdates.content ?? null,
+        content_type: extractedUpdates.content_type ?? null,
+        goal: extractedUpdates.goal ?? null,
+        language: extractedUpdates.language ?? null,
+        tone: extractedUpdates.tone ?? null,
+        number_of_headlines: extractedUpdates.number_of_headlines ?? null,
+        headline_length: extractedUpdates.headline_length ?? null,
+        extra_options: extractedUpdates.extra_options ?? null,
+    },
+    reply,
+});
+
+const applyExtractorUpdates = (updates = {}) => {
+    if (updates.content !== null && updates.content !== undefined) {
+        extractorState.value.content = String(updates.content).trim() || null;
+    }
+
+    if (updates.content_type !== null && updates.content_type !== undefined) {
+        extractorState.value.content_type = updates.content_type;
+    }
+
+    if (updates.goal !== null && updates.goal !== undefined) {
+        extractorState.value.goal = updates.goal;
+    }
+
+    if (updates.language !== null && updates.language !== undefined) {
+        extractorState.value.language = updates.language;
+    }
+
+    if (updates.tone !== null && updates.tone !== undefined) {
+        extractorState.value.tone = updates.tone;
+    }
+
+    if (updates.number_of_headlines !== null && updates.number_of_headlines !== undefined) {
+        extractorState.value.number_of_headlines = Number(updates.number_of_headlines);
+    }
+
+    if (updates.headline_length !== null && updates.headline_length !== undefined) {
+        extractorState.value.headline_length = updates.headline_length;
+    }
+
+    if (updates.extra_options !== null && updates.extra_options !== undefined) {
+        extractorState.value.extra_options = Array.isArray(updates.extra_options)
+            ? updates.extra_options
+            : [];
+    }
+};
+
+const getMissingPrompt = (field) => {
+    const prompts = {
+        content: "محتاج أعرف الموضوع الأساسي للعناوين. العناوين عن أي موضوع؟",
+        number_of_headlines: "محتاج أعرف عدد العناوين المطلوب. تحب كام عنوان؟",
+        language: "محتاج تحدد اللغة المطلوبة للعناوين.",
+        tone: "محتاج تحدد نبرة العناوين (مثال: قوية، رسمية، تسويقية).",
+        content_type: "محتاج أعرف نوع المحتوى (مقال، خبر، منتج، بوست).",
+        headline_length: "محتاج تحدد طول العنوان (تلقائي، قصير، متوسط، طويل).",
+        goal: "محتاج تحدد الهدف الأساسي (مثل: تحسين SEO أو زيادة CTR).",
+    };
+
+    return prompts[field] || "من فضلك أكمل البيانات الناقصة.";
+};
+
+const resolveNextExtractorStep = (missingFields = []) => {
+    if (missingFields.some((field) => ["content", "number_of_headlines"].includes(field))) {
+        return 1;
+    }
+
+    if (missingFields.some((field) => ["language", "tone", "content_type"].includes(field))) {
+        return 2;
+    }
+
+    return 3;
+};
+
+const askExtractorStepQuestion = async (step) => {
+    if (step === 2) {
+        await addAssistantLocalMessage(
+            "تمام. محتاج اللغة، ونبرة العناوين، ونوع المحتوى.\nمثال: عربي، قوية، مقال."
+        );
+        return;
+    }
+
+    if (step === 3) {
+        await addAssistantLocalMessage(
+            "آخر حاجة: طول العنوان والهدف الأساسي.\nمثال: تلقائي، تحسين SEO."
+        );
+    }
+};
+
+const ensureExtractorFlowForCurrentConversation = async () => {
+    if (!extractorTool.value) {
+        resetExtractorFlow();
+        return;
+    }
+
+    const conversationKey = getExtractorConversationKey();
+
+    if (messages.value.length > 0) {
+        extractorFlowConversationKey.value = conversationKey;
+        return;
+    }
+
+    if (extractorFlowConversationKey.value === conversationKey) {
+        return;
+    }
+
+    await startExtractorFlow();
+};
+
 const newLine = () => {
     userInput.value += "\n";
     nextTick(autoResize);
@@ -665,6 +1011,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
+        resetExtractorFlow();
         return;
     }
 
@@ -673,6 +1020,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
+        resetExtractorFlow();
         return;
     }
 
@@ -721,6 +1069,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = rows.map((message, index) => mapMessage(message, index));
 
         resolveInsufficientPointsState(rows);
+        await ensureExtractorFlowForCurrentConversation();
 
         await scrollToBottom();
     } finally {
@@ -734,6 +1083,7 @@ const syncRouteConversation = async () => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
+        await ensureExtractorFlowForCurrentConversation();
         return;
     }
 
@@ -806,6 +1156,182 @@ const ensureConversation = async () => {
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 
     return conversation;
+};
+
+const sendExtractorToAi = async (finalExtractorPrompt) => {
+    if (conversationLimitExceeded.value) {
+        return false;
+    }
+
+    if (!finalExtractorPrompt || sendingMessage.value || streamingAssistant.value) {
+        return false;
+    }
+
+    sendingMessage.value = true;
+
+    const conversation = await ensureConversation();
+
+    if (!conversation) {
+        sendingMessage.value = false;
+        return false;
+    }
+
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, finalExtractorPrompt);
+    const requestSignature = `${conversation.id}:${idempotencyKey}`;
+
+    if (inFlightSignatures.has(requestSignature)) {
+        sendingMessage.value = false;
+        return false;
+    }
+
+    inFlightSignatures.add(requestSignature);
+
+    try {
+        const payload = {
+            content: finalExtractorPrompt,
+            conversation_id: conversation.id,
+            role: "user",
+            idempotency_key: idempotencyKey,
+            task_options: {
+                search_mode: "off",
+                max_tokens: 2500,
+                temperature: 0.45,
+                extractor_state: {
+                    ...extractorState.value,
+                },
+                source: "extractor_guided_form",
+            },
+        };
+
+        console.log("Extractor payload before send:", JSON.stringify(payload, null, 2));
+
+        const response = await chatServices.sendMessage(payload);
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+        await openAssistantStream(conversation, response?.data?.message_id);
+        return true;
+    } catch {
+        await addAssistantLocalMessage("حصل خطأ أثناء الإرسال. جرّب مرة أخرى.");
+        return false;
+    } finally {
+        inFlightSignatures.delete(requestSignature);
+        sendingMessage.value = false;
+        await scrollToBottom();
+    }
+};
+
+const handleExtractorSubmit = async (text) => {
+    const content = String(text || "").trim();
+
+    if (!content || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return;
+    }
+
+    await addUserLocalMessage(content);
+    userInput.value = "";
+    resetTextarea();
+
+    let extractedUpdates = {};
+    let reply = "";
+
+    if (extractorStep.value === 1) {
+        extractedUpdates = parseExtractorStepOne(content);
+        applyExtractorUpdates(extractedUpdates);
+
+        const missingStepOne = [];
+        if (!extractorState.value.content) missingStepOne.push("content");
+        if (extractorState.value.number_of_headlines === null) missingStepOne.push("number_of_headlines");
+
+        reply = missingStepOne.length
+            ? `لسه ناقص: ${missingStepOne.join(", ")}`
+            : "تمام، انتقلنا للخطوة التالية.";
+
+        await addAssistantLocalMessage(
+            `${reply}\n\n${buildExtractorDebugMessage(buildExtractorValidationPayload(extractedUpdates, reply))}`
+        );
+
+        if (missingStepOne.length) {
+            await addAssistantLocalMessage(getMissingPrompt(missingStepOne[0]));
+            return;
+        }
+
+        extractorStep.value = 2;
+        await askExtractorStepQuestion(2);
+        return;
+    }
+
+    if (extractorStep.value === 2) {
+        extractedUpdates = parseExtractorStepTwo(content);
+        applyExtractorUpdates(extractedUpdates);
+
+        const missingStepTwo = [];
+        if (!extractorState.value.language) missingStepTwo.push("language");
+        if (!extractorState.value.tone) missingStepTwo.push("tone");
+        if (!extractorState.value.content_type) missingStepTwo.push("content_type");
+
+        reply = missingStepTwo.length
+            ? `لسه ناقص: ${missingStepTwo.join(", ")}`
+            : "ممتاز، نكمل آخر خطوة.";
+
+        await addAssistantLocalMessage(
+            `${reply}\n\n${buildExtractorDebugMessage(buildExtractorValidationPayload(extractedUpdates, reply))}`
+        );
+
+        if (missingStepTwo.length) {
+            await addAssistantLocalMessage(getMissingPrompt(missingStepTwo[0]));
+            return;
+        }
+
+        extractorStep.value = 3;
+        await askExtractorStepQuestion(3);
+        return;
+    }
+
+    extractedUpdates = parseExtractorStepThree(content);
+    applyExtractorUpdates(extractedUpdates);
+
+    const validation = validateExtractorState(extractorState.value);
+    reply = validation.valid
+        ? "تمام، البيانات أصبحت جاهزة لتوليد العناوين."
+        : `لسه ناقص: ${validation.missing.join(", ")}`;
+
+    await addAssistantLocalMessage(
+        `${reply}\n\n${buildExtractorDebugMessage(buildExtractorValidationPayload(extractedUpdates, reply))}`
+    );
+
+    if (!validation.valid) {
+        const hasHeadlineCountError = validation.errors.some((error) =>
+            error.includes("number_of_headlines")
+        );
+        const nextStep = resolveNextExtractorStep(validation.missing);
+        extractorStep.value = hasHeadlineCountError ? 1 : nextStep;
+
+        if (validation.errors.length) {
+            await addAssistantLocalMessage(`فيه أخطاء: ${validation.errors.join(" | ")}`);
+        }
+
+        if (hasHeadlineCountError) {
+            await addAssistantLocalMessage(getMissingPrompt("number_of_headlines"));
+        } else if (validation.missing.length) {
+            await addAssistantLocalMessage(getMissingPrompt(validation.missing[0]));
+        } else {
+            await askExtractorStepQuestion(nextStep);
+        }
+
+        return;
+    }
+
+    const finalExtractorPrompt = `Generate headlines using this extracted state only.
+Return the final headlines only.
+
+${JSON.stringify(extractorState.value, null, 2)}`;
+
+    await addAssistantLocalMessage("تمام، البيانات أصبحت جاهزة لتوليد العناوين. جاري الإرسال...");
+    await sendExtractorToAi(finalExtractorPrompt);
 };
 
 const submitMessage = async () => {
@@ -908,6 +1434,15 @@ const submitMessage = async () => {
         sendingMessage.value = false;
         await scrollToBottom();
     }
+};
+
+const onSubmitMessage = async () => {
+    if (extractorTool.value) {
+        await handleExtractorSubmit(userInput.value);
+        return;
+    }
+
+    await submitMessage();
 };
 
 const removeConversation = async (conversation) => {
