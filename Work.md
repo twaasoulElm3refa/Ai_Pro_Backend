@@ -2,4 +2,5 @@
 
 Validation handler 
 
-ارسال الي headlines genetor بعد التاكد من وجود جميع المدخلات الصحيحه
+ارسال الي headlines generator بعد التاكد من وجود جميع المدخلات الصحيحه
+

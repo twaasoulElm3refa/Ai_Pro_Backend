@@ -599,7 +599,7 @@ const hideSearchToggle = computed(() =>
 );
 
 const extractorTool = computed(() =>
-    Number(subtool.value?.id) === 3 // extractor
+    Number(subtool.value?.id) === 4 // extractor
 );
 
 const getInitialExtractorState = () => ({
