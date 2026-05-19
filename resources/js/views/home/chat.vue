@@ -141,7 +141,7 @@
                     <div class="input-actions">
                         <span class="char-count">{{ userInput.length }}</span>
 
-                        <button v-if="!hideSearchToggle" type="button" class="search-toggle-btn"
+                        <button v-if="hideSearchToggle" type="button" class="search-toggle-btn"
                             :class="{ active: searchEnabled }"
                             :aria-label="searchEnabled ? 'Disable web search' : 'Enable web search'"
                             :disabled="chatSendDisabled" @click="searchEnabled = !searchEnabled">
@@ -595,7 +595,7 @@ const openAssistantStream = async (conversation, afterId) => {
 };
 
 const hideSearchToggle = computed(() =>
-    Number(subtool.value?.id) === 2
+    Number(subtool.value?.id) === 1 // search
 );
 
 const extractorTool = computed(() =>
