@@ -774,6 +774,24 @@ const FIELD_LABELS = {
     extra_options: "خيارات إضافية",
 };
 
+const extractorQuestionExamples = {
+    stepOne: {
+        question: "عايز العناوين عن أي موضوع؟ وهل تريدها SEO؟ وكم عنوان تريد؟",
+        example: "مثال: اكتب 10 عناوين SEO عن الذكاء الاصطناعي في السعودية",
+    },
+    stepTwo: {
+        question: "محتاج اللغة، ونبرة العناوين، ونوع المحتوى.",
+        example: "مثال: العربية، نبرة قوية، مقال",
+    },
+    stepThree: {
+        question: "اختار طول العنوان والهدف الأساسي.",
+        example: "مثال: طول متوسط، والهدف تحسين SEO",
+    },
+};
+
+const buildQuestionWithExample = ({ question, example }) =>
+    `${question}\n\n${example}`;
+
 const stripDangerousText = (value = "") =>
     String(value || "")
         .replace(/[<>]/g, "")
@@ -926,7 +944,12 @@ const startExtractorFlow = async () => {
     extractorFlowConversationKey.value = getExtractorConversationKey();
 
     await addAssistantLocalMessage(
-        "مرحبًا بك 👋\nهساعدك نجهز بيانات توليد العناوين خطوة بخطوة.\n\nأولًا: عايز العناوين عن أي موضوع؟ وهل تريدها SEO؟ وكم عنوان تريد؟"
+        [
+            "مرحبًا بك 👋",
+            "هساعدك نجهز بيانات توليد العناوين خطوة بخطوة.",
+            "",
+            buildQuestionWithExample(extractorQuestionExamples.stepOne),
+        ].join("\n")
     );
 };
 
@@ -1176,14 +1199,20 @@ const resolveNextExtractorStep = (missingFields = []) => {
 const askExtractorStepQuestion = async (step) => {
     if (step === 2) {
         await addAssistantLocalMessage(
-            "تمام ✅\nدلوقتي محتاج اللغة، ونبرة العناوين، ونوع المحتوى.\nمثال: عربي، قوية، مقال."
+            [
+                "تمام ✅",
+                buildQuestionWithExample(extractorQuestionExamples.stepTwo),
+            ].join("\n")
         );
         return;
     }
 
     if (step === 3) {
         await addAssistantLocalMessage(
-            "آخر خطوة ✨\nاختار طول العنوان والهدف الأساسي.\nمثال: قصير، تحسين SEO."
+            [
+                "آخر خطوة ✨",
+                buildQuestionWithExample(extractorQuestionExamples.stepThree),
+            ].join("\n")
         );
     }
 };
@@ -1551,7 +1580,12 @@ const handleExtractorSubmit = async (text) => {
 
         extractorStep.value = 2;
         await addAssistantLocalMessage(
-            `${buildExtractorSummaryText(extractorState.value, validation.missing)}\n\nتمام ✅\nدلوقتي محتاج اللغة، ونبرة العناوين، ونوع المحتوى.\nمثال: عربي، قوية، مقال.`
+            [
+                buildExtractorSummaryText(extractorState.value, validation.missing),
+                "",
+                "تمام ✅",
+                buildQuestionWithExample(extractorQuestionExamples.stepTwo),
+            ].join("\n")
         );
         return;
     }
@@ -1568,7 +1602,12 @@ const handleExtractorSubmit = async (text) => {
 
         extractorStep.value = 3;
         await addAssistantLocalMessage(
-            `${buildExtractorSummaryText(extractorState.value, validation.missing)}\n\nآخر خطوة ✨\nاختار طول العنوان والهدف الأساسي.\nمثال: قصير، تحسين SEO.`
+            [
+                buildExtractorSummaryText(extractorState.value, validation.missing),
+                "",
+                "آخر خطوة ✨",
+                buildQuestionWithExample(extractorQuestionExamples.stepThree),
+            ].join("\n")
         );
         return;
     }
