@@ -91,8 +91,8 @@
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
                                 </span>
-                                <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{ msg.content }}</div>
-                                <div v-else class="markdown-body" v-html="formatMessage(msg.content)"></div>
+                                <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{ displayMessageContent(msg) }}</div>
+                                <div v-else class="markdown-body" v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                             </div>
                             <span class="msg-time">{{ msg.time }}</span>
                         </div>
@@ -433,7 +433,7 @@ const escapeHtml = (text = "") =>
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 
-const formatMessage = (text = "") => {
+const formatMessage = (text = "", role = "") => {
     const safeText = escapeHtml(String(text || ""));
     const renderedHtml = markdownParser.render(safeText);
 
@@ -602,6 +602,149 @@ const extractorTool = computed(() =>
     Number(subtool.value?.id) === 4 // extractor
 );
 
+const HEADLINE_TOOL_ID = 4;
+
+const HEADLINE_INTERNAL_PROMPT_MARKERS = [
+    "Generate headlines using this extracted state only",
+    "Return the final headlines only",
+];
+
+const HEADLINE_FIELD_LABELS = {
+    content: "الموضوع",
+    content_type: "نوع المحتوى",
+    goal: "الهدف",
+    language: "اللغة",
+    tone: "النبرة",
+    number_of_headlines: "عدد العناوين",
+    headline_length: "طول العنوان",
+    extra_options: "خيارات إضافية",
+};
+
+const HEADLINE_VALUE_LABELS = {
+    Article: "مقال",
+    News: "خبر",
+    Product: "وصف منتج",
+    "Social Post": "منشور اجتماعي",
+
+    "Improve SEO": "تحسين SEO",
+    "Increase CTR": "زيادة النقر",
+    "Attract Attention": "جذب الانتباه",
+    "News Style": "صياغة خبرية",
+
+    Arabic: "العربية",
+    English: "الإنجليزية",
+    French: "الفرنسية",
+    Russian: "الروسية",
+    Chinese: "الصينية",
+
+    Powerful: "قوية",
+    Formal: "رسمية",
+    Professional: "احترافية",
+    Marketing: "تسويقية",
+    Simple: "بسيطة",
+
+    Auto: "تلقائي",
+    Short: "قصير",
+    Medium: "متوسط",
+    Long: "طويل",
+
+    "Include SEO-friendly headlines": "عناوين مناسبة للسيو",
+};
+
+const isHeadlineToolMessage = (msg = {}) => {
+    const currentSubToolId = Number(subtool.value?.id || 0);
+    const messageSubToolId = Number(msg?.sub_tool_id || msg?.subToolId || 0);
+
+    return messageSubToolId === HEADLINE_TOOL_ID
+        || currentSubToolId === HEADLINE_TOOL_ID;
+};
+
+const looksLikeHeadlineInternalPrompt = (text = "") => {
+    const raw = String(text || "");
+
+    return HEADLINE_INTERNAL_PROMPT_MARKERS.some((marker) =>
+        raw.includes(marker)
+    ) && raw.includes("{") && raw.includes("}");
+};
+
+const normalizeJsonQuotes = (text = "") =>
+    String(text || "")
+        .replace(/[“”]/g, "\"")
+        .replace(/[‘’]/g, "'");
+
+const extractJsonObjectFromText = (text = "") => {
+    const raw = normalizeJsonQuotes(text);
+    const firstBrace = raw.indexOf("{");
+    const lastBrace = raw.lastIndexOf("}");
+
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+        return null;
+    }
+
+    const jsonText = raw.slice(firstBrace, lastBrace + 1);
+
+    try {
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.warn("Failed to parse headline internal JSON", error);
+        return null;
+    }
+};
+
+const humanizeHeadlineValue = (value) => {
+    if (value === null || value === undefined || value === "") {
+        return "غير محدد";
+    }
+
+    if (Array.isArray(value)) {
+        return value.length
+            ? value.map((item) => HEADLINE_VALUE_LABELS[item] || String(item)).join("، ")
+            : "لا يوجد";
+    }
+
+    return HEADLINE_VALUE_LABELS[value] || String(value);
+};
+
+const buildHeadlineDisplayMessage = (state = {}) => [
+    "طلب توليد عناوين",
+    `${HEADLINE_FIELD_LABELS.content}: ${humanizeHeadlineValue(state.content)}`,
+    `${HEADLINE_FIELD_LABELS.content_type}: ${humanizeHeadlineValue(state.content_type)}`,
+    `${HEADLINE_FIELD_LABELS.goal}: ${humanizeHeadlineValue(state.goal)}`,
+    `${HEADLINE_FIELD_LABELS.language}: ${humanizeHeadlineValue(state.language)}`,
+    `${HEADLINE_FIELD_LABELS.tone}: ${humanizeHeadlineValue(state.tone)}`,
+    `${HEADLINE_FIELD_LABELS.number_of_headlines}: ${humanizeHeadlineValue(state.number_of_headlines)}`,
+    `${HEADLINE_FIELD_LABELS.headline_length}: ${humanizeHeadlineValue(state.headline_length)}`,
+    `${HEADLINE_FIELD_LABELS.extra_options}: ${humanizeHeadlineValue(state.extra_options)}`,
+].join("\n");
+
+const stripHeadlineInternalPromptFallback = (text = "") =>
+    String(text || "")
+        .replace(/Generate headlines using this extracted state only\.?/gi, "")
+        .replace(/Return the final headlines only\.?/gi, "")
+        .replace(/[{}\[\]"]/g, "")
+        .replace(/[:,]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+const displayMessageContent = (msg = {}) => {
+    const content = String(msg?.content || "");
+
+    if (
+        isHeadlineToolMessage(msg)
+        && looksLikeHeadlineInternalPrompt(content)
+    ) {
+        const parsedState = extractJsonObjectFromText(content);
+
+        if (parsedState) {
+            return buildHeadlineDisplayMessage(parsedState);
+        }
+
+        return stripHeadlineInternalPromptFallback(content);
+    }
+
+    return content;
+};
+
 const getInitialExtractorState = () => ({
     content: null,
     content_type: null,
@@ -634,7 +777,7 @@ const FIELD_LABELS = {
 const stripDangerousText = (value = "") =>
     String(value || "")
         .replace(/[<>]/g, "")
-        .replace(/[$\\]/g, "")
+        .replace(/[`$\\]/g, "")
         .replace(/\b(select|insert|update|delete|drop|alter|truncate|union|where|from|script|iframe|onerror|onload)\b/gi, "")
         .replace(/\s+/g, " ")
         .trim();
@@ -1304,6 +1447,7 @@ const sendExtractorToAi = async () => {
         "Return the final headlines only.",
         JSON.stringify(safeState, null, 2),
     ].join("\n\n");
+    const displayContent = buildHeadlineDisplayMessage(safeState);
 
     sendingMessage.value = true;
 
@@ -1314,7 +1458,7 @@ const sendExtractorToAi = async () => {
         return false;
     }
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, finalExtractorPrompt);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, displayContent);
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
@@ -1326,7 +1470,7 @@ const sendExtractorToAi = async () => {
 
     try {
         const payload = {
-            content: finalExtractorPrompt,
+            content: displayContent,
             conversation_id: conversation.id,
             role: "user",
             idempotency_key: idempotencyKey,
@@ -1334,8 +1478,10 @@ const sendExtractorToAi = async () => {
                 search_mode: "off",
                 max_tokens: 2500,
                 temperature: 0.45,
-                source: "extractor_guided_form",
+                source: "headline_generator_state",
+                internal_prompt: finalExtractorPrompt,
                 extractor_state: safeState,
+                headline_state: safeState,
             },
         };
 
@@ -1441,7 +1587,7 @@ const handleExtractorSubmit = async (text) => {
     await sendExtractorToAi();
 };
 const submitMessage = async () => {
-    const content = userInput.value.trim();
+    const rawContent = userInput.value.trim();
 
     /**
      * Ù…Ù‡Ù…:
@@ -1453,8 +1599,38 @@ const submitMessage = async () => {
         return;
     }
 
-    if (!content || sendingMessage.value || streamingAssistant.value) {
+    if (!rawContent || sendingMessage.value || streamingAssistant.value) {
         return;
+    }
+
+    let content = rawContent;
+    let headlineTaskOptions = null;
+
+    if (Number(subtool.value?.id) === HEADLINE_TOOL_ID && looksLikeHeadlineInternalPrompt(rawContent)) {
+        const parsedState = extractJsonObjectFromText(rawContent);
+
+        if (parsedState) {
+            const safeState = sanitizeExtractorState(parsedState);
+            const internalPrompt = [
+                "Generate headlines using this extracted state only.",
+                "Return the final headlines only.",
+                JSON.stringify(safeState, null, 2),
+            ].join("\n\n");
+
+            content = buildHeadlineDisplayMessage(safeState);
+            headlineTaskOptions = {
+                source: "headline_generator_state",
+                internal_prompt: internalPrompt,
+                headline_state: safeState,
+                extractor_state: safeState,
+            };
+        } else {
+            content = stripHeadlineInternalPromptFallback(rawContent);
+            headlineTaskOptions = {
+                source: "headline_generator_state",
+                internal_prompt: rawContent,
+            };
+        }
     }
 
     sendingMessage.value = true;
@@ -1511,6 +1687,13 @@ const submitMessage = async () => {
                     temperature: 0.45,
                 },
         };
+
+        if (headlineTaskOptions) {
+            payload.task_options = {
+                ...payload.task_options,
+                ...headlineTaskOptions,
+            };
+        }
 
         console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
 
@@ -2663,5 +2846,3 @@ watch(
     }
 }
 </style>
-
-
