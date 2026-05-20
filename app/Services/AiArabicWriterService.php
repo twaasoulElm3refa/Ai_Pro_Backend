@@ -33,6 +33,10 @@ class AiArabicWriterService
 
     public function generateReplyWithUsage(array $payload, ?string $endpoint = null): array|string
     {
+        if (empty($payload) || ! is_array($payload)) {
+            throw new AiServiceException('AI payload body is required.');
+        }
+
         $targetUrl = $this->buildTargetUrl($endpoint);
 
         Log::debug('AI request started.', [
@@ -45,6 +49,8 @@ class AiArabicWriterService
             'base_url' => $this->url,
             'endpoint' => $endpoint,
             'target_url' => $targetUrl,
+            'payload_is_array' => is_array($payload),
+            'payload_keys_count' => is_array($payload) ? count($payload) : 0,
             'payload' => $payload,
         ]);
 
@@ -144,16 +150,39 @@ class AiArabicWriterService
 
         return [
             'reply' => $content,
-            'usage' => $this->extractUsage($responsePayload),
-            'cost' => $this->extractCost($responsePayload),
-            'request_id' => $this->extractScalarString($responsePayload, [
-                ['request_id'],
-                ['data', 'request_id'],
+            'type' => $this->extractScalarString($responsePayload, [
+                ['type'],
+                ['data', 'type'],
+            ]),
+            'tool' => $this->extractScalarString($responsePayload, [
+                ['tool'],
+                ['data', 'tool'],
+            ]),
+            'provider' => $this->extractScalarString($responsePayload, [
+                ['provider'],
+                ['data', 'provider'],
             ]),
             'model_key' => $this->extractScalarString($responsePayload, [
                 ['model_key'],
                 ['data', 'model_key'],
             ]),
+            'request_id' => $this->extractScalarString($responsePayload, [
+                ['request_id'],
+                ['data', 'request_id'],
+            ]),
+            'usage' => $this->extractUsage($responsePayload),
+            'cost' => $this->extractCost($responsePayload),
+            'state' => $this->extractArray($responsePayload, [
+                ['state'],
+                ['data', 'state'],
+            ]),
+            'headlines' => $this->extractArray($responsePayload, [
+                ['headlines'],
+                ['data', 'headlines'],
+            ]) ?? [],
+            'count' => isset($responsePayload['count']) && is_numeric($responsePayload['count'])
+                ? (int) $responsePayload['count']
+                : null,
             'raw' => is_array($responsePayload) ? $responsePayload : null,
         ];
     }
@@ -170,6 +199,7 @@ class AiArabicWriterService
 
         $paths = [
             ['reply'],
+            ['message'],
             ['content'],
             ['response'],
             ['result'],
@@ -177,6 +207,7 @@ class AiArabicWriterService
             ['text'],
 
             ['data', 'reply'],
+            ['data', 'message'],
             ['data', 'content'],
             ['data', 'response'],
             ['data', 'result'],
@@ -205,6 +236,14 @@ class AiArabicWriterService
             }
         }
 
+        if (($payload['type'] ?? null) === 'result' && ! empty($payload['headlines']) && is_array($payload['headlines'])) {
+            return $this->formatHeadlinesAsText($payload);
+        }
+
+        if (! empty($payload['headlines']) && is_array($payload['headlines'])) {
+            return $this->formatHeadlinesAsText($payload);
+        }
+
         return '';
     }
 
@@ -214,7 +253,7 @@ class AiArabicWriterService
             return [];
         }
 
-        $usage = $payload['usage'] ?? [];
+        $usage = $payload['usage'] ?? ($payload['data']['usage'] ?? []);
 
         if (! is_array($usage)) {
             return [];
@@ -272,6 +311,68 @@ class AiArabicWriterService
             $normalized,
             static fn ($value) => $value !== null && $value !== ''
         );
+    }
+
+    protected function formatHeadlinesAsText(array $payload): string
+    {
+        $message = isset($payload['message']) && is_string($payload['message'])
+            ? trim($payload['message'])
+            : 'تم توليد العناوين بنجاح.';
+
+        $headlines = $payload['headlines'] ?? [];
+
+        if (! is_array($headlines) || empty($headlines)) {
+            return $message;
+        }
+
+        $lines = [$message, ''];
+
+        foreach ($headlines as $index => $headline) {
+            if (! is_array($headline)) {
+                continue;
+            }
+
+            $number = $headline['id'] ?? ($index + 1);
+            $text = trim((string) ($headline['text'] ?? ''));
+
+            if ($text === '') {
+                continue;
+            }
+
+            $lines[] = $number.'. '.$text;
+
+            if (isset($headline['subheadline']) && is_string($headline['subheadline']) && trim($headline['subheadline']) !== '') {
+                $lines[] = '   '.trim($headline['subheadline']);
+            }
+        }
+
+        return trim(implode("\n", $lines));
+    }
+
+    protected function extractArray(mixed $payload, array $paths): ?array
+    {
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        foreach ($paths as $path) {
+            $value = $payload;
+
+            foreach ($path as $segment) {
+                if (! is_array($value) || ! array_key_exists($segment, $value)) {
+                    $value = null;
+                    break;
+                }
+
+                $value = $value[$segment];
+            }
+
+            if (is_array($value)) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     protected function normalizeDecimal(mixed $value): ?float

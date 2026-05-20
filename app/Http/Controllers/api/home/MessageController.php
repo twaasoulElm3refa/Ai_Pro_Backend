@@ -23,6 +23,7 @@ class MessageController extends Controller
     use ApiResponse;
 
     private const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
+    private const HEADLINE_ENDPOINT = 'tasks/headline-generator/chat';
 
     private MessageInterface $message;
 
@@ -64,6 +65,35 @@ class MessageController extends Controller
             }
 
             if ($subToolId === self::HEADLINE_GENERATOR_SUB_TOOL_ID) {
+                $request->validate([
+                    'sub_tool_id' => ['required', 'integer'],
+                    'conversation_uuid' => ['nullable', 'uuid'],
+                    'user_message' => ['nullable', 'string', 'max:5000'],
+                    'message' => ['nullable', 'string', 'max:5000'],
+                    'content' => ['nullable', 'string', 'max:5000'],
+                    'debug' => ['nullable', 'boolean'],
+                    'state' => ['nullable', 'array'],
+                    'state.content' => ['nullable', 'string', 'max:1000'],
+                    'state.content_type' => ['nullable', 'string', 'max:100'],
+                    'state.goal' => ['nullable', 'string', 'max:100'],
+                    'state.language' => ['nullable', 'string', 'max:50'],
+                    'state.tone' => ['nullable', 'string', 'max:50'],
+                    'state.number_of_headlines' => ['nullable', 'integer', 'min:1', 'max:20'],
+                    'state.headline_length' => ['nullable', 'string', 'max:50'],
+                    'state.extra_options' => ['nullable', 'array'],
+                    'state.extra_options.*' => ['string', 'max:150'],
+                ]);
+
+                $messageText = $request->input('user_message')
+                    ?? $request->input('message')
+                    ?? $request->input('content');
+
+                if (! is_string($messageText) || trim($messageText) === '') {
+                    return $this->validationError([
+                        'user_message' => ['Message text is required.'],
+                    ], 'Invalid message data.');
+                }
+
                 return $this->handleHeadlineGeneratorFlow(
                     $writerService,
                     $conversation,
@@ -211,7 +241,19 @@ class MessageController extends Controller
         string $content,
         int $userId
     ) {
-        $state = $this->normalizeHeadlineState($data['state'] ?? []);
+        $initialState = [
+            'content' => null,
+            'content_type' => null,
+            'goal' => null,
+            'language' => null,
+            'tone' => null,
+            'number_of_headlines' => null,
+            'headline_length' => null,
+            'extra_options' => [],
+        ];
+
+        $state = array_merge($initialState, is_array($data['state'] ?? null) ? $data['state'] : []);
+        $state = $this->normalizeHeadlineState($state);
         $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
         if ($idempotencyKey === '') {
             $idempotencyKey = (string) Str::uuid();
@@ -301,22 +343,35 @@ class MessageController extends Controller
             'state' => $state,
         ];
 
-        $endpoint = trim((string) ($conversation->subTool?->endpoint ?? ''));
-        if ($endpoint === '') {
-            return $this->error('Sub tool endpoint is missing.');
+        if (! is_array($payload) || empty($payload) || trim((string) ($payload['user_message'] ?? '')) === '') {
+            return $this->validationError([
+                'payload' => ['Headline payload body is required.'],
+            ], 'Invalid headline payload.');
         }
 
-        $providerResponse = $writerService->generateReplyWithUsage($payload, $endpoint);
+        Log::info('Headline generator payload prepared', [
+            'conversation_id' => $conversation->id,
+            'conversation_uuid' => $conversation->uuid,
+            'payload_is_array' => is_array($payload),
+            'payload_keys_count' => is_array($payload) ? count($payload) : 0,
+            'state_keys_count' => is_array($payload['state'] ?? null) ? count($payload['state']) : 0,
+        ]);
+
+        $providerResponse = $writerService->generateReplyWithUsage($payload, self::HEADLINE_ENDPOINT);
         $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
 
-        $type = (string) ($raw['type'] ?? 'message');
+        $type = (string) (($providerResponse['type'] ?? null) ?? ($raw['type'] ?? 'message'));
         if (! in_array($type, ['question', 'result'], true)) {
             $type = 'message';
         }
 
-        $responseState = $this->normalizeHeadlineState($raw['state'] ?? []);
+        $responseState = $this->normalizeHeadlineState(
+            is_array($providerResponse['state'] ?? null) ? $providerResponse['state'] : ($raw['state'] ?? [])
+        );
         $mergedState = $this->mergeHeadlineState($state, $responseState);
-        $headlines = $this->normalizeHeadlines($raw['headlines'] ?? []);
+        $headlines = $this->normalizeHeadlines(
+            is_array($providerResponse['headlines'] ?? null) ? $providerResponse['headlines'] : ($raw['headlines'] ?? [])
+        );
 
         $usage = $this->normalizeUsage($raw['usage'] ?? ($providerResponse['usage'] ?? []));
         $cost = $this->normalizeCost($raw['cost'] ?? ($providerResponse['cost'] ?? []));
@@ -328,10 +383,10 @@ class MessageController extends Controller
                 : 'تم توليد العناوين بنجاح.';
         }
 
-        $provider = $this->toNullableString($raw['provider'] ?? null);
-        $modelKey = $this->toNullableString($raw['model_key'] ?? ($providerResponse['model_key'] ?? null));
-        $requestId = $this->toNullableString($raw['request_id'] ?? ($providerResponse['request_id'] ?? null));
-        $tool = $this->toNullableString($raw['tool'] ?? 'ai_headline_generator') ?? 'ai_headline_generator';
+        $provider = $this->toNullableString(($providerResponse['provider'] ?? null) ?? ($raw['provider'] ?? null));
+        $modelKey = $this->toNullableString(($providerResponse['model_key'] ?? null) ?? ($raw['model_key'] ?? null));
+        $requestId = $this->toNullableString(($providerResponse['request_id'] ?? null) ?? ($raw['request_id'] ?? null));
+        $tool = $this->toNullableString(($providerResponse['tool'] ?? null) ?? ($raw['tool'] ?? 'ai_headline_generator')) ?? 'ai_headline_generator';
 
         $assistantContent = $this->buildAssistantContent($type, $responseMessage, $headlines);
 
@@ -350,7 +405,7 @@ class MessageController extends Controller
                 'state' => $mergedState,
                 'headlines' => $headlines,
                 'message' => $responseMessage,
-                'count' => (int) ($raw['count'] ?? count($headlines)),
+                'count' => (int) (($providerResponse['count'] ?? null) ?? ($raw['count'] ?? count($headlines))),
                 'usage' => $usage,
                 'cost' => $cost,
                 'sub_tool_id' => self::HEADLINE_GENERATOR_SUB_TOOL_ID,
@@ -391,7 +446,7 @@ class MessageController extends Controller
             'message' => $responseMessage,
             'state' => $mergedState,
             'headlines' => $headlines,
-            'count' => (int) ($raw['count'] ?? count($headlines)),
+            'count' => (int) (($providerResponse['count'] ?? null) ?? ($raw['count'] ?? count($headlines))),
             'request_id' => $requestId,
             'debug' => null,
             'usage' => $usage,
