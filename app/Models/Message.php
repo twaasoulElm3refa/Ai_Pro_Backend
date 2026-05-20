@@ -15,6 +15,7 @@ class Message extends Model
 
     protected $casts = [
         'is_error' => 'boolean',
+        'metadata' => 'array',
     ];
 
 

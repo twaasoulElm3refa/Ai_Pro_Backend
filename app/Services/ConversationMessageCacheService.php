@@ -108,6 +108,8 @@ class ConversationMessageCacheService
                     'content' => $message['content'] ?? '',
                     'created_at' => $message['created_at'] ?? null,
                     'is_error' => (bool) ($message['is_error'] ?? false),
+                    'metadata' => is_array($message['metadata'] ?? null) ? $message['metadata'] : null,
+                    'sub_tool_id' => $message['sub_tool_id'] ?? null,
                 ];
             })
             ->values()
@@ -148,6 +150,10 @@ class ConversationMessageCacheService
             'content' => $content,
             'created_at' => optional($message->created_at)->toISOString(),
             'is_error' => $isError,
+            'metadata' => is_array($message->metadata ?? null) ? $message->metadata : null,
+            'sub_tool_id' => $message->relationLoaded('conversation')
+                ? ($message->conversation?->sub_tool_id ?? null)
+                : null,
         ];
     }
 

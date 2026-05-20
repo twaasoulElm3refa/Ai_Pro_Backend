@@ -15,15 +15,24 @@ class MessageRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $conversationId = $this->input('conversation_id');
-
-        if (! $this->user() || ! $conversationId) {
+        if (! $this->user()) {
             return false;
         }
 
-        return Conversation::where('id', $conversationId)
-            ->where('user_id', $this->user()->id)
-            ->exists();
+        $conversationId = $this->input('conversation_id');
+        $conversationUuid = $this->input('conversation_uuid');
+
+        if (! $conversationId && ! $conversationUuid) {
+            return false;
+        }
+
+        $query = Conversation::query()->where('user_id', $this->user()->id);
+
+        if ($conversationId) {
+            return (clone $query)->where('id', (int) $conversationId)->exists();
+        }
+
+        return (clone $query)->where('uuid', (string) $conversationUuid)->exists();
     }
 
     /**
@@ -34,13 +43,35 @@ class MessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'content' => 'required|string|max:10000',
+            'sub_tool_id' => ['required', 'integer'],
+            'conversation_uuid' => [
+                'nullable',
+                'uuid',
+                'required_without:conversation_id',
+                Rule::exists('conversations', 'uuid')->where('user_id', $this->user()->id),
+            ],
             'conversation_id' => [
-                'required',
+                'nullable',
+                'integer',
+                'required_without:conversation_uuid',
                 Rule::exists('conversations', 'id')->where('user_id', $this->user()->id),
             ],
-            'role' => 'required|in:user',
-            'idempotency_key' => 'required|uuid',
+            'content' => ['nullable', 'string', 'max:5000', 'required_without_all:message,user_message'],
+            'message' => ['nullable', 'string', 'max:5000', 'required_without_all:content,user_message'],
+            'user_message' => ['nullable', 'string', 'max:5000', 'required_without_all:content,message'],
+            'role' => ['nullable', 'in:user'],
+            'idempotency_key' => ['nullable', 'uuid'],
+            'debug' => ['nullable', 'boolean'],
+            'state' => ['nullable', 'array'],
+            'state.content' => ['nullable', 'string', 'max:1000'],
+            'state.content_type' => ['nullable', 'string', 'max:100'],
+            'state.goal' => ['nullable', 'string', 'max:100'],
+            'state.language' => ['nullable', 'string', 'max:50'],
+            'state.tone' => ['nullable', 'string', 'max:50'],
+            'state.number_of_headlines' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'state.headline_length' => ['nullable', 'string', 'max:50'],
+            'state.extra_options' => ['nullable', 'array'],
+            'state.extra_options.*' => ['string', 'max:150'],
             'task_options' => ['nullable', 'array'],
             'task_options.search_mode' => ['required_with:task_options', 'string', 'in:on,off'],
             'task_options.web_search_max_results' => ['nullable', 'integer', 'min:1', 'max:10'],

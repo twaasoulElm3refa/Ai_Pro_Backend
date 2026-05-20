@@ -55,7 +55,13 @@
         <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
 
         <div class="main-area">
-            <div class="messages-wrap" ref="messagesContainer">
+            <div
+                class="messages-wrap"
+                ref="messagesContainer"
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions text"
+            >
                 <div v-if="loadingMessages" class="messages-skeleton">
                     <div v-for="item in 4" :key="item" class="message-skeleton"
                         :class="item % 2 === 0 ? 'assistant' : 'user'"></div>
@@ -131,7 +137,7 @@
 
                 <div class="input-box" :class="{ focused: inputFocused }">
                     <textarea ref="textareaRef" v-model="userInput" class="chat-input"
-                        :aria-label="t('user.chat.inputAria')" :placeholder="conversationLimitExceeded
+                        :aria-label="inputAriaLabel" :placeholder="conversationLimitExceeded
                             ? 'This conversation has reached the maximum limit. Start a new chat to continue.'
                             : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))" rows="1"
                         :disabled="chatSendDisabled" @focus="inputFocused = true" @blur="inputFocused = false"
@@ -598,154 +604,10 @@ const hideSearchToggle = computed(() =>
     Number(subtool.value?.id) === 1 // search
 );
 
-const extractorTool = computed(() =>
-    Number(subtool.value?.id) === 4 // extractor
-);
+const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
+const HEADLINE_DEBUG_MODE = true;
 
-const HEADLINE_TOOL_ID = 4;
-
-const HEADLINE_INTERNAL_PROMPT_MARKERS = [
-    "Generate headlines using this extracted state only",
-    "Return the final headlines only",
-];
-
-const HEADLINE_FIELD_LABELS = {
-    content: "الموضوع",
-    content_type: "نوع المحتوى",
-    goal: "الهدف",
-    language: "اللغة",
-    tone: "النبرة",
-    number_of_headlines: "عدد العناوين",
-    headline_length: "طول العنوان",
-    extra_options: "خيارات إضافية",
-};
-
-const HEADLINE_VALUE_LABELS = {
-    Article: "مقال",
-    News: "خبر",
-    Product: "وصف منتج",
-    "Social Post": "منشور اجتماعي",
-
-    "Improve SEO": "تحسين SEO",
-    "Increase CTR": "زيادة النقر",
-    "Attract Attention": "جذب الانتباه",
-    "News Style": "صياغة خبرية",
-
-    Arabic: "العربية",
-    English: "الإنجليزية",
-    French: "الفرنسية",
-    Russian: "الروسية",
-    Chinese: "الصينية",
-
-    Powerful: "قوية",
-    Formal: "رسمية",
-    Professional: "احترافية",
-    Marketing: "تسويقية",
-    Simple: "بسيطة",
-
-    Auto: "تلقائي",
-    Short: "قصير",
-    Medium: "متوسط",
-    Long: "طويل",
-
-    "Include SEO-friendly headlines": "عناوين مناسبة للسيو",
-};
-
-const isHeadlineToolMessage = (msg = {}) => {
-    const currentSubToolId = Number(subtool.value?.id || 0);
-    const messageSubToolId = Number(msg?.sub_tool_id || msg?.subToolId || 0);
-
-    return messageSubToolId === HEADLINE_TOOL_ID
-        || currentSubToolId === HEADLINE_TOOL_ID;
-};
-
-const looksLikeHeadlineInternalPrompt = (text = "") => {
-    const raw = String(text || "");
-
-    return HEADLINE_INTERNAL_PROMPT_MARKERS.some((marker) =>
-        raw.includes(marker)
-    ) && raw.includes("{") && raw.includes("}");
-};
-
-const normalizeJsonQuotes = (text = "") =>
-    String(text || "")
-        .replace(/[“”]/g, "\"")
-        .replace(/[‘’]/g, "'");
-
-const extractJsonObjectFromText = (text = "") => {
-    const raw = normalizeJsonQuotes(text);
-    const firstBrace = raw.indexOf("{");
-    const lastBrace = raw.lastIndexOf("}");
-
-    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-        return null;
-    }
-
-    const jsonText = raw.slice(firstBrace, lastBrace + 1);
-
-    try {
-        return JSON.parse(jsonText);
-    } catch (error) {
-        console.warn("Failed to parse headline internal JSON", error);
-        return null;
-    }
-};
-
-const humanizeHeadlineValue = (value) => {
-    if (value === null || value === undefined || value === "") {
-        return "غير محدد";
-    }
-
-    if (Array.isArray(value)) {
-        return value.length
-            ? value.map((item) => HEADLINE_VALUE_LABELS[item] || String(item)).join("، ")
-            : "لا يوجد";
-    }
-
-    return HEADLINE_VALUE_LABELS[value] || String(value);
-};
-
-const buildHeadlineDisplayMessage = (state = {}) => [
-    "طلب توليد عناوين",
-    `${HEADLINE_FIELD_LABELS.content}: ${humanizeHeadlineValue(state.content)}`,
-    `${HEADLINE_FIELD_LABELS.content_type}: ${humanizeHeadlineValue(state.content_type)}`,
-    `${HEADLINE_FIELD_LABELS.goal}: ${humanizeHeadlineValue(state.goal)}`,
-    `${HEADLINE_FIELD_LABELS.language}: ${humanizeHeadlineValue(state.language)}`,
-    `${HEADLINE_FIELD_LABELS.tone}: ${humanizeHeadlineValue(state.tone)}`,
-    `${HEADLINE_FIELD_LABELS.number_of_headlines}: ${humanizeHeadlineValue(state.number_of_headlines)}`,
-    `${HEADLINE_FIELD_LABELS.headline_length}: ${humanizeHeadlineValue(state.headline_length)}`,
-    `${HEADLINE_FIELD_LABELS.extra_options}: ${humanizeHeadlineValue(state.extra_options)}`,
-].join("\n");
-
-const stripHeadlineInternalPromptFallback = (text = "") =>
-    String(text || "")
-        .replace(/Generate headlines using this extracted state only\.?/gi, "")
-        .replace(/Return the final headlines only\.?/gi, "")
-        .replace(/[{}\[\]"]/g, "")
-        .replace(/[:,]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-const displayMessageContent = (msg = {}) => {
-    const content = String(msg?.content || "");
-
-    if (
-        isHeadlineToolMessage(msg)
-        && looksLikeHeadlineInternalPrompt(content)
-    ) {
-        const parsedState = extractJsonObjectFromText(content);
-
-        if (parsedState) {
-            return buildHeadlineDisplayMessage(parsedState);
-        }
-
-        return stripHeadlineInternalPromptFallback(content);
-    }
-
-    return content;
-};
-
-const getInitialExtractorState = () => ({
+const getInitialHeadlineState = () => ({
     content: null,
     content_type: null,
     goal: null,
@@ -756,14 +618,17 @@ const getInitialExtractorState = () => ({
     extra_options: [],
 });
 
-const extractorState = ref(getInitialExtractorState());
-const extractorStep = ref(1);
-const extractorFlowConversationKey = ref("");
+const headlineState = ref(getInitialHeadlineState());
 
-const getExtractorConversationKey = () =>
-    activeConversation.value?.uuid || route.params.uuid || "__draft__";
+const isHeadlineGeneratorTool = computed(() =>
+    Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
+);
 
-const FIELD_LABELS = {
+const inputAriaLabel = computed(() =>
+    isHeadlineGeneratorTool.value ? "اكتب رسالتك الخاصة بتوليد العناوين" : t("user.chat.inputAria")
+);
+
+const HEADLINE_FIELD_LABELS = {
     content: "الموضوع",
     content_type: "نوع المحتوى",
     goal: "الهدف",
@@ -771,146 +636,240 @@ const FIELD_LABELS = {
     tone: "النبرة",
     number_of_headlines: "عدد العناوين",
     headline_length: "طول العنوان",
-    extra_options: "خيارات إضافية",
+    extra_options: "تحسين SEO",
 };
 
-const extractorQuestionExamples = {
-    stepOne: {
-        question: "عايز العناوين عن أي موضوع؟ وهل تريدها SEO؟ وكم عنوان تريد؟",
-        example: "مثال: اكتب 10 عناوين SEO عن الذكاء الاصطناعي في السعودية",
-    },
-    stepTwo: {
-        question: "محتاج اللغة، ونبرة العناوين، ونوع المحتوى.",
-        example: "مثال: العربية، نبرة قوية، مقال",
-    },
-    stepThree: {
-        question: "اختار طول العنوان والهدف الأساسي.",
-        example: "مثال: طول متوسط، والهدف تحسين SEO",
-    },
+const HEADLINE_VALUE_LABELS = {
+    Article: "مقال",
+    News: "خبر",
+    Product: "وصف منتج",
+    "Social Post": "منشور اجتماعي",
+    "Attract Attention": "جذب الانتباه",
+    "Improve SEO": "تحسين SEO",
+    Arabic: "العربية",
+    English: "الإنجليزية",
+    Powerful: "قوية",
+    Formal: "رسمية",
+    Professional: "احترافية",
+    Auto: "تلقائي",
+    Short: "قصير",
+    Medium: "متوسط",
+    Long: "طويل",
+    "Include SEO-friendly headlines": "نعم، عناوين مناسبة للسيو",
 };
 
-const buildQuestionWithExample = ({ question, example }) =>
-    `${question}\n\n${example}`;
-
-const stripDangerousText = (value = "") =>
-    String(value || "")
-        .replace(/[<>]/g, "")
-        .replace(/[`$\\]/g, "")
-        .replace(/\b(select|insert|update|delete|drop|alter|truncate|union|where|from|script|iframe|onerror|onload)\b/gi, "")
-        .replace(/\s+/g, " ")
-        .trim();
-
-const sanitizeExtractorState = (state = {}) => ({
-    content: state.content ? stripDangerousText(state.content).slice(0, 500) : null,
-    content_type: state.content_type ? stripDangerousText(state.content_type).slice(0, 80) : null,
-    goal: state.goal ? stripDangerousText(state.goal).slice(0, 120) : null,
-    language: state.language ? stripDangerousText(state.language).slice(0, 50) : null,
-    tone: state.tone ? stripDangerousText(state.tone).slice(0, 50) : null,
-    number_of_headlines: Number.isFinite(Number(state.number_of_headlines))
-        ? Math.min(Math.max(Number(state.number_of_headlines), 1), 20)
-        : null,
-    headline_length: state.headline_length ? stripDangerousText(state.headline_length).slice(0, 50) : null,
-    extra_options: Array.isArray(state.extra_options)
-        ? state.extra_options
-            .map((item) => stripDangerousText(item).slice(0, 120))
-            .filter(Boolean)
-            .slice(0, 10)
-        : [],
-});
-
-const sanitizeExtractorUpdates = (updates = {}) => {
-    const safe = {};
-
-    if (Object.prototype.hasOwnProperty.call(updates, "content")) {
-        safe.content = updates.content ? stripDangerousText(updates.content).slice(0, 500) : null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, "content_type")) {
-        safe.content_type = updates.content_type ? stripDangerousText(updates.content_type).slice(0, 80) : null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, "goal")) {
-        safe.goal = updates.goal ? stripDangerousText(updates.goal).slice(0, 120) : null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, "language")) {
-        safe.language = updates.language ? stripDangerousText(updates.language).slice(0, 50) : null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, "tone")) {
-        safe.tone = updates.tone ? stripDangerousText(updates.tone).slice(0, 50) : null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, "number_of_headlines")) {
-        safe.number_of_headlines = Number.isFinite(Number(updates.number_of_headlines))
-            ? Math.min(Math.max(Number(updates.number_of_headlines), 1), 20)
-            : null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, "headline_length")) {
-        safe.headline_length = updates.headline_length
-            ? stripDangerousText(updates.headline_length).slice(0, 50)
-            : null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, "extra_options")) {
-        safe.extra_options = Array.isArray(updates.extra_options)
-            ? updates.extra_options
-                .map((item) => stripDangerousText(item).slice(0, 120))
-                .filter(Boolean)
-                .slice(0, 10)
-            : [];
-    }
-
-    return safe;
-};
-
-const formatExtractorValue = (value) => {
-    if (value === null || value === undefined || value === "") {
-        return "غير محدد";
-    }
+const humanizeHeadlineValue = (value) => {
+    if (value === null || value === undefined || value === "") return "غير محدد";
 
     if (Array.isArray(value)) {
-        return value.length ? value.join("، ") : "غير محدد";
+        return value.length
+            ? value.map((item) => HEADLINE_VALUE_LABELS[item] || String(item)).join("، ")
+            : "لا";
     }
 
-    return String(value);
+    return HEADLINE_VALUE_LABELS[value] || String(value);
 };
 
-const buildExtractorSummaryText = (state, missing = []) => {
-    const completedLines = Object.entries(state || {})
-        .filter(([, value]) => {
-            if (Array.isArray(value)) return value.length > 0;
-            return value !== null && value !== undefined && value !== "";
-        })
-        .map(([key, value]) => `• ${FIELD_LABELS[key] || key}: ${formatExtractorValue(value)}`);
-
-    const missingLines = missing.map((key) => `• ${FIELD_LABELS[key] || key}`);
-
-    let text = "تمام ✅\n\n";
-
-    if (completedLines.length) {
-        text += `البيانات التي تم تجميعها:\n${completedLines.join("\n")}`;
-    }
-
-    if (missingLines.length) {
-        text += `\n\nلسه ناقص:\n${missingLines.join("\n")}`;
-    }
-
-    return text.trim();
+const isEmptyHeadlineValue = (value) => {
+    if (Array.isArray(value)) return false;
+    return value === null || value === undefined || value === "";
 };
 
-const buildExtractorMissingQuestion = (missing = []) => {
-    const labels = missing.map((key) => FIELD_LABELS[key] || key).join("، ");
-    return `لسه ناقص: ${labels}.\nاكتبهم لي بشكل مختصر من فضلك.`;
+const getMissingHeadlineFields = (state = {}) => {
+    return Object.entries(state)
+        .filter(([key, value]) => key !== "extra_options" && isEmptyHeadlineValue(value))
+        .map(([key]) => key);
+};
+
+const mergeHeadlineState = (oldState = {}, newState = {}) => {
+    const merged = { ...getInitialHeadlineState(), ...oldState };
+
+    Object.entries(newState || {}).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+            merged[key] = value;
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== "") {
+            merged[key] = value;
+        } else if (!(key in merged)) {
+            merged[key] = value;
+        }
+    });
+
+    return merged;
+};
+
+const buildHeadlineStateSummary = (state = {}) => {
+    const lines = [];
+
+    Object.entries(state).forEach(([key, value]) => {
+        if (key === "extra_options") return;
+
+        if (!isEmptyHeadlineValue(value)) {
+            lines.push(`${HEADLINE_FIELD_LABELS[key] || key}: ${humanizeHeadlineValue(value)}`);
+        }
+    });
+
+    if (Array.isArray(state.extra_options)) {
+        lines.push(`تحسين SEO: ${humanizeHeadlineValue(state.extra_options)}`);
+    }
+
+    return lines.join("\n");
+};
+
+const buildMissingHeadlineText = (missing = []) => {
+    if (!missing.length) return "";
+    const labels = missing.map((field) => HEADLINE_FIELD_LABELS[field] || field).join("، ");
+    return `المطلوب لاستكمال الطلب: ${labels}`;
+};
+
+const buildHeadlineQuestionMessage = (apiResponse) => {
+    const message = apiResponse?.message || "من فضلك أكمل البيانات المطلوبة.";
+    const nextState = apiResponse?.state || headlineState.value;
+    const missing = getMissingHeadlineFields(nextState);
+
+    const summary = buildHeadlineStateSummary(nextState);
+    const missingText = buildMissingHeadlineText(missing);
+
+    return [
+        message,
+        summary ? `\nالبيانات الحالية:\n${summary}` : "",
+        missingText ? `\n${missingText}` : "",
+    ].filter(Boolean).join("\n");
+};
+
+const buildHeadlineResultMessage = (apiResponse) => {
+    const intro = apiResponse?.message || "تم توليد العناوين بنجاح.";
+    const headlines = Array.isArray(apiResponse?.headlines) ? apiResponse.headlines : [];
+
+    if (!headlines.length) {
+        return intro;
+    }
+
+    const lines = headlines.map((headline, index) => {
+        const number = Number(headline?.id || 0) > 0 ? Number(headline.id) : index + 1;
+        const title = String(headline?.text || "").trim();
+        const subheadline = headline?.subheadline ? `\n   ${String(headline.subheadline).trim()}` : "";
+        return `${number}. ${title}${subheadline}`;
+    });
+
+    return [intro, "", ...lines].join("\n");
+};
+
+const displayMessageContent = (msg = {}) =>
+    String(msg?.content || "");
+
+const focusChatInput = async () => {
+    await nextTick();
+    textareaRef.value?.focus();
+};
+
+const resetHeadlineState = () => {
+    headlineState.value = getInitialHeadlineState();
+};
+
+const extractHeadlineStateFromMessages = (rows = []) => {
+    if (!Array.isArray(rows) || !rows.length) {
+        return getInitialHeadlineState();
+    }
+
+    const reversed = [...rows].reverse();
+
+    for (const message of reversed) {
+        const metadata = message?.metadata && typeof message.metadata === "object"
+            ? message.metadata
+            : null;
+
+        const stateCandidate = metadata?.state && typeof metadata.state === "object"
+            ? metadata.state
+            : null;
+
+        if (stateCandidate) {
+            return mergeHeadlineState(getInitialHeadlineState(), stateCandidate);
+        }
+    }
+
+    return getInitialHeadlineState();
+};
+
+const hydrateHeadlineStateFromMessages = (rows = []) => {
+    if (!isHeadlineGeneratorTool.value) {
+        resetHeadlineState();
+        return;
+    }
+
+    headlineState.value = extractHeadlineStateFromMessages(rows);
+};
+
+const normalizeHeadlineApiResponse = (response = {}) => {
+    if (response?.status === "error") {
+        return {
+            success: false,
+            type: "message",
+            tool: "ai_headline_generator",
+            provider: null,
+            model_key: null,
+            user_id: null,
+            sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+            conversation_uuid: activeConversation.value?.uuid || route.params.uuid || null,
+            message: String(response?.message || "حدث خطأ أثناء معالجة الطلب."),
+            state: null,
+            headlines: [],
+            count: 0,
+            request_id: null,
+            usage: null,
+            cost: null,
+        };
+    }
+
+    const payload = response?.data && typeof response.data === "object" ? response.data : response;
+    if (!payload || typeof payload !== "object") return null;
+
+    return {
+        success: payload.success !== false,
+        type: payload.type || "",
+        tool: payload.tool || "ai_headline_generator",
+        provider: payload.provider || null,
+        model_key: payload.model_key || null,
+        user_id: payload.user_id ?? null,
+        sub_tool_id: payload.sub_tool_id ?? HEADLINE_GENERATOR_SUB_TOOL_ID,
+        conversation_uuid: payload.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
+        message: payload.message || "",
+        state: payload.state && typeof payload.state === "object" ? payload.state : null,
+        headlines: Array.isArray(payload.headlines) ? payload.headlines : [],
+        count: payload.count ?? null,
+        request_id: payload.request_id || null,
+        usage: payload.usage && typeof payload.usage === "object" ? payload.usage : null,
+        cost: payload.cost && typeof payload.cost === "object" ? payload.cost : null,
+    };
 };
 
 const addAssistantLocalMessage = async (content, extra = {}) => {
+    const { plainText = true, ...rest } = extra;
+
     messages.value.push(
         mapMessage(
             {
                 content,
                 role: "assistant",
+                created_at: new Date().toISOString(),
+                plainText,
+                ...rest,
+            },
+            messages.value.length
+        )
+    );
+
+    await scrollToBottom();
+};
+
+const addUserLocalMessage = async (content, extra = {}) => {
+    messages.value.push(
+        mapMessage(
+            {
+                content,
+                role: "user",
                 created_at: new Date().toISOString(),
                 plainText: true,
                 ...extra,
@@ -922,320 +881,140 @@ const addAssistantLocalMessage = async (content, extra = {}) => {
     await scrollToBottom();
 };
 
-const addUserLocalMessage = async (content) => {
-    messages.value.push(
-        mapMessage(
-            {
-                content,
-                role: "user",
-                created_at: new Date().toISOString(),
-                plainText: true,
-            },
-            messages.value.length
-        )
-    );
+const resolveCurrentUserId = () => {
+    const candidates = [
+        activeConversation.value?.user_id,
+        conversations.value.find((item) => item.uuid === activeConversation.value?.uuid)?.user_id,
+    ];
 
-    await scrollToBottom();
-};
-
-const startExtractorFlow = async () => {
-    extractorState.value = getInitialExtractorState();
-    extractorStep.value = 1;
-    extractorFlowConversationKey.value = getExtractorConversationKey();
-
-    await addAssistantLocalMessage(
-        [
-            "مرحبًا بك 👋",
-            "هساعدك نجهز بيانات توليد العناوين خطوة بخطوة.",
-            "",
-            buildQuestionWithExample(extractorQuestionExamples.stepOne),
-        ].join("\n")
-    );
-};
-
-const resetExtractorFlow = () => {
-    extractorState.value = getInitialExtractorState();
-    extractorStep.value = 1;
-    extractorFlowConversationKey.value = "";
-};
-
-const normalizeExtractorText = (text = "") =>
-    String(text || "").trim();
-
-const parseExtractorStepOne = (text) => {
-    const raw = normalizeExtractorText(text);
-    const numberMatch = raw.match(/(\d+)/);
-    const number_of_headlines = numberMatch ? Number(numberMatch[1]) : null;
-
-    const hasSeo = /(seo|سيو|السيو|تحسين\s*محركات\s*البحث)/i.test(raw);
-    const extra_options = hasSeo ? ["Include SEO-friendly headlines"] : [];
-
-    const markerMatch = raw.match(/(?:لمقال\s+عن|عن|حول|بخصوص)\s+(.+)$/i);
-    let content = markerMatch?.[1]?.trim() || null;
-
-    if (!content) {
-        content = raw
-            .replace(/\d+/g, " ")
-            .replace(/(?:عايز|عاوز|أريد|اريد|عناوين|عنوان|قوية|قوي|سيو|seo|مقال|article|headlines?|powerful|strong)/gi, " ")
-            .replace(/[،,.:;!?؟]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
-    }
-
-    if (content) {
-        content = content
-            .replace(/(?:وسيو|والسيو|seo|سيو|تحسين\s*محركات\s*البحث)/gi, " ")
-            .replace(/\s+/g, " ")
-            .trim();
-    }
-
-    return {
-        content: content || null,
-        number_of_headlines,
-        extra_options,
-    };
-};
-
-const pickMappedValue = (text, dictionary = []) => {
-    const normalized = String(text || "").toLowerCase();
-    const hit = dictionary.find((entry) =>
-        entry.keywords.some((keyword) => normalized.includes(keyword))
-    );
-
-    return hit?.value ?? null;
-};
-
-const parseExtractorStepTwo = (text) => {
-    const normalized = normalizeExtractorText(text).toLowerCase();
-
-    const language = pickMappedValue(normalized, [
-        { value: "Arabic", keywords: ["arabic", "عربي", "العربية"] },
-        { value: "English", keywords: ["english", "انجليزي", "إنجليزي"] },
-        { value: "French", keywords: ["french", "فرنسي"] },
-        { value: "Russian", keywords: ["russian", "روسي"] },
-        { value: "Chinese", keywords: ["chinese", "صيني"] },
-    ]);
-
-    const tone = pickMappedValue(normalized, [
-        { value: "Powerful", keywords: ["powerful", "قوي", "قوية"] },
-        { value: "Formal", keywords: ["formal", "رسمي"] },
-        { value: "Professional", keywords: ["professional", "احترافي"] },
-        { value: "Marketing", keywords: ["marketing", "تسويقي"] },
-        { value: "Simple", keywords: ["simple", "بسيط"] },
-    ]);
-
-    const content_type = pickMappedValue(normalized, [
-        { value: "Article", keywords: ["article", "مقال"] },
-        { value: "News", keywords: ["news", "خبر"] },
-        { value: "Product", keywords: ["product", "منتج"] },
-        { value: "Social Post", keywords: ["post", "بوست"] },
-    ]);
-
-    return {
-        language,
-        tone,
-        content_type,
-    };
-};
-
-const parseExtractorStepThree = (text) => {
-    const normalized = normalizeExtractorText(text).toLowerCase();
-
-    const headline_length = pickMappedValue(normalized, [
-        { value: "Auto", keywords: ["auto", "تلقائي"] },
-        { value: "Short", keywords: ["short", "قصير"] },
-        { value: "Medium", keywords: ["medium", "متوسط"] },
-        { value: "Long", keywords: ["long", "طويل"] },
-    ]);
-
-    const goal = pickMappedValue(normalized, [
-        { value: "Improve SEO", keywords: ["تحسين السيو", "improve seo", "seo"] },
-        { value: "Increase CTR", keywords: ["زيادة النقر", "click", "ctr"] },
-        { value: "Attract Attention", keywords: ["جذب الانتباه"] },
-        { value: "News Style", keywords: ["إخباري", "خبري"] },
-    ]);
-
-    return {
-        headline_length,
-        goal,
-    };
-};
-
-const validateExtractorState = (state) => {
-    const missing = [];
-    const errors = [];
-
-    if (!state?.content || !String(state.content).trim()) {
-        missing.push("content");
-    }
-
-    if (!state?.content_type) {
-        missing.push("content_type");
-    }
-
-    if (!state?.goal) {
-        missing.push("goal");
-    }
-
-    if (!state?.language) {
-        missing.push("language");
-    }
-
-    if (!state?.tone) {
-        missing.push("tone");
-    }
-
-    if (state?.number_of_headlines === null || state?.number_of_headlines === undefined) {
-        missing.push("number_of_headlines");
-    } else if (!Number.isFinite(Number(state.number_of_headlines))) {
-        errors.push("number_of_headlines must be a number");
-    } else {
-        const headlinesCount = Number(state.number_of_headlines);
-        if (headlinesCount < 1 || headlinesCount > 20) {
-            errors.push("number_of_headlines must be between 1 and 20");
+    for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return parsed;
         }
     }
 
-    if (!state?.headline_length) {
-        missing.push("headline_length");
-    }
-
-    if (!Array.isArray(state?.extra_options)) {
-        errors.push("extra_options must be an array");
-    }
-
-    return {
-        valid: missing.length === 0 && errors.length === 0,
-        missing,
-        errors,
-    };
+    return null;
 };
 
-const buildExtractorValidationPayload = (extractedUpdates = {}) => ({
-    state: sanitizeExtractorState(extractorState.value),
-    extracted_updates: {
-        content: extractedUpdates.content ?? null,
-        content_type: extractedUpdates.content_type ?? null,
-        goal: extractedUpdates.goal ?? null,
-        language: extractedUpdates.language ?? null,
-        tone: extractedUpdates.tone ?? null,
-        number_of_headlines: extractedUpdates.number_of_headlines ?? null,
-        headline_length: extractedUpdates.headline_length ?? null,
-        extra_options: extractedUpdates.extra_options ?? null,
-    },
-    reply: "تم تحديث بيانات النموذج.",
-});
+const handleHeadlineGeneratorSubmit = async (text) => {
+    const inputText = String(text || "").trim();
 
-const applyExtractorUpdates = (updates = {}) => {
-    const nextState = { ...extractorState.value };
-
-    if (updates.content !== undefined && updates.content !== null && updates.content !== "") {
-        nextState.content = updates.content;
-    }
-
-    if (updates.content_type !== undefined && updates.content_type !== null && updates.content_type !== "") {
-        nextState.content_type = updates.content_type;
-    }
-
-    if (updates.goal !== undefined && updates.goal !== null && updates.goal !== "") {
-        nextState.goal = updates.goal;
-    }
-
-    if (updates.language !== undefined && updates.language !== null && updates.language !== "") {
-        nextState.language = updates.language;
-    }
-
-    if (updates.tone !== undefined && updates.tone !== null && updates.tone !== "") {
-        nextState.tone = updates.tone;
-    }
-
-    if (
-        updates.number_of_headlines !== undefined &&
-        updates.number_of_headlines !== null &&
-        Number.isFinite(Number(updates.number_of_headlines))
-    ) {
-        nextState.number_of_headlines = Number(updates.number_of_headlines);
-    }
-
-    if (updates.headline_length !== undefined && updates.headline_length !== null && updates.headline_length !== "") {
-        nextState.headline_length = updates.headline_length;
-    }
-
-    if (updates.extra_options !== undefined) {
-        nextState.extra_options = Array.isArray(updates.extra_options)
-            ? updates.extra_options
-            : [];
-    }
-
-    extractorState.value = sanitizeExtractorState(nextState);
-};
-
-const getMissingPrompt = (field) => {
-    const prompts = {
-        content: "محتاج أعرف الموضوع الأساسي للعناوين. العناوين عن أي موضوع؟",
-        number_of_headlines: "محتاج أعرف عدد العناوين المطلوب. تحب كام عنوان؟",
-        language: "دلوقتي محتاج اللغة. مثال: عربي أو English.",
-        tone: "دلوقتي محتاج نبرة العناوين. مثال: قوية أو رسمية.",
-        content_type: "دلوقتي محتاج نوع المحتوى. مثال: مقال أو خبر.",
-        headline_length: "اختار طول العنوان. مثال: قصير أو تلقائي.",
-        goal: "حدد الهدف الأساسي. مثال: تحسين SEO أو زيادة CTR.",
-    };
-
-    return prompts[field] || "من فضلك أكمل البيانات الناقصة.";
-};
-
-const resolveNextExtractorStep = (missingFields = []) => {
-    if (missingFields.some((field) => ["content", "number_of_headlines"].includes(field))) {
-        return 1;
-    }
-
-    if (missingFields.some((field) => ["language", "tone", "content_type"].includes(field))) {
-        return 2;
-    }
-
-    return 3;
-};
-
-const askExtractorStepQuestion = async (step) => {
-    if (step === 2) {
-        await addAssistantLocalMessage(
-            [
-                "تمام ✅",
-                buildQuestionWithExample(extractorQuestionExamples.stepTwo),
-            ].join("\n")
-        );
+    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
         return;
     }
 
-    if (step === 3) {
-        await addAssistantLocalMessage(
-            [
-                "آخر خطوة ✨",
-                buildQuestionWithExample(extractorQuestionExamples.stepThree),
-            ].join("\n")
-        );
+    await addUserLocalMessage(inputText, {
+        sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+        metadata: {
+            type: "user_input",
+            state: headlineState.value,
+            sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+        },
+    });
+    userInput.value = "";
+    resetTextarea();
+
+    sendingMessage.value = true;
+
+    const conversation = await ensureConversation();
+
+    if (!conversation) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const requestSignature = `${conversation.id}:${idempotencyKey}`;
+
+    if (inFlightSignatures.has(requestSignature)) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    inFlightSignatures.add(requestSignature);
+
+    try {
+        const payload = {
+            user_id: resolveCurrentUserId(),
+            sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+            conversation_uuid: conversation.uuid,
+            conversation_id: conversation.id,
+            user_message: inputText,
+            debug: HEADLINE_DEBUG_MODE,
+            idempotency_key: idempotencyKey,
+            state: headlineState.value,
+        };
+
+        const response = await chatServices.sendMessage(payload);
+        const apiResponse = normalizeHeadlineApiResponse(response);
+
+        if (!apiResponse) {
+            await addAssistantLocalMessage("تعذر قراءة الاستجابة. حاول مرة أخرى.", { is_error: true });
+            return;
+        }
+
+        if (apiResponse.state) {
+            headlineState.value = mergeHeadlineState(headlineState.value, apiResponse.state);
+        }
+
+        const metadata = {
+            type: apiResponse.type || "message",
+            request_id: apiResponse.request_id,
+            provider: apiResponse.provider,
+            model_key: apiResponse.model_key,
+            tool: apiResponse.tool,
+            state: headlineState.value,
+            usage: apiResponse.usage,
+            cost: apiResponse.cost,
+            headlines: apiResponse.headlines,
+            sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+        };
+
+        if (apiResponse.type === "question") {
+            await addAssistantLocalMessage(
+                buildHeadlineQuestionMessage(apiResponse),
+                {
+                    plainText: true,
+                    metadata,
+                    sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                }
+            );
+            await focusChatInput();
+        } else if (apiResponse.type === "result") {
+            await addAssistantLocalMessage(
+                buildHeadlineResultMessage(apiResponse),
+                {
+                    plainText: false,
+                    metadata,
+                    sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                }
+            );
+        } else {
+            await addAssistantLocalMessage(
+                String(apiResponse.message || "تم استلام الاستجابة."),
+                {
+                    plainText: true,
+                    metadata,
+                    sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                }
+            );
+        }
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+    } catch {
+        await addAssistantLocalMessage("حصل خطأ أثناء الإرسال. جرّب مرة أخرى.", { is_error: true });
+    } finally {
+        inFlightSignatures.delete(requestSignature);
+        sendingMessage.value = false;
+        await scrollToBottom();
     }
 };
 
-const ensureExtractorFlowForCurrentConversation = async () => {
-    if (!extractorTool.value) {
-        resetExtractorFlow();
-        return;
-    }
-
-    const conversationKey = getExtractorConversationKey();
-
-    if (messages.value.length > 0) {
-        extractorFlowConversationKey.value = conversationKey;
-        return;
-    }
-
-    if (extractorFlowConversationKey.value === conversationKey) {
-        return;
-    }
-
-    await startExtractorFlow();
-};
 const newLine = () => {
     userInput.value += "\n";
     nextTick(autoResize);
@@ -1313,7 +1092,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
-        resetExtractorFlow();
+        resetHeadlineState();
         return;
     }
 
@@ -1322,7 +1101,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
-        resetExtractorFlow();
+        resetHeadlineState();
         return;
     }
 
@@ -1369,9 +1148,9 @@ const loadConversationDetails = async (uuid) => {
         }
 
         messages.value = rows.map((message, index) => mapMessage(message, index));
+        hydrateHeadlineStateFromMessages(rows);
 
         resolveInsufficientPointsState(rows);
-        await ensureExtractorFlowForCurrentConversation();
 
         await scrollToBottom();
     } finally {
@@ -1385,7 +1164,7 @@ const syncRouteConversation = async () => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
-        await ensureExtractorFlowForCurrentConversation();
+        resetHeadlineState();
         return;
     }
 
@@ -1430,6 +1209,7 @@ const startNewChat = async () => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         sidebarOpen.value = false;
+        resetHeadlineState();
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -1454,177 +1234,13 @@ const ensureConversation = async () => {
 
     activeConversation.value = conversation;
     insufficientPoints.value = false;
+    resetHeadlineState();
 
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 
     return conversation;
 };
 
-const sendExtractorToAi = async () => {
-    if (conversationLimitExceeded.value) {
-        return false;
-    }
-
-    if (sendingMessage.value || streamingAssistant.value) {
-        return false;
-    }
-
-    const safeState = sanitizeExtractorState(extractorState.value);
-
-    const finalExtractorPrompt = [
-        "Generate headlines using this extracted state only.",
-        "Return the final headlines only.",
-        JSON.stringify(safeState, null, 2),
-    ].join("\n\n");
-    const displayContent = buildHeadlineDisplayMessage(safeState);
-
-    sendingMessage.value = true;
-
-    const conversation = await ensureConversation();
-
-    if (!conversation) {
-        sendingMessage.value = false;
-        return false;
-    }
-
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, displayContent);
-    const requestSignature = `${conversation.id}:${idempotencyKey}`;
-
-    if (inFlightSignatures.has(requestSignature)) {
-        sendingMessage.value = false;
-        return false;
-    }
-
-    inFlightSignatures.add(requestSignature);
-
-    try {
-        const payload = {
-            content: displayContent,
-            conversation_id: conversation.id,
-            role: "user",
-            idempotency_key: idempotencyKey,
-            task_options: {
-                search_mode: "off",
-                max_tokens: 2500,
-                temperature: 0.45,
-                source: "headline_generator_state",
-                internal_prompt: finalExtractorPrompt,
-                extractor_state: safeState,
-                headline_state: safeState,
-            },
-        };
-
-        console.log("Extractor payload before send:", payload);
-
-        const response = await chatServices.sendMessage(payload);
-
-        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
-            conversations.value.unshift(conversation);
-        }
-
-        clearPendingSend(conversation.uuid);
-        await openAssistantStream(conversation, response?.data?.message_id);
-        return true;
-    } catch {
-        await addAssistantLocalMessage("حصل خطأ أثناء الإرسال. جرّب مرة أخرى.");
-        return false;
-    } finally {
-        inFlightSignatures.delete(requestSignature);
-        sendingMessage.value = false;
-        await scrollToBottom();
-    }
-};
-
-const handleExtractorSubmit = async (text) => {
-    const inputText = String(text || "").trim();
-    const safeUserText = stripDangerousText(inputText).slice(0, 1500);
-
-    if (!safeUserText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
-        return;
-    }
-
-    await addUserLocalMessage(safeUserText);
-    userInput.value = "";
-    resetTextarea();
-
-    let updates = {};
-
-    if (extractorStep.value === 1) {
-        updates = parseExtractorStepOne(safeUserText);
-    } else if (extractorStep.value === 2) {
-        updates = parseExtractorStepTwo(safeUserText);
-    } else {
-        updates = parseExtractorStepThree(safeUserText);
-    }
-
-    const safeUpdates = sanitizeExtractorUpdates(updates);
-
-    applyExtractorUpdates(safeUpdates);
-
-    const validation = validateExtractorState(extractorState.value);
-    console.log("Extractor validation payload", buildExtractorValidationPayload(safeUpdates));
-
-    if (extractorStep.value === 1) {
-        const missingStepOne = ["content", "number_of_headlines"].filter((key) =>
-            validation.missing.includes(key)
-        );
-
-        if (missingStepOne.length) {
-            if (missingStepOne.length === 1) {
-                await addAssistantLocalMessage(getMissingPrompt(missingStepOne[0]));
-            } else {
-                await addAssistantLocalMessage(buildExtractorMissingQuestion(missingStepOne));
-            }
-            return;
-        }
-
-        extractorStep.value = 2;
-        await addAssistantLocalMessage(
-            [
-                buildExtractorSummaryText(extractorState.value, validation.missing),
-                "",
-                "تمام ✅",
-                buildQuestionWithExample(extractorQuestionExamples.stepTwo),
-            ].join("\n")
-        );
-        return;
-    }
-
-    if (extractorStep.value === 2) {
-        const missingStepTwo = ["language", "tone", "content_type"].filter((key) =>
-            validation.missing.includes(key)
-        );
-
-        if (missingStepTwo.length) {
-            await addAssistantLocalMessage(buildExtractorMissingQuestion(missingStepTwo));
-            return;
-        }
-
-        extractorStep.value = 3;
-        await addAssistantLocalMessage(
-            [
-                buildExtractorSummaryText(extractorState.value, validation.missing),
-                "",
-                "آخر خطوة ✨",
-                buildQuestionWithExample(extractorQuestionExamples.stepThree),
-            ].join("\n")
-        );
-        return;
-    }
-
-    if (!validation.valid) {
-        const nextStep = resolveNextExtractorStep(validation.missing);
-        extractorStep.value = nextStep;
-
-        await addAssistantLocalMessage(
-            `${buildExtractorSummaryText(extractorState.value, validation.missing)}\n\n${buildExtractorMissingQuestion(validation.missing)}`
-        );
-        return;
-    }
-
-    await addAssistantLocalMessage("تمام ✅ البيانات أصبحت جاهزة لتوليد العناوين.\nجاري توليد العناوين الآن...");
-    await sendExtractorToAi();
-};
 const submitMessage = async () => {
     const rawContent = userInput.value.trim();
 
@@ -1642,35 +1258,7 @@ const submitMessage = async () => {
         return;
     }
 
-    let content = rawContent;
-    let headlineTaskOptions = null;
-
-    if (Number(subtool.value?.id) === HEADLINE_TOOL_ID && looksLikeHeadlineInternalPrompt(rawContent)) {
-        const parsedState = extractJsonObjectFromText(rawContent);
-
-        if (parsedState) {
-            const safeState = sanitizeExtractorState(parsedState);
-            const internalPrompt = [
-                "Generate headlines using this extracted state only.",
-                "Return the final headlines only.",
-                JSON.stringify(safeState, null, 2),
-            ].join("\n\n");
-
-            content = buildHeadlineDisplayMessage(safeState);
-            headlineTaskOptions = {
-                source: "headline_generator_state",
-                internal_prompt: internalPrompt,
-                headline_state: safeState,
-                extractor_state: safeState,
-            };
-        } else {
-            content = stripHeadlineInternalPromptFallback(rawContent);
-            headlineTaskOptions = {
-                source: "headline_generator_state",
-                internal_prompt: rawContent,
-            };
-        }
-    }
+    const content = rawContent;
 
     sendingMessage.value = true;
 
@@ -1709,6 +1297,9 @@ const submitMessage = async () => {
     try {
         const payload = {
             content,
+            user_message: content,
+            sub_tool_id: Number(subtool.value?.id || 0),
+            conversation_uuid: conversation.uuid,
             conversation_id: conversation.id,
             role: "user",
             idempotency_key: idempotencyKey,
@@ -1726,13 +1317,6 @@ const submitMessage = async () => {
                     temperature: 0.45,
                 },
         };
-
-        if (headlineTaskOptions) {
-            payload.task_options = {
-                ...payload.task_options,
-                ...headlineTaskOptions,
-            };
-        }
 
         console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
 
@@ -1765,8 +1349,8 @@ const submitMessage = async () => {
 };
 
 const onSubmitMessage = async () => {
-    if (extractorTool.value) {
-        await handleExtractorSubmit(userInput.value);
+    if (isHeadlineGeneratorTool.value) {
+        await handleHeadlineGeneratorSubmit(userInput.value);
         return;
     }
 
@@ -1791,6 +1375,7 @@ const removeConversation = async (conversation) => {
             activeConversation.value = null;
             messages.value = [];
             insufficientPoints.value = false;
+            resetHeadlineState();
 
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }
