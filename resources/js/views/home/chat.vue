@@ -93,14 +93,28 @@
                         </div>
 
                         <div class="msg-bubble">
-                            <div class="msg-content" :class="{ 'error-message': msg.is_error }">
+                            <div
+                                v-if="msg.isTyping"
+                                class="typing-bubble"
+                                role="status"
+                                aria-live="polite"
+                                :aria-label="typingAriaLabel"
+                            >
+                                <span class="typing-text">{{ typingText }}</span>
+                                <span class="typing-dots" aria-hidden="true">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </span>
+                            </div>
+                            <div v-else class="msg-content" :class="{ 'error-message': msg.is_error }">
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
                                 </span>
                                 <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{ displayMessageContent(msg) }}</div>
                                 <div v-else class="markdown-body" v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                             </div>
-                            <span class="msg-time">{{ msg.time }}</span>
+                            <span v-if="!msg.isTyping" class="msg-time">{{ msg.time }}</span>
                         </div>
 
                         <div class="msg-avatar user-avatar" v-if="msg.role === 'user'">
@@ -263,6 +277,8 @@ const now = () => {
     const date = new Date();
     return `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
 };
+
+const createTempId = () => `temp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
 const createClientMessageId = () => {
     if (window?.crypto?.randomUUID) {
@@ -482,6 +498,46 @@ const scrollToBottom = async () => {
     }
 };
 
+const addAssistantTypingMessage = () => {
+    const typingId = createTempId();
+
+    const typingMessage = mapMessage(
+        {
+            id: typingId,
+            uuid: typingId,
+            role: "assistant",
+            sender: "assistant",
+            content: "",
+            isTyping: true,
+            created_at: new Date().toISOString(),
+            localOnly: true,
+            plainText: true,
+        },
+        messages.value.length
+    );
+
+    messages.value.push(typingMessage);
+
+    nextTick(() => {
+        scrollToBottom();
+    });
+
+    return typingId;
+};
+
+const removeAssistantTypingMessage = (typingId) => {
+    if (!typingId) return;
+
+    messages.value = messages.value.filter((message) =>
+        message.id !== typingId
+        && message.uuid !== typingId
+    );
+};
+
+const clearLocalTypingMessages = () => {
+    messages.value = messages.value.filter((message) => !message?.localOnly);
+};
+
 const autoResize = () => {
     const el = textareaRef.value;
     if (!el) return;
@@ -626,6 +682,14 @@ const isHeadlineGeneratorTool = computed(() =>
 
 const inputAriaLabel = computed(() =>
     isHeadlineGeneratorTool.value ? "اكتب رسالتك الخاصة بتوليد العناوين" : t("user.chat.inputAria")
+);
+
+const typingAriaLabel = computed(() =>
+    isArabic.value ? "جاري كتابة الرد" : "Assistant is typing"
+);
+
+const typingText = computed(() =>
+    isArabic.value ? "جاري الكتابة" : "Assistant is typing"
 );
 
 const HEADLINE_FIELD_LABELS = {
@@ -1000,6 +1064,7 @@ const handleHeadlineGeneratorSubmit = async (text) => {
     }
 
     inFlightSignatures.add(requestSignature);
+    const typingId = addAssistantTypingMessage();
 
     try {
         const payload = {
@@ -1014,6 +1079,7 @@ const handleHeadlineGeneratorSubmit = async (text) => {
         };
 
         const response = await chatServices.sendMessage(payload);
+        removeAssistantTypingMessage(typingId);
         const apiResponse = normalizeHeadlineApiResponse(response);
 
         if (!apiResponse) {
@@ -1091,8 +1157,10 @@ const handleHeadlineGeneratorSubmit = async (text) => {
 
         clearPendingSend(conversation.uuid);
     } catch {
+        removeAssistantTypingMessage(typingId);
         await addAssistantLocalMessage("حصل خطأ أثناء الإرسال. جرّب مرة أخرى.", { is_error: true });
     } finally {
+        removeAssistantTypingMessage(typingId);
         inFlightSignatures.delete(requestSignature);
         sendingMessage.value = false;
         await scrollToBottom();
@@ -1171,6 +1239,8 @@ const loadConversations = async () => {
 };
 
 const loadConversationDetails = async (uuid) => {
+    clearLocalTypingMessages();
+
     if (!isAuthenticated.value) {
         activeConversation.value = null;
         messages.value = [];
@@ -1231,6 +1301,7 @@ const loadConversationDetails = async (uuid) => {
             activeConversation.value = null;
         }
 
+        clearLocalTypingMessages();
         messages.value = rows.map((message, index) => mapMessage(message, index));
         hydrateHeadlineStateFromMessages(rows);
 
@@ -1377,6 +1448,7 @@ const submitMessage = async () => {
     resetTextarea();
 
     await scrollToBottom();
+    const typingId = addAssistantTypingMessage();
 
     try {
         const payload = {
@@ -1421,11 +1493,14 @@ const submitMessage = async () => {
         }
 
         clearPendingSend(conversation.uuid);
+        removeAssistantTypingMessage(typingId);
 
         await openAssistantStream(conversation, response?.data?.message_id);
     } catch {
+        removeAssistantTypingMessage(typingId);
         messages.value = messages.value.filter((item) => item.localKey !== optimisticMessage.localKey);
     } finally {
+        removeAssistantTypingMessage(typingId);
         inFlightSignatures.delete(requestSignature);
         sendingMessage.value = false;
         await scrollToBottom();
@@ -2114,6 +2189,42 @@ watch(
     color: #991b1b;
 }
 
+.typing-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: fit-content;
+    padding: 12px 16px;
+    border-radius: 18px;
+    background: rgba(21, 70, 119, 0.08);
+    color: #154677;
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 10px 24px rgba(21, 70, 119, 0.08);
+}
+
+.typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.typing-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #2ba6de;
+    animation: typingPulse 1s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.typing-dots span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
 .typing-indicator {
     display: inline-flex;
     align-items: center;
@@ -2496,6 +2607,18 @@ watch(
     }
 }
 
+@keyframes typingPulse {
+    0%, 80%, 100% {
+        opacity: 0.35;
+        transform: translateY(0);
+    }
+
+    40% {
+        opacity: 1;
+        transform: translateY(-3px);
+    }
+}
+
 @media (max-width: 900px) {
     .sidebar {
         position: fixed;
@@ -2551,6 +2674,14 @@ watch(
 
     .msg-bubble {
         max-width: 88%;
+    }
+}
+
+@media (max-width: 640px) {
+    .typing-bubble {
+        padding: 10px 13px;
+        font-size: 12px;
+        border-radius: 16px;
     }
 }
 </style>
