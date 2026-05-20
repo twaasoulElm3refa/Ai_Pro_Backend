@@ -71,15 +71,27 @@ window.addEventListener("storage", (event) => {
     }
 });
 
+const isPublicAuthUrl = (url = "") => {
+    return (
+        String(url).includes("/users/google-login") ||
+        String(url).includes("/users/google-callback") ||
+        String(url).includes("/users/login") ||
+        String(url).includes("/users/register") ||
+        String(url).includes("/users/forgot-password") ||
+        String(url).includes("/users/reset-password")
+    );
+};
+
 api.interceptors.request.use(
     async (config) => {
         const token = localStorage.getItem("auth_token");
         const lang = getLang();
+        const requestUrl = String(config.url || "");
 
         config.headers = config.headers || {};
         config.headers["Accept-Language"] = lang;
 
-        if (token) {
+        if (token && !isPublicAuthUrl(requestUrl)) {
             config.headers.Authorization = `Bearer ${token}`;
         }
 
@@ -102,6 +114,7 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         const status = error.response?.status;
+        const requestUrl = String(error.config?.url || "");
 
         if (!error.response) {
             toastr.error("في مشكلة في الاتصال بالسيرفر");
@@ -115,6 +128,10 @@ api.interceptors.response.use(
                 break;
 
             case 401:
+                if (isPublicAuthUrl(requestUrl)) {
+                    return Promise.reject(error);
+                }
+
                 toastr.error("يجب تسجيل الدخول");
 
                 localStorage.removeItem("auth_token");
@@ -167,5 +184,11 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+export const redirectToGoogleLogin = () => {
+    localStorage.removeItem("auth_token");
+
+    window.location.href = "https://pro.aiarabic.com/api/v1/users/google-login";
+};
 
 export default api;
