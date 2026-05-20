@@ -765,16 +765,72 @@ const focusChatInput = async () => {
     textareaRef.value?.focus();
 };
 
-const resetHeadlineState = () => {
-    headlineState.value = getInitialHeadlineState();
+const headlineStateStorageKey = (conversationUuid = "") =>
+    `headline_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}`;
+
+const saveHeadlineStateToSession = (conversationUuid, state) => {
+    const key = headlineStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.setItem(key, JSON.stringify(state || getInitialHeadlineState()));
+    } catch {
+        // Ignore storage edge cases.
+    }
 };
 
-const extractHeadlineStateFromMessages = (rows = []) => {
+const readHeadlineStateFromSession = (conversationUuid) => {
+    const key = headlineStateStorageKey(conversationUuid);
+
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+        return parsed;
+    } catch {
+        return null;
+    }
+};
+
+const clearHeadlineStateFromSession = (conversationUuid) => {
+    const key = headlineStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.removeItem(key);
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetHeadlineState = (conversationUuid = "") => {
+    headlineState.value = getInitialHeadlineState();
+    clearHeadlineStateFromSession(conversationUuid);
+};
+
+const extractHeadlineStateFromMessages = (rows = [], conversationUuid = "") => {
     if (!Array.isArray(rows) || !rows.length) {
+        const stored = readHeadlineStateFromSession(conversationUuid);
+        if (stored) {
+            return mergeHeadlineState(getInitialHeadlineState(), stored);
+        }
+
         return getInitialHeadlineState();
     }
 
     const reversed = [...rows].reverse();
+
+    const lastAssistantMeta = reversed.find((message) =>
+        message?.role === "assistant"
+        && message?.metadata
+        && typeof message.metadata === "object"
+    )?.metadata;
+
+    if ((lastAssistantMeta?.type || "") === "result") {
+        clearHeadlineStateFromSession(conversationUuid);
+        return getInitialHeadlineState();
+    }
 
     for (const message of reversed) {
         const metadata = message?.metadata && typeof message.metadata === "object"
@@ -785,9 +841,15 @@ const extractHeadlineStateFromMessages = (rows = []) => {
             ? metadata.state
             : null;
 
-        if (stateCandidate) {
+        if (stateCandidate && (metadata?.type || "") === "question") {
+            saveHeadlineStateToSession(conversationUuid, stateCandidate);
             return mergeHeadlineState(getInitialHeadlineState(), stateCandidate);
         }
+    }
+
+    const stored = readHeadlineStateFromSession(conversationUuid);
+    if (stored) {
+        return mergeHeadlineState(getInitialHeadlineState(), stored);
     }
 
     return getInitialHeadlineState();
@@ -799,7 +861,8 @@ const hydrateHeadlineStateFromMessages = (rows = []) => {
         return;
     }
 
-    headlineState.value = extractHeadlineStateFromMessages(rows);
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    headlineState.value = extractHeadlineStateFromMessages(rows, conversationUuid);
 };
 
 const normalizeHeadlineApiResponse = (response = {}) => {
@@ -820,6 +883,8 @@ const normalizeHeadlineApiResponse = (response = {}) => {
             request_id: null,
             usage: null,
             cost: null,
+            wallet: null,
+            should_reset_state: false,
         };
     }
 
@@ -842,6 +907,8 @@ const normalizeHeadlineApiResponse = (response = {}) => {
         request_id: payload.request_id || null,
         usage: payload.usage && typeof payload.usage === "object" ? payload.usage : null,
         cost: payload.cost && typeof payload.cost === "object" ? payload.cost : null,
+        wallet: payload.wallet && typeof payload.wallet === "object" ? payload.wallet : null,
+        should_reset_state: Boolean(payload.should_reset_state),
     };
 };
 
@@ -954,7 +1021,7 @@ const handleHeadlineGeneratorSubmit = async (text) => {
             return;
         }
 
-        if (apiResponse.state) {
+        if (apiResponse.state && apiResponse.type !== "result" && !apiResponse.should_reset_state) {
             headlineState.value = mergeHeadlineState(headlineState.value, apiResponse.state);
         }
 
@@ -972,6 +1039,10 @@ const handleHeadlineGeneratorSubmit = async (text) => {
         };
 
         if (apiResponse.type === "question") {
+            if (apiResponse.state) {
+                saveHeadlineStateToSession(conversation.uuid, headlineState.value);
+            }
+
             await addAssistantLocalMessage(
                 buildHeadlineQuestionMessage(apiResponse),
                 {
@@ -990,6 +1061,19 @@ const handleHeadlineGeneratorSubmit = async (text) => {
                     sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
                 }
             );
+            resetHeadlineState(conversation.uuid);
+            await focusChatInput();
+        } else if (apiResponse.should_reset_state) {
+            await addAssistantLocalMessage(
+                String(apiResponse.message || "تم تنفيذ الطلب."),
+                {
+                    plainText: true,
+                    metadata,
+                    sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                }
+            );
+            resetHeadlineState(conversation.uuid);
+            await focusChatInput();
         } else {
             await addAssistantLocalMessage(
                 String(apiResponse.message || "تم استلام الاستجابة."),

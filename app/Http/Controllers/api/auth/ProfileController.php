@@ -55,7 +55,7 @@ class ProfileController extends Controller
                     ! empty($user->email_verified_at);
 
                 if ($canGiveFreeCredit) {
-                    $wallet->increment('balance', 1000000);
+                    $wallet->increment('balance', 10000);
 
                     $wallet->update([
                         'ip_address' => $ipAddress,

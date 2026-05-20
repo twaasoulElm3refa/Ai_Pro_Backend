@@ -9,6 +9,8 @@ use App\Jobs\GenerateAssistantReplyJob;
 use App\Models\Conversation;
 use App\Models\CostLogger;
 use App\Models\Message;
+use App\Models\User;
+use App\Models\Wallet;
 use App\Repository\Messages\MessageInterface;
 use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
@@ -319,6 +321,12 @@ class MessageController extends Controller
             return $this->error('Message could not be saved.');
         }
 
+        $conversation->loadMissing('user.wallet');
+
+        if (! $conversation->user) {
+            return $this->error('Conversation user not found.');
+        }
+
         $userMessage->loadMissing('conversation.subTool');
         $this->messageCache->updateAfterMessage($userMessage);
         $this->clearCache($userId);
@@ -375,6 +383,9 @@ class MessageController extends Controller
 
         $usage = $this->normalizeUsage($raw['usage'] ?? ($providerResponse['usage'] ?? []));
         $cost = $this->normalizeCost($raw['cost'] ?? ($providerResponse['cost'] ?? []));
+        $tokensToDeduct = $this->getTokensToDeduct([
+            'usage' => $usage,
+        ]);
 
         $responseMessage = trim((string) ($raw['message'] ?? ($providerResponse['reply'] ?? '')));
         if ($responseMessage === '') {
@@ -389,48 +400,104 @@ class MessageController extends Controller
         $tool = $this->toNullableString(($providerResponse['tool'] ?? null) ?? ($raw['tool'] ?? 'ai_headline_generator')) ?? 'ai_headline_generator';
 
         $assistantContent = $this->buildAssistantContent($type, $responseMessage, $headlines);
+        $shouldResetState = $type === 'result';
+        $walletSnapshot = [
+            'balance' => null,
+            'payback_balance' => null,
+        ];
+        $assistantMessage = null;
 
-        $assistantMessage = Message::create([
-            'conversation_id' => $conversation->id,
-            'role' => 'assistant',
-            'content' => $assistantContent,
-            'is_error' => false,
-            'reply_to_message_id' => $userMessage->id,
-            'metadata' => [
-                'type' => $type,
-                'tool' => $tool,
-                'provider' => $provider,
-                'model_key' => $modelKey,
-                'request_id' => $requestId,
-                'state' => $mergedState,
-                'headlines' => $headlines,
-                'message' => $responseMessage,
-                'count' => (int) (($providerResponse['count'] ?? null) ?? ($raw['count'] ?? count($headlines))),
-                'usage' => $usage,
-                'cost' => $cost,
+        DB::transaction(function () use (
+            $conversation,
+            $tokensToDeduct,
+            $type,
+            $usage,
+            $cost,
+            $assistantContent,
+            $userMessage,
+            $tool,
+            $provider,
+            $modelKey,
+            $requestId,
+            $mergedState,
+            $headlines,
+            $providerResponse,
+            $raw,
+            $responseMessage,
+            $userId,
+            &$walletSnapshot,
+            &$assistantMessage
+        ): void {
+            $walletDetails = $this->deductWalletTokens(
+                $conversation->user,
+                $tokensToDeduct,
+                'headline_generator_ai_usage'
+            );
+
+            $walletSnapshot = [
+                'balance' => $walletDetails['wallet_after'] ?? null,
+                'payback_balance' => $walletDetails['payback_after'] ?? null,
+            ];
+
+            Log::info('Headline generator wallet deduction', [
                 'sub_tool_id' => self::HEADLINE_GENERATOR_SUB_TOOL_ID,
-                'conversation_uuid' => $conversation->uuid,
-            ],
-        ]);
+                'response_type' => $type,
+                'tokens_to_deduct' => $tokensToDeduct,
+                'wallet_before' => $walletDetails['wallet_before'] ?? null,
+                'wallet_after' => $walletDetails['wallet_after'] ?? null,
+                'payback_before' => $walletDetails['payback_before'] ?? null,
+                'payback_after' => $walletDetails['payback_after'] ?? null,
+                'user_id' => $conversation->user_id,
+                'conversation_id' => $conversation->id,
+            ]);
+
+            $assistantMessage = Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'content' => $assistantContent,
+                'is_error' => false,
+                'reply_to_message_id' => $userMessage->id,
+                'metadata' => [
+                    'type' => $type,
+                    'tool' => $tool,
+                    'provider' => $provider,
+                    'model_key' => $modelKey,
+                    'request_id' => $requestId,
+                    'state' => $mergedState,
+                    'headlines' => $headlines,
+                    'message' => $responseMessage,
+                    'count' => (int) (($providerResponse['count'] ?? null) ?? ($raw['count'] ?? count($headlines))),
+                    'usage' => $usage,
+                    'cost' => $cost,
+                    'tokens_deducted' => $tokensToDeduct,
+                    'sub_tool_id' => self::HEADLINE_GENERATOR_SUB_TOOL_ID,
+                    'conversation_uuid' => $conversation->uuid,
+                ],
+            ]);
+
+            CostLogger::create([
+                'conversation_id' => $conversation->id,
+                'user_id' => $userId,
+                'sub_tool_id' => self::HEADLINE_GENERATOR_SUB_TOOL_ID,
+                'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? (($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0))),
+                'input_cost' => (float) ($cost['input_cost'] ?? 0),
+                'output_cost' => (float) ($cost['output_cost'] ?? 0),
+                'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
+                'total_cost' => (float) ($cost['total_cost'] ?? (($cost['input_cost'] ?? 0) + ($cost['output_cost'] ?? 0) + ($cost['web_search_cost'] ?? 0))),
+                'currency' => (string) ($cost['currency'] ?? 'USD'),
+                'provider_request_id' => $requestId,
+                'model_key' => $modelKey,
+            ]);
+        });
+
+        if (! $assistantMessage) {
+            return $this->error('Assistant message could not be saved.');
+        }
 
         $assistantMessage->setRelation('conversation', $conversation);
         $this->messageCache->updateAfterMessage($assistantMessage);
-
-        CostLogger::create([
-            'conversation_id' => $conversation->id,
-            'user_id' => $userId,
-            'sub_tool_id' => self::HEADLINE_GENERATOR_SUB_TOOL_ID,
-            'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
-            'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
-            'total_tokens' => (int) ($usage['total_tokens'] ?? (($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0))),
-            'input_cost' => (float) ($cost['input_cost'] ?? 0),
-            'output_cost' => (float) ($cost['output_cost'] ?? 0),
-            'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
-            'total_cost' => (float) ($cost['total_cost'] ?? (($cost['input_cost'] ?? 0) + ($cost['output_cost'] ?? 0) + ($cost['web_search_cost'] ?? 0))),
-            'currency' => (string) ($cost['currency'] ?? 'USD'),
-            'provider_request_id' => $requestId,
-            'model_key' => $modelKey,
-        ]);
 
         $this->clearCache($userId);
 
@@ -451,6 +518,11 @@ class MessageController extends Controller
             'debug' => null,
             'usage' => $usage,
             'cost' => $cost,
+            'wallet' => [
+                'balance' => $walletSnapshot['balance'],
+                'payback_balance' => $walletSnapshot['payback_balance'],
+            ],
+            'should_reset_state' => $shouldResetState,
             'assistant_message_id' => $assistantMessage->id,
             'was_created' => $wasCreated,
         ], 'Headline Response Ready.');
@@ -460,6 +532,7 @@ class MessageController extends Controller
     {
         $metadata = is_array($assistantMessage->metadata ?? null) ? $assistantMessage->metadata : [];
         $headlines = $this->normalizeHeadlines($metadata['headlines'] ?? []);
+        $wallet = Wallet::where('user_id', $userId)->first();
 
         return [
             'success' => true,
@@ -478,6 +551,11 @@ class MessageController extends Controller
             'debug' => null,
             'usage' => $this->normalizeUsage($metadata['usage'] ?? []),
             'cost' => $this->normalizeCost($metadata['cost'] ?? []),
+            'wallet' => [
+                'balance' => $wallet ? (int) $wallet->balance : null,
+                'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
+            ],
+            'should_reset_state' => (string) ($metadata['type'] ?? 'message') === 'result',
             'assistant_message_id' => $assistantMessage->id,
         ];
     }
@@ -635,6 +713,70 @@ class MessageController extends Controller
                 ? (int) $usage['total_tokens']
                 : ((is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : 0)
                     + (is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : 0)),
+        ];
+    }
+
+    private function getTokensToDeduct(array $aiResponse): int
+    {
+        $usage = is_array($aiResponse['usage'] ?? null) ? $aiResponse['usage'] : [];
+
+        $total = (int) ($usage['total_tokens'] ?? 0);
+
+        if ($total > 0) {
+            return $total;
+        }
+
+        return (int) ($usage['input_tokens'] ?? 0) + (int) ($usage['output_tokens'] ?? 0);
+    }
+
+    private function deductWalletTokens(User $user, int $tokens, ?string $reason = null): array
+    {
+        $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+
+        if (! $wallet) {
+            $wallet = Wallet::create([
+                'user_id' => $user->id,
+                'uuid' => (string) Str::uuid(),
+                'balance' => 0,
+                'ip_address' => request()->ip(),
+            ]);
+        }
+
+        $walletBefore = (int) $wallet->balance;
+        $paybackBefore = (int) ($wallet->payback_balance ?? 0);
+
+        if ($tokens <= 0) {
+            Log::warning('No tokens to deduct from wallet.', [
+                'user_id' => $user->id,
+                'tokens' => $tokens,
+                'reason' => $reason,
+            ]);
+
+            return [
+                'wallet_before' => $walletBefore,
+                'wallet_after' => $walletBefore,
+                'payback_before' => $paybackBefore,
+                'payback_after' => $paybackBefore,
+                'tokens' => 0,
+            ];
+        }
+
+        if ($walletBefore >= $tokens) {
+            $wallet->balance = $walletBefore - $tokens;
+        } else {
+            $wallet->balance = 0;
+            $wallet->payback_balance = $paybackBefore + ($tokens - $walletBefore);
+        }
+
+        $wallet->save();
+        $wallet->refresh();
+
+        return [
+            'wallet_before' => $walletBefore,
+            'wallet_after' => (int) $wallet->balance,
+            'payback_before' => $paybackBefore,
+            'payback_after' => (int) ($wallet->payback_balance ?? 0),
+            'tokens' => $tokens,
         ];
     }
 
