@@ -811,14 +811,19 @@ const buildHeadlineResultMessage = (apiResponse) => {
         return intro;
     }
 
-    const lines = headlines.map((headline, index) => {
-        const number = Number(headline?.id || 0) > 0 ? Number(headline.id) : index + 1;
+    const lines = headlines.map((headline) => {
         const title = String(headline?.text || "").trim();
-        const subheadline = headline?.subheadline ? `\n   ${String(headline.subheadline).trim()}` : "";
-        return `${number}. ${title}${subheadline}`;
-    });
+        const subheadline = String(headline?.subheadline || "").trim();
 
-    return [intro, "", ...lines].join("\n");
+        if (!title) return "";
+
+        return [
+            `• ${title}`,
+            subheadline ? `  ${subheadline}` : "",
+        ].filter(Boolean).join("\n");
+    }).filter(Boolean);
+
+    return [intro, "", ...lines].join("\n\n");
 };
 
 const displayMessageContent = (msg = {}) =>
