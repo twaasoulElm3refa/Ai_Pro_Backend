@@ -826,8 +826,76 @@ const buildHeadlineResultMessage = (apiResponse) => {
     return [intro, "", ...lines].join("\n\n");
 };
 
-const displayMessageContent = (msg = {}) =>
-    String(msg?.content || "");
+const isHeadlineGeneratorMessage = (message = {}) => {
+    const currentSubToolId = Number(subtool.value?.id || 0);
+    const messageSubToolId = Number(message?.sub_tool_id || message?.subToolId || 0);
+
+    return messageSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID
+        || currentSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID;
+};
+
+const looksLikeGeneratedHeadlinesText = (content = "") => {
+    const text = String(content || "");
+
+    return text.includes("تم توليد العناوين")
+        || /^\s*\d+\.\s+/m.test(text);
+};
+
+const formatGeneratedHeadlinesForDisplay = (content = "") => {
+    const text = String(content || "").trim();
+
+    if (!text) return "";
+
+    const lines = text.split(/\r?\n/);
+    const formattedLines = [];
+
+    lines.forEach((line) => {
+        const trimmed = line.trim();
+
+        if (!trimmed) {
+            formattedLines.push("");
+            return;
+        }
+
+        if (trimmed.includes("تم توليد العناوين")) {
+            formattedLines.push(trimmed);
+            return;
+        }
+
+        if (/^[•\-]\s+/.test(trimmed)) {
+            formattedLines.push(trimmed);
+            return;
+        }
+
+        const numberedMatch = trimmed.match(/^\d+\.\s*(.+)$/);
+
+        if (numberedMatch?.[1]) {
+            formattedLines.push(`• ${numberedMatch[1].trim()}`);
+            return;
+        }
+
+        formattedLines.push(trimmed);
+    });
+
+    return formattedLines
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+};
+
+const displayMessageContent = (msg = {}) => {
+    const content = String(msg?.content || msg?.message || "");
+
+    if (
+        msg?.role === "assistant"
+        && isHeadlineGeneratorMessage(msg)
+        && looksLikeGeneratedHeadlinesText(content)
+    ) {
+        return formatGeneratedHeadlinesForDisplay(content);
+    }
+
+    return content;
+};
 
 const focusChatInput = async () => {
     await nextTick();
