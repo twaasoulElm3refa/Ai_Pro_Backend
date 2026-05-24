@@ -186,26 +186,62 @@ const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
 );
 
+const currentLocale = computed(() =>
+    String(locale.value || homeService.getLang() || "ar").toLowerCase()
+);
+
+const toTranslationsArray = (entity = {}) => {
+    if (Array.isArray(entity?.translations)) {
+        return entity.translations.filter((item) => item && typeof item === "object");
+    }
+
+    if (entity?.translation && typeof entity.translation === "object") {
+        return [entity.translation];
+    }
+
+    return [];
+};
+
+const getTranslationByLocale = (entity = {}, localeCode = "ar") => {
+    const translations = toTranslationsArray(entity);
+    const normalizedLocale = String(localeCode || "ar").toLowerCase();
+
+    return (
+        translations.find((t) => String(t?.locale || "").toLowerCase() === normalizedLocale) ||
+        translations.find((t) => String(t?.locale || "").toLowerCase() === "ar") ||
+        translations.find((t) => String(t?.locale || "").toLowerCase() === "en") ||
+        translations[0] ||
+        {}
+    );
+};
+
 const mapMainTool = (payload = {}) => {
-    const translation = payload?.translation;
+    const translation = getTranslationByLocale(payload, currentLocale.value);
 
     return {
         ...payload,
-        title: translation?.name || t("user.toolShow.untitledTool"),
-        description: translation?.description || t("user.toolShow.noDescription"),
+        title: translation?.name || payload?.name || t("user.toolShow.untitledTool"),
+        description: translation?.description || payload?.description || t("user.toolShow.noDescription"),
+        metaName: translation?.meta_name || payload?.meta_name || "",
+        metaDescription: translation?.meta_description || payload?.meta_description || "",
         imageUrl: payload?.image ? `/storage/${payload.image}` : "",
     };
 };
 
 const mapSubtool = (payload = {}) => {
+    const translation = getTranslationByLocale(payload, currentLocale.value);
+
     return {
         id: payload?.id,
         slug: payload?.slug || "-",
-        title: payload?.name || t("user.toolShow.untitledSubtool"),
-        description: payload?.description || t("user.toolShow.noDescription"),
-        promptPlaceholder: payload?.prompt_placeholder || "",
+        title: translation?.name || payload?.name || t("user.toolShow.untitledSubtool"),
+        description: translation?.description || payload?.description || t("user.toolShow.noDescription"),
+        promptPlaceholder: translation?.prompt_placeholder || payload?.prompt_placeholder || "",
+        metaName: translation?.meta_name || payload?.meta_name || "",
+        metaDescription: translation?.meta_description || payload?.meta_description || "",
         is_active: Boolean(payload?.is_active),
         providerName: payload?.provider?.name || "",
+        translationLocale: translation?.locale || null,
     };
 };
 
@@ -263,8 +299,14 @@ const getSubtoolIconClass = (subtool = {}) => {
 
 const tool = computed(() => mapMainTool(rawTool.value));
 
+const rawSubtools = computed(() => {
+    if (Array.isArray(rawTool.value?.sub_tools)) return rawTool.value.sub_tools;
+    if (Array.isArray(rawTool.value?.subTools)) return rawTool.value.subTools;
+    return [];
+});
+
 const subtools = computed(() =>
-    (rawTool.value?.sub_tools || []).map(mapSubtool)
+    rawSubtools.value.map(mapSubtool)
 );
 
 const seoTitle = computed(() =>
@@ -284,13 +326,19 @@ useSeoMeta({
     description: seoDescription,
 });
 
-const loadTool = async () => {
-    locale.value = homeService.getLang();
+const loadTool = async ({ forceFresh = false } = {}) => {
+    locale.value = String(route.params.lang || locale.value || homeService.getLang() || "ar").toLowerCase();
     loading.value = true;
 
     try {
+        if (forceFresh) {
+            homeService.clearAllCaches();
+        }
+
         const response = await homeService.showTool(route.params.slug);
         rawTool.value = response?.data || {};
+        console.log("[Show.vue] tool payload:", rawTool.value);
+        console.log("[Show.vue] current locale:", currentLocale.value);
     } catch (e) {
         rawTool.value = {};
     } finally {
@@ -300,7 +348,7 @@ const loadTool = async () => {
 
 const handleLangChanged = async () => {
     locale.value = homeService.getLang();
-    await loadTool();
+    await loadTool({ forceFresh: true });
 };
 
 onMounted(async () => {
@@ -317,7 +365,7 @@ watch(
     async ([nextSlug, nextLang], [prevSlug, prevLang]) => {
         if (nextSlug === prevSlug && nextLang === prevLang) return;
 
-        await loadTool();
+        await loadTool({ forceFresh: nextLang !== prevLang });
     }
 );
 </script>
