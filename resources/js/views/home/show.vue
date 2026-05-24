@@ -201,11 +201,11 @@ const mapSubtool = (payload = {}) => {
     return {
         id: payload?.id,
         slug: payload?.slug || "-",
-        title: payload?.name || t("user.toolShow.untitledSubtool"),
-        description: payload?.description || t("user.toolShow.noDescription"),
-        promptPlaceholder: payload?.prompt_placeholder || "",
+        title: payload?.translation.name || payload?.name || t("user.toolShow.untitledSubtool"),
+        description: payload?.translation.description || payload?.description || t("user.toolShow.noDescription"),
+        promptPlaceholder: payload?.translation.prompt_placeholder || payload?.prompt_placeholder || "",
         is_active: Boolean(payload?.is_active),
-        providerName: payload?.provider?.name || "",
+        providerName: payload?.website?.name || payload?.website || "",
     };
 };
 
