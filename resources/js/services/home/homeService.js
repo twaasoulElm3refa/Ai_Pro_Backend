@@ -151,6 +151,7 @@ const homeService = {
     async showTool(slug) {
         return cached(buildKey(`home:tools:${slug}`), async () => {
             const response = await api.get(`/tools/${slug}`);
+            console.log(response);
             return unwrap(response);
         });
     },

@@ -201,7 +201,7 @@ const mapSubtool = (payload = {}) => {
     return {
         id: payload?.id,
         slug: payload?.slug || "-",
-        title: payload?.translation.name || payload?.name || t("user.toolShow.untitledSubtool"),
+        title: payload?.translation.name || payload?.title || t("user.toolShow.untitledSubtool"),
         description: payload?.translation.description || payload?.description || t("user.toolShow.noDescription"),
         promptPlaceholder: payload?.translation.prompt_placeholder || payload?.prompt_placeholder || "",
         is_active: Boolean(payload?.is_active),
