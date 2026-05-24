@@ -660,6 +660,8 @@ const hideSearchToggle = computed(() =>
     Number(subtool.value?.id) === 1 // search
 );
 
+const PARAPHRASER_SUB_TOOL_ID = 3;
+const PARAPHRASER_TOOL_KEY = "ai_paraphraser";
 const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
 const HEADLINE_DEBUG_MODE = true;
 
@@ -678,6 +680,10 @@ const headlineState = ref(getInitialHeadlineState());
 
 const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
+);
+
+const isParaphraserTool = computed(() =>
+    Number(subtool.value?.id) === PARAPHRASER_SUB_TOOL_ID
 );
 
 const inputAriaLabel = computed(() =>
@@ -1049,6 +1055,40 @@ const normalizeHeadlineApiResponse = (response = {}) => {
     };
 };
 
+const normalizeParaphraserApiResponse = (response = {}) => {
+    const payload = response?.data && typeof response.data === "object" ? response.data : response;
+    if (!payload || typeof payload !== "object") return null;
+
+    const normalizedSubToolId = Number(payload?.sub_tool_id || subtool.value?.id || 0);
+    const normalizedTool = String(payload?.tool || "").trim().toLowerCase();
+
+    if (normalizedSubToolId !== PARAPHRASER_SUB_TOOL_ID && normalizedTool !== PARAPHRASER_TOOL_KEY) {
+        return null;
+    }
+
+    const results = Array.isArray(payload?.results)
+        ? payload.results
+            .map((item, index) => ({
+                id: Number(item?.id || index + 1),
+                text: String(item?.text || "").trim(),
+            }))
+            .filter((item) => item.text)
+        : [];
+
+    const outputText = results.length
+        ? results.map((r) => r.text).join("\n\n")
+        : String(payload?.message || "");
+
+    return {
+        success: payload?.success !== false,
+        sub_tool_id: normalizedSubToolId,
+        tool: normalizedTool || PARAPHRASER_TOOL_KEY,
+        message: String(payload?.message || ""),
+        results,
+        outputText,
+    };
+};
+
 const addAssistantLocalMessage = async (content, extra = {}) => {
     const { plainText = true, ...rest } = extra;
 
@@ -1232,6 +1272,130 @@ const handleHeadlineGeneratorSubmit = async (text) => {
     } catch {
         removeAssistantTypingMessage(typingId);
         await addAssistantLocalMessage("حصل خطأ أثناء الإرسال. جرّب مرة أخرى.", { is_error: true });
+    } finally {
+        removeAssistantTypingMessage(typingId);
+        inFlightSignatures.delete(requestSignature);
+        sendingMessage.value = false;
+        await scrollToBottom();
+    }
+};
+
+const handleParaphraserSubmit = async (text) => {
+    const inputText = String(text || "").trim();
+
+    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return;
+    }
+
+    await addUserLocalMessage(inputText, {
+        sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+        metadata: {
+            type: "user_input",
+            tool: PARAPHRASER_TOOL_KEY,
+            sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+        },
+    });
+
+    userInput.value = "";
+    resetTextarea();
+
+    sendingMessage.value = true;
+    const conversation = await ensureConversation();
+
+    if (!conversation) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const requestSignature = `${conversation.id}:${idempotencyKey}`;
+
+    if (inFlightSignatures.has(requestSignature)) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    inFlightSignatures.add(requestSignature);
+    const typingId = addAssistantTypingMessage();
+
+    try {
+        const payload = {
+            content: inputText,
+            user_message: inputText,
+            sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+            conversation_uuid: conversation.uuid,
+            conversation_id: conversation.id,
+            role: "user",
+            idempotency_key: idempotencyKey,
+            tool: PARAPHRASER_TOOL_KEY,
+        };
+
+        const response = await chatServices.sendMessage(payload);
+        removeAssistantTypingMessage(typingId);
+
+        const apiResponse = normalizeParaphraserApiResponse(response);
+
+        if (!apiResponse) {
+            await addAssistantLocalMessage("تعذر قراءة نتيجة إعادة الصياغة. حاول مرة أخرى.", { is_error: true });
+            return;
+        }
+
+        const results = apiResponse?.results || [];
+        const outputText = results.length ? results.map((r) => r.text).join("\n\n") : apiResponse?.message || "";
+
+        if (apiResponse.success === false) {
+            await addAssistantLocalMessage(
+                String(apiResponse.message || "فشل تنفيذ إعادة الصياغة."),
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+                    metadata: {
+                        type: "error",
+                        tool: PARAPHRASER_TOOL_KEY,
+                        sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+                    },
+                }
+            );
+            return;
+        }
+
+        if (!results.length) {
+            await addAssistantLocalMessage(
+                String(outputText || "تم التنفيذ ولكن لم يتم العثور على نص معاد صياغته."),
+                {
+                    plainText: true,
+                    sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+                    metadata: {
+                        type: "result_empty",
+                        tool: PARAPHRASER_TOOL_KEY,
+                        sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+                        results,
+                    },
+                }
+            );
+            return;
+        }
+
+        await addAssistantLocalMessage(outputText, {
+            plainText: true,
+            sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+            metadata: {
+                type: "result",
+                tool: PARAPHRASER_TOOL_KEY,
+                sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+                results,
+            },
+        });
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+    } catch {
+        removeAssistantTypingMessage(typingId);
+        await addAssistantLocalMessage("حصل خطأ أثناء إعادة الصياغة. جرّب مرة أخرى.", { is_error: true });
     } finally {
         removeAssistantTypingMessage(typingId);
         inFlightSignatures.delete(requestSignature);
@@ -1583,6 +1747,11 @@ const submitMessage = async () => {
 const onSubmitMessage = async () => {
     if (isHeadlineGeneratorTool.value) {
         await handleHeadlineGeneratorSubmit(userInput.value);
+        return;
+    }
+
+    if (isParaphraserTool.value) {
+        await handleParaphraserSubmit(userInput.value);
         return;
     }
 

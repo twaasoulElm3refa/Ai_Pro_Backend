@@ -24,6 +24,8 @@ class MessageController extends Controller
 {
     use ApiResponse;
 
+    private const PARAPHRASER_SUB_TOOL_ID = 3;
+    private const PARAPHRASER_TOOL_KEY = 'ai_paraphraser';
     private const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
     private const HEADLINE_ENDPOINT = 'tasks/headline-generator/chat';
 
@@ -59,11 +61,25 @@ class MessageController extends Controller
 
             $subToolId = (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0);
             $content = $this->resolveInputContent($data);
+            $requestedTool = trim((string) $request->input('tool', ''));
 
             if ($content === '') {
                 return $this->validationError([
                     'user_message' => ['Message content is required.'],
                 ], 'Invalid message data.');
+            }
+
+            if (
+                $subToolId === self::PARAPHRASER_SUB_TOOL_ID
+                || strcasecmp($requestedTool, self::PARAPHRASER_TOOL_KEY) === 0
+            ) {
+                return $this->handleParaphraserFlow(
+                    $writerService,
+                    $conversation,
+                    $data,
+                    $content,
+                    $userId
+                );
             }
 
             if ($subToolId === self::HEADLINE_GENERATOR_SUB_TOOL_ID) {
@@ -526,6 +542,353 @@ class MessageController extends Controller
             'assistant_message_id' => $assistantMessage->id,
             'was_created' => $wasCreated,
         ], 'Headline Response Ready.');
+    }
+
+    protected function handleParaphraserFlow(
+        AiArabicWriterService $writerService,
+        Conversation $conversation,
+        array $data,
+        string $content,
+        int $userId
+    ) {
+        $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
+        if ($idempotencyKey === '') {
+            $idempotencyKey = (string) Str::uuid();
+        }
+
+        $lockKey = $this->requestLockKey($userId, (int) $conversation->id, $idempotencyKey);
+        $lock = Cache::lock($lockKey, 15);
+
+        $processed = $lock->block(5, function () use ($conversation, $content, $idempotencyKey) {
+            return DB::transaction(function () use ($conversation, $content, $idempotencyKey) {
+                $existingByKey = Message::where('conversation_id', $conversation->id)
+                    ->where('role', 'user')
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->first();
+
+                if ($existingByKey) {
+                    return [$existingByKey, false];
+                }
+
+                $existingRecentDuplicate = Message::where('conversation_id', $conversation->id)
+                    ->where('role', 'user')
+                    ->where('content', $content)
+                    ->where('created_at', '>=', now()->subSeconds(20))
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($existingRecentDuplicate) {
+                    if (empty($existingRecentDuplicate->idempotency_key)) {
+                        $existingRecentDuplicate->idempotency_key = $idempotencyKey;
+                        $existingRecentDuplicate->save();
+                    }
+
+                    return [$existingRecentDuplicate, false];
+                }
+
+                $userMessage = $this->message->send([
+                    'conversation_id' => (int) $conversation->id,
+                    'role' => 'user',
+                    'content' => $content,
+                    'idempotency_key' => $idempotencyKey,
+                    'metadata' => [
+                        'type' => 'paraphraser_request',
+                        'tool' => self::PARAPHRASER_TOOL_KEY,
+                        'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+                        'conversation_uuid' => $conversation->uuid,
+                    ],
+                ]);
+
+                if (! $userMessage || ! isset($userMessage->id)) {
+                    return [null, false];
+                }
+
+                return [$userMessage, true];
+            }, 3);
+        });
+
+        /** @var Message|null $userMessage */
+        $userMessage = $processed[0] ?? null;
+        $wasCreated = (bool) ($processed[1] ?? false);
+
+        if (! $userMessage || ! isset($userMessage->id)) {
+            return $this->error('Message could not be saved.');
+        }
+
+        $conversation->loadMissing('user.wallet', 'subTool');
+
+        if (! $conversation->user) {
+            return $this->error('Conversation user not found.');
+        }
+
+        $userMessage->loadMissing('conversation.subTool');
+        $this->messageCache->updateAfterMessage($userMessage);
+        $this->clearCache($userId);
+
+        $existingAssistant = Message::where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->where('reply_to_message_id', $userMessage->id)
+            ->first();
+
+        if ($existingAssistant) {
+            $cached = $this->buildParaphraserResponseFromAssistant($existingAssistant, $conversation, $userId);
+
+            return $this->success($cached + ['was_created' => false], 'Paraphraser Response Ready.');
+        }
+
+        $endpoint = trim((string) ($conversation->subTool?->endpoint ?? ''));
+        if ($endpoint === '') {
+            return $this->error('Paraphraser endpoint is not configured.');
+        }
+
+        $payload = [
+            'user_id' => $userId,
+            'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => $content,
+            'debug' => (bool) ($data['debug'] ?? false),
+        ];
+
+        $providerResponse = $writerService->generateReplyWithUsage($payload, $endpoint);
+        $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
+
+        $results = $this->normalizeParaphraserResults(
+            $raw['results']
+                ?? ($raw['data']['results'] ?? ($providerResponse['results'] ?? []))
+        );
+
+        if (count($results) === 0) {
+            $fallbackText = trim((string) (
+                $providerResponse['reply']
+                ?? ($raw['text'] ?? ($raw['data']['text'] ?? ''))
+            ));
+
+            if ($fallbackText !== '') {
+                $results = [
+                    [
+                        'id' => 1,
+                        'text' => $fallbackText,
+                    ],
+                ];
+            }
+        }
+
+        $responseMessage = trim((string) ($raw['message'] ?? ''));
+        if ($responseMessage === '') {
+            $responseMessage = count($results) > 0
+                ? 'تمت إعادة صياغة النص بنجاح.'
+                : 'لم يتم العثور على نص مُعاد صياغته في الاستجابة.';
+        }
+
+        $providerSuccess = ! array_key_exists('success', $raw) || (bool) $raw['success'] === true;
+        $provider = $this->toNullableString(($providerResponse['provider'] ?? null) ?? ($raw['provider'] ?? null));
+        $modelKey = $this->toNullableString(($providerResponse['model_key'] ?? null) ?? ($raw['model_key'] ?? null));
+        $requestId = $this->toNullableString(($providerResponse['request_id'] ?? null) ?? ($raw['request_id'] ?? null));
+        $tool = $this->toNullableString(($providerResponse['tool'] ?? null) ?? ($raw['tool'] ?? self::PARAPHRASER_TOOL_KEY)) ?? self::PARAPHRASER_TOOL_KEY;
+
+        if (! $providerSuccess) {
+            return $this->success([
+                'success' => false,
+                'tool' => $tool,
+                'provider' => $provider,
+                'model_key' => $modelKey,
+                'user_id' => $userId,
+                'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+                'conversation_uuid' => $conversation->uuid,
+                'message' => $responseMessage,
+                'results' => $results,
+                'count' => count($results),
+                'request_id' => $requestId,
+                'debug' => null,
+            ], 'Paraphraser Response Error.');
+        }
+
+        $usage = $this->normalizeUsage($raw['usage'] ?? ($providerResponse['usage'] ?? []));
+        $cost = $this->normalizeCost($raw['cost'] ?? ($providerResponse['cost'] ?? []));
+        $tokensToDeduct = $this->getTokensToDeduct([
+            'usage' => $usage,
+        ]);
+
+        $assistantContent = $this->buildParaphraserOutputFromResults($results);
+        $walletSnapshot = [
+            'balance' => null,
+            'payback_balance' => null,
+        ];
+        $assistantMessage = null;
+
+        DB::transaction(function () use (
+            $conversation,
+            $tokensToDeduct,
+            $usage,
+            $cost,
+            $assistantContent,
+            $userMessage,
+            $tool,
+            $provider,
+            $modelKey,
+            $requestId,
+            $results,
+            $responseMessage,
+            $userId,
+            &$walletSnapshot,
+            &$assistantMessage
+        ): void {
+            $walletDetails = $this->deductWalletTokens(
+                $conversation->user,
+                $tokensToDeduct,
+                'paraphraser_ai_usage'
+            );
+
+            $walletSnapshot = [
+                'balance' => $walletDetails['wallet_after'] ?? null,
+                'payback_balance' => $walletDetails['payback_after'] ?? null,
+            ];
+
+            $assistantMessage = Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'content' => $assistantContent,
+                'is_error' => false,
+                'reply_to_message_id' => $userMessage->id,
+                'metadata' => [
+                    'type' => 'result',
+                    'tool' => $tool,
+                    'provider' => $provider,
+                    'model_key' => $modelKey,
+                    'request_id' => $requestId,
+                    'results' => $results,
+                    'message' => $responseMessage,
+                    'count' => count($results),
+                    'usage' => $usage,
+                    'cost' => $cost,
+                    'tokens_deducted' => $tokensToDeduct,
+                    'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+                    'conversation_uuid' => $conversation->uuid,
+                ],
+            ]);
+
+            CostLogger::create([
+                'conversation_id' => $conversation->id,
+                'user_id' => $userId,
+                'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+                'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? (($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0))),
+                'input_cost' => (float) ($cost['input_cost'] ?? 0),
+                'output_cost' => (float) ($cost['output_cost'] ?? 0),
+                'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
+                'total_cost' => (float) ($cost['total_cost'] ?? (($cost['input_cost'] ?? 0) + ($cost['output_cost'] ?? 0) + ($cost['web_search_cost'] ?? 0))),
+                'currency' => (string) ($cost['currency'] ?? 'USD'),
+                'provider_request_id' => $requestId,
+                'model_key' => $modelKey,
+            ]);
+        });
+
+        if (! $assistantMessage) {
+            return $this->error('Assistant message could not be saved.');
+        }
+
+        $assistantMessage->setRelation('conversation', $conversation);
+        $this->messageCache->updateAfterMessage($assistantMessage);
+        $this->clearCache($userId);
+
+        return $this->success([
+            'success' => true,
+            'tool' => $tool,
+            'provider' => $provider,
+            'model_key' => $modelKey,
+            'user_id' => $userId,
+            'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'message' => $responseMessage,
+            'results' => $results,
+            'count' => count($results),
+            'request_id' => $requestId,
+            'debug' => null,
+            'usage' => $usage,
+            'cost' => $cost,
+            'wallet' => [
+                'balance' => $walletSnapshot['balance'],
+                'payback_balance' => $walletSnapshot['payback_balance'],
+            ],
+            'assistant_message_id' => $assistantMessage->id,
+            'was_created' => $wasCreated,
+        ], 'Paraphraser Response Ready.');
+    }
+
+    protected function buildParaphraserResponseFromAssistant(Message $assistantMessage, Conversation $conversation, int $userId): array
+    {
+        $metadata = is_array($assistantMessage->metadata ?? null) ? $assistantMessage->metadata : [];
+        $results = $this->normalizeParaphraserResults($metadata['results'] ?? []);
+        $wallet = Wallet::where('user_id', $userId)->first();
+
+        if (count($results) === 0) {
+            $content = trim((string) $assistantMessage->content);
+
+            if ($content !== '') {
+                $results = [
+                    [
+                        'id' => 1,
+                        'text' => $content,
+                    ],
+                ];
+            }
+        }
+
+        return [
+            'success' => true,
+            'tool' => (string) ($metadata['tool'] ?? self::PARAPHRASER_TOOL_KEY),
+            'provider' => $this->toNullableString($metadata['provider'] ?? null),
+            'model_key' => $this->toNullableString($metadata['model_key'] ?? null),
+            'user_id' => $userId,
+            'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'message' => $this->toNullableString($metadata['message'] ?? null) ?? 'تمت إعادة صياغة النص بنجاح.',
+            'results' => $results,
+            'count' => (int) ($metadata['count'] ?? count($results)),
+            'request_id' => $this->toNullableString($metadata['request_id'] ?? null),
+            'debug' => null,
+            'usage' => $this->normalizeUsage($metadata['usage'] ?? []),
+            'cost' => $this->normalizeCost($metadata['cost'] ?? []),
+            'wallet' => [
+                'balance' => $wallet ? (int) $wallet->balance : null,
+                'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
+            ],
+            'assistant_message_id' => $assistantMessage->id,
+        ];
+    }
+
+    protected function normalizeParaphraserResults(mixed $results): array
+    {
+        if (! is_array($results)) {
+            return [];
+        }
+
+        return collect($results)
+            ->map(function ($result, int $index): array {
+                $row = is_array($result) ? $result : [];
+                $text = trim((string) ($row['text'] ?? (is_scalar($result) ? (string) $result : '')));
+                $id = isset($row['id']) && is_numeric($row['id']) ? (int) $row['id'] : ($index + 1);
+
+                return [
+                    'id' => $id,
+                    'text' => $text,
+                ];
+            })
+            ->filter(fn (array $result) => $result['text'] !== '')
+            ->values()
+            ->all();
+    }
+
+    protected function buildParaphraserOutputFromResults(array $results): string
+    {
+        $texts = collect($results)
+            ->map(fn (array $result) => trim((string) ($result['text'] ?? '')))
+            ->filter()
+            ->values()
+            ->all();
+
+        return implode("\n\n", $texts);
     }
 
     protected function buildHeadlineResponseFromAssistant(Message $assistantMessage, Conversation $conversation, int $userId): array
