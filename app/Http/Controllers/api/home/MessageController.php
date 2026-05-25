@@ -578,6 +578,12 @@ class MessageController extends Controller
             'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
             'state' => $mergedState,
         ]);
+        Log::info('Paraphraser merged state prepared', [
+            'conversation_id' => $conversation->id ?? null,
+            'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+            'state_keys' => array_keys($mergedState),
+            'has_content' => ! empty($mergedState['content']),
+        ]);
 
         $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
         if ($idempotencyKey === '') {
@@ -808,6 +814,9 @@ class MessageController extends Controller
             $requestId,
             $results,
             $responseMessage,
+            $mergedState,
+            $sourceContent,
+            $content,
             $userId,
             &$walletSnapshot,
             &$assistantMessage
@@ -972,6 +981,11 @@ class MessageController extends Controller
 
     protected function normalizeParaphraserState(mixed $state): array
     {
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = is_array($decoded) ? $decoded : [];
+        }
+
         $state = is_array($state) ? $state : [];
 
         $base = [
