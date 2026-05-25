@@ -561,7 +561,8 @@ class MessageController extends Controller
         string $content,
         int $userId
     ) {
-        $requestState = $this->normalizeParaphraserState($data['state'] ?? null);
+        $rawRequestState = $data['state'] ?? null;
+        $requestState = $this->normalizeParaphraserState($rawRequestState);
         $lastKnownState = $this->resolveLatestParaphraserState($conversation);
         $mergedState = $this->mergeParaphraserState($lastKnownState, $requestState);
 
@@ -576,7 +577,8 @@ class MessageController extends Controller
             'conversation_uuid' => $conversation->uuid,
             'user_id' => $userId,
             'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
-            'state' => $mergedState,
+            'state_keys_received' => is_array($rawRequestState) ? array_keys($rawRequestState) : [],
+            'state_received_is_null' => $rawRequestState === null,
         ]);
         Log::info('Paraphraser merged state prepared', [
             'conversation_id' => $conversation->id ?? null,

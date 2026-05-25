@@ -678,7 +678,7 @@ const getInitialHeadlineState = () => ({
 
 const headlineState = ref(getInitialHeadlineState());
 
-const getInitialParaphraserState = () => ({
+const createEmptyParaphraserState = () => ({
     content: null,
     language: null,
     tone: null,
@@ -688,7 +688,7 @@ const getInitialParaphraserState = () => ({
     extra_options: [],
 });
 
-const paraphraserState = ref(getInitialParaphraserState());
+const paraphraserState = ref(createEmptyParaphraserState());
 
 const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
@@ -783,7 +783,7 @@ const mergeHeadlineState = (oldState = {}, newState = {}) => {
 };
 
 const normalizeParaphraserState = (state = {}) => {
-    const base = getInitialParaphraserState();
+    const base = createEmptyParaphraserState();
     const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
     const merged = { ...base, ...candidate };
 
@@ -1038,7 +1038,7 @@ const resetHeadlineState = (conversationUuid = "") => {
 };
 
 const paraphraserStateStorageKey = (conversationUuid = "") =>
-    `paraphraser_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}`;
+    `tool_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}_${PARAPHRASER_SUB_TOOL_ID}`;
 
 const saveParaphraserStateToSession = (conversationUuid, state) => {
     const key = paraphraserStateStorageKey(conversationUuid);
@@ -1077,7 +1077,7 @@ const clearParaphraserStateFromSession = (conversationUuid) => {
 };
 
 const resetParaphraserState = (conversationUuid = "") => {
-    paraphraserState.value = getInitialParaphraserState();
+    paraphraserState.value = createEmptyParaphraserState();
     clearParaphraserStateFromSession(conversationUuid);
 };
 
@@ -1116,7 +1116,7 @@ const extractParaphraserStateFromMessages = (rows = [], conversationUuid = "") =
         return stored;
     }
 
-    return getInitialParaphraserState();
+    return createEmptyParaphraserState();
 };
 
 const hydrateParaphraserStateFromMessages = (rows = []) => {
@@ -1129,16 +1129,14 @@ const hydrateParaphraserStateFromMessages = (rows = []) => {
     paraphraserState.value = extractParaphraserStateFromMessages(rows, conversationUuid);
 };
 
-const resolveParaphraserStateForSubmit = (conversationUuid = "", inputText = "") => {
+const resolveParaphraserStateForSubmit = (conversationUuid = "") => {
     let resolved = normalizeParaphraserState(paraphraserState.value);
 
     if (!hasParaphraserStateValue(resolved)) {
         const latestKnown = extractParaphraserStateFromMessages(messages.value, conversationUuid);
-        resolved = mergeParaphraserState(latestKnown, resolved);
-    }
-
-    if (!resolved.content && String(inputText || "").trim()) {
-        resolved.content = String(inputText).trim();
+        resolved = hasParaphraserStateValue(latestKnown)
+            ? normalizeParaphraserState(latestKnown)
+            : createEmptyParaphraserState();
     }
 
     resolved = normalizeParaphraserState(resolved);
@@ -1490,7 +1488,7 @@ const handleParaphraserSubmit = async (text) => {
     }
 
     const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
-    const localParaphraserState = resolveParaphraserStateForSubmit(currentConversationUuid, inputText);
+    const localParaphraserState = resolveParaphraserStateForSubmit(currentConversationUuid);
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
@@ -1525,8 +1523,9 @@ const handleParaphraserSubmit = async (text) => {
     const typingId = addAssistantTypingMessage();
 
     try {
-        const resolvedParaphraserState = resolveParaphraserStateForSubmit(conversation.uuid, inputText);
+        const resolvedParaphraserState = resolveParaphraserStateForSubmit(conversation.uuid);
         const payload = {
+            user_id: resolveCurrentUserId(),
             content: inputText,
             user_message: inputText,
             sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
@@ -1536,7 +1535,17 @@ const handleParaphraserSubmit = async (text) => {
             idempotency_key: idempotencyKey,
             tool: PARAPHRASER_TOOL_KEY,
             state: resolvedParaphraserState,
+            debug: false,
         };
+
+        if (import.meta.env.DEV) {
+            console.info("[chat][paraphraser] outgoing payload", {
+                conversation_uuid: payload.conversation_uuid,
+                sub_tool_id: payload.sub_tool_id,
+                state_keys: Object.keys(payload.state || {}),
+                has_content: Boolean(payload.state?.content),
+            });
+        }
 
         const response = await chatServices.sendMessage(payload);
         removeAssistantTypingMessage(typingId);
@@ -1552,7 +1561,7 @@ const handleParaphraserSubmit = async (text) => {
         const outputText = results.length ? results.map((r) => r.text).join("\n\n") : apiResponse?.message || "";
 
         if (apiResponse.state) {
-            paraphraserState.value = mergeParaphraserState(paraphraserState.value, apiResponse.state);
+            paraphraserState.value = normalizeParaphraserState(apiResponse.state);
             saveParaphraserStateToSession(conversation.uuid, paraphraserState.value);
         }
 
