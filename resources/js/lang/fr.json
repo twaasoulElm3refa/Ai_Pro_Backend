@@ -71,6 +71,30 @@
         }
     },
     "user": {
+        "footer": {
+            "logoAlt": "Logo AiPro",
+            "brandTitle": "AiPro",
+            "brandCopy": "Des outils d’intelligence artificielle qui vous aident à rédiger, résumer et éditer rapidement avec professionnalisme.",
+            "ctaBadge": "Outils IA",
+            "ctaButton": "Commencer",
+            "platformTitle": "Plateforme",
+            "home": "Accueil",
+            "allTools": "Tous les outils",
+            "aboutUs": "Qui sommes-nous",
+            "contactUs": "Contactez-nous",
+            "supportTitle": "Support",
+            "helpCenter": "Centre d’aide",
+            "privacyPolicy": "Politique de confidentialité",
+            "termsOfService": "Conditions d’utilisation",
+            "copyrightRights": "Droits d’auteur",
+            "fastExperienceTitle": "Expérience plus rapide",
+            "fastExperienceText": "Ouvrez vos outils préférés et commencez à créer du contenu intelligent en quelques secondes.",
+            "statAi": "IA",
+            "statWriting": "Rédaction",
+            "statAccessNumber": "24/7",
+            "statAccess": "Accès",
+            "copyright": "© 2025 Fondation aiarabic - Tous droits réservés"
+        },
         "home": {
             "badge": "Annuaire des Outils",
             "title": "Découvrez les outils IA conçus pour un travail concentré",

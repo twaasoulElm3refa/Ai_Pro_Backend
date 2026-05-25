@@ -71,6 +71,30 @@
     }
   },
   "user": {
+    "footer": {
+      "logoAlt": "شعار AiPro",
+      "brandTitle": "AiPro",
+      "brandCopy": "أدوات ذكاء اصطناعي تساعدك على الكتابة، التلخيص، والتحرير بسرعة واحترافية.",
+      "ctaBadge": "AI Tools",
+      "ctaButton": "ابدأ الآن",
+      "platformTitle": "المنصة",
+      "home": "الرئيسية",
+      "allTools": "جميع الأدوات",
+      "aboutUs": "من نحن",
+      "contactUs": "تواصل معنا",
+      "supportTitle": "الدعم",
+      "helpCenter": "مركز المساعدة",
+      "privacyPolicy": "سياسة الخصوصية",
+      "termsOfService": "شروط الخدمة",
+      "copyrightRights": "حقوق الملكية",
+      "fastExperienceTitle": "تجربة أسرع",
+      "fastExperienceText": "افتح أدواتك المفضلة وابدأ بإنشاء محتوى ذكي خلال ثوانٍ.",
+      "statAi": "AI",
+      "statWriting": "Writing",
+      "statAccessNumber": "24/7",
+      "statAccess": "Access",
+      "copyright": "© 2025 مؤسسة aiarabic - جميع الحقوق محفوظة"
+    },
     "home": {
       "badge": "دليل الأدوات",
       "title": "اكتشف أدوات ذكاء اصطناعي مصممة لإنجاز أعمالك بتركيز",

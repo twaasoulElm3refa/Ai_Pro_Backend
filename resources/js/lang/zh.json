@@ -71,6 +71,30 @@
         }
     },
     "user": {
+        "footer": {
+            "logoAlt": "AiPro 标志",
+            "brandTitle": "AiPro",
+            "brandCopy": "人工智能工具，帮助你快速、专业地完成写作、摘要和编辑。",
+            "ctaBadge": "AI 工具",
+            "ctaButton": "立即开始",
+            "platformTitle": "平台",
+            "home": "首页",
+            "allTools": "所有工具",
+            "aboutUs": "关于我们",
+            "contactUs": "联系我们",
+            "supportTitle": "支持",
+            "helpCenter": "帮助中心",
+            "privacyPolicy": "隐私政策",
+            "termsOfService": "服务条款",
+            "copyrightRights": "版权",
+            "fastExperienceTitle": "更快体验",
+            "fastExperienceText": "打开你喜欢的工具，几秒钟内开始创建智能内容。",
+            "statAi": "AI",
+            "statWriting": "写作",
+            "statAccessNumber": "24/7",
+            "statAccess": "访问",
+            "copyright": "© 2025 aiarabic 机构 - 版权所有"
+        },
         "home": {
             "badge": "工具目录",
             "title": "发现专为专注工作设计的 AI 工具",

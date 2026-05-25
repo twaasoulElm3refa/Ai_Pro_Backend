@@ -71,6 +71,30 @@
         }
     },
     "user": {
+        "footer": {
+            "logoAlt": "Логотип AiPro",
+            "brandTitle": "AiPro",
+            "brandCopy": "Инструменты искусственного интеллекта помогают быстро и профессионально писать, сокращать и редактировать тексты.",
+            "ctaBadge": "AI-инструменты",
+            "ctaButton": "Начать сейчас",
+            "platformTitle": "Платформа",
+            "home": "Главная",
+            "allTools": "Все инструменты",
+            "aboutUs": "О нас",
+            "contactUs": "Связаться с нами",
+            "supportTitle": "Поддержка",
+            "helpCenter": "Центр помощи",
+            "privacyPolicy": "Политика конфиденциальности",
+            "termsOfService": "Условия обслуживания",
+            "copyrightRights": "Авторские права",
+            "fastExperienceTitle": "Быстрый опыт",
+            "fastExperienceText": "Откройте любимые инструменты и начните создавать умный контент за считанные секунды.",
+            "statAi": "AI",
+            "statWriting": "Тексты",
+            "statAccessNumber": "24/7",
+            "statAccess": "Доступ",
+            "copyright": "© 2025 Фонд aiarabic — Все права защищены"
+        },
         "home": {
             "badge": "Каталог инструментов",
             "title": "Откройте AI-инструменты для продуктивной работы",

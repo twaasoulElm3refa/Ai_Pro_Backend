@@ -1,5 +1,25 @@
+<script setup>
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+
+const { t, locale } = useI18n();
+
+const footerDir = computed(() => (locale.value === "ar" ? "rtl" : "ltr"));
+
+const localePrefix = computed(() => `/${locale.value || "en"}`);
+
+const localizedPath = (path = "") => {
+    const cleanPath = path ? `/${path.replace(/^\/+/, "")}` : "";
+    return `${localePrefix.value}${cleanPath}`;
+};
+
+const ctaIconClass = computed(() =>
+    footerDir.value === "rtl" ? "bi bi-arrow-left-short" : "bi bi-arrow-right-short"
+);
+</script>
+
 <template>
-    <footer class="site-footer" dir="rtl">
+    <footer class="site-footer" :dir="footerDir">
         <div class="footer-bg-glow footer-glow-one"></div>
         <div class="footer-bg-glow footer-glow-two"></div>
 
@@ -12,7 +32,7 @@
                         <div class="brand-mark">
                             <img
                                 src="/images/Ai_logo.png"
-                                alt="AiPro Logo"
+                                :alt="t('user.footer.logoAlt')"
                                 width="54"
                                 height="54"
                                 loading="lazy"
@@ -21,9 +41,9 @@
                         </div>
 
                         <div>
-                            <p class="brand-title">AiPro</p>
+                            <p class="brand-title">{{ t("user.footer.brandTitle") }}</p>
                             <p class="brand-copy">
-                                أدوات ذكاء اصطناعي تساعدك على الكتابة، التلخيص، والتحرير بسرعة واحترافية.
+                                {{ t("user.footer.brandCopy") }}
                             </p>
                         </div>
                     </div>
@@ -31,12 +51,12 @@
                     <div class="footer-cta">
                         <span class="footer-cta-badge">
                             <i class="bi bi-stars"></i>
-                            AI Tools
+                            {{ t("user.footer.ctaBadge") }}
                         </span>
 
-                        <router-link to="/en" class="footer-cta-btn">
-                            ابدأ الآن
-                            <i class="bi bi-arrow-left-short"></i>
+                        <router-link :to="localizedPath()" class="footer-cta-btn">
+                            {{ t("user.footer.ctaButton") }}
+                            <i :class="ctaIconClass"></i>
                         </router-link>
                     </div>
                 </div>
@@ -44,89 +64,89 @@
                 <!-- LINKS -->
                 <div class="footer-grid">
                     <div class="footer-col">
-                        <h3>المنصة</h3>
+                        <h3>{{ t("user.footer.platformTitle") }}</h3>
 
                         <ul>
                             <li>
-                                <router-link to="/en">
+                                <router-link :to="localizedPath()">
                                     <i class="bi bi-house"></i>
-                                    الرئيسية
+                                    {{ t("user.footer.home") }}
                                 </router-link>
                             </li>
 
                             <li>
-                                <router-link to="/en/products">
+                                <router-link :to="localizedPath('products')">
                                     <i class="bi bi-grid"></i>
-                                    جميع الأدوات
+                                    {{ t("user.footer.allTools") }}
                                 </router-link>
                             </li>
 
                             <li>
-                                <router-link to="/en/who">
+                                <router-link :to="localizedPath('who')">
                                     <i class="bi bi-info-circle"></i>
-                                    من نحن
+                                    {{ t("user.footer.aboutUs") }}
                                 </router-link>
                             </li>
 
                             <li>
-                                <router-link to="/en/contact">
+                                <router-link :to="localizedPath('contact')">
                                     <i class="bi bi-envelope"></i>
-                                    تواصل معنا
+                                    {{ t("user.footer.contactUs") }}
                                 </router-link>
                             </li>
                         </ul>
                     </div>
 
                     <div class="footer-col">
-                        <h3>الدعم</h3>
+                        <h3>{{ t("user.footer.supportTitle") }}</h3>
 
                         <ul>
                             <li>
                                 <a href="#">
                                     <i class="bi bi-question-circle"></i>
-                                    مركز المساعدة
+                                    {{ t("user.footer.helpCenter") }}
                                 </a>
                             </li>
 
                             <li>
                                 <a href="#">
                                     <i class="bi bi-shield-check"></i>
-                                    سياسة الخصوصية
+                                    {{ t("user.footer.privacyPolicy") }}
                                 </a>
                             </li>
 
                             <li>
                                 <a href="#">
                                     <i class="bi bi-file-earmark-text"></i>
-                                    شروط الخدمة
+                                    {{ t("user.footer.termsOfService") }}
                                 </a>
                             </li>
 
                             <li>
                                 <a href="#">
                                     <i class="bi bi-c-circle"></i>
-                                    حقوق الملكية
+                                    {{ t("user.footer.copyrightRights") }}
                                 </a>
                             </li>
                         </ul>
                     </div>
 
                     <div class="footer-col footer-highlight">
-                        <h3>تجربة أسرع</h3>
+                        <h3>{{ t("user.footer.fastExperienceTitle") }}</h3>
 
                         <p>
-                            افتح أدواتك المفضلة وابدأ بإنشاء محتوى ذكي خلال ثوانٍ.
+                            {{ t("user.footer.fastExperienceText") }}
                         </p>
 
                         <div class="footer-mini-stats">
                             <div>
-                                <strong>AI</strong>
-                                <span>Writing</span>
+                                <strong>{{ t("user.footer.statAi") }}</strong>
+                                <span>{{ t("user.footer.statWriting") }}</span>
                             </div>
 
                             <div>
-                                <strong>24/7</strong>
-                                <span>Access</span>
+                                <strong>{{ t("user.footer.statAccessNumber") }}</strong>
+                                <span>{{ t("user.footer.statAccess") }}</span>
                             </div>
                         </div>
                     </div>
@@ -135,13 +155,13 @@
                 <!-- BOTTOM -->
                 <div class="footer-bottom">
                     <p class="copyright">
-                        © 2025 مؤسسة aiarabic - جميع الحقوق محفوظة
+                        {{ t("user.footer.copyright") }}
                     </p>
 
                     <div class="legal-links">
-                        <a href="#">سياسة الخصوصية</a>
-                        <a href="#">شروط الخدمة</a>
-                        <a href="#">حقوق الملكية</a>
+                        <a href="#">{{ t("user.footer.privacyPolicy") }}</a>
+                        <a href="#">{{ t("user.footer.termsOfService") }}</a>
+                        <a href="#">{{ t("user.footer.copyrightRights") }}</a>
                     </div>
                 </div>
 
@@ -149,9 +169,6 @@
         </div>
     </footer>
 </template>
-
-<script setup>
-</script>
 
 <style scoped>
 .site-footer {
@@ -394,9 +411,14 @@
         color 0.2s ease;
 }
 
-.footer-col ul li a:hover {
+.site-footer[dir="rtl"] .footer-col ul li a:hover {
     color: #154677;
     transform: translateX(-3px);
+}
+
+.site-footer[dir="ltr"] .footer-col ul li a:hover {
+    color: #154677;
+    transform: translateX(3px);
 }
 
 .footer-col ul li a:hover i {
