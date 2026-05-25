@@ -157,6 +157,16 @@ class MessageController extends Controller
             $normalized['idempotency_key'] = (string) Str::uuid();
         }
 
+        $requestState = is_array($normalized['state'] ?? null) ? $normalized['state'] : null;
+
+        if ($requestState !== null) {
+            $normalized['metadata'] = [
+                'state' => $requestState,
+                'sub_tool_id' => (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0),
+                'conversation_uuid' => $conversation->uuid,
+            ];
+        }
+
         $taskOptions = $this->normalizeTaskOptions($normalized['task_options'] ?? null);
         $userWordsCount = $this->countWords($normalized['content']);
         $aiWordsCount = null;
@@ -232,7 +242,7 @@ class MessageController extends Controller
             $userMessage->loadMissing('conversation');
             $this->messageCache->updateAfterMessage($userMessage);
             $this->clearCache($userId);
-            $this->dispatchAssistantReplyIfNeeded($userMessage, $taskOptions);
+            $this->dispatchAssistantReplyIfNeeded($userMessage, $taskOptions, $requestState);
         }
 
         return $this->success([
@@ -551,6 +561,24 @@ class MessageController extends Controller
         string $content,
         int $userId
     ) {
+        $requestState = $this->normalizeParaphraserState($data['state'] ?? null);
+        $lastKnownState = $this->resolveLatestParaphraserState($conversation);
+        $mergedState = $this->mergeParaphraserState($lastKnownState, $requestState);
+
+        if (($mergedState['content'] ?? null) === null) {
+            $mergedState['content'] = $this->toNullableString($content);
+        }
+
+        $mergedState = $this->normalizeParaphraserState($mergedState);
+
+        Log::info('Paraphraser request state received in controller.', [
+            'conversation_id' => $conversation->id,
+            'conversation_uuid' => $conversation->uuid,
+            'user_id' => $userId,
+            'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+            'state' => $mergedState,
+        ]);
+
         $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
         if ($idempotencyKey === '') {
             $idempotencyKey = (string) Str::uuid();
@@ -559,14 +587,28 @@ class MessageController extends Controller
         $lockKey = $this->requestLockKey($userId, (int) $conversation->id, $idempotencyKey);
         $lock = Cache::lock($lockKey, 15);
 
-        $processed = $lock->block(5, function () use ($conversation, $content, $idempotencyKey) {
-            return DB::transaction(function () use ($conversation, $content, $idempotencyKey) {
+        $processed = $lock->block(5, function () use ($conversation, $content, $idempotencyKey, $mergedState) {
+            return DB::transaction(function () use ($conversation, $content, $idempotencyKey, $mergedState) {
                 $existingByKey = Message::where('conversation_id', $conversation->id)
                     ->where('role', 'user')
                     ->where('idempotency_key', $idempotencyKey)
                     ->first();
 
                 if ($existingByKey) {
+                    $existingMetadata = is_array($existingByKey->metadata ?? null) ? $existingByKey->metadata : [];
+                    $existingMetadata['state'] = $this->mergeParaphraserState(
+                        $this->normalizeParaphraserState($existingMetadata['state'] ?? []),
+                        $mergedState
+                    );
+                    $existingMetadata['type'] = 'paraphraser_request';
+                    $existingMetadata['tool'] = self::PARAPHRASER_TOOL_KEY;
+                    $existingMetadata['sub_tool_id'] = self::PARAPHRASER_SUB_TOOL_ID;
+                    $existingMetadata['conversation_uuid'] = $conversation->uuid;
+                    $existingMetadata['source_content'] = $this->toNullableString($existingMetadata['state']['content'] ?? null);
+                    $existingMetadata['user_instruction'] = $this->toNullableString($content);
+                    $existingByKey->metadata = $existingMetadata;
+                    $existingByKey->save();
+
                     return [$existingByKey, false];
                 }
 
@@ -578,10 +620,24 @@ class MessageController extends Controller
                     ->first();
 
                 if ($existingRecentDuplicate) {
+                    $existingMetadata = is_array($existingRecentDuplicate->metadata ?? null) ? $existingRecentDuplicate->metadata : [];
+                    $existingMetadata['state'] = $this->mergeParaphraserState(
+                        $this->normalizeParaphraserState($existingMetadata['state'] ?? []),
+                        $mergedState
+                    );
+                    $existingMetadata['type'] = 'paraphraser_request';
+                    $existingMetadata['tool'] = self::PARAPHRASER_TOOL_KEY;
+                    $existingMetadata['sub_tool_id'] = self::PARAPHRASER_SUB_TOOL_ID;
+                    $existingMetadata['conversation_uuid'] = $conversation->uuid;
+                    $existingMetadata['source_content'] = $this->toNullableString($existingMetadata['state']['content'] ?? null);
+                    $existingMetadata['user_instruction'] = $this->toNullableString($content);
+
                     if (empty($existingRecentDuplicate->idempotency_key)) {
                         $existingRecentDuplicate->idempotency_key = $idempotencyKey;
-                        $existingRecentDuplicate->save();
                     }
+
+                    $existingRecentDuplicate->metadata = $existingMetadata;
+                    $existingRecentDuplicate->save();
 
                     return [$existingRecentDuplicate, false];
                 }
@@ -596,6 +652,9 @@ class MessageController extends Controller
                         'tool' => self::PARAPHRASER_TOOL_KEY,
                         'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
                         'conversation_uuid' => $conversation->uuid,
+                        'state' => $mergedState,
+                        'source_content' => $this->toNullableString($mergedState['content'] ?? null),
+                        'user_instruction' => $this->toNullableString($content),
                     ],
                 ]);
 
@@ -641,13 +700,32 @@ class MessageController extends Controller
             return $this->error('Paraphraser endpoint is not configured.');
         }
 
+        $sourceContent = $this->toNullableString($mergedState['content'] ?? null) ?? $content;
+        $composedUserMessage = $this->buildParaphraserInstructionMessage($conversation, $content, $mergedState);
+
         $payload = [
             'user_id' => $userId,
             'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
             'conversation_uuid' => $conversation->uuid,
-            'user_message' => $content,
+            'user_message' => $composedUserMessage,
+            'content' => $sourceContent,
+            'language' => $mergedState['language'],
+            'tone' => $mergedState['tone'],
+            'rewrite_mode' => $mergedState['rewrite_mode'],
+            'change_level' => $mergedState['change_level'],
+            'results_count' => $mergedState['results_count'],
+            'extra_options' => $mergedState['extra_options'],
+            'state' => $mergedState,
             'debug' => (bool) ($data['debug'] ?? false),
         ];
+
+        Log::info('Paraphraser state passed to provider payload.', [
+            'conversation_id' => $conversation->id,
+            'conversation_uuid' => $conversation->uuid,
+            'user_id' => $userId,
+            'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+            'state' => $mergedState,
+        ]);
 
         $providerResponse = $writerService->generateReplyWithUsage($payload, $endpoint);
         $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
@@ -696,6 +774,7 @@ class MessageController extends Controller
                 'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
                 'conversation_uuid' => $conversation->uuid,
                 'message' => $responseMessage,
+                'state' => $mergedState,
                 'results' => $results,
                 'count' => count($results),
                 'request_id' => $requestId,
@@ -756,6 +835,9 @@ class MessageController extends Controller
                     'provider' => $provider,
                     'model_key' => $modelKey,
                     'request_id' => $requestId,
+                    'state' => $mergedState,
+                    'source_content' => $sourceContent,
+                    'user_instruction' => $this->toNullableString($content),
                     'results' => $results,
                     'message' => $responseMessage,
                     'count' => count($results),
@@ -801,6 +883,7 @@ class MessageController extends Controller
             'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
             'conversation_uuid' => $conversation->uuid,
             'message' => $responseMessage,
+            'state' => $mergedState,
             'results' => $results,
             'count' => count($results),
             'request_id' => $requestId,
@@ -843,6 +926,7 @@ class MessageController extends Controller
             'user_id' => $userId,
             'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
             'conversation_uuid' => $conversation->uuid,
+            'state' => $this->normalizeParaphraserState($metadata['state'] ?? []),
             'message' => $this->toNullableString($metadata['message'] ?? null) ?? 'تمت إعادة صياغة النص بنجاح.',
             'results' => $results,
             'count' => (int) ($metadata['count'] ?? count($results)),
@@ -856,6 +940,149 @@ class MessageController extends Controller
             ],
             'assistant_message_id' => $assistantMessage->id,
         ];
+    }
+
+    protected function resolveLatestParaphraserState(Conversation $conversation): array
+    {
+        $latestStateMessage = Message::where('conversation_id', $conversation->id)
+            ->whereIn('role', ['user', 'assistant'])
+            ->whereNotNull('metadata')
+            ->orderByDesc('id')
+            ->get()
+            ->first(function (Message $message): bool {
+                $metadata = is_array($message->metadata ?? null) ? $message->metadata : [];
+                $toolKey = strtolower((string) ($metadata['tool'] ?? ''));
+                $subToolId = (int) ($metadata['sub_tool_id'] ?? 0);
+
+                return (
+                    $toolKey === self::PARAPHRASER_TOOL_KEY
+                    || $subToolId === self::PARAPHRASER_SUB_TOOL_ID
+                )
+                && is_array($metadata['state'] ?? null);
+            });
+
+        if (! $latestStateMessage) {
+            return $this->normalizeParaphraserState([]);
+        }
+
+        $metadata = is_array($latestStateMessage->metadata ?? null) ? $latestStateMessage->metadata : [];
+
+        return $this->normalizeParaphraserState($metadata['state'] ?? []);
+    }
+
+    protected function normalizeParaphraserState(mixed $state): array
+    {
+        $state = is_array($state) ? $state : [];
+
+        $base = [
+            'content' => null,
+            'language' => null,
+            'tone' => null,
+            'rewrite_mode' => null,
+            'change_level' => null,
+            'results_count' => null,
+            'extra_options' => [],
+        ];
+
+        $merged = array_merge($base, $state);
+        $merged['content'] = $this->toNullableString($merged['content'] ?? null);
+        $merged['language'] = $this->toNullableString($merged['language'] ?? null);
+        $merged['tone'] = $this->toNullableString($merged['tone'] ?? null);
+        $merged['rewrite_mode'] = $this->toNullableString($merged['rewrite_mode'] ?? null);
+        $merged['change_level'] = $this->toNullableString($merged['change_level'] ?? null);
+
+        $resultsCount = $merged['results_count'] ?? null;
+        $merged['results_count'] = is_numeric($resultsCount)
+            ? max(1, min(20, (int) $resultsCount))
+            : null;
+
+        $extraOptions = $merged['extra_options'] ?? [];
+        if (! is_array($extraOptions)) {
+            $extraOptions = [];
+        }
+
+        $merged['extra_options'] = collect($extraOptions)
+            ->map(fn ($item) => $this->toNullableString($item))
+            ->filter()
+            ->values()
+            ->all();
+
+        return $merged;
+    }
+
+    protected function mergeParaphraserState(array $oldState, array $newState): array
+    {
+        $merged = $this->normalizeParaphraserState($oldState);
+        $incoming = $this->normalizeParaphraserState($newState);
+
+        foreach ($incoming as $key => $value) {
+            if ($key === 'extra_options') {
+                if (is_array($value) && count($value) > 0) {
+                    $merged[$key] = $value;
+                }
+
+                continue;
+            }
+
+            if ($value !== null && $value !== '') {
+                $merged[$key] = $value;
+            }
+        }
+
+        return $this->normalizeParaphraserState($merged);
+    }
+
+    protected function buildParaphraserInstructionMessage(
+        Conversation $conversation,
+        string $userInstruction,
+        array $state
+    ): string {
+        $state = $this->normalizeParaphraserState($state);
+        $sourceContent = $this->toNullableString($state['content'] ?? null) ?? trim($userInstruction);
+        $instructionText = trim($userInstruction);
+
+        $latestAssistant = Message::where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->orderByDesc('id')
+            ->first();
+        $latestAssistantText = $latestAssistant ? trim((string) $latestAssistant->content) : '';
+
+        if ($instructionText === '' || $instructionText === $sourceContent) {
+            return $sourceContent;
+        }
+
+        $settingsLines = array_filter([
+            $state['language'] ? 'language: '.$state['language'] : null,
+            $state['tone'] ? 'tone: '.$state['tone'] : null,
+            $state['rewrite_mode'] ? 'rewrite_mode: '.$state['rewrite_mode'] : null,
+            $state['change_level'] ? 'change_level: '.$state['change_level'] : null,
+            $state['results_count'] ? 'results_count: '.$state['results_count'] : null,
+            count($state['extra_options']) > 0 ? 'extra_options: '.implode(', ', $state['extra_options']) : null,
+        ]);
+
+        $sections = [
+            'Original text:',
+            $sourceContent,
+            '',
+            'User edit instruction:',
+            $instructionText,
+        ];
+
+        if ($latestAssistantText !== '') {
+            $sections[] = '';
+            $sections[] = 'Previous paraphraser output context:';
+            $sections[] = mb_substr($latestAssistantText, 0, 1200);
+        }
+
+        if (count($settingsLines) > 0) {
+            $sections[] = '';
+            $sections[] = 'Paraphraser settings:';
+            foreach ($settingsLines as $line) {
+                $sections[] = '- '.$line;
+            }
+        }
+
+        return implode("\n", $sections);
     }
 
     protected function normalizeParaphraserResults(mixed $results): array
@@ -1192,7 +1419,11 @@ class MessageController extends Controller
         }
     }
 
-    protected function dispatchAssistantReplyIfNeeded(Message $userMessage, ?array $taskOptions = null): void
+    protected function dispatchAssistantReplyIfNeeded(
+        Message $userMessage,
+        ?array $taskOptions = null,
+        ?array $state = null
+    ): void
     {
         $assistantExists = Message::where('role', 'assistant')
             ->where('reply_to_message_id', $userMessage->id)
@@ -1208,7 +1439,17 @@ class MessageController extends Controller
             return;
         }
 
-        GenerateAssistantReplyJob::dispatch($userMessage->id, $taskOptions)->afterResponse();
+        if ((int) ($userMessage->conversation?->sub_tool_id ?? 0) === self::PARAPHRASER_SUB_TOOL_ID) {
+            Log::info('Paraphraser state passed to GenerateAssistantReplyJob dispatch.', [
+                'message_id' => $userMessage->id,
+                'conversation_id' => $userMessage->conversation_id,
+                'conversation_uuid' => $userMessage->conversation?->uuid,
+                'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
+                'state' => $state,
+            ]);
+        }
+
+        GenerateAssistantReplyJob::dispatch($userMessage->id, $taskOptions, $state)->afterResponse();
     }
 
     protected function requestLockKey(int $userId, int $conversationId, string $idempotencyKey): string

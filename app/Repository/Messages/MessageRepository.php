@@ -15,6 +15,7 @@ class MessageRepository implements MessageInterface
             $role = (string) ($data['role'] ?? 'user');
             $content = trim((string) ($data['content'] ?? ''));
             $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
+            $metadata = is_array($data['metadata'] ?? null) ? $data['metadata'] : null;
 
             if ($conversationId <= 0 || $content === '') {
                 return null;
@@ -39,6 +40,11 @@ class MessageRepository implements MessageInterface
                     ->first();
 
                 if ($existingByKey) {
+                    if ($metadata !== null && ! is_array($existingByKey->metadata ?? null)) {
+                        $existingByKey->metadata = $metadata;
+                        $existingByKey->save();
+                    }
+
                     return $existingByKey;
                 }
 
@@ -56,6 +62,13 @@ class MessageRepository implements MessageInterface
                 if ($existingRecentDuplicate) {
                     if (empty($existingRecentDuplicate->idempotency_key)) {
                         $existingRecentDuplicate->idempotency_key = $idempotencyKey;
+                    }
+
+                    if ($metadata !== null && ! is_array($existingRecentDuplicate->metadata ?? null)) {
+                        $existingRecentDuplicate->metadata = $metadata;
+                    }
+
+                    if ($existingRecentDuplicate->isDirty(['idempotency_key', 'metadata'])) {
                         $existingRecentDuplicate->save();
                     }
 
@@ -69,6 +82,7 @@ class MessageRepository implements MessageInterface
                     'idempotency_key' => $idempotencyKey,
                     'is_error' => false,
                     'reply_to_message_id' => null,
+                    'metadata' => $metadata,
                 ]);
             }
 

@@ -678,6 +678,18 @@ const getInitialHeadlineState = () => ({
 
 const headlineState = ref(getInitialHeadlineState());
 
+const getInitialParaphraserState = () => ({
+    content: null,
+    language: null,
+    tone: null,
+    rewrite_mode: null,
+    change_level: null,
+    results_count: null,
+    extra_options: [],
+});
+
+const paraphraserState = ref(getInitialParaphraserState());
+
 const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
 );
@@ -768,6 +780,79 @@ const mergeHeadlineState = (oldState = {}, newState = {}) => {
     });
 
     return merged;
+};
+
+const normalizeParaphraserState = (state = {}) => {
+    const base = getInitialParaphraserState();
+    const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
+    const merged = { ...base, ...candidate };
+
+    merged.content = merged.content === null || merged.content === undefined
+        ? null
+        : String(merged.content).trim() || null;
+    merged.language = merged.language === null || merged.language === undefined
+        ? null
+        : String(merged.language).trim() || null;
+    merged.tone = merged.tone === null || merged.tone === undefined
+        ? null
+        : String(merged.tone).trim() || null;
+    merged.rewrite_mode = merged.rewrite_mode === null || merged.rewrite_mode === undefined
+        ? null
+        : String(merged.rewrite_mode).trim() || null;
+    merged.change_level = merged.change_level === null || merged.change_level === undefined
+        ? null
+        : String(merged.change_level).trim() || null;
+
+    const count = Number(merged.results_count);
+    merged.results_count = Number.isFinite(count) && count > 0 ? Math.floor(count) : null;
+
+    const options = Array.isArray(merged.extra_options) ? merged.extra_options : [];
+    merged.extra_options = options
+        .map((item) => String(item || "").trim())
+        .filter(Boolean);
+
+    return merged;
+};
+
+const hasParaphraserStateValue = (state = {}) => {
+    const normalized = normalizeParaphraserState(state);
+
+    return Boolean(
+        normalized.content
+        || normalized.language
+        || normalized.tone
+        || normalized.rewrite_mode
+        || normalized.change_level
+        || normalized.results_count
+        || (Array.isArray(normalized.extra_options) && normalized.extra_options.length > 0)
+    );
+};
+
+const mergeParaphraserState = (oldState = {}, newState = {}) => {
+    const merged = normalizeParaphraserState(oldState);
+    const incoming = normalizeParaphraserState(newState);
+
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (key === "extra_options") {
+            if (Array.isArray(value) && value.length > 0) {
+                merged[key] = value;
+            }
+            return;
+        }
+
+        if (key === "results_count") {
+            if (Number.isFinite(Number(value)) && Number(value) > 0) {
+                merged[key] = Number(value);
+            }
+            return;
+        }
+
+        if (value !== null && value !== undefined && String(value).trim() !== "") {
+            merged[key] = value;
+        }
+    });
+
+    return normalizeParaphraserState(merged);
 };
 
 const buildHeadlineStateSummary = (state = {}) => {
@@ -952,6 +1037,120 @@ const resetHeadlineState = (conversationUuid = "") => {
     clearHeadlineStateFromSession(conversationUuid);
 };
 
+const paraphraserStateStorageKey = (conversationUuid = "") =>
+    `paraphraser_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}`;
+
+const saveParaphraserStateToSession = (conversationUuid, state) => {
+    const key = paraphraserStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.setItem(key, JSON.stringify(normalizeParaphraserState(state)));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const readParaphraserStateFromSession = (conversationUuid) => {
+    const key = paraphraserStateStorageKey(conversationUuid);
+
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+        return normalizeParaphraserState(parsed);
+    } catch {
+        return null;
+    }
+};
+
+const clearParaphraserStateFromSession = (conversationUuid) => {
+    const key = paraphraserStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.removeItem(key);
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetParaphraserState = (conversationUuid = "") => {
+    paraphraserState.value = getInitialParaphraserState();
+    clearParaphraserStateFromSession(conversationUuid);
+};
+
+const extractParaphraserStateFromMessages = (rows = [], conversationUuid = "") => {
+    if (Array.isArray(rows) && rows.length > 0) {
+        const reversed = [...rows].reverse();
+
+        for (const message of reversed) {
+            const metadata = message?.metadata && typeof message.metadata === "object"
+                ? message.metadata
+                : null;
+            const stateCandidate = metadata?.state && typeof metadata.state === "object"
+                ? metadata.state
+                : null;
+            const subToolId = Number(
+                metadata?.sub_tool_id
+                || message?.sub_tool_id
+                || message?.subToolId
+                || 0
+            );
+            const toolKey = String(metadata?.tool || "").toLowerCase();
+
+            if (
+                stateCandidate
+                && (subToolId === PARAPHRASER_SUB_TOOL_ID || toolKey === PARAPHRASER_TOOL_KEY)
+            ) {
+                const resolved = normalizeParaphraserState(stateCandidate);
+                saveParaphraserStateToSession(conversationUuid, resolved);
+                return resolved;
+            }
+        }
+    }
+
+    const stored = readParaphraserStateFromSession(conversationUuid);
+    if (stored) {
+        return stored;
+    }
+
+    return getInitialParaphraserState();
+};
+
+const hydrateParaphraserStateFromMessages = (rows = []) => {
+    if (!isParaphraserTool.value) {
+        resetParaphraserState();
+        return;
+    }
+
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    paraphraserState.value = extractParaphraserStateFromMessages(rows, conversationUuid);
+};
+
+const resolveParaphraserStateForSubmit = (conversationUuid = "", inputText = "") => {
+    let resolved = normalizeParaphraserState(paraphraserState.value);
+
+    if (!hasParaphraserStateValue(resolved)) {
+        const latestKnown = extractParaphraserStateFromMessages(messages.value, conversationUuid);
+        resolved = mergeParaphraserState(latestKnown, resolved);
+    }
+
+    if (!resolved.content && String(inputText || "").trim()) {
+        resolved.content = String(inputText).trim();
+    }
+
+    resolved = normalizeParaphraserState(resolved);
+    paraphraserState.value = resolved;
+
+    if (conversationUuid) {
+        saveParaphraserStateToSession(conversationUuid, resolved);
+    }
+
+    return resolved;
+};
+
 const extractHeadlineStateFromMessages = (rows = [], conversationUuid = "") => {
     if (!Array.isArray(rows) || !rows.length) {
         const stored = readHeadlineStateFromSession(conversationUuid);
@@ -1086,6 +1285,9 @@ const normalizeParaphraserApiResponse = (response = {}) => {
         message: String(payload?.message || ""),
         results,
         outputText,
+        state: payload?.state && typeof payload.state === "object"
+            ? normalizeParaphraserState(payload.state)
+            : null,
     };
 };
 
@@ -1287,12 +1489,16 @@ const handleParaphraserSubmit = async (text) => {
         return;
     }
 
+    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    const localParaphraserState = resolveParaphraserStateForSubmit(currentConversationUuid, inputText);
+
     await addUserLocalMessage(inputText, {
         sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
         metadata: {
             type: "user_input",
             tool: PARAPHRASER_TOOL_KEY,
             sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+            state: localParaphraserState,
         },
     });
 
@@ -1319,6 +1525,7 @@ const handleParaphraserSubmit = async (text) => {
     const typingId = addAssistantTypingMessage();
 
     try {
+        const resolvedParaphraserState = resolveParaphraserStateForSubmit(conversation.uuid, inputText);
         const payload = {
             content: inputText,
             user_message: inputText,
@@ -1328,6 +1535,7 @@ const handleParaphraserSubmit = async (text) => {
             role: "user",
             idempotency_key: idempotencyKey,
             tool: PARAPHRASER_TOOL_KEY,
+            state: resolvedParaphraserState,
         };
 
         const response = await chatServices.sendMessage(payload);
@@ -1343,6 +1551,11 @@ const handleParaphraserSubmit = async (text) => {
         const results = apiResponse?.results || [];
         const outputText = results.length ? results.map((r) => r.text).join("\n\n") : apiResponse?.message || "";
 
+        if (apiResponse.state) {
+            paraphraserState.value = mergeParaphraserState(paraphraserState.value, apiResponse.state);
+            saveParaphraserStateToSession(conversation.uuid, paraphraserState.value);
+        }
+
         if (apiResponse.success === false) {
             await addAssistantLocalMessage(
                 String(apiResponse.message || "فشل تنفيذ إعادة الصياغة."),
@@ -1354,6 +1567,7 @@ const handleParaphraserSubmit = async (text) => {
                         type: "error",
                         tool: PARAPHRASER_TOOL_KEY,
                         sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+                        state: paraphraserState.value,
                     },
                 }
             );
@@ -1371,6 +1585,7 @@ const handleParaphraserSubmit = async (text) => {
                         tool: PARAPHRASER_TOOL_KEY,
                         sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
                         results,
+                        state: paraphraserState.value,
                     },
                 }
             );
@@ -1385,6 +1600,7 @@ const handleParaphraserSubmit = async (text) => {
                 tool: PARAPHRASER_TOOL_KEY,
                 sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
                 results,
+                state: paraphraserState.value,
             },
         });
 
@@ -1484,6 +1700,7 @@ const loadConversationDetails = async (uuid) => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         resetHeadlineState();
+        resetParaphraserState();
         return;
     }
 
@@ -1493,6 +1710,7 @@ const loadConversationDetails = async (uuid) => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         resetHeadlineState();
+        resetParaphraserState();
         return;
     }
 
@@ -1541,6 +1759,7 @@ const loadConversationDetails = async (uuid) => {
         clearLocalTypingMessages();
         messages.value = rows.map((message, index) => mapMessage(message, index));
         hydrateHeadlineStateFromMessages(rows);
+        hydrateParaphraserStateFromMessages(rows);
 
         resolveInsufficientPointsState(rows);
 
@@ -1557,6 +1776,7 @@ const syncRouteConversation = async () => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         resetHeadlineState();
+        resetParaphraserState();
         return;
     }
 
@@ -1602,6 +1822,7 @@ const startNewChat = async () => {
         insufficientPoints.value = false;
         sidebarOpen.value = false;
         resetHeadlineState();
+        resetParaphraserState();
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -1627,6 +1848,7 @@ const ensureConversation = async () => {
     activeConversation.value = conversation;
     insufficientPoints.value = false;
     resetHeadlineState();
+    resetParaphraserState();
 
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 
@@ -1777,6 +1999,7 @@ const removeConversation = async (conversation) => {
             messages.value = [];
             insufficientPoints.value = false;
             resetHeadlineState();
+            resetParaphraserState();
 
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }

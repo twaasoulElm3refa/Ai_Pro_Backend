@@ -103,6 +103,17 @@ class AIPayloadBuilder
         return $payload;
     }
 
+    public function withState(array $payload, ?array $state): array
+    {
+        if (! is_array($state) || empty($state)) {
+            return $payload;
+        }
+
+        $payload['state'] = $state;
+
+        return $payload;
+    }
+
     public function cleanContext(string $context): string
     {
         return collect(preg_split('/\R/u', $context) ?: [])

@@ -30,7 +30,11 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 300;
 
-    public function __construct(public int $userMessageId, public ?array $taskOptions = null) {}
+    public function __construct(
+        public int $userMessageId,
+        public ?array $taskOptions = null,
+        public ?array $state = null
+    ) {}
 
     public function uniqueId(): string
     {
@@ -152,8 +156,24 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $userTokenMultiplier = $this->tokenMultiplierByLanguage($userLanguage);
             $inputTokens = (int) ceil($userWordsCount * $userTokenMultiplier);
 
+            $userMessageMetadata = is_array($userMessage->metadata ?? null) ? $userMessage->metadata : [];
+            $jobState = is_array($this->state)
+                ? $this->state
+                : (is_array($userMessageMetadata['state'] ?? null) ? $userMessageMetadata['state'] : null);
+
+            if ((int) ($conversation->sub_tool_id ?? 0) === 3) {
+                Log::info('Paraphraser state passed to GenerateAssistantReplyJob.', [
+                    'user_message_id' => $this->userMessageId,
+                    'conversation_id' => $conversation->id,
+                    'conversation_uuid' => $conversation->uuid,
+                    'sub_tool_id' => (int) $conversation->sub_tool_id,
+                    'state' => $jobState,
+                ]);
+            }
+
             $payload = $payloadBuilder->build($conversation, $userMessage);
             $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
+            $payload = $payloadBuilder->withState($payload, $jobState);
 
             if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
                 $context = $this->qdrantContext($userMessage, $qdrantService);

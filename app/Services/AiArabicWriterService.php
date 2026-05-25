@@ -54,6 +54,15 @@ class AiArabicWriterService
             'payload' => $payload,
         ]);
 
+        if ((int) ($payload['sub_tool_id'] ?? 0) === 3) {
+            Log::info('Paraphraser state received by AI service.', [
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'sub_tool_id' => 3,
+                'state' => is_array($payload['state'] ?? null) ? $payload['state'] : null,
+            ]);
+        }
+
         try {
             $response = Http::timeout(300)
                 ->withHeaders([
