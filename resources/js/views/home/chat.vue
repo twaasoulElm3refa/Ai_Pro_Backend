@@ -1538,12 +1538,19 @@ const handleParaphraserSubmit = async (text) => {
             debug: false,
         };
 
-        if (import.meta.env.DEV) {
-            console.info("[chat][paraphraser] outgoing payload", {
-                conversation_uuid: payload.conversation_uuid,
-                sub_tool_id: payload.sub_tool_id,
-                state_keys: Object.keys(payload.state || {}),
-                has_content: Boolean(payload.state?.content),
+        if (Number(payload.sub_tool_id) === PARAPHRASER_SUB_TOOL_ID && import.meta.env.DEV) {
+            console.info("[Paraphraser] outgoing payload:", {
+                ...payload,
+                content: payload.content
+                    ? "[content hidden in console, see content_preview/content_length]"
+                    : payload.content,
+                user_message: payload.user_message
+                    ? "[user_message hidden in console, see user_message_preview/user_message_length]"
+                    : payload.user_message,
+                content_preview: String(payload.content || payload.user_message || "").slice(0, 300),
+                content_length: String(payload.content || payload.user_message || "").length,
+                user_message_preview: String(payload.user_message || "").slice(0, 300),
+                user_message_length: String(payload.user_message || "").length,
             });
         }
 

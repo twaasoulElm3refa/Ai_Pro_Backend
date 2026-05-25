@@ -43,7 +43,8 @@ class AiArabicWriterService
             'base_url' => $this->url,
             'endpoint' => $endpoint,
             'target_url' => $targetUrl,
-            'payload' => $payload,
+            'payload_is_array' => is_array($payload),
+            'payload_keys' => array_keys($payload),
         ]);
         Log::info('AI model payload prepared', [
             'base_url' => $this->url,
@@ -51,15 +52,34 @@ class AiArabicWriterService
             'target_url' => $targetUrl,
             'payload_is_array' => is_array($payload),
             'payload_keys_count' => is_array($payload) ? count($payload) : 0,
-            'payload' => $payload,
+            'payload_keys' => is_array($payload) ? array_keys($payload) : [],
         ]);
 
         if ((int) ($payload['sub_tool_id'] ?? 0) === 3) {
-            Log::info('Paraphraser state received by AI service.', [
+            $rawContent = is_scalar($payload['content'] ?? null) ? (string) $payload['content'] : '';
+            $rawUserMessage = is_scalar($payload['user_message'] ?? null) ? (string) $payload['user_message'] : '';
+            $contentPreviewSource = $rawContent !== '' ? $rawContent : $rawUserMessage;
+
+            $payloadWithoutLargeContent = $payload;
+            if (array_key_exists('content', $payloadWithoutLargeContent)) {
+                $payloadWithoutLargeContent['content'] = '[content hidden in log, see content_preview/content_length]';
+            }
+            if (array_key_exists('user_message', $payloadWithoutLargeContent)) {
+                $payloadWithoutLargeContent['user_message'] = '[user_message hidden in log, see user_message_preview/user_message_length]';
+            }
+
+            Log::info('Paraphraser final AI payload', [
                 'endpoint' => $endpoint,
                 'target_url' => $targetUrl,
                 'sub_tool_id' => 3,
+                'conversation_uuid' => $payload['conversation_uuid'] ?? null,
+                'user_id' => $payload['user_id'] ?? null,
                 'state' => is_array($payload['state'] ?? null) ? $payload['state'] : null,
+                'content_preview' => $contentPreviewSource !== '' ? mb_substr($contentPreviewSource, 0, 300) : null,
+                'content_length' => $contentPreviewSource !== '' ? mb_strlen($contentPreviewSource) : 0,
+                'user_message_preview' => $rawUserMessage !== '' ? mb_substr($rawUserMessage, 0, 300) : null,
+                'user_message_length' => $rawUserMessage !== '' ? mb_strlen($rawUserMessage) : 0,
+                'final_payload' => $payloadWithoutLargeContent,
             ]);
         }
 
