@@ -96,17 +96,20 @@
                         </div>
                     </div>
 
-                    <button class="nb-wallet-btn" type="button" @click="goToWallet" :title="t('navbar.wallet')">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <rect x="2" y="6" width="20" height="14" rx="3" stroke="white" stroke-width="1.6" />
-                            <path d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z" fill="white" />
-                            <path d="M2 10h20" stroke="white" stroke-width="1.6" />
-                        </svg>
 
-                        <span v-if="WalletBalance !== null" class="nb-badge">
-                            {{ WalletBalance }}
-                        </span>
-                    </button>
+                    <template v-if="isLoggedIn">
+                        <button class="nb-wallet-btn" type="button" @click="goToWallet" :title="t('navbar.wallet')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <rect x="2" y="6" width="20" height="14" rx="3" stroke="white" stroke-width="1.6" />
+                                <path d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z" fill="white" />
+                                <path d="M2 10h20" stroke="white" stroke-width="1.6" />
+                            </svg>
+
+                            <span v-if="WalletBalance !== null" class="nb-badge">
+                                {{ WalletBalance }}
+                            </span>
+                        </button>
+                    </template>
 
                     <template v-if="isLoggedIn">
                         <div class="nb-user-btn" @click.stop="toggleDropdown">
