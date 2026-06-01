@@ -203,7 +203,18 @@ const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
 );
 
-const isAuthenticated = computed(() => Boolean(localStorage.getItem("auth_token")));
+const isAuthenticated = () => Boolean(localStorage.getItem("auth_token"));
+
+const redirectToAuth = async () => {
+    const lang = localStorage.getItem("lang") || "en";
+    await router.push(`/${lang}/auth`);
+};
+
+const requireAuth = async () => {
+    if (isAuthenticated()) return true;
+    await redirectToAuth();
+    return false;
+};
 
 const toolLoading = ref(true);
 const loadingConversations = ref(true);
@@ -1348,6 +1359,10 @@ const handleHeadlineGeneratorSubmit = async (text) => {
         return;
     }
 
+    if (!(await requireAuth())) {
+        return;
+    }
+
     await addUserLocalMessage(inputText, {
         sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
         metadata: {
@@ -1484,6 +1499,10 @@ const handleParaphraserSubmit = async (text) => {
     const inputText = String(text || "").trim();
 
     if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return;
+    }
+
+    if (!(await requireAuth())) {
         return;
     }
 
@@ -1689,7 +1708,7 @@ const loadSubtool = async () => {
 };
 
 const loadConversations = async () => {
-    if (!isAuthenticated.value) {
+    if (!isAuthenticated()) {
         conversations.value = [];
         loadingConversations.value = false;
         insufficientPoints.value = false;
@@ -1710,7 +1729,7 @@ const loadConversations = async () => {
 const loadConversationDetails = async (uuid) => {
     clearLocalTypingMessages();
 
-    if (!isAuthenticated.value) {
+    if (!isAuthenticated()) {
         activeConversation.value = null;
         messages.value = [];
         conversationLimitExceeded.value = false;
@@ -1819,7 +1838,9 @@ const openConversation = async (conversation) => {
 };
 
 const startNewChat = async () => {
-    if (!isAuthenticated.value || creatingConversation.value) return;
+    if (creatingConversation.value) return;
+
+    if (!(await requireAuth())) return;
 
     creatingConversation.value = true;
 
@@ -1847,7 +1868,7 @@ const startNewChat = async () => {
 };
 
 const ensureConversation = async () => {
-    if (!isAuthenticated.value) return null;
+    if (!(await requireAuth())) return null;
 
     if (activeConversation.value?.id && activeConversation.value?.uuid) {
         return activeConversation.value;
@@ -1885,6 +1906,10 @@ const submitMessage = async () => {
     }
 
     if (!rawContent || sendingMessage.value || streamingAssistant.value) {
+        return;
+    }
+
+    if (!(await requireAuth())) {
         return;
     }
 
