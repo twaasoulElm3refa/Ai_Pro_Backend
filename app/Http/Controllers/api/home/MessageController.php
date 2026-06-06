@@ -581,6 +581,16 @@ class MessageController extends Controller
         $requestState = $this->normalizeSocialPostState($data['state'] ?? []);
         $latestState = $this->resolveLatestSocialPostState($conversation);
         $state = $this->mergeSocialPostState($latestState, $requestState);
+        $state = $this->enrichSocialPostStateFromMessage($state, $content);
+
+        Log::info('SocialPostGenerator request received', [
+            'user_id' => $userId,
+            'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => $content,
+            'request_state' => $requestState,
+            'state' => $state,
+        ]);
 
         $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
         if ($idempotencyKey === '') {
@@ -680,6 +690,18 @@ class MessageController extends Controller
             return $this->success($cached + ['was_created' => false], 'Social Post Response Ready.');
         }
 
+        $missingFields = $this->getMissingSocialPostFields($state);
+
+        if (count($missingFields) > 0) {
+            return $this->persistSocialPostQuestion(
+                $conversation,
+                $userMessage,
+                $state,
+                $userId,
+                $wasCreated
+            );
+        }
+
         $payload = [
             'user_id' => $userId,
             'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
@@ -694,21 +716,29 @@ class MessageController extends Controller
             'debug' => (bool) ($data['debug'] ?? false),
         ];
 
+        $providerError = null;
+
         try {
             $providerResponse = $writerService->generateReplyWithUsage(
                 $payload,
                 self::SOCIAL_POST_GENERATOR_ENDPOINT
             );
         } catch (Throwable $th) {
-            Log::error('Social post generator provider request failed.', [
-                'conversation_id' => $conversation->id,
-                'conversation_uuid' => $conversation->uuid,
-                'user_id' => $userId,
-                'error' => $th->getMessage(),
+            $providerError = $th;
+
+            Log::error('SocialPostGenerator failed', [
+                'message' => $th->getMessage(),
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+                'trace' => $th->getTraceAsString(),
             ]);
 
+            $errorMessage = ((bool) ($data['debug'] ?? false) || app()->environment('local'))
+                ? $th->getMessage()
+                : 'حدث خطأ أثناء توليد منشور السوشيال.';
+
             $providerResponse = [
-                'reply' => 'حدث خطأ أثناء توليد منشور السوشيال.',
+                'reply' => $errorMessage,
                 'provider' => 'openrouter',
                 'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
                 'raw' => [
@@ -717,7 +747,7 @@ class MessageController extends Controller
                     'tool' => self::SOCIAL_POST_GENERATOR_TOOL_KEY,
                     'provider' => 'openrouter',
                     'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
-                    'message' => 'حدث خطأ أثناء توليد منشور السوشيال.',
+                    'message' => $errorMessage,
                 ],
             ];
         }
@@ -782,7 +812,9 @@ class MessageController extends Controller
         $assistantContent = $type === 'result'
             ? $this->buildSocialPostOutputFromResults($results)
             : $responseMessage;
-        $tokensToDeduct = $this->getTokensToDeduct(['usage' => $usage]);
+        $tokensToDeduct = $type === 'result'
+            ? $this->getTokensToDeduct(['usage' => $usage])
+            : 0;
         $walletSnapshot = ['balance' => null, 'payback_balance' => null];
         $assistantMessage = null;
 
@@ -805,19 +837,30 @@ class MessageController extends Controller
             $responseMessage,
             $count,
             $userId,
+            $providerError,
             &$walletSnapshot,
             &$assistantMessage
         ): void {
-            $walletDetails = $this->deductWalletTokens(
-                $conversation->user,
-                $tokensToDeduct,
-                'social_post_generator_ai_usage'
-            );
+            if ($type === 'result') {
+                $walletDetails = $this->deductWalletTokens(
+                    $conversation->user,
+                    $tokensToDeduct,
+                    'social_post_generator_ai_usage'
+                );
 
-            $walletSnapshot = [
-                'balance' => $walletDetails['wallet_after'] ?? null,
-                'payback_balance' => $walletDetails['payback_after'] ?? null,
-            ];
+                $walletSnapshot = [
+                    'balance' => $walletDetails['wallet_after'] ?? null,
+                    'payback_balance' => $walletDetails['payback_after'] ?? null,
+                ];
+            } else {
+                $wallet = Wallet::where('user_id', $conversation->user_id)
+                    ->lockForUpdate()
+                    ->first();
+                $walletSnapshot = [
+                    'balance' => $wallet ? (int) $wallet->balance : null,
+                    'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
+                ];
+            }
 
             $assistantMessage = Message::create([
                 'conversation_id' => $conversation->id,
@@ -838,26 +881,29 @@ class MessageController extends Controller
                     'usage' => $usageMetadata,
                     'cost' => $costMetadata,
                     'tokens_deducted' => $tokensToDeduct,
+                    'debug_error' => $providerError?->getMessage(),
                     'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
                     'conversation_uuid' => $conversation->uuid,
                 ],
             ]);
 
-            CostLogger::create([
-                'conversation_id' => $conversation->id,
-                'user_id' => $userId,
-                'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
-                'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
-                'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
-                'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
-                'input_cost' => (float) ($cost['input_cost'] ?? 0),
-                'output_cost' => (float) ($cost['output_cost'] ?? 0),
-                'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
-                'total_cost' => (float) ($cost['total_cost'] ?? 0),
-                'currency' => (string) ($cost['currency'] ?? 'USD'),
-                'provider_request_id' => $requestId,
-                'model_key' => $modelKey,
-            ]);
+            if ($type === 'result') {
+                CostLogger::create([
+                    'conversation_id' => $conversation->id,
+                    'user_id' => $userId,
+                    'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                    'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
+                    'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                    'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
+                    'input_cost' => (float) ($cost['input_cost'] ?? 0),
+                    'output_cost' => (float) ($cost['output_cost'] ?? 0),
+                    'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
+                    'total_cost' => (float) ($cost['total_cost'] ?? 0),
+                    'currency' => (string) ($cost['currency'] ?? 'USD'),
+                    'provider_request_id' => $requestId,
+                    'model_key' => $modelKey,
+                ]);
+            }
         });
 
         if (! $assistantMessage) {
@@ -882,9 +928,94 @@ class MessageController extends Controller
             'results' => $results,
             'count' => $count,
             'request_id' => $requestId,
-            'debug' => null,
             'usage' => $usageMetadata,
             'cost' => $costMetadata,
+            'tokens_deducted' => $tokensToDeduct,
+            'debug' => (bool) ($data['debug'] ?? false) && $providerError
+                ? ['error' => $providerError->getMessage()]
+                : null,
+            'wallet' => $walletSnapshot,
+            'assistant_message_id' => $assistantMessage->id,
+            'was_created' => $wasCreated,
+        ], 'Social Post Response Ready.');
+    }
+
+    protected function persistSocialPostQuestion(
+        Conversation $conversation,
+        Message $userMessage,
+        array $state,
+        int $userId,
+        bool $wasCreated
+    ) {
+        $message = 'من فضلك أكمل البيانات المطلوبة لتوليد منشور السوشيال.';
+        $walletSnapshot = [
+            'balance' => null,
+            'payback_balance' => null,
+        ];
+
+        $assistantMessage = DB::transaction(function () use (
+            $conversation,
+            $userMessage,
+            $state,
+            $message,
+            &$walletSnapshot
+        ): Message {
+            $wallet = Wallet::where('user_id', $conversation->user_id)
+                ->lockForUpdate()
+                ->first();
+
+            $walletSnapshot = [
+                'balance' => $wallet ? (int) $wallet->balance : null,
+                'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
+            ];
+
+            return Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'content' => $message,
+                'is_error' => false,
+                'reply_to_message_id' => $userMessage->id,
+                'metadata' => [
+                    'type' => 'question',
+                    'tool' => self::SOCIAL_POST_GENERATOR_TOOL_KEY,
+                    'provider' => 'openrouter',
+                    'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
+                    'request_id' => null,
+                    'state' => $state,
+                    'results' => [],
+                    'message' => $message,
+                    'count' => 0,
+                    'usage' => null,
+                    'cost' => null,
+                    'tokens_deducted' => 0,
+                    'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                    'conversation_uuid' => $conversation->uuid,
+                ],
+            ]);
+        });
+
+        $assistantMessage->setRelation('conversation', $conversation);
+        $this->messageCache->updateAfterMessage($assistantMessage);
+        $this->clearCache($userId);
+
+        return $this->success([
+            'success' => true,
+            'type' => 'question',
+            'tool' => self::SOCIAL_POST_GENERATOR_TOOL_KEY,
+            'provider' => 'openrouter',
+            'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
+            'user_id' => $userId,
+            'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'message' => $message,
+            'state' => $state,
+            'results' => [],
+            'count' => 0,
+            'request_id' => null,
+            'debug' => null,
+            'usage' => null,
+            'cost' => null,
+            'tokens_deducted' => 0,
             'wallet' => $walletSnapshot,
             'assistant_message_id' => $assistantMessage->id,
             'was_created' => $wasCreated,
@@ -924,6 +1055,7 @@ class MessageController extends Controller
             'cost' => is_array($metadata['cost'] ?? null)
                 ? $this->normalizeCost($metadata['cost'])
                 : null,
+            'tokens_deducted' => (int) ($metadata['tokens_deducted'] ?? 0),
             'wallet' => [
                 'balance' => $wallet ? (int) $wallet->balance : null,
                 'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
@@ -985,9 +1117,13 @@ class MessageController extends Controller
         }
 
         $hashtagCount = $merged['hashtag_count'] ?? null;
-        $merged['hashtag_count'] = is_numeric($hashtagCount) && (int) $hashtagCount >= 0
-            ? min(30, (int) $hashtagCount)
-            : null;
+        if ($hashtagCount === null || $hashtagCount === '') {
+            $merged['hashtag_count'] = null;
+        } else {
+            $merged['hashtag_count'] = is_numeric($hashtagCount) && (int) $hashtagCount >= 0
+                ? min(30, (int) $hashtagCount)
+                : null;
+        }
 
         $includeEmojis = $merged['include_emojis'] ?? null;
         if (is_bool($includeEmojis)) {
@@ -1013,6 +1149,44 @@ class MessageController extends Controller
             ->all();
 
         return $merged;
+    }
+
+    protected function enrichSocialPostStateFromMessage(array $state, string $message): array
+    {
+        $state = $this->normalizeSocialPostState($state);
+        $message = trim($message);
+
+        if ($message === '') {
+            return $state;
+        }
+
+        if ($state['content'] === null) {
+            $state['content'] = $message;
+        }
+
+        if ($state['platform'] === null) {
+            $platformPatterns = [
+                'LinkedIn' => '/\blinked\s*in\b|\blinkedin\b/iu',
+                'Facebook' => '/\bfacebook\b/iu',
+                'Instagram' => '/\binstagram\b/iu',
+                'X' => '/\btwitter\b|(?:^|\s)x(?:\s|$)/iu',
+            ];
+
+            foreach ($platformPatterns as $platform => $pattern) {
+                if (preg_match($pattern, $message) === 1) {
+                    $state['platform'] = $platform;
+                    break;
+                }
+            }
+        }
+
+        if ($state['language'] === null) {
+            $state['language'] = preg_match('/\p{Arabic}/u', $message) === 1
+                ? 'Arabic'
+                : 'English';
+        }
+
+        return $this->normalizeSocialPostState($state);
     }
 
     protected function mergeSocialPostState(array $oldState, array $newState): array

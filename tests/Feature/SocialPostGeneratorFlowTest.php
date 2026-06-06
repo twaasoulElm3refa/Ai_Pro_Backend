@@ -31,43 +31,11 @@ class SocialPostGeneratorFlowTest extends TestCase
 
     public function test_minimal_first_message_payload_returns_and_persists_a_question(): void
     {
-        [$user, $conversation] = $this->makeContext();
+        [$user, $conversation, $wallet] = $this->makeContext(100);
         Sanctum::actingAs($user);
 
         $writer = Mockery::mock(AiArabicWriterService::class);
-        $writer->shouldReceive('generateReplyWithUsage')
-            ->once()
-            ->withArgs(function (array $payload, string $endpoint): bool {
-                return $endpoint === 'tasks/social-post-generator/chat'
-                    && $payload['sub_tool_id'] === 5
-                    && $payload['tool'] === 'ai_social_post_generator'
-                    && $payload['model_key'] === 'social_post_generator';
-            })
-            ->andReturn([
-                'reply' => 'Please complete the required social post data.',
-                'type' => 'question',
-                'provider' => 'openrouter',
-                'model_key' => 'social_post_generator',
-                'request_id' => (string) Str::uuid(),
-                'state' => [
-                    'content' => 'Launch a new AI content tool',
-                    'platform' => 'LinkedIn',
-                ],
-                'raw' => [
-                    'success' => true,
-                    'type' => 'question',
-                    'tool' => 'ai_social_post_generator',
-                    'provider' => 'openrouter',
-                    'model_key' => 'social_post_generator',
-                    'message' => 'Please complete the required social post data.',
-                    'state' => [
-                        'content' => 'Launch a new AI content tool',
-                        'platform' => 'LinkedIn',
-                    ],
-                    'results' => [],
-                    'count' => 0,
-                ],
-            ]);
+        $writer->shouldNotReceive('generateReplyWithUsage');
         $this->app->instance(AiArabicWriterService::class, $writer);
 
         $response = $this->apiPostJson('/api/v1/message/send', $this->payload($conversation));
@@ -78,10 +46,13 @@ class SocialPostGeneratorFlowTest extends TestCase
             ->assertJsonPath('data.type', 'question')
             ->assertJsonPath('data.tool', 'ai_social_post_generator')
             ->assertJsonPath('data.model_key', 'social_post_generator')
-            ->assertJsonPath('data.state.content', 'Launch a new AI content tool')
-            ->assertJsonPath('data.state.language', null)
+            ->assertJsonPath('data.state.content', 'Write a professional LinkedIn post about a new AI tool.')
+            ->assertJsonPath('data.state.platform', 'LinkedIn')
+            ->assertJsonPath('data.state.language', 'English')
+            ->assertJsonPath('data.state.hashtag_count', null)
             ->assertJsonPath('data.usage', null)
             ->assertJsonPath('data.cost', null)
+            ->assertJsonPath('data.tokens_deducted', 0)
             ->assertJsonCount(0, 'data.results');
 
         $assistant = Message::where('conversation_id', $conversation->id)
@@ -91,7 +62,10 @@ class SocialPostGeneratorFlowTest extends TestCase
         $this->assertSame('question', $assistant->metadata['type']);
         $this->assertSame(5, $assistant->metadata['sub_tool_id']);
         $this->assertSame('ai_social_post_generator', $assistant->metadata['tool']);
-        $this->assertNull($assistant->metadata['state']['language']);
+        $this->assertNull($assistant->metadata['state']['hashtag_count']);
+        $this->assertSame(0, CostLogger::where('conversation_id', $conversation->id)->count());
+        $wallet->refresh();
+        $this->assertSame(100, (int) $wallet->balance);
         $this->assertDatabaseHas('messages', [
             'conversation_id' => $conversation->id,
             'role' => 'user',
@@ -109,6 +83,13 @@ class SocialPostGeneratorFlowTest extends TestCase
         $writer = Mockery::mock(AiArabicWriterService::class);
         $writer->shouldReceive('generateReplyWithUsage')
             ->once()
+            ->withArgs(function (array $payload, string $endpoint) use ($state): bool {
+                return $endpoint === 'tasks/social-post-generator/chat'
+                    && $payload['sub_tool_id'] === 5
+                    && $payload['tool'] === 'ai_social_post_generator'
+                    && $payload['model_key'] === 'social_post_generator'
+                    && $payload['state'] === $state;
+            })
             ->andReturn([
                 'reply' => 'Social posts generated.',
                 'type' => 'result',
@@ -193,7 +174,7 @@ class SocialPostGeneratorFlowTest extends TestCase
 
     public function test_provider_failure_persists_an_error_assistant_message(): void
     {
-        [$user, $conversation] = $this->makeContext();
+        [$user, $conversation, $wallet] = $this->makeContext(100);
         Sanctum::actingAs($user);
 
         $writer = Mockery::mock(AiArabicWriterService::class);
@@ -202,13 +183,22 @@ class SocialPostGeneratorFlowTest extends TestCase
             ->andThrow(new \RuntimeException('Provider unavailable'));
         $this->app->instance(AiArabicWriterService::class, $writer);
 
-        $response = $this->apiPostJson('/api/v1/message/send', $this->payload($conversation));
+        $payload = $this->payload($conversation);
+        $payload['state'] = $this->completeState();
+        $payload['debug'] = true;
+
+        $response = $this->apiPostJson('/api/v1/message/send', $payload);
 
         $response->assertOk()
             ->assertJsonPath('data.success', false)
             ->assertJsonPath('data.type', 'error')
             ->assertJsonPath('data.tool', 'ai_social_post_generator')
-            ->assertJsonPath('data.model_key', 'social_post_generator');
+            ->assertJsonPath('data.model_key', 'social_post_generator')
+            ->assertJsonPath('data.message', 'Provider unavailable')
+            ->assertJsonPath('data.debug.error', 'Provider unavailable')
+            ->assertJsonPath('data.tokens_deducted', 0)
+            ->assertJsonPath('data.usage', null)
+            ->assertJsonPath('data.cost', null);
 
         $assistant = Message::where('conversation_id', $conversation->id)
             ->where('role', 'assistant')
@@ -217,6 +207,9 @@ class SocialPostGeneratorFlowTest extends TestCase
         $this->assertTrue($assistant->is_error);
         $this->assertSame('error', $assistant->metadata['type']);
         $this->assertSame('openrouter', $assistant->metadata['provider']);
+        $this->assertSame(0, CostLogger::where('conversation_id', $conversation->id)->count());
+        $wallet->refresh();
+        $this->assertSame(100, (int) $wallet->balance);
     }
 
     protected function makeContext(int $walletBalance = 0): array

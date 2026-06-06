@@ -947,10 +947,18 @@ const normalizeSocialPostState = (state = {}) => {
             : String(merged[key]).trim() || null;
     });
 
-    const hashtagCount = Number(merged.hashtag_count);
-    merged.hashtag_count = Number.isFinite(hashtagCount) && hashtagCount >= 0
-        ? Math.floor(hashtagCount)
-        : null;
+    if (
+        merged.hashtag_count === null
+        || merged.hashtag_count === undefined
+        || merged.hashtag_count === ""
+    ) {
+        merged.hashtag_count = null;
+    } else {
+        const hashtagCount = Number(merged.hashtag_count);
+        merged.hashtag_count = Number.isFinite(hashtagCount) && hashtagCount >= 0
+            ? Math.floor(hashtagCount)
+            : null;
+    }
 
     if (typeof merged.include_emojis === "boolean") {
         merged.include_emojis = merged.include_emojis;
@@ -2164,6 +2172,7 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         };
 
         if (apiResponse.success === false || apiResponse.type === "error") {
+            console.error("[SocialPostGenerator] API error response:", apiResponse);
             await addAssistantLocalMessage(
                 String(apiResponse.message || "فشل توليد منشور السوشيال."),
                 {
