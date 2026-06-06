@@ -29,7 +29,7 @@ class SocialPostGeneratorFlowTest extends TestCase
         $_SERVER['API_KEY'] = 'testing-api-key';
     }
 
-    public function test_incomplete_state_returns_and_persists_a_question(): void
+    public function test_minimal_first_message_payload_returns_and_persists_a_question(): void
     {
         [$user, $conversation] = $this->makeContext();
         Sanctum::actingAs($user);
@@ -92,6 +92,11 @@ class SocialPostGeneratorFlowTest extends TestCase
         $this->assertSame(5, $assistant->metadata['sub_tool_id']);
         $this->assertSame('ai_social_post_generator', $assistant->metadata['tool']);
         $this->assertNull($assistant->metadata['state']['language']);
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role' => 'user',
+            'content' => 'Write a professional LinkedIn post about a new AI tool.',
+        ]);
     }
 
     public function test_complete_state_persists_results_cost_and_wallet_deduction(): void
@@ -245,16 +250,25 @@ class SocialPostGeneratorFlowTest extends TestCase
     protected function payload(Conversation $conversation): array
     {
         return [
+            'user_id' => $conversation->user_id,
             'sub_tool_id' => 5,
-            'conversation_id' => $conversation->id,
             'conversation_uuid' => $conversation->uuid,
-            'content' => 'Write a professional LinkedIn post about a new AI tool.',
             'user_message' => 'Write a professional LinkedIn post about a new AI tool.',
-            'role' => 'user',
-            'tool' => 'ai_social_post_generator',
-            'state' => [],
+            'state' => [
+                'content' => null,
+                'platform' => null,
+                'language' => null,
+                'tone' => null,
+                'audience' => null,
+                'goal' => null,
+                'length' => null,
+                'hashtag_count' => null,
+                'include_emojis' => null,
+                'results_count' => null,
+                'extra_options' => [],
+                'last_output' => null,
+            ],
             'debug' => false,
-            'idempotency_key' => (string) Str::uuid(),
         ];
     }
 

@@ -2068,8 +2068,11 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         return;
     }
 
-    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
-    const localState = resolveSocialPostStateForSubmit(currentConversationUuid);
+    const existingConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    const isFirstMessageInConversation = !existingConversationUuid;
+    const localState = isFirstMessageInConversation
+        ? createEmptySocialPostState()
+        : resolveSocialPostStateForSubmit(existingConversationUuid);
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
@@ -2087,8 +2090,11 @@ const handleSocialPostGeneratorSubmit = async (text) => {
 
     const conversation = await ensureConversation();
 
-    if (!conversation) {
+    if (!conversation?.uuid) {
         sendingMessage.value = false;
+        await addAssistantLocalMessage("تعذر إنشاء المحادثة. حاول مرة أخرى.", {
+            is_error: true,
+        });
         return;
     }
 
@@ -2104,32 +2110,23 @@ const handleSocialPostGeneratorSubmit = async (text) => {
     const typingId = addAssistantTypingMessage();
 
     try {
-        const resolvedState = resolveSocialPostStateForSubmit(conversation.uuid);
+        const resolvedState = isFirstMessageInConversation
+            ? createEmptySocialPostState()
+            : resolveSocialPostStateForSubmit(conversation.uuid);
+
+        socialPostState.value = normalizeSocialPostState(resolvedState);
+        saveSocialPostStateToSession(conversation.uuid, socialPostState.value);
+
         const payload = {
             user_id: resolveCurrentUserId(),
             sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
             conversation_uuid: conversation.uuid,
-            conversation_id: conversation.id,
-            content: inputText,
             user_message: inputText,
-            role: "user",
-            tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
-            state: resolvedState,
+            state: socialPostState.value,
             debug: false,
-            idempotency_key: idempotencyKey,
         };
 
-        if (import.meta.env.DEV) {
-            console.info("[SocialPostGenerator] outgoing payload:", {
-                ...payload,
-                content: "[content hidden in console, see content_preview/content_length]",
-                user_message: "[user_message hidden in console, see user_message_preview/user_message_length]",
-                content_preview: inputText.slice(0, 300),
-                content_length: inputText.length,
-                user_message_preview: inputText.slice(0, 300),
-                user_message_length: inputText.length,
-            });
-        }
+        console.log("[SocialPostGenerator] payload before send:", JSON.stringify(payload, null, 2));
 
         const response = await chatServices.sendMessage(payload);
         removeAssistantTypingMessage(typingId);
@@ -2145,7 +2142,7 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         }
 
         if (apiResponse.state) {
-            socialPostState.value = mergeSocialPostState(socialPostState.value, apiResponse.state);
+            socialPostState.value = normalizeSocialPostState(apiResponse.state);
             saveSocialPostStateToSession(conversation.uuid, socialPostState.value);
         }
 
@@ -2195,7 +2192,7 @@ const handleSocialPostGeneratorSubmit = async (text) => {
 
         const outputText = apiResponse.results.length
             ? apiResponse.results.map((item) => item.text).join("\n\n")
-            : "";
+            : apiResponse.outputText || apiResponse.message || "";
 
         if (!outputText) {
             await addAssistantLocalMessage(
@@ -2221,10 +2218,11 @@ const handleSocialPostGeneratorSubmit = async (text) => {
 
         clearPendingSend(conversation.uuid);
         await focusChatInput();
-    } catch {
+    } catch (error) {
         removeAssistantTypingMessage(typingId);
+        console.error("[SocialPostGenerator] send error:", error);
         await addAssistantLocalMessage(
-            "حصل خطأ أثناء توليد منشور السوشيال. جرّب مرة أخرى.",
+            "حدث خطأ أثناء توليد منشور السوشيال.",
             {
                 is_error: true,
                 sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
