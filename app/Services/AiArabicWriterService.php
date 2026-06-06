@@ -209,6 +209,10 @@ class AiArabicWriterService
                 ['headlines'],
                 ['data', 'headlines'],
             ]) ?? [],
+            'results' => $this->extractArray($responsePayload, [
+                ['results'],
+                ['data', 'results'],
+            ]) ?? [],
             'count' => isset($responsePayload['count']) && is_numeric($responsePayload['count'])
                 ? (int) $responsePayload['count']
                 : null,
@@ -271,6 +275,11 @@ class AiArabicWriterService
 
         if (! empty($payload['headlines']) && is_array($payload['headlines'])) {
             return $this->formatHeadlinesAsText($payload);
+        }
+
+        $results = $payload['results'] ?? ($payload['data']['results'] ?? []);
+        if (is_array($results) && ! empty($results)) {
+            return $this->formatResultsAsText($results);
         }
 
         return '';
@@ -376,6 +385,20 @@ class AiArabicWriterService
         }
 
         return trim(implode("\n", $lines));
+    }
+
+    protected function formatResultsAsText(array $results): string
+    {
+        return collect($results)
+            ->map(function ($result): string {
+                if (is_array($result)) {
+                    return trim((string) ($result['text'] ?? ''));
+                }
+
+                return is_scalar($result) ? trim((string) $result) : '';
+            })
+            ->filter()
+            ->implode("\n\n");
     }
 
     protected function extractArray(mixed $payload, array $paths): ?array

@@ -675,6 +675,8 @@ const PARAPHRASER_SUB_TOOL_ID = 3;
 const PARAPHRASER_TOOL_KEY = "ai_paraphraser";
 const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
 const HEADLINE_DEBUG_MODE = true;
+const SOCIAL_POST_GENERATOR_SUB_TOOL_ID = 5;
+const SOCIAL_POST_GENERATOR_TOOL_KEY = "ai_social_post_generator";
 
 const getInitialHeadlineState = () => ({
     content: null,
@@ -701,6 +703,23 @@ const createEmptyParaphraserState = () => ({
 
 const paraphraserState = ref(createEmptyParaphraserState());
 
+const createEmptySocialPostState = () => ({
+    content: null,
+    platform: null,
+    language: null,
+    tone: null,
+    audience: null,
+    goal: null,
+    length: null,
+    hashtag_count: null,
+    include_emojis: null,
+    results_count: null,
+    extra_options: [],
+    last_output: null,
+});
+
+const socialPostState = ref(createEmptySocialPostState());
+
 const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
 );
@@ -709,9 +728,15 @@ const isParaphraserTool = computed(() =>
     Number(subtool.value?.id) === PARAPHRASER_SUB_TOOL_ID
 );
 
-const inputAriaLabel = computed(() =>
-    isHeadlineGeneratorTool.value ? "اكتب رسالتك الخاصة بتوليد العناوين" : t("user.chat.inputAria")
+const isSocialPostGeneratorTool = computed(() =>
+    Number(subtool.value?.id) === SOCIAL_POST_GENERATOR_SUB_TOOL_ID
 );
+
+const inputAriaLabel = computed(() => {
+    if (isHeadlineGeneratorTool.value) return "اكتب رسالتك الخاصة بتوليد العناوين";
+    if (isSocialPostGeneratorTool.value) return "اكتب طلبك لتوليد منشور السوشيال";
+    return t("user.chat.inputAria");
+});
 
 const typingAriaLabel = computed(() =>
     isArabic.value ? "جاري كتابة الرد" : "Assistant is typing"
@@ -749,6 +774,42 @@ const HEADLINE_VALUE_LABELS = {
     Medium: "متوسط",
     Long: "طويل",
     "Include SEO-friendly headlines": "نعم، عناوين مناسبة للسيو",
+};
+
+const SOCIAL_POST_FIELD_LABELS = {
+    content: "موضوع المنشور",
+    platform: "المنصة",
+    language: "اللغة",
+    tone: "النبرة",
+    audience: "الجمهور المستهدف",
+    goal: "الهدف",
+    length: "طول المنشور",
+    hashtag_count: "عدد الهاشتاقات",
+    include_emojis: "استخدام الإيموجي",
+    results_count: "عدد النتائج",
+    extra_options: "خيارات إضافية",
+};
+
+const SOCIAL_POST_VALUE_LABELS = {
+    LinkedIn: "لينكدإن",
+    Facebook: "فيسبوك",
+    Instagram: "إنستغرام",
+    X: "منصة إكس",
+    Twitter: "منصة إكس",
+    Arabic: "العربية",
+    English: "الإنجليزية",
+    Engaging: "جذابة",
+    Professional: "احترافية",
+    Formal: "رسمية",
+    Friendly: "ودية",
+    "General Audience": "جمهور عام",
+    Engagement: "زيادة التفاعل",
+    Awareness: "زيادة الوعي",
+    Sales: "المبيعات",
+    Short: "قصير",
+    Medium: "متوسط",
+    Long: "طويل",
+    "Make it ready to publish": "جعله جاهزًا للنشر",
 };
 
 const humanizeHeadlineValue = (value) => {
@@ -864,6 +925,163 @@ const mergeParaphraserState = (oldState = {}, newState = {}) => {
     });
 
     return normalizeParaphraserState(merged);
+};
+
+const normalizeSocialPostState = (state = {}) => {
+    const base = createEmptySocialPostState();
+    const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
+    const merged = { ...base, ...candidate };
+
+    [
+        "content",
+        "platform",
+        "language",
+        "tone",
+        "audience",
+        "goal",
+        "length",
+        "last_output",
+    ].forEach((key) => {
+        merged[key] = merged[key] === null || merged[key] === undefined
+            ? null
+            : String(merged[key]).trim() || null;
+    });
+
+    const hashtagCount = Number(merged.hashtag_count);
+    merged.hashtag_count = Number.isFinite(hashtagCount) && hashtagCount >= 0
+        ? Math.floor(hashtagCount)
+        : null;
+
+    if (typeof merged.include_emojis === "boolean") {
+        merged.include_emojis = merged.include_emojis;
+    } else if (merged.include_emojis === "true" || merged.include_emojis === 1 || merged.include_emojis === "1") {
+        merged.include_emojis = true;
+    } else if (merged.include_emojis === "false" || merged.include_emojis === 0 || merged.include_emojis === "0") {
+        merged.include_emojis = false;
+    } else {
+        merged.include_emojis = null;
+    }
+
+    const resultsCount = Number(merged.results_count);
+    merged.results_count = Number.isFinite(resultsCount) && resultsCount > 0
+        ? Math.floor(resultsCount)
+        : null;
+
+    merged.extra_options = Array.isArray(merged.extra_options)
+        ? merged.extra_options.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+
+    return merged;
+};
+
+const isEmptySocialPostValue = (value) => {
+    if (Array.isArray(value)) return false;
+    return value === null || value === undefined || value === "";
+};
+
+const getMissingSocialPostFields = (state = {}) => {
+    const normalized = normalizeSocialPostState(state);
+
+    return Object.entries(normalized)
+        .filter(([key, value]) =>
+            !["extra_options", "last_output"].includes(key)
+            && isEmptySocialPostValue(value)
+        )
+        .map(([key]) => key);
+};
+
+const hasSocialPostStateValue = (state = {}) => {
+    const normalized = normalizeSocialPostState(state);
+
+    return Boolean(
+        normalized.content
+        || normalized.platform
+        || normalized.language
+        || normalized.tone
+        || normalized.audience
+        || normalized.goal
+        || normalized.length
+        || normalized.hashtag_count !== null
+        || normalized.include_emojis !== null
+        || normalized.results_count
+        || normalized.extra_options.length
+        || normalized.last_output
+    );
+};
+
+const mergeSocialPostState = (oldState = {}, newState = {}) => {
+    const merged = normalizeSocialPostState(oldState);
+    const incoming = normalizeSocialPostState(newState);
+
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (key === "extra_options") {
+            if (Array.isArray(value) && value.length > 0) {
+                merged[key] = value;
+            }
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== "") {
+            merged[key] = value;
+        }
+    });
+
+    return normalizeSocialPostState(merged);
+};
+
+const humanizeSocialPostValue = (value) => {
+    if (value === null || value === undefined || value === "") return "غير محدد";
+
+    if (typeof value === "boolean") {
+        return value ? "نعم" : "لا";
+    }
+
+    if (Array.isArray(value)) {
+        return value.length
+            ? value.map((item) => SOCIAL_POST_VALUE_LABELS[item] || String(item)).join("، ")
+            : "لا";
+    }
+
+    return SOCIAL_POST_VALUE_LABELS[value] || String(value);
+};
+
+const buildSocialPostStateSummary = (state = {}) => {
+    const normalized = normalizeSocialPostState(state);
+    const lines = [];
+
+    Object.entries(normalized).forEach(([key, value]) => {
+        if (key === "last_output") return;
+
+        if (!isEmptySocialPostValue(value)) {
+            lines.push(`${SOCIAL_POST_FIELD_LABELS[key] || key}: ${humanizeSocialPostValue(value)}`);
+        }
+    });
+
+    return lines.join("\n");
+};
+
+const buildMissingSocialPostText = (missing = []) => {
+    if (!missing.length) return "";
+
+    const labels = missing
+        .map((field) => SOCIAL_POST_FIELD_LABELS[field] || field)
+        .join("، ");
+
+    return `المطلوب لاستكمال توليد المنشور: ${labels}`;
+};
+
+const buildSocialPostQuestionMessage = (apiResponse) => {
+    const message = apiResponse?.message || "من فضلك أكمل البيانات المطلوبة لتوليد منشور السوشيال.";
+    const nextState = apiResponse?.state || socialPostState.value;
+    const missing = getMissingSocialPostFields(nextState);
+    const summary = buildSocialPostStateSummary(nextState);
+    const missingText = buildMissingSocialPostText(missing);
+
+    return [
+        message,
+        summary ? `\nالبيانات الحالية:\n${summary}` : "",
+        missingText ? `\n${missingText}` : "",
+    ].filter(Boolean).join("\n");
 };
 
 const buildHeadlineStateSummary = (state = {}) => {
@@ -1160,6 +1378,116 @@ const resolveParaphraserStateForSubmit = (conversationUuid = "") => {
     return resolved;
 };
 
+const socialPostStateStorageKey = (conversationUuid = "") =>
+    `tool_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}_${SOCIAL_POST_GENERATOR_SUB_TOOL_ID}`;
+
+const saveSocialPostStateToSession = (conversationUuid, state) => {
+    const key = socialPostStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.setItem(key, JSON.stringify(normalizeSocialPostState(state)));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const readSocialPostStateFromSession = (conversationUuid) => {
+    const key = socialPostStateStorageKey(conversationUuid);
+
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+        return normalizeSocialPostState(parsed);
+    } catch {
+        return null;
+    }
+};
+
+const clearSocialPostStateFromSession = (conversationUuid) => {
+    const key = socialPostStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.removeItem(key);
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetSocialPostState = (conversationUuid = "") => {
+    socialPostState.value = createEmptySocialPostState();
+    clearSocialPostStateFromSession(conversationUuid);
+};
+
+const extractSocialPostStateFromMessages = (rows = [], conversationUuid = "") => {
+    if (Array.isArray(rows) && rows.length > 0) {
+        const reversed = [...rows].reverse();
+
+        for (const message of reversed) {
+            const metadata = message?.metadata && typeof message.metadata === "object"
+                ? message.metadata
+                : null;
+            const stateCandidate = metadata?.state && typeof metadata.state === "object"
+                ? metadata.state
+                : null;
+            const subToolId = Number(
+                metadata?.sub_tool_id
+                || message?.sub_tool_id
+                || message?.subToolId
+                || 0
+            );
+            const toolKey = String(metadata?.tool || "").toLowerCase();
+
+            if (
+                stateCandidate
+                && (subToolId === SOCIAL_POST_GENERATOR_SUB_TOOL_ID || toolKey === SOCIAL_POST_GENERATOR_TOOL_KEY)
+            ) {
+                const resolved = normalizeSocialPostState(stateCandidate);
+                saveSocialPostStateToSession(conversationUuid, resolved);
+                return resolved;
+            }
+        }
+    }
+
+    const stored = readSocialPostStateFromSession(conversationUuid);
+    if (stored) return stored;
+
+    return createEmptySocialPostState();
+};
+
+const hydrateSocialPostStateFromMessages = (rows = []) => {
+    if (!isSocialPostGeneratorTool.value) {
+        resetSocialPostState();
+        return;
+    }
+
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    socialPostState.value = extractSocialPostStateFromMessages(rows, conversationUuid);
+};
+
+const resolveSocialPostStateForSubmit = (conversationUuid = "") => {
+    let resolved = normalizeSocialPostState(socialPostState.value);
+
+    if (!hasSocialPostStateValue(resolved)) {
+        const latestKnown = extractSocialPostStateFromMessages(messages.value, conversationUuid);
+        resolved = hasSocialPostStateValue(latestKnown)
+            ? normalizeSocialPostState(latestKnown)
+            : createEmptySocialPostState();
+    }
+
+    resolved = normalizeSocialPostState(resolved);
+    socialPostState.value = resolved;
+
+    if (conversationUuid) {
+        saveSocialPostStateToSession(conversationUuid, resolved);
+    }
+
+    return resolved;
+};
+
 const extractHeadlineStateFromMessages = (rows = [], conversationUuid = "") => {
     if (!Array.isArray(rows) || !rows.length) {
         const stored = readHeadlineStateFromSession(conversationUuid);
@@ -1297,6 +1625,80 @@ const normalizeParaphraserApiResponse = (response = {}) => {
         state: payload?.state && typeof payload.state === "object"
             ? normalizeParaphraserState(payload.state)
             : null,
+    };
+};
+
+const normalizeSocialPostApiResponse = (response = {}) => {
+    if (response?.status === "error") {
+        return {
+            success: false,
+            type: "error",
+            tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
+            provider: null,
+            model_key: "social_post_generator",
+            user_id: null,
+            sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            conversation_uuid: activeConversation.value?.uuid || route.params.uuid || null,
+            message: String(response?.message || "حدث خطأ أثناء توليد منشور السوشيال."),
+            state: null,
+            results: [],
+            outputText: "",
+            count: 0,
+            request_id: null,
+            usage: null,
+            cost: null,
+        };
+    }
+
+    const payload = response?.data && typeof response.data === "object" ? response.data : response;
+    if (!payload || typeof payload !== "object") return null;
+
+    const normalizedSubToolId = Number(payload?.sub_tool_id || subtool.value?.id || 0);
+    const normalizedTool = String(payload?.tool || "").trim().toLowerCase();
+
+    if (
+        normalizedSubToolId !== SOCIAL_POST_GENERATOR_SUB_TOOL_ID
+        && normalizedTool !== SOCIAL_POST_GENERATOR_TOOL_KEY
+    ) {
+        return null;
+    }
+
+    const results = Array.isArray(payload?.results)
+        ? payload.results
+            .map((item, index) => ({
+                id: Number(item?.id || index + 1),
+                text: String(item?.text || "").trim(),
+                title: item?.title ?? null,
+                subject: item?.subject ?? null,
+                meta: item?.meta && typeof item.meta === "object" ? item.meta : {},
+            }))
+            .filter((item) => item.text)
+        : [];
+
+    const outputText = results.length
+        ? results.map((item) => item.text).join("\n\n")
+        : "";
+
+    return {
+        success: payload?.success !== false,
+        type: payload?.type || "",
+        tool: normalizedTool || SOCIAL_POST_GENERATOR_TOOL_KEY,
+        provider: payload?.provider || null,
+        model_key: payload?.model_key || "social_post_generator",
+        user_id: payload?.user_id ?? null,
+        sub_tool_id: normalizedSubToolId || SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+        conversation_uuid: payload?.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
+        message: String(payload?.message || ""),
+        state: payload?.state && typeof payload.state === "object"
+            ? normalizeSocialPostState(payload.state)
+            : null,
+        results,
+        outputText,
+        count: payload?.count ?? results.length,
+        request_id: payload?.request_id || null,
+        debug: payload?.debug ?? null,
+        usage: payload?.usage && typeof payload.usage === "object" ? payload.usage : null,
+        cost: payload?.cost && typeof payload.cost === "object" ? payload.cost : null,
     };
 };
 
@@ -1655,6 +2057,193 @@ const handleParaphraserSubmit = async (text) => {
     }
 };
 
+const handleSocialPostGeneratorSubmit = async (text) => {
+    const inputText = String(text || "").trim();
+
+    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return;
+    }
+
+    if (!(await requireAuth())) {
+        return;
+    }
+
+    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    const localState = resolveSocialPostStateForSubmit(currentConversationUuid);
+
+    await addUserLocalMessage(inputText, {
+        sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+        metadata: {
+            type: "user_input",
+            tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
+            sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            state: localState,
+        },
+    });
+
+    userInput.value = "";
+    resetTextarea();
+    sendingMessage.value = true;
+
+    const conversation = await ensureConversation();
+
+    if (!conversation) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const requestSignature = `${conversation.id}:${idempotencyKey}`;
+
+    if (inFlightSignatures.has(requestSignature)) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    inFlightSignatures.add(requestSignature);
+    const typingId = addAssistantTypingMessage();
+
+    try {
+        const resolvedState = resolveSocialPostStateForSubmit(conversation.uuid);
+        const payload = {
+            user_id: resolveCurrentUserId(),
+            sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            conversation_uuid: conversation.uuid,
+            conversation_id: conversation.id,
+            content: inputText,
+            user_message: inputText,
+            role: "user",
+            tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
+            state: resolvedState,
+            debug: false,
+            idempotency_key: idempotencyKey,
+        };
+
+        if (import.meta.env.DEV) {
+            console.info("[SocialPostGenerator] outgoing payload:", {
+                ...payload,
+                content: "[content hidden in console, see content_preview/content_length]",
+                user_message: "[user_message hidden in console, see user_message_preview/user_message_length]",
+                content_preview: inputText.slice(0, 300),
+                content_length: inputText.length,
+                user_message_preview: inputText.slice(0, 300),
+                user_message_length: inputText.length,
+            });
+        }
+
+        const response = await chatServices.sendMessage(payload);
+        removeAssistantTypingMessage(typingId);
+
+        const apiResponse = normalizeSocialPostApiResponse(response);
+
+        if (!apiResponse) {
+            await addAssistantLocalMessage(
+                "تعذر قراءة نتيجة توليد منشور السوشيال. حاول مرة أخرى.",
+                { is_error: true }
+            );
+            return;
+        }
+
+        if (apiResponse.state) {
+            socialPostState.value = mergeSocialPostState(socialPostState.value, apiResponse.state);
+            saveSocialPostStateToSession(conversation.uuid, socialPostState.value);
+        }
+
+        const missingFields = getMissingSocialPostFields(
+            apiResponse.state || socialPostState.value
+        );
+        const metadata = {
+            type: apiResponse.type || "result",
+            tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
+            sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            provider: apiResponse.provider,
+            model_key: apiResponse.model_key,
+            results: apiResponse.results,
+            count: apiResponse.count,
+            state: socialPostState.value,
+            request_id: apiResponse.request_id,
+            usage: apiResponse.usage,
+            cost: apiResponse.cost,
+        };
+
+        if (apiResponse.success === false || apiResponse.type === "error") {
+            await addAssistantLocalMessage(
+                String(apiResponse.message || "فشل توليد منشور السوشيال."),
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "error" },
+                }
+            );
+            return;
+        }
+
+        if (apiResponse.type === "question" || missingFields.length > 0) {
+            await addAssistantLocalMessage(
+                buildSocialPostQuestionMessage(apiResponse),
+                {
+                    plainText: true,
+                    sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "question" },
+                }
+            );
+
+            await focusChatInput();
+            return;
+        }
+
+        const outputText = apiResponse.results.length
+            ? apiResponse.results.map((item) => item.text).join("\n\n")
+            : "";
+
+        if (!outputText) {
+            await addAssistantLocalMessage(
+                "تم التنفيذ ولكن لم يتم العثور على منشور جاهز للعرض.",
+                {
+                    plainText: true,
+                    sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "error" },
+                }
+            );
+            return;
+        }
+
+        await addAssistantLocalMessage(outputText, {
+            plainText: true,
+            sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            metadata: { ...metadata, type: "result" },
+        });
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+        await focusChatInput();
+    } catch {
+        removeAssistantTypingMessage(typingId);
+        await addAssistantLocalMessage(
+            "حصل خطأ أثناء توليد منشور السوشيال. جرّب مرة أخرى.",
+            {
+                is_error: true,
+                sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
+                    sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                    state: socialPostState.value,
+                },
+            }
+        );
+    } finally {
+        removeAssistantTypingMessage(typingId);
+        inFlightSignatures.delete(requestSignature);
+        sendingMessage.value = false;
+        await scrollToBottom();
+    }
+};
+
 const newLine = () => {
     userInput.value += "\n";
     nextTick(autoResize);
@@ -1736,6 +2325,7 @@ const loadConversationDetails = async (uuid) => {
         insufficientPoints.value = false;
         resetHeadlineState();
         resetParaphraserState();
+        resetSocialPostState();
         return;
     }
 
@@ -1746,6 +2336,7 @@ const loadConversationDetails = async (uuid) => {
         insufficientPoints.value = false;
         resetHeadlineState();
         resetParaphraserState();
+        resetSocialPostState();
         return;
     }
 
@@ -1795,6 +2386,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = rows.map((message, index) => mapMessage(message, index));
         hydrateHeadlineStateFromMessages(rows);
         hydrateParaphraserStateFromMessages(rows);
+        hydrateSocialPostStateFromMessages(rows);
 
         resolveInsufficientPointsState(rows);
 
@@ -1812,6 +2404,7 @@ const syncRouteConversation = async () => {
         insufficientPoints.value = false;
         resetHeadlineState();
         resetParaphraserState();
+        resetSocialPostState();
         return;
     }
 
@@ -1860,6 +2453,7 @@ const startNewChat = async () => {
         sidebarOpen.value = false;
         resetHeadlineState();
         resetParaphraserState();
+        resetSocialPostState();
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -1886,6 +2480,7 @@ const ensureConversation = async () => {
     insufficientPoints.value = false;
     resetHeadlineState();
     resetParaphraserState();
+    resetSocialPostState();
 
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 
@@ -2018,6 +2613,11 @@ const onSubmitMessage = async () => {
         return;
     }
 
+    if (isSocialPostGeneratorTool.value) {
+        await handleSocialPostGeneratorSubmit(userInput.value);
+        return;
+    }
+
     await submitMessage();
 };
 
@@ -2041,6 +2641,7 @@ const removeConversation = async (conversation) => {
             insufficientPoints.value = false;
             resetHeadlineState();
             resetParaphraserState();
+            resetSocialPostState();
 
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }

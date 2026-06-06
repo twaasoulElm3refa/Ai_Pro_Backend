@@ -28,6 +28,10 @@ class MessageController extends Controller
     private const PARAPHRASER_TOOL_KEY = 'ai_paraphraser';
     private const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
     private const HEADLINE_ENDPOINT = 'tasks/headline-generator/chat';
+    private const SOCIAL_POST_GENERATOR_SUB_TOOL_ID = 5;
+    private const SOCIAL_POST_GENERATOR_TOOL_KEY = 'ai_social_post_generator';
+    private const SOCIAL_POST_GENERATOR_MODEL_KEY = 'social_post_generator';
+    private const SOCIAL_POST_GENERATOR_ENDPOINT = 'tasks/social-post-generator/chat';
 
     private MessageInterface $message;
 
@@ -113,6 +117,19 @@ class MessageController extends Controller
                 }
 
                 return $this->handleHeadlineGeneratorFlow(
+                    $writerService,
+                    $conversation,
+                    $data,
+                    $content,
+                    $userId
+                );
+            }
+
+            if (
+                $subToolId === self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID
+                || strcasecmp($requestedTool, self::SOCIAL_POST_GENERATOR_TOOL_KEY) === 0
+            ) {
+                return $this->handleSocialPostGeneratorFlow(
                     $writerService,
                     $conversation,
                     $data,
@@ -552,6 +569,527 @@ class MessageController extends Controller
             'assistant_message_id' => $assistantMessage->id,
             'was_created' => $wasCreated,
         ], 'Headline Response Ready.');
+    }
+
+    protected function handleSocialPostGeneratorFlow(
+        AiArabicWriterService $writerService,
+        Conversation $conversation,
+        array $data,
+        string $content,
+        int $userId
+    ) {
+        $requestState = $this->normalizeSocialPostState($data['state'] ?? []);
+        $latestState = $this->resolveLatestSocialPostState($conversation);
+        $state = $this->mergeSocialPostState($latestState, $requestState);
+
+        $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
+        if ($idempotencyKey === '') {
+            $idempotencyKey = (string) Str::uuid();
+        }
+
+        $lock = Cache::lock(
+            $this->requestLockKey($userId, (int) $conversation->id, $idempotencyKey),
+            15
+        );
+
+        $processed = $lock->block(5, function () use (
+            $conversation,
+            $content,
+            $idempotencyKey,
+            $state
+        ) {
+            return DB::transaction(function () use (
+                $conversation,
+                $content,
+                $idempotencyKey,
+                $state
+            ) {
+                $existing = Message::where('conversation_id', $conversation->id)
+                    ->where('role', 'user')
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->first();
+
+                if ($existing) {
+                    return [$existing, false];
+                }
+
+                $recentDuplicate = Message::where('conversation_id', $conversation->id)
+                    ->where('role', 'user')
+                    ->where('content', $content)
+                    ->where('created_at', '>=', now()->subSeconds(20))
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($recentDuplicate) {
+                    if (empty($recentDuplicate->idempotency_key)) {
+                        $recentDuplicate->idempotency_key = $idempotencyKey;
+                        $recentDuplicate->save();
+                    }
+
+                    return [$recentDuplicate, false];
+                }
+
+                $userMessage = $this->message->send([
+                    'conversation_id' => (int) $conversation->id,
+                    'role' => 'user',
+                    'content' => $content,
+                    'idempotency_key' => $idempotencyKey,
+                    'metadata' => [
+                        'type' => 'user_input',
+                        'tool' => self::SOCIAL_POST_GENERATOR_TOOL_KEY,
+                        'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
+                        'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                        'conversation_uuid' => $conversation->uuid,
+                        'state' => $state,
+                    ],
+                ]);
+
+                return [$userMessage, true];
+            }, 3);
+        });
+
+        /** @var Message|null $userMessage */
+        $userMessage = $processed[0] ?? null;
+        $wasCreated = (bool) ($processed[1] ?? false);
+
+        if (! $userMessage || ! isset($userMessage->id)) {
+            return $this->error('Message could not be saved.');
+        }
+
+        $conversation->loadMissing('user.wallet', 'subTool');
+        if (! $conversation->user) {
+            return $this->error('Conversation user not found.');
+        }
+
+        $userMessage->loadMissing('conversation.subTool');
+        $this->messageCache->updateAfterMessage($userMessage);
+        $this->clearCache($userId);
+
+        $existingAssistant = Message::where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->where('reply_to_message_id', $userMessage->id)
+            ->first();
+
+        if ($existingAssistant) {
+            $cached = $this->buildSocialPostResponseFromAssistant(
+                $existingAssistant,
+                $conversation,
+                $userId
+            );
+
+            return $this->success($cached + ['was_created' => false], 'Social Post Response Ready.');
+        }
+
+        $payload = [
+            'user_id' => $userId,
+            'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'conversation_id' => $conversation->id,
+            'content' => $content,
+            'user_message' => $content,
+            'role' => 'user',
+            'tool' => self::SOCIAL_POST_GENERATOR_TOOL_KEY,
+            'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
+            'state' => $state,
+            'debug' => (bool) ($data['debug'] ?? false),
+        ];
+
+        try {
+            $providerResponse = $writerService->generateReplyWithUsage(
+                $payload,
+                self::SOCIAL_POST_GENERATOR_ENDPOINT
+            );
+        } catch (Throwable $th) {
+            Log::error('Social post generator provider request failed.', [
+                'conversation_id' => $conversation->id,
+                'conversation_uuid' => $conversation->uuid,
+                'user_id' => $userId,
+                'error' => $th->getMessage(),
+            ]);
+
+            $providerResponse = [
+                'reply' => 'حدث خطأ أثناء توليد منشور السوشيال.',
+                'provider' => 'openrouter',
+                'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
+                'raw' => [
+                    'success' => false,
+                    'type' => 'error',
+                    'tool' => self::SOCIAL_POST_GENERATOR_TOOL_KEY,
+                    'provider' => 'openrouter',
+                    'model_key' => self::SOCIAL_POST_GENERATOR_MODEL_KEY,
+                    'message' => 'حدث خطأ أثناء توليد منشور السوشيال.',
+                ],
+            ];
+        }
+
+        $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
+        $providerSuccess = (bool) ($raw['success'] ?? ($raw['data']['success'] ?? true));
+
+        $responseState = $this->normalizeSocialPostState(
+            $providerResponse['state'] ?? ($raw['state'] ?? ($raw['data']['state'] ?? []))
+        );
+        $mergedState = $this->mergeSocialPostState($state, $responseState);
+        $results = $this->normalizeSocialPostResults(
+            $raw['results'] ?? ($raw['data']['results'] ?? [])
+        );
+        $missingFields = $this->getMissingSocialPostFields($mergedState);
+
+        $type = strtolower(trim((string) (
+            $providerResponse['type'] ?? ($raw['type'] ?? ($raw['data']['type'] ?? ''))
+        )));
+
+        if (! $providerSuccess) {
+            $type = 'error';
+        } elseif (count($missingFields) > 0) {
+            $type = 'question';
+            $results = [];
+        } elseif ($type !== 'result') {
+            $type = count($results) > 0 ? 'result' : 'error';
+        }
+
+        if ($type === 'result' && count($results) > 0) {
+            $mergedState['last_output'] = $this->buildSocialPostOutputFromResults($results);
+        }
+
+        $responseMessage = trim((string) (
+            $raw['message']
+            ?? ($raw['data']['message'] ?? ($providerResponse['reply'] ?? ''))
+        ));
+
+        if ($responseMessage === '') {
+            $responseMessage = match ($type) {
+                'question' => 'من فضلك أكمل البيانات المطلوبة لتوليد منشور السوشيال.',
+                'result' => 'تم توليد منشور السوشيال بنجاح.',
+                default => 'حدث خطأ أثناء توليد منشور السوشيال.',
+            };
+        }
+
+        $rawUsage = $raw['usage'] ?? ($providerResponse['usage'] ?? null);
+        $rawCost = $raw['cost'] ?? ($providerResponse['cost'] ?? null);
+        $usage = $this->normalizeUsage($rawUsage);
+        $cost = $this->normalizeCost($rawCost);
+        $usageMetadata = is_array($rawUsage) && count($rawUsage) > 0 ? $usage : null;
+        $costMetadata = is_array($rawCost) && count($rawCost) > 0 ? $cost : null;
+        $provider = $this->toNullableString(
+            $providerResponse['provider'] ?? ($raw['provider'] ?? ($raw['data']['provider'] ?? null))
+        ) ?? 'openrouter';
+        $modelKey = self::SOCIAL_POST_GENERATOR_MODEL_KEY;
+        $requestId = $this->toNullableString(
+            $providerResponse['request_id'] ?? ($raw['request_id'] ?? ($raw['data']['request_id'] ?? null))
+        );
+        $tool = self::SOCIAL_POST_GENERATOR_TOOL_KEY;
+        $count = $type === 'result' ? count($results) : 0;
+        $assistantContent = $type === 'result'
+            ? $this->buildSocialPostOutputFromResults($results)
+            : $responseMessage;
+        $tokensToDeduct = $this->getTokensToDeduct(['usage' => $usage]);
+        $walletSnapshot = ['balance' => null, 'payback_balance' => null];
+        $assistantMessage = null;
+
+        DB::transaction(function () use (
+            $conversation,
+            $tokensToDeduct,
+            $type,
+            $usage,
+            $cost,
+            $usageMetadata,
+            $costMetadata,
+            $assistantContent,
+            $userMessage,
+            $tool,
+            $provider,
+            $modelKey,
+            $requestId,
+            $mergedState,
+            $results,
+            $responseMessage,
+            $count,
+            $userId,
+            &$walletSnapshot,
+            &$assistantMessage
+        ): void {
+            $walletDetails = $this->deductWalletTokens(
+                $conversation->user,
+                $tokensToDeduct,
+                'social_post_generator_ai_usage'
+            );
+
+            $walletSnapshot = [
+                'balance' => $walletDetails['wallet_after'] ?? null,
+                'payback_balance' => $walletDetails['payback_after'] ?? null,
+            ];
+
+            $assistantMessage = Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'content' => $assistantContent,
+                'is_error' => $type === 'error',
+                'reply_to_message_id' => $userMessage->id,
+                'metadata' => [
+                    'type' => $type,
+                    'tool' => $tool,
+                    'provider' => $provider,
+                    'model_key' => $modelKey,
+                    'request_id' => $requestId,
+                    'state' => $mergedState,
+                    'results' => $results,
+                    'message' => $responseMessage,
+                    'count' => $count,
+                    'usage' => $usageMetadata,
+                    'cost' => $costMetadata,
+                    'tokens_deducted' => $tokensToDeduct,
+                    'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                    'conversation_uuid' => $conversation->uuid,
+                ],
+            ]);
+
+            CostLogger::create([
+                'conversation_id' => $conversation->id,
+                'user_id' => $userId,
+                'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+                'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
+                'input_cost' => (float) ($cost['input_cost'] ?? 0),
+                'output_cost' => (float) ($cost['output_cost'] ?? 0),
+                'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
+                'total_cost' => (float) ($cost['total_cost'] ?? 0),
+                'currency' => (string) ($cost['currency'] ?? 'USD'),
+                'provider_request_id' => $requestId,
+                'model_key' => $modelKey,
+            ]);
+        });
+
+        if (! $assistantMessage) {
+            return $this->error('Assistant message could not be saved.');
+        }
+
+        $assistantMessage->setRelation('conversation', $conversation);
+        $this->messageCache->updateAfterMessage($assistantMessage);
+        $this->clearCache($userId);
+
+        return $this->success([
+            'success' => $type !== 'error',
+            'type' => $type,
+            'tool' => $tool,
+            'provider' => $provider,
+            'model_key' => $modelKey,
+            'user_id' => $userId,
+            'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'message' => $responseMessage,
+            'state' => $mergedState,
+            'results' => $results,
+            'count' => $count,
+            'request_id' => $requestId,
+            'debug' => null,
+            'usage' => $usageMetadata,
+            'cost' => $costMetadata,
+            'wallet' => $walletSnapshot,
+            'assistant_message_id' => $assistantMessage->id,
+            'was_created' => $wasCreated,
+        ], 'Social Post Response Ready.');
+    }
+
+    protected function buildSocialPostResponseFromAssistant(
+        Message $assistantMessage,
+        Conversation $conversation,
+        int $userId
+    ): array {
+        $metadata = is_array($assistantMessage->metadata ?? null) ? $assistantMessage->metadata : [];
+        $results = $this->normalizeSocialPostResults($metadata['results'] ?? []);
+        $type = (string) ($metadata['type'] ?? ($assistantMessage->is_error ? 'error' : 'result'));
+        $wallet = Wallet::where('user_id', $userId)->first();
+
+        return [
+            'success' => $type !== 'error',
+            'type' => $type,
+            'tool' => (string) ($metadata['tool'] ?? self::SOCIAL_POST_GENERATOR_TOOL_KEY),
+            'provider' => $this->toNullableString($metadata['provider'] ?? null) ?? 'openrouter',
+            'model_key' => $this->toNullableString($metadata['model_key'] ?? null)
+                ?? self::SOCIAL_POST_GENERATOR_MODEL_KEY,
+            'user_id' => $userId,
+            'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'message' => $this->toNullableString($metadata['message'] ?? null)
+                ?? trim((string) $assistantMessage->content),
+            'state' => $this->normalizeSocialPostState($metadata['state'] ?? []),
+            'results' => $results,
+            'count' => (int) ($metadata['count'] ?? count($results)),
+            'request_id' => $this->toNullableString($metadata['request_id'] ?? null),
+            'debug' => null,
+            'usage' => is_array($metadata['usage'] ?? null)
+                ? $this->normalizeUsage($metadata['usage'])
+                : null,
+            'cost' => is_array($metadata['cost'] ?? null)
+                ? $this->normalizeCost($metadata['cost'])
+                : null,
+            'wallet' => [
+                'balance' => $wallet ? (int) $wallet->balance : null,
+                'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
+            ],
+            'assistant_message_id' => $assistantMessage->id,
+        ];
+    }
+
+    protected function resolveLatestSocialPostState(Conversation $conversation): array
+    {
+        $message = Message::where('conversation_id', $conversation->id)
+            ->whereIn('role', ['user', 'assistant'])
+            ->whereNotNull('metadata')
+            ->orderByDesc('id')
+            ->get()
+            ->first(function (Message $message): bool {
+                $metadata = is_array($message->metadata ?? null) ? $message->metadata : [];
+
+                return (
+                    strtolower((string) ($metadata['tool'] ?? '')) === self::SOCIAL_POST_GENERATOR_TOOL_KEY
+                    || (int) ($metadata['sub_tool_id'] ?? 0) === self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID
+                ) && is_array($metadata['state'] ?? null);
+            });
+
+        if (! $message) {
+            return $this->normalizeSocialPostState([]);
+        }
+
+        $metadata = is_array($message->metadata ?? null) ? $message->metadata : [];
+
+        return $this->normalizeSocialPostState($metadata['state'] ?? []);
+    }
+
+    protected function normalizeSocialPostState(mixed $state): array
+    {
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = is_array($decoded) ? $decoded : [];
+        }
+
+        $state = is_array($state) ? $state : [];
+        $merged = array_merge([
+            'content' => null,
+            'platform' => null,
+            'language' => null,
+            'tone' => null,
+            'audience' => null,
+            'goal' => null,
+            'length' => null,
+            'hashtag_count' => null,
+            'include_emojis' => null,
+            'results_count' => null,
+            'extra_options' => [],
+            'last_output' => null,
+        ], $state);
+
+        foreach (['content', 'platform', 'language', 'tone', 'audience', 'goal', 'length', 'last_output'] as $key) {
+            $merged[$key] = $this->toNullableString($merged[$key] ?? null);
+        }
+
+        $hashtagCount = $merged['hashtag_count'] ?? null;
+        $merged['hashtag_count'] = is_numeric($hashtagCount) && (int) $hashtagCount >= 0
+            ? min(30, (int) $hashtagCount)
+            : null;
+
+        $includeEmojis = $merged['include_emojis'] ?? null;
+        if (is_bool($includeEmojis)) {
+            $merged['include_emojis'] = $includeEmojis;
+        } elseif (in_array($includeEmojis, [1, '1', 'true'], true)) {
+            $merged['include_emojis'] = true;
+        } elseif (in_array($includeEmojis, [0, '0', 'false'], true)) {
+            $merged['include_emojis'] = false;
+        } else {
+            $merged['include_emojis'] = null;
+        }
+
+        $resultsCount = $merged['results_count'] ?? null;
+        $merged['results_count'] = is_numeric($resultsCount) && (int) $resultsCount > 0
+            ? min(20, (int) $resultsCount)
+            : null;
+
+        $extraOptions = is_array($merged['extra_options'] ?? null) ? $merged['extra_options'] : [];
+        $merged['extra_options'] = collect($extraOptions)
+            ->map(fn ($item) => $this->toNullableString($item))
+            ->filter()
+            ->values()
+            ->all();
+
+        return $merged;
+    }
+
+    protected function mergeSocialPostState(array $oldState, array $newState): array
+    {
+        $merged = $this->normalizeSocialPostState($oldState);
+        $incoming = $this->normalizeSocialPostState($newState);
+
+        foreach ($incoming as $key => $value) {
+            if ($key === 'extra_options') {
+                if (count($value) > 0) {
+                    $merged[$key] = $value;
+                }
+
+                continue;
+            }
+
+            if ($value !== null && $value !== '') {
+                $merged[$key] = $value;
+            }
+        }
+
+        return $this->normalizeSocialPostState($merged);
+    }
+
+    protected function getMissingSocialPostFields(array $state): array
+    {
+        $state = $this->normalizeSocialPostState($state);
+        $required = [
+            'content',
+            'platform',
+            'language',
+            'tone',
+            'audience',
+            'goal',
+            'length',
+            'hashtag_count',
+            'include_emojis',
+            'results_count',
+        ];
+
+        return collect($required)
+            ->filter(fn (string $key): bool => $state[$key] === null || $state[$key] === '')
+            ->values()
+            ->all();
+    }
+
+    protected function normalizeSocialPostResults(mixed $results): array
+    {
+        if (! is_array($results)) {
+            return [];
+        }
+
+        return collect($results)
+            ->map(function ($result, int $index): array {
+                $row = is_array($result) ? $result : [];
+
+                return [
+                    'id' => isset($row['id']) && is_numeric($row['id'])
+                        ? (int) $row['id']
+                        : ($index + 1),
+                    'text' => trim((string) ($row['text'] ?? (is_scalar($result) ? $result : ''))),
+                    'title' => $this->toNullableString($row['title'] ?? null),
+                    'subject' => $this->toNullableString($row['subject'] ?? null),
+                    'meta' => is_array($row['meta'] ?? null) ? $row['meta'] : [],
+                ];
+            })
+            ->filter(fn (array $result): bool => $result['text'] !== '')
+            ->values()
+            ->all();
+    }
+
+    protected function buildSocialPostOutputFromResults(array $results): string
+    {
+        return collect($results)
+            ->map(fn (array $result): string => trim((string) ($result['text'] ?? '')))
+            ->filter()
+            ->implode("\n\n");
     }
 
     protected function handleParaphraserFlow(

@@ -97,7 +97,6 @@ const routes = [
         meta: { hideNavbar: true, hideFooter: true },
     },
 
-
     // admin
     {
         path: "/admin/auth",
