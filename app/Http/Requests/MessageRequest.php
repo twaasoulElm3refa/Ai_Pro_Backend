@@ -43,6 +43,7 @@ class MessageRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'user_id' => ['nullable', 'integer'],
             'sub_tool_id' => ['required', 'integer'],
             'conversation_uuid' => [
                 'nullable',

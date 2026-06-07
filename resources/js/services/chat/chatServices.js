@@ -24,6 +24,7 @@ const chatServices = {
     },
 
     async sendMessage(payload) {
+        console.log("[chatServices.sendMessage] request:", payload);
         const response = await api.post("/message/send", payload);
         return unwrap(response);
     },

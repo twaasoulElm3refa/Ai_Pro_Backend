@@ -29,13 +29,41 @@ class SocialPostGeneratorFlowTest extends TestCase
         $_SERVER['API_KEY'] = 'testing-api-key';
     }
 
-    public function test_minimal_first_message_payload_returns_and_persists_a_question(): void
+    public function test_postman_shaped_first_message_reaches_provider_and_returns_results(): void
     {
         [$user, $conversation, $wallet] = $this->makeContext(100);
         Sanctum::actingAs($user);
 
+        $resultState = $this->completeState();
         $writer = Mockery::mock(AiArabicWriterService::class);
-        $writer->shouldNotReceive('generateReplyWithUsage');
+        $writer->shouldReceive('generateReplyWithUsage')
+            ->once()
+            ->withArgs(function (array $payload, string $endpoint): bool {
+                return $endpoint === 'tasks/social-post-generator/chat'
+                    && $payload['user_id'] > 0
+                    && $payload['sub_tool_id'] === 5
+                    && $payload['user_message'] === 'Write a professional LinkedIn post about a new AI tool.'
+                    && $payload['state'] === $this->emptyState();
+            })
+            ->andReturn([
+                'reply' => 'Social posts generated.',
+                'type' => 'result',
+                'state' => $resultState,
+                'raw' => [
+                    'success' => true,
+                    'type' => 'result',
+                    'tool' => 'ai_social_post_generator',
+                    'provider' => 'openrouter',
+                    'model_key' => 'social_post_generator',
+                    'message' => 'Social posts generated.',
+                    'state' => $resultState,
+                    'results' => [
+                        ['id' => 1, 'text' => 'First post', 'meta' => []],
+                        ['id' => 2, 'text' => 'Second post', 'meta' => []],
+                    ],
+                    'count' => 2,
+                ],
+            ]);
         $this->app->instance(AiArabicWriterService::class, $writer);
 
         $response = $this->apiPostJson('/api/v1/message/send', $this->payload($conversation));
@@ -43,27 +71,27 @@ class SocialPostGeneratorFlowTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('data.success', true)
-            ->assertJsonPath('data.type', 'question')
+            ->assertJsonPath('data.type', 'result')
             ->assertJsonPath('data.tool', 'ai_social_post_generator')
             ->assertJsonPath('data.model_key', 'social_post_generator')
-            ->assertJsonPath('data.state.content', 'Write a professional LinkedIn post about a new AI tool.')
-            ->assertJsonPath('data.state.platform', 'LinkedIn')
-            ->assertJsonPath('data.state.language', 'English')
-            ->assertJsonPath('data.state.hashtag_count', null)
+            ->assertJsonPath('data.state.content', 'Launch a new AI content tool')
+            ->assertJsonPath('data.results.0.text', 'First post')
+            ->assertJsonPath('data.results.1.text', 'Second post')
             ->assertJsonPath('data.usage', null)
             ->assertJsonPath('data.cost', null)
             ->assertJsonPath('data.tokens_deducted', 0)
-            ->assertJsonCount(0, 'data.results');
+            ->assertJsonCount(2, 'data.results');
 
         $assistant = Message::where('conversation_id', $conversation->id)
             ->where('role', 'assistant')
             ->firstOrFail();
 
-        $this->assertSame('question', $assistant->metadata['type']);
+        $this->assertSame("First post\n\nSecond post", $assistant->content);
+        $this->assertSame('result', $assistant->metadata['type']);
         $this->assertSame(5, $assistant->metadata['sub_tool_id']);
         $this->assertSame('ai_social_post_generator', $assistant->metadata['tool']);
-        $this->assertNull($assistant->metadata['state']['hashtag_count']);
-        $this->assertSame(0, CostLogger::where('conversation_id', $conversation->id)->count());
+        $costLog = CostLogger::where('conversation_id', $conversation->id)->firstOrFail();
+        $this->assertSame(0, (int) $costLog->total_tokens);
         $wallet->refresh();
         $this->assertSame(100, (int) $wallet->balance);
         $this->assertDatabaseHas('messages', [
@@ -247,21 +275,26 @@ class SocialPostGeneratorFlowTest extends TestCase
             'sub_tool_id' => 5,
             'conversation_uuid' => $conversation->uuid,
             'user_message' => 'Write a professional LinkedIn post about a new AI tool.',
-            'state' => [
-                'content' => null,
-                'platform' => null,
-                'language' => null,
-                'tone' => null,
-                'audience' => null,
-                'goal' => null,
-                'length' => null,
-                'hashtag_count' => null,
-                'include_emojis' => null,
-                'results_count' => null,
-                'extra_options' => [],
-                'last_output' => null,
-            ],
+            'state' => $this->emptyState(),
             'debug' => false,
+        ];
+    }
+
+    protected function emptyState(): array
+    {
+        return [
+            'content' => null,
+            'platform' => null,
+            'language' => null,
+            'tone' => null,
+            'audience' => null,
+            'goal' => null,
+            'length' => null,
+            'hashtag_count' => null,
+            'include_emojis' => null,
+            'results_count' => 2,
+            'extra_options' => [],
+            'last_output' => null,
         ];
     }
 

@@ -47,6 +47,16 @@ class MessageController extends Controller
 
     public function sendMessage(MessageRequest $request, AiArabicWriterService $writerService)
     {
+        Log::info('Message send request received', [
+            'user_id' => $request->input('user_id'),
+            'authenticated_user_id' => auth()->id(),
+            'sub_tool_id' => $request->input('sub_tool_id'),
+            'conversation_uuid' => $request->input('conversation_uuid'),
+            'user_message' => $request->input('user_message'),
+            'state' => $request->input('state'),
+            'all' => $request->all(),
+        ]);
+
         try {
             $data = $request->validated();
             $userId = (int) auth()->id();
@@ -581,7 +591,6 @@ class MessageController extends Controller
         $requestState = $this->normalizeSocialPostState($data['state'] ?? []);
         $latestState = $this->resolveLatestSocialPostState($conversation);
         $state = $this->mergeSocialPostState($latestState, $requestState);
-        $state = $this->enrichSocialPostStateFromMessage($state, $content);
 
         Log::info('SocialPostGenerator request received', [
             'user_id' => $userId,
@@ -690,18 +699,6 @@ class MessageController extends Controller
             return $this->success($cached + ['was_created' => false], 'Social Post Response Ready.');
         }
 
-        $missingFields = $this->getMissingSocialPostFields($state);
-
-        if (count($missingFields) > 0) {
-            return $this->persistSocialPostQuestion(
-                $conversation,
-                $userMessage,
-                $state,
-                $userId,
-                $wasCreated
-            );
-        }
-
         $payload = [
             'user_id' => $userId,
             'sub_tool_id' => self::SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
@@ -770,11 +767,13 @@ class MessageController extends Controller
 
         if (! $providerSuccess) {
             $type = 'error';
+        } elseif ($type === 'result' || count($results) > 0) {
+            $type = 'result';
         } elseif (count($missingFields) > 0) {
             $type = 'question';
             $results = [];
-        } elseif ($type !== 'result') {
-            $type = count($results) > 0 ? 'result' : 'error';
+        } else {
+            $type = 'error';
         }
 
         if ($type === 'result' && count($results) > 0) {

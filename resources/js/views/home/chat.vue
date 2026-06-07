@@ -713,7 +713,7 @@ const createEmptySocialPostState = () => ({
     length: null,
     hashtag_count: null,
     include_emojis: null,
-    results_count: null,
+    results_count: 2,
     extra_options: [],
     last_output: null,
 });
@@ -1659,6 +1659,7 @@ const normalizeSocialPostApiResponse = (response = {}) => {
     }
 
     const payload = response?.data && typeof response.data === "object" ? response.data : response;
+    console.log("Raw API response:", payload);
     if (!payload || typeof payload !== "object") return null;
 
     const normalizedSubToolId = Number(payload?.sub_tool_id || subtool.value?.id || 0);
@@ -2076,24 +2077,6 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         return;
     }
 
-    const existingConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
-    const isFirstMessageInConversation = !existingConversationUuid;
-    const localState = isFirstMessageInConversation
-        ? createEmptySocialPostState()
-        : resolveSocialPostStateForSubmit(existingConversationUuid);
-
-    await addUserLocalMessage(inputText, {
-        sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
-        metadata: {
-            type: "user_input",
-            tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
-            sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
-            state: localState,
-        },
-    });
-
-    userInput.value = "";
-    resetTextarea();
     sendingMessage.value = true;
 
     const conversation = await ensureConversation();
@@ -2105,6 +2088,21 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         });
         return;
     }
+
+    const requestState = createEmptySocialPostState();
+
+    await addUserLocalMessage(inputText, {
+        sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+        metadata: {
+            type: "user_input",
+            tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
+            sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
+            state: requestState,
+        },
+    });
+
+    userInput.value = "";
+    resetTextarea();
 
     const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
@@ -2118,25 +2116,19 @@ const handleSocialPostGeneratorSubmit = async (text) => {
     const typingId = addAssistantTypingMessage();
 
     try {
-        const resolvedState = isFirstMessageInConversation
-            ? createEmptySocialPostState()
-            : resolveSocialPostStateForSubmit(conversation.uuid);
-
-        socialPostState.value = normalizeSocialPostState(resolvedState);
-        saveSocialPostStateToSession(conversation.uuid, socialPostState.value);
-
         const payload = {
             user_id: resolveCurrentUserId(),
             sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
             conversation_uuid: conversation.uuid,
             user_message: inputText,
-            state: socialPostState.value,
+            state: requestState,
             debug: false,
         };
 
         console.log("[SocialPostGenerator] payload before send:", JSON.stringify(payload, null, 2));
 
         const response = await chatServices.sendMessage(payload);
+        console.log("[SocialPostGenerator] raw response:", response);
         removeAssistantTypingMessage(typingId);
 
         const apiResponse = normalizeSocialPostApiResponse(response);
@@ -2150,13 +2142,10 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         }
 
         if (apiResponse.state) {
-            socialPostState.value = normalizeSocialPostState(apiResponse.state);
+            socialPostState.value = mergeSocialPostState(socialPostState.value, apiResponse.state);
             saveSocialPostStateToSession(conversation.uuid, socialPostState.value);
         }
 
-        const missingFields = getMissingSocialPostFields(
-            apiResponse.state || socialPostState.value
-        );
         const metadata = {
             type: apiResponse.type || "result",
             tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
@@ -2185,7 +2174,7 @@ const handleSocialPostGeneratorSubmit = async (text) => {
             return;
         }
 
-        if (apiResponse.type === "question" || missingFields.length > 0) {
+        if (apiResponse.type === "question") {
             await addAssistantLocalMessage(
                 buildSocialPostQuestionMessage(apiResponse),
                 {
@@ -2201,7 +2190,7 @@ const handleSocialPostGeneratorSubmit = async (text) => {
 
         const outputText = apiResponse.results.length
             ? apiResponse.results.map((item) => item.text).join("\n\n")
-            : apiResponse.outputText || apiResponse.message || "";
+            : "";
 
         if (!outputText) {
             await addAssistantLocalMessage(
@@ -2229,17 +2218,18 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         await focusChatInput();
     } catch (error) {
         removeAssistantTypingMessage(typingId);
-        console.error("[SocialPostGenerator] send error:", error);
+        console.error("[SocialPostGenerator] frontend send error:", error);
         await addAssistantLocalMessage(
-            "حدث خطأ أثناء توليد منشور السوشيال.",
+            "حصل خطأ أثناء توليد منشور السوشيال. جرّب مرة أخرى.",
             {
+                plainText: true,
                 is_error: true,
                 sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
                 metadata: {
-                    type: "error",
+                    type: "frontend_error",
                     tool: SOCIAL_POST_GENERATOR_TOOL_KEY,
                     sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
-                    state: socialPostState.value,
+                    error_message: error?.message || String(error),
                 },
             }
         );
