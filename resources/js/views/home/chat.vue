@@ -677,6 +677,8 @@ const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
 const HEADLINE_DEBUG_MODE = true;
 const SOCIAL_POST_GENERATOR_SUB_TOOL_ID = 5;
 const SOCIAL_POST_GENERATOR_TOOL_KEY = "ai_social_post_generator";
+const EMAIL_WRITER_SUB_TOOL_ID = 6;
+const EMAIL_WRITER_TOOL_KEY = "ai_email_writer";
 
 const getInitialHeadlineState = () => ({
     content: null,
@@ -720,6 +722,23 @@ const createEmptySocialPostState = () => ({
 
 const socialPostState = ref(createEmptySocialPostState());
 
+const createEmptyEmailWriterState = () => ({
+    purpose: null,
+    email_type: null,
+    recipient: null,
+    sender_name: null,
+    language: null,
+    tone: null,
+    length: null,
+    subject_line: null,
+    call_to_action: null,
+    include_subject: null,
+    extra_options: [],
+    last_output: null,
+});
+
+const emailWriterState = ref(createEmptyEmailWriterState());
+
 const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
 );
@@ -732,9 +751,14 @@ const isSocialPostGeneratorTool = computed(() =>
     Number(subtool.value?.id) === SOCIAL_POST_GENERATOR_SUB_TOOL_ID
 );
 
+const isEmailWriterTool = computed(() =>
+    Number(subtool.value?.id) === EMAIL_WRITER_SUB_TOOL_ID
+);
+
 const inputAriaLabel = computed(() => {
     if (isHeadlineGeneratorTool.value) return "اكتب رسالتك الخاصة بتوليد العناوين";
     if (isSocialPostGeneratorTool.value) return "اكتب طلبك لتوليد منشور السوشيال";
+    if (isEmailWriterTool.value) return "اكتب طلبك لكتابة الإيميل";
     return t("user.chat.inputAria");
 });
 
@@ -810,6 +834,39 @@ const SOCIAL_POST_VALUE_LABELS = {
     Medium: "متوسط",
     Long: "طويل",
     "Make it ready to publish": "جعله جاهزًا للنشر",
+};
+
+const EMAIL_WRITER_FIELD_LABELS = {
+    purpose: "الغرض من الإيميل",
+    email_type: "نوع الإيميل",
+    recipient: "المستلم",
+    sender_name: "اسم المرسل",
+    language: "اللغة",
+    tone: "النبرة",
+    length: "طول الإيميل",
+    subject_line: "عنوان الإيميل",
+    call_to_action: "الدعوة لاتخاذ إجراء",
+    include_subject: "تضمين العنوان",
+    extra_options: "خيارات إضافية",
+};
+
+const EMAIL_WRITER_VALUE_LABELS = {
+    Arabic: "العربية",
+    English: "الإنجليزية",
+    Professional: "احترافية",
+    Formal: "رسمية",
+    Friendly: "ودية",
+    Casual: "غير رسمية",
+    Short: "قصير",
+    Medium: "متوسط",
+    Long: "طويل",
+    "General Email": "إيميل عام",
+    "Business Email": "إيميل أعمال",
+    "Marketing Email": "إيميل تسويقي",
+    "Support Email": "إيميل دعم",
+    "General Recipient": "مستلم عام",
+    "Clear structure": "هيكل واضح",
+    "Ready to send": "جاهز للإرسال",
 };
 
 const humanizeHeadlineValue = (value) => {
@@ -1084,6 +1141,140 @@ const buildSocialPostQuestionMessage = (apiResponse) => {
     const missing = getMissingSocialPostFields(nextState);
     const summary = buildSocialPostStateSummary(nextState);
     const missingText = buildMissingSocialPostText(missing);
+
+    return [
+        message,
+        summary ? `\nالبيانات الحالية:\n${summary}` : "",
+        missingText ? `\n${missingText}` : "",
+    ].filter(Boolean).join("\n");
+};
+
+const normalizeEmailWriterState = (state = {}) => {
+    const base = createEmptyEmailWriterState();
+    const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
+    const merged = { ...base, ...candidate };
+
+    [
+        "purpose",
+        "email_type",
+        "recipient",
+        "sender_name",
+        "language",
+        "tone",
+        "length",
+        "subject_line",
+        "call_to_action",
+        "last_output",
+    ].forEach((key) => {
+        merged[key] = merged[key] === null || merged[key] === undefined
+            ? null
+            : String(merged[key]).trim() || null;
+    });
+
+    if (typeof merged.include_subject === "boolean") {
+        merged.include_subject = merged.include_subject;
+    } else if (merged.include_subject === "true" || merged.include_subject === 1 || merged.include_subject === "1") {
+        merged.include_subject = true;
+    } else if (merged.include_subject === "false" || merged.include_subject === 0 || merged.include_subject === "0") {
+        merged.include_subject = false;
+    } else {
+        merged.include_subject = null;
+    }
+
+    merged.extra_options = Array.isArray(merged.extra_options)
+        ? merged.extra_options.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+
+    return merged;
+};
+
+const isEmptyEmailWriterValue = (value) => {
+    if (Array.isArray(value)) return false;
+    return value === null || value === undefined || value === "";
+};
+
+const getMissingEmailWriterFields = (state = {}) => {
+    const normalized = normalizeEmailWriterState(state);
+
+    return Object.entries(normalized)
+        .filter(([key, value]) =>
+            !["extra_options", "last_output", "sender_name", "subject_line", "call_to_action"].includes(key)
+            && isEmptyEmailWriterValue(value)
+        )
+        .map(([key]) => key);
+};
+
+const hasEmailWriterStateValue = (state = {}) => {
+    const normalized = normalizeEmailWriterState(state);
+
+    return Boolean(
+        normalized.purpose
+        || normalized.email_type
+        || normalized.recipient
+        || normalized.sender_name
+        || normalized.language
+        || normalized.tone
+        || normalized.length
+        || normalized.subject_line
+        || normalized.call_to_action
+        || normalized.include_subject !== null
+        || normalized.extra_options.length
+        || normalized.last_output
+    );
+};
+
+const mergeEmailWriterState = (oldState = {}, newState = {}) => {
+    const merged = normalizeEmailWriterState(oldState);
+    const incoming = normalizeEmailWriterState(newState);
+
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (key === "extra_options") {
+            if (value.length > 0) merged[key] = value;
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== "") {
+            merged[key] = value;
+        }
+    });
+
+    return normalizeEmailWriterState(merged);
+};
+
+const humanizeEmailWriterValue = (value) => {
+    if (value === null || value === undefined || value === "") return "غير محدد";
+    if (typeof value === "boolean") return value ? "نعم" : "لا";
+
+    if (Array.isArray(value)) {
+        return value.length
+            ? value.map((item) => EMAIL_WRITER_VALUE_LABELS[item] || String(item)).join("، ")
+            : "لا";
+    }
+
+    return EMAIL_WRITER_VALUE_LABELS[value] || String(value);
+};
+
+const buildEmailWriterStateSummary = (state = {}) => {
+    const normalized = normalizeEmailWriterState(state);
+
+    return Object.entries(normalized)
+        .filter(([key, value]) => key !== "last_output" && !isEmptyEmailWriterValue(value))
+        .map(([key, value]) =>
+            `${EMAIL_WRITER_FIELD_LABELS[key] || key}: ${humanizeEmailWriterValue(value)}`
+        )
+        .join("\n");
+};
+
+const buildEmailWriterQuestionMessage = (apiResponse) => {
+    const message = apiResponse?.message || "من فضلك أكمل البيانات المطلوبة لكتابة الإيميل.";
+    const nextState = apiResponse?.state || emailWriterState.value;
+    const summary = buildEmailWriterStateSummary(nextState);
+    const missing = getMissingEmailWriterFields(nextState);
+    const missingText = missing.length
+        ? `المطلوب لاستكمال كتابة الإيميل: ${missing
+            .map((field) => EMAIL_WRITER_FIELD_LABELS[field] || field)
+            .join("، ")}`
+        : "";
 
     return [
         message,
@@ -1496,6 +1687,101 @@ const resolveSocialPostStateForSubmit = (conversationUuid = "") => {
     return resolved;
 };
 
+const emailWriterStateStorageKey = (conversationUuid = "") =>
+    `tool_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}_${EMAIL_WRITER_SUB_TOOL_ID}`;
+
+const saveEmailWriterStateToSession = (conversationUuid, state) => {
+    try {
+        sessionStorage.setItem(
+            emailWriterStateStorageKey(conversationUuid),
+            JSON.stringify(normalizeEmailWriterState(state))
+        );
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const readEmailWriterStateFromSession = (conversationUuid) => {
+    try {
+        const raw = sessionStorage.getItem(emailWriterStateStorageKey(conversationUuid));
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? normalizeEmailWriterState(parsed)
+            : null;
+    } catch {
+        return null;
+    }
+};
+
+const clearEmailWriterStateFromSession = (conversationUuid) => {
+    try {
+        sessionStorage.removeItem(emailWriterStateStorageKey(conversationUuid));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetEmailWriterState = (conversationUuid = "") => {
+    emailWriterState.value = createEmptyEmailWriterState();
+    clearEmailWriterStateFromSession(conversationUuid);
+};
+
+const extractEmailWriterStateFromMessages = (rows = [], conversationUuid = "") => {
+    if (Array.isArray(rows)) {
+        for (const message of [...rows].reverse()) {
+            const metadata = message?.metadata && typeof message.metadata === "object"
+                ? message.metadata
+                : null;
+            const stateCandidate = metadata?.state && typeof metadata.state === "object"
+                ? metadata.state
+                : null;
+            const subToolId = Number(metadata?.sub_tool_id || message?.sub_tool_id || 0);
+            const toolKey = String(metadata?.tool || "").toLowerCase();
+
+            if (
+                stateCandidate
+                && (subToolId === EMAIL_WRITER_SUB_TOOL_ID || toolKey === EMAIL_WRITER_TOOL_KEY)
+            ) {
+                const resolved = normalizeEmailWriterState(stateCandidate);
+                saveEmailWriterStateToSession(conversationUuid, resolved);
+                return resolved;
+            }
+        }
+    }
+
+    return readEmailWriterStateFromSession(conversationUuid) || createEmptyEmailWriterState();
+};
+
+const hydrateEmailWriterStateFromMessages = (rows = []) => {
+    if (!isEmailWriterTool.value) {
+        resetEmailWriterState();
+        return;
+    }
+
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    emailWriterState.value = extractEmailWriterStateFromMessages(rows, conversationUuid);
+};
+
+const resolveEmailWriterStateForSubmit = (conversationUuid = "") => {
+    let resolved = normalizeEmailWriterState(emailWriterState.value);
+
+    if (!hasEmailWriterStateValue(resolved)) {
+        const latestKnown = extractEmailWriterStateFromMessages(messages.value, conversationUuid);
+        resolved = hasEmailWriterStateValue(latestKnown)
+            ? latestKnown
+            : createEmptyEmailWriterState();
+    }
+
+    resolved = normalizeEmailWriterState(resolved);
+    emailWriterState.value = resolved;
+
+    if (conversationUuid) saveEmailWriterStateToSession(conversationUuid, resolved);
+
+    return resolved;
+};
+
 const extractHeadlineStateFromMessages = (rows = [], conversationUuid = "") => {
     if (!Array.isArray(rows) || !rows.length) {
         const stored = readHeadlineStateFromSession(conversationUuid);
@@ -1702,6 +1988,74 @@ const normalizeSocialPostApiResponse = (response = {}) => {
             : null,
         results,
         outputText,
+        count: payload?.count ?? results.length,
+        request_id: payload?.request_id || null,
+        debug: payload?.debug ?? null,
+        usage: payload?.usage && typeof payload.usage === "object" ? payload.usage : null,
+        cost: payload?.cost && typeof payload.cost === "object" ? payload.cost : null,
+    };
+};
+
+const normalizeEmailWriterApiResponse = (response = {}) => {
+    if (response?.status === "error") {
+        return {
+            success: false,
+            type: "error",
+            tool: EMAIL_WRITER_TOOL_KEY,
+            provider: null,
+            model_key: "email_writer",
+            sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+            message: String(response?.message || "حدث خطأ أثناء كتابة الإيميل."),
+            state: null,
+            results: [],
+            outputText: "",
+            count: 0,
+            request_id: null,
+            usage: null,
+            cost: null,
+        };
+    }
+
+    const payload = response?.data && typeof response.data === "object" ? response.data : response;
+    if (!payload || typeof payload !== "object") return null;
+
+    const normalizedSubToolId = Number(payload?.sub_tool_id || subtool.value?.id || 0);
+    const normalizedTool = String(payload?.tool || "").trim().toLowerCase();
+
+    if (
+        normalizedSubToolId !== EMAIL_WRITER_SUB_TOOL_ID
+        && normalizedTool !== EMAIL_WRITER_TOOL_KEY
+    ) {
+        return null;
+    }
+
+    const results = Array.isArray(payload?.results)
+        ? payload.results
+            .map((item, index) => ({
+                id: Number(item?.id || index + 1),
+                text: String(item?.text || "").trim(),
+                title: item?.title ?? null,
+                subject: item?.subject ?? null,
+                meta: item?.meta && typeof item.meta === "object" ? item.meta : {},
+            }))
+            .filter((item) => item.text)
+        : [];
+
+    return {
+        success: payload?.success !== false,
+        type: payload?.type || "",
+        tool: normalizedTool || EMAIL_WRITER_TOOL_KEY,
+        provider: payload?.provider || null,
+        model_key: payload?.model_key || "email_writer",
+        user_id: payload?.user_id ?? null,
+        sub_tool_id: normalizedSubToolId || EMAIL_WRITER_SUB_TOOL_ID,
+        conversation_uuid: payload?.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
+        message: String(payload?.message || ""),
+        state: payload?.state && typeof payload.state === "object"
+            ? normalizeEmailWriterState(payload.state)
+            : null,
+        results,
+        outputText: results.map((item) => item.text).join("\n\n"),
         count: payload?.count ?? results.length,
         request_id: payload?.request_id || null,
         debug: payload?.debug ?? null,
@@ -2292,6 +2646,171 @@ const loadSubtool = async () => {
     }
 };
 
+const handleEmailWriterSubmit = async (text) => {
+    const inputText = String(text || "").trim();
+
+    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return;
+    }
+
+    if (!(await requireAuth())) return;
+
+    sendingMessage.value = true;
+    const conversation = await ensureConversation();
+
+    if (!conversation?.uuid) {
+        sendingMessage.value = false;
+        await addAssistantLocalMessage("تعذر إنشاء المحادثة. حاول مرة أخرى.", {
+            is_error: true,
+        });
+        return;
+    }
+
+    const requestState = resolveEmailWriterStateForSubmit(conversation.uuid);
+
+    await addUserLocalMessage(inputText, {
+        sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+        metadata: {
+            type: "user_input",
+            tool: EMAIL_WRITER_TOOL_KEY,
+            sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+            state: requestState,
+        },
+    });
+
+    userInput.value = "";
+    resetTextarea();
+    const typingId = addAssistantTypingMessage();
+
+    try {
+        const payload = {
+            user_id: resolveCurrentUserId(),
+            sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+            conversation_uuid: conversation.uuid,
+            user_message: inputText,
+            state: requestState,
+            debug: false,
+        };
+
+        console.log("[EmailWriter] payload before send:", JSON.stringify(payload, null, 2));
+        const response = await chatServices.sendMessage(payload);
+        console.log("[EmailWriter] raw response:", response);
+        removeAssistantTypingMessage(typingId);
+
+        const apiResponse = normalizeEmailWriterApiResponse(response);
+
+        if (!apiResponse) {
+            await addAssistantLocalMessage(
+                "تعذر قراءة نتيجة كتابة الإيميل. حاول مرة أخرى.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+                }
+            );
+            return;
+        }
+
+        if (apiResponse.state) {
+            emailWriterState.value = mergeEmailWriterState(
+                emailWriterState.value,
+                apiResponse.state
+            );
+            saveEmailWriterStateToSession(conversation.uuid, emailWriterState.value);
+        }
+
+        const metadata = {
+            type: apiResponse.type || "result",
+            tool: EMAIL_WRITER_TOOL_KEY,
+            sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+            provider: apiResponse.provider,
+            model_key: apiResponse.model_key,
+            results: apiResponse.results,
+            count: apiResponse.count,
+            state: emailWriterState.value,
+            request_id: apiResponse.request_id,
+            usage: apiResponse.usage,
+            cost: apiResponse.cost,
+        };
+
+        if (apiResponse.success === false || apiResponse.type === "error") {
+            console.error("[EmailWriter] API error response:", apiResponse);
+            await addAssistantLocalMessage(
+                apiResponse.message || "حدث خطأ أثناء كتابة الإيميل.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "error" },
+                }
+            );
+            return;
+        }
+
+        if (apiResponse.type === "question") {
+            await addAssistantLocalMessage(
+                buildEmailWriterQuestionMessage(apiResponse),
+                {
+                    plainText: true,
+                    sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "question" },
+                }
+            );
+            await focusChatInput();
+            return;
+        }
+
+        const outputText = apiResponse.results
+            .map((item) => item.text)
+            .filter(Boolean)
+            .join("\n\n");
+
+        if (!outputText) {
+            await addAssistantLocalMessage(
+                "تم التنفيذ ولكن لم يتم العثور على إيميل جاهز للعرض.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "result_empty" },
+                }
+            );
+            return;
+        }
+
+        await addAssistantLocalMessage(outputText, {
+            plainText: true,
+            sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+            metadata: { ...metadata, type: "result" },
+        });
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+        await focusChatInput();
+    } catch (error) {
+        removeAssistantTypingMessage(typingId);
+        console.error("[EmailWriter] frontend send error:", error);
+        await addAssistantLocalMessage("حدث خطأ أثناء كتابة الإيميل.", {
+            plainText: true,
+            is_error: true,
+            sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+            metadata: {
+                type: "frontend_error",
+                tool: EMAIL_WRITER_TOOL_KEY,
+                sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
+                error_message: error?.message || String(error),
+            },
+        });
+    } finally {
+        removeAssistantTypingMessage(typingId);
+        sendingMessage.value = false;
+        await scrollToBottom();
+    }
+};
+
 const loadConversations = async () => {
     if (!isAuthenticated()) {
         conversations.value = [];
@@ -2322,6 +2841,7 @@ const loadConversationDetails = async (uuid) => {
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
+        resetEmailWriterState();
         return;
     }
 
@@ -2333,6 +2853,7 @@ const loadConversationDetails = async (uuid) => {
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
+        resetEmailWriterState();
         return;
     }
 
@@ -2383,6 +2904,7 @@ const loadConversationDetails = async (uuid) => {
         hydrateHeadlineStateFromMessages(rows);
         hydrateParaphraserStateFromMessages(rows);
         hydrateSocialPostStateFromMessages(rows);
+        hydrateEmailWriterStateFromMessages(rows);
 
         resolveInsufficientPointsState(rows);
 
@@ -2401,6 +2923,7 @@ const syncRouteConversation = async () => {
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
+        resetEmailWriterState();
         return;
     }
 
@@ -2450,6 +2973,7 @@ const startNewChat = async () => {
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
+        resetEmailWriterState();
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -2477,6 +3001,7 @@ const ensureConversation = async () => {
     resetHeadlineState();
     resetParaphraserState();
     resetSocialPostState();
+    resetEmailWriterState();
 
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 
@@ -2614,6 +3139,11 @@ const onSubmitMessage = async () => {
         return;
     }
 
+    if (isEmailWriterTool.value) {
+        await handleEmailWriterSubmit(userInput.value);
+        return;
+    }
+
     await submitMessage();
 };
 
@@ -2638,6 +3168,7 @@ const removeConversation = async (conversation) => {
             resetHeadlineState();
             resetParaphraserState();
             resetSocialPostState();
+            resetEmailWriterState();
 
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }

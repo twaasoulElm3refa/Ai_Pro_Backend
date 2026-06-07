@@ -14,6 +14,7 @@ use App\Models\Wallet;
 use App\Repository\Messages\MessageInterface;
 use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
+use App\Services\EmailWriterService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -45,7 +46,11 @@ class MessageController extends Controller
         $this->messageCache = $messageCache;
     }
 
-    public function sendMessage(MessageRequest $request, AiArabicWriterService $writerService)
+    public function sendMessage(
+        MessageRequest $request,
+        AiArabicWriterService $writerService,
+        EmailWriterService $emailWriterService
+    )
     {
         Log::info('Message send request received', [
             'user_id' => $request->input('user_id'),
@@ -145,6 +150,21 @@ class MessageController extends Controller
                     $data,
                     $content,
                     $userId
+                );
+            }
+
+            if (
+                $subToolId === EmailWriterService::SUB_TOOL_ID
+                || strcasecmp($requestedTool, EmailWriterService::TOOL_KEY) === 0
+            ) {
+                return $this->success(
+                    $emailWriterService->handle(
+                        $conversation,
+                        $data,
+                        $content,
+                        $userId
+                    ),
+                    'Email Writer Response Ready.'
                 );
             }
 
