@@ -1659,7 +1659,6 @@ const normalizeSocialPostApiResponse = (response = {}) => {
     }
 
     const payload = response?.data && typeof response.data === "object" ? response.data : response;
-    console.log("Raw API response:", payload);
     if (!payload || typeof payload !== "object") return null;
 
     const normalizedSubToolId = Number(payload?.sub_tool_id || subtool.value?.id || 0);
