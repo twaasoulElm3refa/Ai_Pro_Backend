@@ -2055,7 +2055,7 @@ const normalizeEmailWriterApiResponse = (response = {}) => {
             ? normalizeEmailWriterState(payload.state)
             : null,
         results,
-        outputText: results.map((item) => item.text).join("\n\n"),
+        outputText: results[0]?.text || "",
         count: payload?.count ?? results.length,
         request_id: payload?.request_id || null,
         debug: payload?.debug ?? null,
@@ -2667,6 +2667,7 @@ const handleEmailWriterSubmit = async (text) => {
     }
 
     const requestState = resolveEmailWriterStateForSubmit(conversation.uuid);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
@@ -2687,8 +2688,12 @@ const handleEmailWriterSubmit = async (text) => {
             user_id: resolveCurrentUserId(),
             sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
             conversation_uuid: conversation.uuid,
+            conversation_id: conversation.id,
             user_message: inputText,
+            tool: EMAIL_WRITER_TOOL_KEY,
+            model_key: "email_writer",
             state: requestState,
+            idempotency_key: idempotencyKey,
             debug: false,
         };
 
@@ -2731,6 +2736,7 @@ const handleEmailWriterSubmit = async (text) => {
             request_id: apiResponse.request_id,
             usage: apiResponse.usage,
             cost: apiResponse.cost,
+            subject: apiResponse.results[0]?.subject || null,
         };
 
         if (apiResponse.success === false || apiResponse.type === "error") {
@@ -2760,10 +2766,7 @@ const handleEmailWriterSubmit = async (text) => {
             return;
         }
 
-        const outputText = apiResponse.results
-            .map((item) => item.text)
-            .filter(Boolean)
-            .join("\n\n");
+        const outputText = apiResponse.results[0]?.text || "";
 
         if (!outputText) {
             await addAssistantLocalMessage(
