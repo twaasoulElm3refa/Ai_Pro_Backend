@@ -679,6 +679,8 @@ const SOCIAL_POST_GENERATOR_SUB_TOOL_ID = 5;
 const SOCIAL_POST_GENERATOR_TOOL_KEY = "ai_social_post_generator";
 const EMAIL_WRITER_SUB_TOOL_ID = 6;
 const EMAIL_WRITER_TOOL_KEY = "ai_email_writer";
+const SCRIPT_GENERATOR_SUB_TOOL_ID = 7;
+const SCRIPT_GENERATOR_TOOL_KEY = "ai_script_generator";
 
 const getInitialHeadlineState = () => ({
     content: null,
@@ -739,6 +741,23 @@ const createEmptyEmailWriterState = () => ({
 
 const emailWriterState = ref(createEmptyEmailWriterState());
 
+const createEmptyScriptGeneratorState = () => ({
+    topic: null,
+    script_type: null,
+    platform: null,
+    language: null,
+    tone: null,
+    audience: null,
+    duration: null,
+    format: null,
+    include_scene_notes: null,
+    results_count: 2,
+    extra_options: [],
+    last_output: null,
+});
+
+const scriptGeneratorState = ref(createEmptyScriptGeneratorState());
+
 const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
 );
@@ -755,10 +774,15 @@ const isEmailWriterTool = computed(() =>
     Number(subtool.value?.id) === EMAIL_WRITER_SUB_TOOL_ID
 );
 
+const isScriptGeneratorTool = computed(() =>
+    Number(subtool.value?.id) === SCRIPT_GENERATOR_SUB_TOOL_ID
+);
+
 const inputAriaLabel = computed(() => {
     if (isHeadlineGeneratorTool.value) return "اكتب رسالتك الخاصة بتوليد العناوين";
     if (isSocialPostGeneratorTool.value) return "اكتب طلبك لتوليد منشور السوشيال";
     if (isEmailWriterTool.value) return "اكتب طلبك لكتابة الإيميل";
+    if (isScriptGeneratorTool.value) return "اكتب طلبك لتوليد السكريبت";
     return t("user.chat.inputAria");
 });
 
@@ -847,6 +871,20 @@ const EMAIL_WRITER_FIELD_LABELS = {
     subject_line: "عنوان الإيميل",
     call_to_action: "الدعوة لاتخاذ إجراء",
     include_subject: "تضمين العنوان",
+    extra_options: "خيارات إضافية",
+};
+
+const SCRIPT_GENERATOR_FIELD_LABELS = {
+    topic: "موضوع السكريبت",
+    script_type: "نوع السكريبت",
+    platform: "المنصة",
+    language: "اللغة",
+    tone: "النبرة",
+    audience: "الجمهور المستهدف",
+    duration: "مدة السكريبت",
+    format: "تنسيق السكريبت",
+    include_scene_notes: "تضمين ملاحظات المشاهد",
+    results_count: "عدد النتائج",
     extra_options: "خيارات إضافية",
 };
 
@@ -1280,6 +1318,125 @@ const buildEmailWriterQuestionMessage = (apiResponse) => {
         message,
         summary ? `\nالبيانات الحالية:\n${summary}` : "",
         missingText ? `\n${missingText}` : "",
+    ].filter(Boolean).join("\n");
+};
+
+const normalizeScriptGeneratorState = (state = {}) => {
+    const base = createEmptyScriptGeneratorState();
+    const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
+    const merged = { ...base, ...candidate };
+
+    [
+        "topic",
+        "script_type",
+        "platform",
+        "language",
+        "tone",
+        "audience",
+        "duration",
+        "format",
+        "last_output",
+    ].forEach((key) => {
+        merged[key] = merged[key] === null || merged[key] === undefined
+            ? null
+            : String(merged[key]).trim() || null;
+    });
+
+    if (typeof merged.include_scene_notes === "boolean") {
+        merged.include_scene_notes = merged.include_scene_notes;
+    } else if (merged.include_scene_notes === "true" || merged.include_scene_notes === 1 || merged.include_scene_notes === "1") {
+        merged.include_scene_notes = true;
+    } else if (merged.include_scene_notes === "false" || merged.include_scene_notes === 0 || merged.include_scene_notes === "0") {
+        merged.include_scene_notes = false;
+    } else {
+        merged.include_scene_notes = null;
+    }
+
+    if (
+        merged.results_count === null
+        || merged.results_count === undefined
+        || merged.results_count === ""
+    ) {
+        merged.results_count = 2;
+    } else {
+        const resultsCount = Number(merged.results_count);
+        merged.results_count = Number.isFinite(resultsCount) && resultsCount > 0
+            ? Math.floor(resultsCount)
+            : 2;
+    }
+
+    merged.extra_options = Array.isArray(merged.extra_options)
+        ? merged.extra_options.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+
+    return merged;
+};
+
+const isEmptyScriptGeneratorValue = (value) => {
+    if (Array.isArray(value)) return false;
+    return value === null || value === undefined || value === "";
+};
+
+const getMissingScriptGeneratorFields = (state = {}) => {
+    const normalized = normalizeScriptGeneratorState(state);
+
+    return Object.entries(normalized)
+        .filter(([key, value]) =>
+            !["extra_options", "last_output"].includes(key)
+            && isEmptyScriptGeneratorValue(value)
+        )
+        .map(([key]) => key);
+};
+
+const hasScriptGeneratorStateValue = (state = {}) => {
+    const normalized = normalizeScriptGeneratorState(state);
+
+    return Boolean(
+        normalized.topic
+        || normalized.script_type
+        || normalized.platform
+        || normalized.language
+        || normalized.tone
+        || normalized.audience
+        || normalized.duration
+        || normalized.format
+        || normalized.include_scene_notes !== null
+        || normalized.results_count
+        || normalized.extra_options.length
+        || normalized.last_output
+    );
+};
+
+const mergeScriptGeneratorState = (oldState = {}, newState = {}) => {
+    const merged = normalizeScriptGeneratorState(oldState);
+    const incoming = normalizeScriptGeneratorState(newState);
+
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (key === "extra_options") {
+            if (Array.isArray(value) && value.length > 0) merged[key] = value;
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== "") {
+            merged[key] = value;
+        }
+    });
+
+    return normalizeScriptGeneratorState(merged);
+};
+
+const buildScriptGeneratorQuestionMessage = (apiResponse) => {
+    const state = normalizeScriptGeneratorState(
+        apiResponse?.state || scriptGeneratorState.value
+    );
+    const missing = getMissingScriptGeneratorFields(state);
+    const labels = missing
+        .map((field) => SCRIPT_GENERATOR_FIELD_LABELS[field] || field)
+        .join("، ");
+
+    return [
+        apiResponse?.message || "من فضلك أكمل البيانات المطلوبة لتوليد السكريبت.",
+        labels ? `المطلوب لاستكمال السكريبت: ${labels}` : "",
     ].filter(Boolean).join("\n");
 };
 
@@ -1782,6 +1939,110 @@ const resolveEmailWriterStateForSubmit = (conversationUuid = "") => {
     return resolved;
 };
 
+const scriptGeneratorStateStorageKey = (conversationUuid = "") =>
+    `tool_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}_${SCRIPT_GENERATOR_SUB_TOOL_ID}`;
+
+const saveScriptGeneratorStateToSession = (conversationUuid, state) => {
+    try {
+        sessionStorage.setItem(
+            scriptGeneratorStateStorageKey(conversationUuid),
+            JSON.stringify(normalizeScriptGeneratorState(state))
+        );
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const readScriptGeneratorStateFromSession = (conversationUuid) => {
+    try {
+        const raw = sessionStorage.getItem(scriptGeneratorStateStorageKey(conversationUuid));
+        if (!raw) return null;
+        return normalizeScriptGeneratorState(JSON.parse(raw));
+    } catch {
+        return null;
+    }
+};
+
+const clearScriptGeneratorStateFromSession = (conversationUuid) => {
+    try {
+        sessionStorage.removeItem(scriptGeneratorStateStorageKey(conversationUuid));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetScriptGeneratorState = (conversationUuid = "") => {
+    scriptGeneratorState.value = createEmptyScriptGeneratorState();
+    clearScriptGeneratorStateFromSession(conversationUuid);
+};
+
+const extractScriptGeneratorStateFromMessages = (rows = [], conversationUuid = "") => {
+    if (Array.isArray(rows) && rows.length > 0) {
+        for (const message of [...rows].reverse()) {
+            const metadata = message?.metadata && typeof message.metadata === "object"
+                ? message.metadata
+                : null;
+            const stateCandidate = metadata?.state && typeof metadata.state === "object"
+                ? metadata.state
+                : null;
+            const subToolId = Number(
+                metadata?.sub_tool_id
+                || message?.sub_tool_id
+                || message?.subToolId
+                || 0
+            );
+            const toolKey = String(metadata?.tool || "").toLowerCase();
+
+            if (
+                stateCandidate
+                && (subToolId === SCRIPT_GENERATOR_SUB_TOOL_ID || toolKey === SCRIPT_GENERATOR_TOOL_KEY)
+            ) {
+                const resolved = normalizeScriptGeneratorState(stateCandidate);
+                saveScriptGeneratorStateToSession(conversationUuid, resolved);
+                return resolved;
+            }
+        }
+    }
+
+    return readScriptGeneratorStateFromSession(conversationUuid)
+        || createEmptyScriptGeneratorState();
+};
+
+const hydrateScriptGeneratorStateFromMessages = (rows = []) => {
+    if (!isScriptGeneratorTool.value) {
+        resetScriptGeneratorState();
+        return;
+    }
+
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    scriptGeneratorState.value = extractScriptGeneratorStateFromMessages(
+        rows,
+        conversationUuid
+    );
+};
+
+const resolveScriptGeneratorStateForSubmit = (conversationUuid = "") => {
+    let resolved = normalizeScriptGeneratorState(scriptGeneratorState.value);
+
+    if (!hasScriptGeneratorStateValue(resolved)) {
+        const latestKnown = extractScriptGeneratorStateFromMessages(
+            messages.value,
+            conversationUuid
+        );
+        resolved = hasScriptGeneratorStateValue(latestKnown)
+            ? normalizeScriptGeneratorState(latestKnown)
+            : createEmptyScriptGeneratorState();
+    }
+
+    scriptGeneratorState.value = resolved;
+
+    if (conversationUuid) {
+        saveScriptGeneratorStateToSession(conversationUuid, resolved);
+    }
+
+    return resolved;
+};
+
 const extractHeadlineStateFromMessages = (rows = [], conversationUuid = "") => {
     if (!Array.isArray(rows) || !rows.length) {
         const stored = readHeadlineStateFromSession(conversationUuid);
@@ -2056,6 +2317,76 @@ const normalizeEmailWriterApiResponse = (response = {}) => {
             : null,
         results,
         outputText: results[0]?.text || "",
+        count: payload?.count ?? results.length,
+        request_id: payload?.request_id || null,
+        debug: payload?.debug ?? null,
+        usage: payload?.usage && typeof payload.usage === "object" ? payload.usage : null,
+        cost: payload?.cost && typeof payload.cost === "object" ? payload.cost : null,
+    };
+};
+
+const normalizeScriptGeneratorApiResponse = (response = {}) => {
+    if (response?.status === "error") {
+        return {
+            success: false,
+            type: "error",
+            tool: SCRIPT_GENERATOR_TOOL_KEY,
+            provider: null,
+            model_key: "script_generator",
+            sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+            message: String(response?.message || "حدث خطأ أثناء توليد السكريبت."),
+            state: null,
+            results: [],
+            outputText: "",
+            count: 0,
+            request_id: null,
+            usage: null,
+            cost: null,
+        };
+    }
+
+    const payload = response?.data && typeof response.data === "object" ? response.data : response;
+    if (!payload || typeof payload !== "object") return null;
+
+    const normalizedSubToolId = Number(payload?.sub_tool_id || subtool.value?.id || 0);
+    const normalizedTool = String(payload?.tool || "").trim().toLowerCase();
+
+    if (
+        normalizedSubToolId !== SCRIPT_GENERATOR_SUB_TOOL_ID
+        && normalizedTool !== SCRIPT_GENERATOR_TOOL_KEY
+    ) {
+        return null;
+    }
+
+    const results = Array.isArray(payload?.results)
+        ? payload.results
+            .map((item, index) => ({
+                id: Number(item?.id || index + 1),
+                text: String(item?.text || "").trim(),
+                title: item?.title ?? null,
+                subject: item?.subject ?? null,
+                meta: item?.meta && typeof item.meta === "object" ? item.meta : {},
+            }))
+            .filter((item) => item.text)
+        : [];
+
+    return {
+        success: payload?.success !== false,
+        type: payload?.type || "",
+        tool: normalizedTool || SCRIPT_GENERATOR_TOOL_KEY,
+        provider: payload?.provider || null,
+        model_key: payload?.model_key || "script_generator",
+        user_id: payload?.user_id ?? null,
+        sub_tool_id: normalizedSubToolId || SCRIPT_GENERATOR_SUB_TOOL_ID,
+        conversation_uuid: payload?.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
+        message: String(payload?.message || ""),
+        state: payload?.state && typeof payload.state === "object"
+            ? normalizeScriptGeneratorState(payload.state)
+            : null,
+        results,
+        outputText: results.length
+            ? results.map((item) => item.text).join("\n\n")
+            : "",
         count: payload?.count ?? results.length,
         request_id: payload?.request_id || null,
         debug: payload?.debug ?? null,
@@ -2814,6 +3145,178 @@ const handleEmailWriterSubmit = async (text) => {
     }
 };
 
+const handleScriptGeneratorSubmit = async (text) => {
+    const inputText = String(text || "").trim();
+
+    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return;
+    }
+
+    if (!(await requireAuth())) return;
+
+    sendingMessage.value = true;
+    const conversation = await ensureConversation();
+
+    if (!conversation?.uuid) {
+        sendingMessage.value = false;
+        await addAssistantLocalMessage("تعذر إنشاء المحادثة. حاول مرة أخرى.", {
+            is_error: true,
+        });
+        return;
+    }
+
+    const localScriptState = resolveScriptGeneratorStateForSubmit(conversation.uuid);
+
+    await addUserLocalMessage(inputText, {
+        sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+        metadata: {
+            type: "user_input",
+            tool: SCRIPT_GENERATOR_TOOL_KEY,
+            sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+            state: localScriptState,
+        },
+    });
+
+    userInput.value = "";
+    resetTextarea();
+    const typingId = addAssistantTypingMessage();
+
+    try {
+        const payload = {
+            user_id: resolveCurrentUserId(),
+            sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+            conversation_uuid: conversation.uuid,
+            user_message: inputText,
+            state: hasScriptGeneratorStateValue(localScriptState)
+                ? localScriptState
+                : createEmptyScriptGeneratorState(),
+            debug: false,
+        };
+
+        console.log("[ScriptGenerator] payload before send:", JSON.stringify(payload, null, 2));
+        const response = await chatServices.sendMessage(payload);
+        console.log("[ScriptGenerator] raw response:", response);
+        removeAssistantTypingMessage(typingId);
+
+        const apiResponse = normalizeScriptGeneratorApiResponse(response);
+
+        if (!apiResponse) {
+            await addAssistantLocalMessage(
+                "تعذر قراءة نتيجة توليد السكريبت. حاول مرة أخرى.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+                }
+            );
+            return;
+        }
+
+        if (apiResponse.state) {
+            scriptGeneratorState.value = mergeScriptGeneratorState(
+                scriptGeneratorState.value,
+                apiResponse.state
+            );
+            saveScriptGeneratorStateToSession(
+                conversation.uuid,
+                scriptGeneratorState.value
+            );
+        }
+
+        const metadata = {
+            type: apiResponse.type || "result",
+            tool: SCRIPT_GENERATOR_TOOL_KEY,
+            sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+            provider: apiResponse.provider,
+            model_key: apiResponse.model_key,
+            results: apiResponse.results,
+            count: apiResponse.count,
+            state: scriptGeneratorState.value,
+            request_id: apiResponse.request_id,
+            usage: apiResponse.usage,
+            cost: apiResponse.cost,
+        };
+
+        if (apiResponse.success === false || apiResponse.type === "error") {
+            console.error("[ScriptGenerator] API error response:", apiResponse);
+            await addAssistantLocalMessage(
+                apiResponse.message || "حدث خطأ أثناء توليد السكريبت.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "error" },
+                }
+            );
+            return;
+        }
+
+        const missingFields = getMissingScriptGeneratorFields(
+            apiResponse.state || scriptGeneratorState.value
+        );
+
+        if (apiResponse.type === "question" || missingFields.length > 0) {
+            await addAssistantLocalMessage(
+                buildScriptGeneratorQuestionMessage(apiResponse),
+                {
+                    plainText: true,
+                    sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "question" },
+                }
+            );
+            await focusChatInput();
+            return;
+        }
+
+        const outputText = apiResponse.results.length
+            ? apiResponse.results.map((item) => item.text).join("\n\n")
+            : "";
+
+        if (!outputText) {
+            await addAssistantLocalMessage(
+                "تم التنفيذ ولكن لم يتم العثور على سكريبت جاهز للعرض.",
+                {
+                    plainText: true,
+                    sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "result_empty" },
+                }
+            );
+            return;
+        }
+
+        await addAssistantLocalMessage(outputText, {
+            plainText: true,
+            sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+            metadata: { ...metadata, type: "result" },
+        });
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+        await focusChatInput();
+    } catch (error) {
+        removeAssistantTypingMessage(typingId);
+        console.error("[ScriptGenerator] frontend send error:", error);
+        await addAssistantLocalMessage("حدث خطأ أثناء توليد السكريبت.", {
+            plainText: true,
+            is_error: true,
+            sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+            metadata: {
+                type: "frontend_error",
+                tool: SCRIPT_GENERATOR_TOOL_KEY,
+                sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
+                error_message: error?.message || String(error),
+            },
+        });
+    } finally {
+        removeAssistantTypingMessage(typingId);
+        sendingMessage.value = false;
+        await scrollToBottom();
+    }
+};
+
 const loadConversations = async () => {
     if (!isAuthenticated()) {
         conversations.value = [];
@@ -2845,6 +3348,7 @@ const loadConversationDetails = async (uuid) => {
         resetParaphraserState();
         resetSocialPostState();
         resetEmailWriterState();
+        resetScriptGeneratorState();
         return;
     }
 
@@ -2857,6 +3361,7 @@ const loadConversationDetails = async (uuid) => {
         resetParaphraserState();
         resetSocialPostState();
         resetEmailWriterState();
+        resetScriptGeneratorState();
         return;
     }
 
@@ -2908,6 +3413,7 @@ const loadConversationDetails = async (uuid) => {
         hydrateParaphraserStateFromMessages(rows);
         hydrateSocialPostStateFromMessages(rows);
         hydrateEmailWriterStateFromMessages(rows);
+        hydrateScriptGeneratorStateFromMessages(rows);
 
         resolveInsufficientPointsState(rows);
 
@@ -2927,6 +3433,7 @@ const syncRouteConversation = async () => {
         resetParaphraserState();
         resetSocialPostState();
         resetEmailWriterState();
+        resetScriptGeneratorState();
         return;
     }
 
@@ -2977,6 +3484,7 @@ const startNewChat = async () => {
         resetParaphraserState();
         resetSocialPostState();
         resetEmailWriterState();
+        resetScriptGeneratorState();
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -3005,6 +3513,7 @@ const ensureConversation = async () => {
     resetParaphraserState();
     resetSocialPostState();
     resetEmailWriterState();
+    resetScriptGeneratorState();
 
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 
@@ -3147,6 +3656,11 @@ const onSubmitMessage = async () => {
         return;
     }
 
+    if (isScriptGeneratorTool.value) {
+        await handleScriptGeneratorSubmit(userInput.value);
+        return;
+    }
+
     await submitMessage();
 };
 
@@ -3172,6 +3686,7 @@ const removeConversation = async (conversation) => {
             resetParaphraserState();
             resetSocialPostState();
             resetEmailWriterState();
+            resetScriptGeneratorState();
 
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }

@@ -15,6 +15,7 @@ use App\Repository\Messages\MessageInterface;
 use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
+use App\Services\ScriptGeneratorService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -49,7 +50,8 @@ class MessageController extends Controller
     public function sendMessage(
         MessageRequest $request,
         AiArabicWriterService $writerService,
-        EmailWriterService $emailWriterService
+        EmailWriterService $emailWriterService,
+        ScriptGeneratorService $scriptGeneratorService
     )
     {
         Log::info('Message send request received', [
@@ -165,6 +167,21 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Email Writer Response Ready.'
+                );
+            }
+
+            if (
+                $subToolId === ScriptGeneratorService::SUB_TOOL_ID
+                || strcasecmp($requestedTool, ScriptGeneratorService::TOOL_KEY) === 0
+            ) {
+                return $this->success(
+                    $scriptGeneratorService->handle(
+                        $conversation,
+                        $data,
+                        $content,
+                        $userId
+                    ),
+                    'Script Generator Response Ready.'
                 );
             }
 
