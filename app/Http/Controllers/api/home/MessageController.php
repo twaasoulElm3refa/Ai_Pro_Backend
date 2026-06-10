@@ -15,6 +15,7 @@ use App\Repository\Messages\MessageInterface;
 use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
+use App\Services\ProductDescriptionGeneratorService;
 use App\Services\ScriptGeneratorService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +52,8 @@ class MessageController extends Controller
         MessageRequest $request,
         AiArabicWriterService $writerService,
         EmailWriterService $emailWriterService,
-        ScriptGeneratorService $scriptGeneratorService
+        ScriptGeneratorService $scriptGeneratorService,
+        ProductDescriptionGeneratorService $productDescriptionGeneratorService
     )
     {
         Log::info('Message send request received', [
@@ -83,6 +85,26 @@ class MessageController extends Controller
             $subToolId = (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0);
             $content = $this->resolveInputContent($data);
             $requestedTool = trim((string) $request->input('tool', ''));
+            $isProductDescriptionGenerator = (
+                $subToolId === ProductDescriptionGeneratorService::SUB_TOOL_ID
+                || strcasecmp(
+                    $requestedTool,
+                    ProductDescriptionGeneratorService::TOOL_KEY
+                ) === 0
+            );
+
+            if ($content === '') {
+                if ($isProductDescriptionGenerator) {
+                    $content = trim((string) $request->input('state.product', ''));
+
+                    if ($content === '') {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'يرجى إدخال اسم المنتج أو وصف المنتج أولًا.',
+                        ], 422);
+                    }
+                }
+            }
 
             if ($content === '') {
                 return $this->validationError([
@@ -182,6 +204,18 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Script Generator Response Ready.'
+                );
+            }
+
+            if ($isProductDescriptionGenerator) {
+                return $this->success(
+                    $productDescriptionGeneratorService->handle(
+                        $conversation,
+                        $data,
+                        $content,
+                        $userId
+                    ),
+                    'Product Description Generator Response Ready.'
                 );
             }
 

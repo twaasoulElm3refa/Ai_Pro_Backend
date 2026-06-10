@@ -57,12 +57,41 @@ class MessageRequest extends FormRequest
                 'required_without:conversation_uuid',
                 Rule::exists('conversations', 'id')->where('user_id', $this->user()->id),
             ],
-            'content' => ['nullable', 'string', 'max:5000', 'required_without_all:message,user_message'],
-            'message' => ['nullable', 'string', 'max:5000', 'required_without_all:content,user_message'],
-            'user_message' => ['nullable', 'string', 'max:5000', 'required_without_all:content,message'],
+            'content' => [
+                'nullable',
+                'string',
+                'max:5000',
+                Rule::requiredIf(fn (): bool =>
+                    (int) $this->input('sub_tool_id') !== 8
+                    && ! $this->filled('message')
+                    && ! $this->filled('user_message')
+                ),
+            ],
+            'message' => [
+                'nullable',
+                'string',
+                'max:5000',
+                Rule::requiredIf(fn (): bool =>
+                    (int) $this->input('sub_tool_id') !== 8
+                    && ! $this->filled('content')
+                    && ! $this->filled('user_message')
+                ),
+            ],
+            'user_message' => [
+                'nullable',
+                'string',
+                'max:5000',
+                Rule::requiredIf(fn (): bool =>
+                    (int) $this->input('sub_tool_id') !== 8
+                    && ! $this->filled('content')
+                    && ! $this->filled('message')
+                ),
+            ],
             'role' => ['nullable', 'in:user'],
             'idempotency_key' => ['nullable', 'uuid'],
             'debug' => ['nullable', 'boolean'],
+            'tool' => ['nullable', 'string', 'max:100'],
+            'model_key' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'array'],
             'state.content' => ['nullable', 'string', 'max:5000'],
             'state.content_type' => ['nullable', 'string', 'max:100'],
@@ -83,6 +112,12 @@ class MessageRequest extends FormRequest
             'state.duration' => ['nullable', 'string', 'max:100'],
             'state.format' => ['nullable', 'string', 'max:150'],
             'state.include_scene_notes' => ['nullable', 'boolean'],
+            'state.product' => ['nullable', 'string', 'max:1000'],
+            'state.brand_name' => ['nullable', 'string', 'max:150'],
+            'state.product_features' => ['nullable', 'string', 'max:5000'],
+            'state.target_audience' => ['nullable', 'string', 'max:250'],
+            'state.include_bullets' => ['nullable', 'boolean'],
+            'state.include_seo_keywords' => ['nullable', 'boolean'],
             'state.rewrite_mode' => ['nullable', 'string', 'max:50'],
             'state.change_level' => ['nullable', 'string', 'max:50'],
             'state.length' => ['nullable', 'string', 'max:50'],

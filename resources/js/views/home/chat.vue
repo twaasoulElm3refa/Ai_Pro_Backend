@@ -115,6 +115,23 @@
                                 <div v-else class="markdown-body" v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                             </div>
                             <span v-if="!msg.isTyping" class="msg-time">{{ msg.time }}</span>
+                            <div v-if="isProductDescriptionResult(msg)" class="result-actions">
+                                <button type="button" @click="copyProductDescription(msg)">
+                                    <i class="bi bi-copy"></i>
+                                    {{ isArabic ? "نسخ" : "Copy" }}
+                                </button>
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateProductDescription(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
+                                <button type="button" @click="editProductDescriptionInputs">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
+                                </button>
+                            </div>
+                            <div v-if="productDescriptionUsage(msg)" class="result-usage">
+                                {{ productDescriptionUsage(msg) }}
+                            </div>
                         </div>
 
                         <div class="msg-avatar user-avatar" v-if="msg.role === 'user'">
@@ -149,11 +166,70 @@
                     </button>
                 </div>
 
+                <div v-if="isProductDescriptionGeneratorTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle" @click="productOptionsOpen = !productOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
+                        </span>
+                        <i class="bi" :class="productOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="productOptionsOpen" class="advanced-options-grid">
+                        <label>
+                            <span>{{ isArabic ? "اسم المنتج" : "Product name" }}</span>
+                            <input v-model="productDescriptionState.product" type="text">
+                        </label>
+                        <label>
+                            <span>{{ isArabic ? "العلامة التجارية" : "Brand name" }}</span>
+                            <input v-model="productDescriptionState.brand_name" type="text">
+                        </label>
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "مميزات المنتج" : "Product features" }}</span>
+                            <textarea v-model="productDescriptionState.product_features" rows="2"></textarea>
+                        </label>
+                        <label>
+                            <span>{{ isArabic ? "الجمهور المستهدف" : "Target audience" }}</span>
+                            <input v-model="productDescriptionState.target_audience" type="text">
+                        </label>
+                        <label v-for="field in productDescriptionSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="productDescriptionState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>{{ isArabic ? "تضمين نقاط مختصرة" : "Include bullets" }}</span>
+                            <select v-model="productDescriptionState.include_bullets">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option :value="true">{{ isArabic ? "نعم" : "Yes" }}</option>
+                                <option :value="false">{{ isArabic ? "لا" : "No" }}</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>{{ isArabic ? "تضمين كلمات SEO" : "Include SEO keywords" }}</span>
+                            <select v-model="productDescriptionState.include_seo_keywords">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option :value="true">{{ isArabic ? "نعم" : "Yes" }}</option>
+                                <option :value="false">{{ isArabic ? "لا" : "No" }}</option>
+                            </select>
+                        </label>
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+                            <label v-for="option in productDescriptionExtraOptions" :key="option" class="check-option">
+                                <input v-model="productDescriptionState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+                    </div>
+                </div>
+
                 <div class="input-box" :class="{ focused: inputFocused }">
                     <textarea ref="textareaRef" v-model="userInput" class="chat-input"
-                        :aria-label="inputAriaLabel" :placeholder="conversationLimitExceeded
-                            ? 'This conversation has reached the maximum limit. Start a new chat to continue.'
-                            : (subtool.promptPlaceholder || t('user.chat.inputPlaceholder'))" rows="1"
+                        :aria-label="inputAriaLabel" :placeholder="chatPlaceholder" rows="1"
                         :disabled="chatSendDisabled" @focus="inputFocused = true" @blur="inputFocused = false"
                         @keydown.enter.exact.prevent="onSubmitMessage" @keydown.shift.enter.exact="newLine"
                         @input="autoResize"></textarea>
@@ -169,7 +245,7 @@
                         </button>
 
                         <button type="button" class="send-btn" :aria-label="t('user.chat.sendAria')"
-                            :disabled="!userInput.trim() || chatSendDisabled" @click="onSubmitMessage">
+                            :disabled="!canSubmitCurrentTool || chatSendDisabled" @click="onSubmitMessage">
                             <i class="bi"
                                 :class="sendingMessage || streamingAssistant ? 'bi-hourglass-split' : 'bi-send-fill'"></i>
                         </button>
@@ -681,6 +757,9 @@ const EMAIL_WRITER_SUB_TOOL_ID = 6;
 const EMAIL_WRITER_TOOL_KEY = "ai_email_writer";
 const SCRIPT_GENERATOR_SUB_TOOL_ID = 7;
 const SCRIPT_GENERATOR_TOOL_KEY = "ai_script_generator";
+const PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID = 8;
+const PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY = "ai_product_description_generator";
+const PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY = "product_description_generator";
 
 const getInitialHeadlineState = () => ({
     content: null,
@@ -758,6 +837,60 @@ const createEmptyScriptGeneratorState = () => ({
 
 const scriptGeneratorState = ref(createEmptyScriptGeneratorState());
 
+const createEmptyProductDescriptionState = () => ({
+    product: null,
+    brand_name: null,
+    product_features: null,
+    target_audience: null,
+    language: null,
+    tone: null,
+    length: null,
+    platform: null,
+    include_bullets: null,
+    include_seo_keywords: null,
+    extra_options: [],
+    last_output: null,
+});
+
+const productDescriptionState = ref(createEmptyProductDescriptionState());
+const productOptionsOpen = ref(false);
+
+const productDescriptionSelectFields = [
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Marketing", "Professional", "Luxury", "Friendly", "Persuasive", "Simple"],
+    },
+    {
+        key: "length",
+        labelAr: "الطول",
+        labelEn: "Length",
+        options: ["Short", "Medium", "Long"],
+    },
+    {
+        key: "platform",
+        labelAr: "المنصة",
+        labelEn: "Platform",
+        options: ["Website / Store", "Social Media", "Amazon", "Noon", "Shopify", "Landing Page"],
+    },
+];
+
+const productDescriptionExtraOptions = [
+    "Benefit-focused",
+    "Clear and persuasive",
+    "SEO-friendly",
+    "Emotional style",
+    "Luxury style",
+    "Simple and direct",
+];
+
 const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
 );
@@ -778,11 +911,44 @@ const isScriptGeneratorTool = computed(() =>
     Number(subtool.value?.id) === SCRIPT_GENERATOR_SUB_TOOL_ID
 );
 
+const isProductDescriptionGeneratorTool = computed(() =>
+    Number(subtool.value?.id) === PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID
+);
+
+const canSubmitCurrentTool = computed(() =>
+    Boolean(
+        userInput.value.trim()
+        || (
+            isProductDescriptionGeneratorTool.value
+            && String(productDescriptionState.value.product || "").trim()
+        )
+    )
+);
+
+const chatPlaceholder = computed(() => {
+    if (conversationLimitExceeded.value) {
+        return "This conversation has reached the maximum limit. Start a new chat to continue.";
+    }
+
+    if (isProductDescriptionGeneratorTool.value) {
+        return isArabic.value
+            ? "اكتب وصف المنتج أو فكرته هنا"
+            : "Write the product description or idea here";
+    }
+
+    return subtool.value.promptPlaceholder || t("user.chat.inputPlaceholder");
+});
+
 const inputAriaLabel = computed(() => {
     if (isHeadlineGeneratorTool.value) return "اكتب رسالتك الخاصة بتوليد العناوين";
     if (isSocialPostGeneratorTool.value) return "اكتب طلبك لتوليد منشور السوشيال";
     if (isEmailWriterTool.value) return "اكتب طلبك لكتابة الإيميل";
     if (isScriptGeneratorTool.value) return "اكتب طلبك لتوليد السكريبت";
+    if (isProductDescriptionGeneratorTool.value) {
+        return isArabic.value
+            ? "اكتب وصف المنتج أو فكرته هنا"
+            : "Write the product description or idea here";
+    }
     return t("user.chat.inputAria");
 });
 
@@ -1440,6 +1606,74 @@ const buildScriptGeneratorQuestionMessage = (apiResponse) => {
     ].filter(Boolean).join("\n");
 };
 
+const normalizeProductDescriptionState = (state = {}) => {
+    const candidate = state && typeof state === "object" && !Array.isArray(state)
+        ? state
+        : {};
+    const merged = { ...createEmptyProductDescriptionState(), ...candidate };
+
+    [
+        "product",
+        "brand_name",
+        "product_features",
+        "target_audience",
+        "language",
+        "tone",
+        "length",
+        "platform",
+        "last_output",
+    ].forEach((key) => {
+        merged[key] = merged[key] === null || merged[key] === undefined
+            ? null
+            : String(merged[key]).trim() || null;
+    });
+
+    ["include_bullets", "include_seo_keywords"].forEach((key) => {
+        if (typeof merged[key] === "boolean") return;
+        if (merged[key] === true || merged[key] === 1 || merged[key] === "1" || merged[key] === "true") {
+            merged[key] = true;
+        } else if (merged[key] === false || merged[key] === 0 || merged[key] === "0" || merged[key] === "false") {
+            merged[key] = false;
+        } else {
+            merged[key] = null;
+        }
+    });
+
+    merged.extra_options = Array.isArray(merged.extra_options)
+        ? [...new Set(merged.extra_options.map((item) => String(item || "").trim()).filter(Boolean))]
+        : [];
+
+    return merged;
+};
+
+const mergeProductDescriptionState = (oldState = {}, newState = {}) => {
+    const merged = normalizeProductDescriptionState(oldState);
+    const incoming = normalizeProductDescriptionState(newState);
+
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (key === "extra_options") {
+            if (value.length > 0) merged[key] = value;
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== "") {
+            merged[key] = value;
+        }
+    });
+
+    return normalizeProductDescriptionState(merged);
+};
+
+const hasProductDescriptionStateValue = (state = {}) => {
+    const normalized = normalizeProductDescriptionState(state);
+
+    return Object.entries(normalized).some(([key, value]) => {
+        if (key === "last_output") return Boolean(value);
+        if (Array.isArray(value)) return value.length > 0;
+        return value !== null && value !== "";
+    });
+};
+
 const buildHeadlineStateSummary = (state = {}) => {
     const lines = [];
 
@@ -1559,8 +1793,59 @@ const formatGeneratedHeadlinesForDisplay = (content = "") => {
         .trim();
 };
 
+const isProductDescriptionMessage = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    return Number(metadata.sub_tool_id || msg?.sub_tool_id || 0) === PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID
+        || String(metadata.tool || "").toLowerCase() === PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY;
+};
+
+const getProductDescriptionOutput = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+    const resultText = Array.isArray(metadata.results)
+        ? String(metadata.results[0]?.text || "").trim()
+        : "";
+
+    return resultText
+        || String(metadata.state?.last_output || "").trim()
+        || String(msg?.content || msg?.message || "").trim();
+};
+
+const isProductDescriptionResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && !msg?.isTyping
+    && isProductDescriptionMessage(msg)
+    && String(msg?.metadata?.type || "result") === "result"
+    && Boolean(getProductDescriptionOutput(msg));
+
+const productDescriptionUsage = (msg = {}) => {
+    if (!isProductDescriptionResult(msg)) return "";
+
+    const usage = msg?.metadata?.usage;
+    const cost = msg?.metadata?.cost;
+    const parts = [];
+
+    if (usage && Number.isFinite(Number(usage.total_tokens))) {
+        parts.push(`${isArabic.value ? "الرموز" : "Tokens"}: ${Number(usage.total_tokens)}`);
+    }
+
+    if (cost && Number.isFinite(Number(cost.total_cost))) {
+        parts.push(`${isArabic.value ? "التكلفة" : "Cost"}: ${Number(cost.total_cost).toFixed(6)} ${cost.currency || "USD"}`);
+    }
+
+    return parts.join(" · ");
+};
+
 const displayMessageContent = (msg = {}) => {
     const content = String(msg?.content || msg?.message || "");
+
+    if (msg?.role === "assistant" && isProductDescriptionMessage(msg)) {
+        return getProductDescriptionOutput(msg);
+    }
 
     if (
         msg?.role === "assistant"
@@ -1571,6 +1856,33 @@ const displayMessageContent = (msg = {}) => {
     }
 
     return content;
+};
+
+const copyProductDescription = async (msg) => {
+    const output = getProductDescriptionOutput(msg);
+    if (!output) return;
+
+    await navigator.clipboard.writeText(output);
+};
+
+const findUserInputBeforeMessage = (msg) => {
+    const targetIndex = messages.value.findIndex((item) => item.localKey === msg?.localKey);
+    const rows = targetIndex >= 0 ? messages.value.slice(0, targetIndex) : messages.value;
+
+    return [...rows].reverse().find((item) => item?.role === "user")?.content || "";
+};
+
+const regenerateProductDescription = async (msg) => {
+    const source = findUserInputBeforeMessage(msg)
+        || productDescriptionState.value.product
+        || "";
+
+    await handleProductDescriptionSubmit(source);
+};
+
+const editProductDescriptionInputs = async () => {
+    productOptionsOpen.value = true;
+    await focusChatInput();
 };
 
 const focusChatInput = async () => {
@@ -2043,6 +2355,97 @@ const resolveScriptGeneratorStateForSubmit = (conversationUuid = "") => {
     return resolved;
 };
 
+const productDescriptionStateStorageKey = (conversationUuid = "") =>
+    `tool_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}_${PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID}`;
+
+const saveProductDescriptionStateToSession = (conversationUuid, state) => {
+    try {
+        sessionStorage.setItem(
+            productDescriptionStateStorageKey(conversationUuid),
+            JSON.stringify(normalizeProductDescriptionState(state))
+        );
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const readProductDescriptionStateFromSession = (conversationUuid) => {
+    try {
+        const raw = sessionStorage.getItem(productDescriptionStateStorageKey(conversationUuid));
+        return raw ? normalizeProductDescriptionState(JSON.parse(raw)) : null;
+    } catch {
+        return null;
+    }
+};
+
+const clearProductDescriptionStateFromSession = (conversationUuid) => {
+    try {
+        sessionStorage.removeItem(productDescriptionStateStorageKey(conversationUuid));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetProductDescriptionState = (conversationUuid = "") => {
+    productDescriptionState.value = createEmptyProductDescriptionState();
+    productOptionsOpen.value = false;
+    clearProductDescriptionStateFromSession(conversationUuid);
+};
+
+const extractProductDescriptionStateFromMessages = (rows = [], conversationUuid = "") => {
+    if (Array.isArray(rows)) {
+        for (const message of [...rows].reverse()) {
+            const metadata = message?.metadata && typeof message.metadata === "object"
+                ? message.metadata
+                : {};
+            const subToolId = Number(metadata.sub_tool_id || message?.sub_tool_id || 0);
+            const toolKey = String(metadata.tool || "").toLowerCase();
+
+            if (
+                metadata.state
+                && typeof metadata.state === "object"
+                && (
+                    subToolId === PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID
+                    || toolKey === PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY
+                )
+            ) {
+                const state = normalizeProductDescriptionState(metadata.state);
+                saveProductDescriptionStateToSession(conversationUuid, state);
+                return state;
+            }
+        }
+    }
+
+    return readProductDescriptionStateFromSession(conversationUuid)
+        || createEmptyProductDescriptionState();
+};
+
+const hydrateProductDescriptionStateFromMessages = (rows = []) => {
+    if (!isProductDescriptionGeneratorTool.value) {
+        resetProductDescriptionState();
+        return;
+    }
+
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    productDescriptionState.value = extractProductDescriptionStateFromMessages(
+        rows,
+        conversationUuid
+    );
+};
+
+const resolveProductDescriptionStateForSubmit = (conversationUuid = "") => {
+    let state = normalizeProductDescriptionState(productDescriptionState.value);
+
+    if (!hasProductDescriptionStateValue(state)) {
+        state = extractProductDescriptionStateFromMessages(messages.value, conversationUuid);
+    }
+
+    productDescriptionState.value = normalizeProductDescriptionState(state);
+    saveProductDescriptionStateToSession(conversationUuid, productDescriptionState.value);
+
+    return productDescriptionState.value;
+};
+
 const extractHeadlineStateFromMessages = (rows = [], conversationUuid = "") => {
     if (!Array.isArray(rows) || !rows.length) {
         const stored = readHeadlineStateFromSession(conversationUuid);
@@ -2392,6 +2795,86 @@ const normalizeScriptGeneratorApiResponse = (response = {}) => {
         debug: payload?.debug ?? null,
         usage: payload?.usage && typeof payload.usage === "object" ? payload.usage : null,
         cost: payload?.cost && typeof payload.cost === "object" ? payload.cost : null,
+    };
+};
+
+const normalizeProductDescriptionApiResponse = (response = {}) => {
+    if (response?.status === "error" || response?.success === false) {
+        return {
+            success: false,
+            type: "error",
+            tool: PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY,
+            provider: null,
+            model_key: PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY,
+            sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+            message: String(response?.message || "حدث خطأ أثناء توليد وصف المنتج. حاول مرة أخرى."),
+            state: null,
+            results: [],
+            count: 0,
+            request_id: null,
+            usage: null,
+            cost: null,
+        };
+    }
+
+    const payload = response?.data && typeof response.data === "object"
+        ? response.data
+        : response;
+    if (!payload || typeof payload !== "object") return null;
+
+    const normalizedSubToolId = Number(payload.sub_tool_id || subtool.value?.id || 0);
+    const normalizedTool = String(payload.tool || "").trim().toLowerCase();
+
+    if (
+        normalizedSubToolId !== PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID
+        && normalizedTool !== PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY
+    ) {
+        return null;
+    }
+
+    const results = Array.isArray(payload.results)
+        ? payload.results
+            .map((item, index) => ({
+                id: Number(item?.id || index + 1),
+                text: String(item?.text || "").trim(),
+                title: item?.title ?? null,
+                subject: item?.subject ?? null,
+                meta: item?.meta && typeof item.meta === "object" ? item.meta : {},
+            }))
+            .filter((item) => item.text)
+        : [];
+    const state = payload.state && typeof payload.state === "object"
+        ? normalizeProductDescriptionState(payload.state)
+        : null;
+    const fallbackOutput = String(state?.last_output || "").trim();
+
+    if (!results.length && fallbackOutput) {
+        results.push({
+            id: 1,
+            text: fallbackOutput,
+            title: null,
+            subject: null,
+            meta: {},
+        });
+    }
+
+    return {
+        success: payload.success !== false,
+        type: payload.type || "",
+        tool: normalizedTool || PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY,
+        provider: payload.provider || "openrouter",
+        model_key: payload.model_key || PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY,
+        user_id: payload.user_id ?? null,
+        sub_tool_id: normalizedSubToolId || PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+        conversation_uuid: payload.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
+        message: String(payload.message || ""),
+        state,
+        results,
+        count: payload.count ?? results.length,
+        request_id: payload.request_id || null,
+        debug: import.meta.env.DEV ? payload.debug ?? null : null,
+        usage: payload.usage && typeof payload.usage === "object" ? payload.usage : null,
+        cost: payload.cost && typeof payload.cost === "object" ? payload.cost : null,
     };
 };
 
@@ -3317,6 +3800,181 @@ const handleScriptGeneratorSubmit = async (text) => {
     }
 };
 
+const handleProductDescriptionSubmit = async (text) => {
+    if (sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return;
+    }
+
+    if (!(await requireAuth())) return;
+
+    sendingMessage.value = true;
+    const conversation = await ensureConversation();
+
+    if (!conversation?.uuid) {
+        sendingMessage.value = false;
+        await addAssistantLocalMessage(
+            isArabic.value ? "تعذر إنشاء المحادثة. حاول مرة أخرى." : "Could not create the conversation. Please try again.",
+            { is_error: true }
+        );
+        return;
+    }
+
+    const requestState = resolveProductDescriptionStateForSubmit(conversation.uuid);
+    const inputText = String(text || "").trim()
+        || String(requestState.product || "").trim();
+
+    if (!inputText) {
+        sendingMessage.value = false;
+        productOptionsOpen.value = true;
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "يرجى إدخال اسم المنتج أو وصف المنتج أولًا."
+                : "Please enter a product name or product description first.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+            }
+        );
+        return;
+    }
+
+    await addUserLocalMessage(inputText, {
+        sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+        metadata: {
+            type: "user_input",
+            tool: PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY,
+            model_key: PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY,
+            sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+            state: requestState,
+        },
+    });
+
+    userInput.value = "";
+    resetTextarea();
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const typingId = addAssistantTypingMessage();
+
+    try {
+        const response = await chatServices.sendMessage({
+            user_id: resolveCurrentUserId(),
+            sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+            conversation_uuid: conversation.uuid,
+            conversation_id: conversation.id,
+            user_message: inputText,
+            tool: PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY,
+            model_key: PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY,
+            state: requestState,
+            idempotency_key: idempotencyKey,
+            debug: false,
+        });
+        removeAssistantTypingMessage(typingId);
+
+        const apiResponse = normalizeProductDescriptionApiResponse(response);
+        if (!apiResponse) {
+            throw new Error("Invalid product description response.");
+        }
+
+        if (apiResponse.state) {
+            productDescriptionState.value = mergeProductDescriptionState(
+                productDescriptionState.value,
+                apiResponse.state
+            );
+            saveProductDescriptionStateToSession(
+                conversation.uuid,
+                productDescriptionState.value
+            );
+        }
+
+        const metadata = {
+            type: apiResponse.type || "result",
+            tool: PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY,
+            model_key: PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY,
+            sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+            provider: apiResponse.provider,
+            state: productDescriptionState.value,
+            results: apiResponse.results,
+            count: apiResponse.count,
+            request_id: apiResponse.request_id,
+            usage: apiResponse.usage,
+            cost: apiResponse.cost,
+        };
+
+        if (apiResponse.success === false || apiResponse.type === "error") {
+            await addAssistantLocalMessage(
+                apiResponse.message || (
+                    isArabic.value
+                        ? "حدث خطأ أثناء توليد وصف المنتج. حاول مرة أخرى."
+                        : "An error occurred while generating the product description. Please try again."
+                ),
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "error" },
+                }
+            );
+            return;
+        }
+
+        const outputText = apiResponse.results[0]?.text
+            || apiResponse.state?.last_output
+            || "";
+
+        if (!outputText) {
+            await addAssistantLocalMessage(
+                isArabic.value
+                    ? "تم التنفيذ ولكن لم يتم العثور على وصف منتج جاهز للعرض."
+                    : "The request completed, but no product description was returned.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+                    metadata: { ...metadata, type: "result_empty" },
+                }
+            );
+            return;
+        }
+
+        await addAssistantLocalMessage(outputText, {
+            plainText: true,
+            sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+            metadata: { ...metadata, type: "result" },
+        });
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+        await focusChatInput();
+    } catch (error) {
+        removeAssistantTypingMessage(typingId);
+        await addAssistantLocalMessage(
+            error?.response?.data?.message || (
+                isArabic.value
+                    ? "حدث خطأ أثناء توليد وصف المنتج. حاول مرة أخرى."
+                    : "An error occurred while generating the product description. Please try again."
+            ),
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+                metadata: {
+                    type: "frontend_error",
+                    tool: PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY,
+                    model_key: PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY,
+                    sub_tool_id: PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID,
+                },
+            }
+        );
+    } finally {
+        removeAssistantTypingMessage(typingId);
+        sendingMessage.value = false;
+        await scrollToBottom();
+    }
+};
+
 const loadConversations = async () => {
     if (!isAuthenticated()) {
         conversations.value = [];
@@ -3349,6 +4007,7 @@ const loadConversationDetails = async (uuid) => {
         resetSocialPostState();
         resetEmailWriterState();
         resetScriptGeneratorState();
+        resetProductDescriptionState();
         return;
     }
 
@@ -3362,6 +4021,7 @@ const loadConversationDetails = async (uuid) => {
         resetSocialPostState();
         resetEmailWriterState();
         resetScriptGeneratorState();
+        resetProductDescriptionState();
         return;
     }
 
@@ -3414,6 +4074,7 @@ const loadConversationDetails = async (uuid) => {
         hydrateSocialPostStateFromMessages(rows);
         hydrateEmailWriterStateFromMessages(rows);
         hydrateScriptGeneratorStateFromMessages(rows);
+        hydrateProductDescriptionStateFromMessages(rows);
 
         resolveInsufficientPointsState(rows);
 
@@ -3434,6 +4095,7 @@ const syncRouteConversation = async () => {
         resetSocialPostState();
         resetEmailWriterState();
         resetScriptGeneratorState();
+        resetProductDescriptionState();
         return;
     }
 
@@ -3485,6 +4147,7 @@ const startNewChat = async () => {
         resetSocialPostState();
         resetEmailWriterState();
         resetScriptGeneratorState();
+        resetProductDescriptionState();
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
     } finally {
@@ -3514,6 +4177,15 @@ const ensureConversation = async () => {
     resetSocialPostState();
     resetEmailWriterState();
     resetScriptGeneratorState();
+
+    if (isProductDescriptionGeneratorTool.value) {
+        saveProductDescriptionStateToSession(
+            conversation.uuid,
+            productDescriptionState.value
+        );
+    } else {
+        resetProductDescriptionState();
+    }
 
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
 
@@ -3661,6 +4333,11 @@ const onSubmitMessage = async () => {
         return;
     }
 
+    if (isProductDescriptionGeneratorTool.value) {
+        await handleProductDescriptionSubmit(userInput.value);
+        return;
+    }
+
     await submitMessage();
 };
 
@@ -3687,6 +4364,7 @@ const removeConversation = async (conversation) => {
             resetSocialPostState();
             resetEmailWriterState();
             resetScriptGeneratorState();
+            resetProductDescriptionState();
 
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat`);
         }
@@ -4406,6 +5084,42 @@ watch(
     padding: 0 4px;
 }
 
+.result-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.result-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(21, 70, 119, 0.12);
+    border-radius: 10px;
+    background: #ffffff;
+    color: #154677;
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.result-actions button:hover:not(:disabled) {
+    background: rgba(43, 166, 222, 0.08);
+}
+
+.result-actions button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.result-usage {
+    color: #64748b;
+    font-size: 10px;
+}
+
 .input-area {
     margin-bottom: 3.5%;
     padding: 16px 22px 20px;
@@ -4413,6 +5127,114 @@ watch(
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(12px);
     flex-shrink: 0;
+}
+
+.advanced-options {
+    max-width: 920px;
+    margin: 0 auto 12px;
+    border: 1px solid rgba(21, 70, 119, 0.1);
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(21, 70, 119, 0.05);
+    overflow: hidden;
+}
+
+.advanced-options-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 0;
+    background: transparent;
+    color: #154677;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.advanced-options-toggle span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.advanced-options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 0 14px 14px;
+}
+
+.advanced-options-grid > label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.advanced-options-grid input,
+.advanced-options-grid textarea,
+.advanced-options-grid select {
+    width: 100%;
+    border: 1px solid rgba(21, 70, 119, 0.14);
+    border-radius: 10px;
+    background: #f8fbff;
+    color: #154677;
+    padding: 9px 10px;
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+}
+
+.advanced-options-grid textarea {
+    resize: vertical;
+}
+
+.advanced-options-grid input:focus,
+.advanced-options-grid textarea:focus,
+.advanced-options-grid select:focus {
+    border-color: rgba(43, 166, 222, 0.55);
+    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.1);
+}
+
+.wide-field {
+    grid-column: 1 / -1;
+}
+
+.extra-options-field {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border: 0;
+}
+
+.extra-options-field legend {
+    width: 100%;
+    margin-bottom: 6px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.check-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(21, 70, 119, 0.1);
+    border-radius: 999px;
+    padding: 7px 10px;
+    color: #475569;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.check-option input {
+    width: auto;
+    padding: 0;
 }
 
 .limit-warning {
@@ -4826,6 +5648,14 @@ watch(
 
     .msg-bubble {
         max-width: 88%;
+    }
+
+    .advanced-options-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wide-field {
+        grid-column: auto;
     }
 }
 
