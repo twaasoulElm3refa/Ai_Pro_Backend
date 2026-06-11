@@ -116,6 +116,7 @@
                                                 {{ copiedResult === (result.id || index) ? copy.copied : copy.copy }}
                                             </button>
                                         </div>
+                                        <p v-if="result.subject" class="result-subject">{{ result.subject }}</p>
                                         <div class="result-text" v-html="formatMessage(result.text)"></div>
                                     </section>
                                 </div>
@@ -209,10 +210,14 @@ import DOMPurify from "dompurify";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
-
-const PROMPT_GENERATOR_SUB_TOOL_ID = 9;
-const PROMPT_GENERATOR_TOOL_KEY = "ai_prompt_generator";
-const PROMPT_GENERATOR_MODEL_KEY = "prompt_generator";
+import {
+    PROMPT_GENERATOR_MODEL_KEY,
+    PROMPT_GENERATOR_SUB_TOOL_ID,
+    PROMPT_GENERATOR_TOOL_KEY,
+    isPromptGeneratorResponse,
+    normalizePromptGeneratorResults,
+    parsePromptGeneratorJson,
+} from "@/utils/promptGeneratorResults";
 
 const createDefaultPromptState = () => ({
     task: null,
@@ -414,40 +419,6 @@ const unwrapPayload = (source) => {
     return source.data && typeof source.data === "object" ? source.data : source;
 };
 
-const parseJsonText = (value) => {
-    const text = String(value || "").trim();
-    if (!text) return null;
-
-    const cleaned = text
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```$/i, "");
-
-    try {
-        const parsed = JSON.parse(cleaned);
-        return parsed && typeof parsed === "object" ? parsed : null;
-    } catch {
-        return null;
-    }
-};
-
-const normalizeResult = (item, index) => {
-    if (typeof item === "string") {
-        return { id: index + 1, title: null, text: item };
-    }
-
-    if (!item || typeof item !== "object") return null;
-
-    const text = item.text ?? item.prompt ?? item.content ?? item.output ?? item.result;
-    if (text === null || text === undefined || String(text).trim() === "") return null;
-
-    return {
-        ...item,
-        id: item.id ?? index + 1,
-        title: item.title ?? item.name ?? null,
-        text: String(text).trim(),
-    };
-};
-
 const normalizePromptResponse = (source = {}, fallbackText = "") => {
     let payload = unwrapPayload(source);
     const metadata = payload.metadata && typeof payload.metadata === "object"
@@ -455,16 +426,7 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         : {};
 
     payload = { ...payload, ...metadata };
-
-    const parsedFallback = parseJsonText(fallbackText);
-    if (parsedFallback) {
-        payload = {
-            ...parsedFallback,
-            ...payload,
-            results: payload.results ?? parsedFallback.results,
-            state: payload.state ?? parsedFallback.state,
-        };
-    }
+    const parsedFallback = parsePromptGeneratorJson(fallbackText);
 
     const state = payload.state && typeof payload.state === "object"
         ? {
@@ -474,16 +436,13 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         }
         : null;
 
-    let results = Array.isArray(payload.results)
-        ? payload.results.map(normalizeResult).filter(Boolean)
-        : [];
-
-    if (!results.length && state?.last_output) {
-        const parsedLastOutput = parseJsonText(state.last_output);
-        results = Array.isArray(parsedLastOutput?.results)
-            ? parsedLastOutput.results.map(normalizeResult).filter(Boolean)
-            : [{ id: 1, title: null, text: String(state.last_output) }];
-    }
+    const results = normalizePromptGeneratorResults(
+        {
+            ...payload,
+            state: state || payload.state || parsedFallback?.state,
+        },
+        fallbackText
+    );
 
     return {
         success: payload.success !== false,
@@ -496,12 +455,13 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         usage: payload.usage && typeof payload.usage === "object" ? payload.usage : null,
         cost: payload.cost && typeof payload.cost === "object" ? payload.cost : null,
         message: String(payload.message || ""),
+        isPromptGenerator: isPromptGeneratorResponse(payload, fallbackText),
     };
 };
 
-const shouldHideDuplicateContent = (content, results) => {
+const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) => {
+    if (promptGeneratorResponse && parsePromptGeneratorJson(content)) return true;
     if (!content || !results.length) return false;
-    if (parseJsonText(content)) return true;
 
     const normalizedContent = String(content).trim();
     const combinedResults = results.map((result) => result.text).join("\n\n").trim();
@@ -518,7 +478,11 @@ const mapMessage = (message = {}, index = 0) => {
     return {
         ...message,
         localKey: message.localKey || `${message.role || "message"}-${message.id || index}-${message.created_at || now()}`,
-        content: shouldHideDuplicateContent(message.content, results) ? "" : String(message.content || ""),
+        content: shouldHideDuplicateContent(
+            message.content,
+            results,
+            normalized.isPromptGenerator
+        ) ? "" : String(message.content || ""),
         role: message.role || "assistant",
         results,
         responseState: normalized.state,
@@ -1280,6 +1244,13 @@ button:disabled {
 .result-text {
     padding: 15px;
     color: var(--ink);
+}
+
+.result-subject {
+    margin: 0;
+    padding: 10px 15px 0;
+    color: var(--muted);
+    font-size: 13px;
 }
 
 .response-meta {

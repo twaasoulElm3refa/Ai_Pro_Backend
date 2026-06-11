@@ -38,6 +38,7 @@ class Chat2PromptGeneratorPageTest extends TestCase
         $router = file_get_contents(resource_path('js/router/index.js'));
         $showPage = file_get_contents(resource_path('js/views/home/show.vue'));
         $chat2Page = file_get_contents(resource_path('js/views/home/chat2.vue'));
+        $promptResultsHelper = file_get_contents(resource_path('js/utils/promptGeneratorResults.js'));
         $legacyChat = file_get_contents(resource_path('js/views/home/chat.vue'));
         $chatService = file_get_contents(resource_path('js/services/chat/chatServices.js'));
 
@@ -59,7 +60,7 @@ class Chat2PromptGeneratorPageTest extends TestCase
         );
         $this->assertStringContainsString(
             'const PROMPT_GENERATOR_SUB_TOOL_ID = 9;',
-            $chat2Page
+            $promptResultsHelper
         );
         $this->assertStringContainsString(
             'const response = await chatServices.sendMessage(payload);',
@@ -78,7 +79,15 @@ class Chat2PromptGeneratorPageTest extends TestCase
             $chat2Page
         );
         $this->assertStringContainsString(
-            'results.map(normalizeResult).filter(Boolean)',
+            'normalizePromptGeneratorResults',
+            $chat2Page
+        );
+        $this->assertStringContainsString(
+            'v-if="result.subject"',
+            $chat2Page
+        );
+        $this->assertStringContainsString(
+            'copyResult(result.text',
             $chat2Page
         );
         $this->assertStringNotContainsString('chat2', $legacyChat);
