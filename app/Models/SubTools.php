@@ -13,6 +13,10 @@ class SubTools extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'config' => 'array',
+    ];
+
     public function mainTools()
     {
         return $this->belongsTo(MainTools::class, 'main_tool_id');

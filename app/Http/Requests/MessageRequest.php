@@ -3,13 +3,16 @@
 namespace App\Http\Requests;
 
 use App\Models\Conversation;
+use App\Services\AI\DynamicToolConfigService;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
-use Illuminate\Contracts\Validation\Validator;
 
 class MessageRequest extends FormRequest
 {
+    private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -42,7 +45,7 @@ class MessageRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'user_id' => ['nullable', 'integer'],
             'sub_tool_id' => ['required', 'integer'],
             'conversation_uuid' => [
@@ -93,6 +96,59 @@ class MessageRequest extends FormRequest
             'tool' => ['nullable', 'string', 'max:100'],
             'model_key' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'array'],
+            'task_options' => ['nullable', 'array'],
+            'task_options.search_mode' => ['required_with:task_options', 'string', 'in:on,off'],
+            'task_options.web_search_max_results' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'task_options.web_search_total_results' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'task_options.max_tokens' => ['nullable', 'integer', 'min:100', 'max:8000'],
+            'task_options.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
+        ];
+
+        $subToolId = (int) $this->input('sub_tool_id');
+        $configService = app(DynamicToolConfigService::class);
+        $config = $configService->configFor($subToolId);
+
+        if ($config !== []) {
+            return array_merge($rules, $configService->stateValidationRules($config));
+        }
+
+        if (in_array($subToolId, self::LEGACY_SUB_TOOL_IDS, true)) {
+            return array_merge($rules, $this->legacyStateRules());
+        }
+
+        return $rules;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('sub_tool_id')) {
+            return;
+        }
+
+        $conversationId = $this->input('conversation_id');
+        $conversationUuid = $this->input('conversation_uuid');
+
+        if (! $conversationId && ! $conversationUuid) {
+            return;
+        }
+
+        $query = Conversation::query();
+        if ($this->user()) {
+            $query->where('user_id', $this->user()->id);
+        }
+
+        $conversation = $conversationId
+            ? (clone $query)->where('id', (int) $conversationId)->first()
+            : (clone $query)->where('uuid', (string) $conversationUuid)->first();
+
+        if ($conversation) {
+            $this->merge(['sub_tool_id' => (int) $conversation->sub_tool_id]);
+        }
+    }
+
+    private function legacyStateRules(): array
+    {
+        return [
             'state.content' => ['nullable', 'string', 'max:5000'],
             'state.content_type' => ['nullable', 'string', 'max:100'],
             'state.goal' => ['nullable', 'string', 'max:100'],
@@ -129,12 +185,6 @@ class MessageRequest extends FormRequest
             'state.last_output' => ['nullable', 'string', 'max:10000'],
             'state.extra_options' => ['nullable', 'array'],
             'state.extra_options.*' => ['string', 'max:150'],
-            'task_options' => ['nullable', 'array'],
-            'task_options.search_mode' => ['required_with:task_options', 'string', 'in:on,off'],
-            'task_options.web_search_max_results' => ['nullable', 'integer', 'min:1', 'max:10'],
-            'task_options.web_search_total_results' => ['nullable', 'integer', 'min:1', 'max:20'],
-            'task_options.max_tokens' => ['nullable', 'integer', 'min:100', 'max:8000'],
-            'task_options.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
         ];
     }
 

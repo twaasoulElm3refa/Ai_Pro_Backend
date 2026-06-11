@@ -7,6 +7,8 @@ use App\Models\CostLogger;
 use App\Models\Message;
 use App\Models\Wallet;
 use App\Services\AI\AIPayloadBuilder;
+use App\Services\AI\DynamicToolConfigService;
+use App\Services\AI\DynamicToolPayloadBuilder;
 use App\Services\AiArabicWriterService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\QdrantService;
@@ -33,7 +35,8 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
     public function __construct(
         public int $userMessageId,
         public ?array $taskOptions = null,
-        public ?array $state = null
+        public ?array $state = null,
+        public bool $debug = false
     ) {}
 
     public function uniqueId(): string
@@ -79,7 +82,12 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             }
 
             $conversation = $userMessage->conversation;
-            $endpoint = trim((string) ($conversation->subTool?->endpoint ?? ''));
+            $configService = app(DynamicToolConfigService::class);
+            $dynamicConfig = $configService->configFor($conversation->subTool);
+            $usesDynamicConfig = $dynamicConfig !== [];
+            $endpoint = $conversation->subTool
+                ? $configService->endpointFor($conversation->subTool, $dynamicConfig)
+                : '';
             $insufficientPointsMessage = 'Insufficient points. Please recharge your wallet to continue.';
 
             if ($endpoint === '') {
@@ -171,9 +179,23 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 ]);
             }
 
-            $payload = $payloadBuilder->build($conversation, $userMessage);
+            if ($usesDynamicConfig) {
+                $dynamicPayload = app(DynamicToolPayloadBuilder::class)->build(
+                    $conversation,
+                    $userMessage,
+                    $jobState,
+                    $this->debug
+                );
+                $payload = $dynamicPayload['payload'];
+                $endpoint = (string) $dynamicPayload['endpoint'];
+            } else {
+                $payload = $payloadBuilder->build($conversation, $userMessage);
+            }
+
             $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
-            $payload = $payloadBuilder->withState($payload, $jobState);
+            if (is_array($jobState) && $jobState !== []) {
+                $payload = $payloadBuilder->withState($payload, $jobState);
+            }
 
             if ((bool) config('services.aiarabic.inject_qdrant_context', false)) {
                 $context = $this->qdrantContext($userMessage, $qdrantService);

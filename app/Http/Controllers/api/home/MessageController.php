@@ -340,7 +340,12 @@ class MessageController extends Controller
             $userMessage->loadMissing('conversation');
             $this->messageCache->updateAfterMessage($userMessage);
             $this->clearCache($userId);
-            $this->dispatchAssistantReplyIfNeeded($userMessage, $taskOptions, $requestState);
+            $this->dispatchAssistantReplyIfNeeded(
+                $userMessage,
+                $taskOptions,
+                $requestState,
+                (bool) ($data['debug'] ?? false)
+            );
         }
 
         return $this->success([
@@ -2220,7 +2225,8 @@ class MessageController extends Controller
     protected function dispatchAssistantReplyIfNeeded(
         Message $userMessage,
         ?array $taskOptions = null,
-        ?array $state = null
+        ?array $state = null,
+        bool $debug = false
     ): void
     {
         $assistantExists = Message::where('role', 'assistant')
@@ -2247,7 +2253,7 @@ class MessageController extends Controller
             ]);
         }
 
-        GenerateAssistantReplyJob::dispatch($userMessage->id, $taskOptions, $state)->afterResponse();
+        GenerateAssistantReplyJob::dispatch($userMessage->id, $taskOptions, $state, $debug)->afterResponse();
     }
 
     protected function requestLockKey(int $userId, int $conversationId, string $idempotencyKey): string

@@ -28,6 +28,19 @@ class SubToolUpdateRequest extends FormRequest
             'website' => 'nullable|url|max:255',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5024',
             'prompt_placeholder' => 'nullable|min:5|string',
+            'config' => ['nullable', 'array'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (! is_string($this->input('config'))) {
+            return;
+        }
+
+        $decoded = json_decode((string) $this->input('config'), true);
+        if (is_array($decoded)) {
+            $this->merge(['config' => $decoded]);
+        }
     }
 }

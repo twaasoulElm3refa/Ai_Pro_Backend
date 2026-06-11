@@ -11,6 +11,7 @@ const tools = () => import("../views/home/tools.vue");
 const wallet = () => import("../views/home/user/wallet.vue");
 const show = () => import("../views/home/show.vue");
 const chat = () => import("../views/home/chat.vue");
+const chat2 = () => import("../views/home/chat2.vue");
 const charge = () => import("../views/home/user/charge.vue");
 const WaitingDeposit = () => import("../views/home/WaitingDeposit.vue");
 const success = () => import("../views/home/successDeposit.vue");
@@ -44,43 +45,48 @@ const routes = [
     {
         path: "/:lang/tools",
         component: tools,
-        meta: { hideNavbar: false, hideFooter: false , hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
     },
     {
         path: "/:lang/subtool/:slug/chat/:uuid?",
         component: chat,
-        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
+    },
+    {
+        path: "/:lang/subtool/:slug/chat2/:uuid?",
+        component: chat2,
+        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
     },
     {
         path: "/:lang/profile",
         component: Profile,
-        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
     },
     {
         path: "/:lang/wallet",
         component: wallet,
-        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
     },
     {
         path: "/:lang/Deposit/waiting",
         component: WaitingDeposit,
-        meta: { hideNavbar: false, hideFooter: false ,hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
     },
     {
         path: "/:lang/deposit/success",
         component: success,
-        meta: { hideNavbar: false, hideFooter: false ,hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
     },
     {
         path: "/:lang/failed",
         component: failed,
-        meta: { hideNavbar: false, hideFooter: false ,hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
     },
     {
         path: "/:lang/wallet/charge/:uuid",
         name: "charge-wallet",
         component: charge,
-        meta: { hideNavbar: false, hideFooter: true ,hideHeader: true },
+        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
     },
     {
         path: "/:lang/contact",
