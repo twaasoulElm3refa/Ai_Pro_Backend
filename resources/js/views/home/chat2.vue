@@ -91,6 +91,7 @@
                         <div class="avatar">
                             <i :class="message.role === 'assistant' ? 'bi bi-stars' : 'bi bi-person-fill'"></i>
                         </div>
+
                         <div class="message-body" :class="{ error: message.is_error }">
                             <div v-if="message.typing" class="typing">
                                 <span></span><span></span><span></span>
@@ -116,6 +117,7 @@
                                                 {{ copiedResult === index ? copy.copied : copy.copy }}
                                             </button>
                                         </div>
+
                                         <div class="result-text" v-html="formatMessage(resultText)"></div>
                                     </section>
                                 </div>
@@ -147,6 +149,7 @@
                         <span><i class="bi bi-sliders"></i> {{ copy.options }}</span>
                         <span class="options-summary">{{ optionsSummary }}</span>
                     </summary>
+
                     <div class="options-grid">
                         <label v-for="field in textFields" :key="field.key">
                             <span>{{ field.label }}</span>
@@ -184,6 +187,7 @@
                         @input="autoResize"
                         @keydown.enter.exact.prevent="sendMessage"
                     ></textarea>
+
                     <button
                         type="button"
                         class="send-button"
@@ -194,6 +198,7 @@
                         <i :class="sendingMessage ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
                 </div>
+
                 <p class="composer-hint">{{ copy.hint }}</p>
             </footer>
         </section>
@@ -209,15 +214,21 @@ import DOMPurify from "dompurify";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
-import {
-    PROMPT_GENERATOR_MODEL_KEY,
-    PROMPT_GENERATOR_SUB_TOOL_ID,
-    PROMPT_GENERATOR_TOOL_KEY,
-    extractPromptGeneratorDisplayItems,
-    isPromptGeneratorResponse,
-    isPromptGeneratorStatusText,
-    parsePromptGeneratorJson,
-} from "@/utils/promptGeneratorResults";
+
+const PROMPT_GENERATOR_SUB_TOOL_ID = 9;
+const PROMPT_GENERATOR_TOOL_KEY = "ai_prompt_generator";
+const PROMPT_GENERATOR_MODEL_KEY = "prompt_generator";
+
+const STATUS_TEXTS = [
+    "Prompt generated successfully.",
+    "Prompt generated successfully",
+    "تم توليد البرومبت بنجاح.",
+    "تم توليد البرومبت بنجاح",
+    "Generated successfully.",
+    "Generated successfully",
+    "Success",
+    "success",
+];
 
 const createDefaultPromptState = () => ({
     task: null,
@@ -323,6 +334,7 @@ const subtool = ref({
     description: "",
     promptPlaceholder: "",
 });
+
 const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
@@ -383,8 +395,162 @@ const formatMessage = (value = "") => {
 
 const now = () => new Date().toISOString();
 const createLocalKey = () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
 const promptStateKey = (uuid) => `prompt-generator-state:${uuid || "new"}`;
+
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
+const unwrapPayload = (source) => {
+    if (!source || typeof source !== "object") return {};
+    return source.data && typeof source.data === "object" ? source.data : source;
+};
+
+const safeJsonParse = (value) => {
+    if (typeof value !== "string") return null;
+
+    const text = value.trim();
+
+    if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+};
+
+const isPromptGeneratorStatusText = (value) => {
+    const text = String(value || "").trim();
+
+    if (!text) return true;
+
+    return STATUS_TEXTS.some((status) => text.toLowerCase() === status.toLowerCase());
+};
+
+const isPromptGeneratorResponse = (payload = {}, fallbackText = "") => {
+    const raw = unwrapPayload(payload);
+    const metadata = isPlainObject(raw.metadata) ? raw.metadata : {};
+    const data = { ...raw, ...metadata };
+
+    return Number(data.sub_tool_id) === PROMPT_GENERATOR_SUB_TOOL_ID
+        || data.tool === PROMPT_GENERATOR_TOOL_KEY
+        || data.model_key === PROMPT_GENERATOR_MODEL_KEY
+        || String(fallbackText || "").includes(PROMPT_GENERATOR_TOOL_KEY);
+};
+
+const extractTextFromResultItem = (item, depth = 0) => {
+    if (depth > 3 || item === null || item === undefined) return [];
+
+    if (typeof item === "string") {
+        if (isPromptGeneratorStatusText(item)) return [];
+
+        const parsed = safeJsonParse(item);
+
+        if (parsed) {
+            return extractPromptGeneratorTextsFromAny(parsed, depth + 1);
+        }
+
+        return [item];
+    }
+
+    if (Array.isArray(item)) {
+        return item.flatMap((entry) => extractTextFromResultItem(entry, depth + 1));
+    }
+
+    if (isPlainObject(item)) {
+        if (typeof item.text === "string") {
+            return extractTextFromResultItem(item.text, depth + 1);
+        }
+
+        if (Array.isArray(item.results)) {
+            return item.results.flatMap((entry) => extractTextFromResultItem(entry, depth + 1));
+        }
+
+        if (typeof item.last_output === "string") {
+            return extractTextFromResultItem(item.last_output, depth + 1);
+        }
+    }
+
+    return [];
+};
+
+const extractPromptGeneratorTextsFromAny = (payload, depth = 0) => {
+    if (depth > 3 || payload === null || payload === undefined) return [];
+
+    if (typeof payload === "string") {
+        return extractTextFromResultItem(payload, depth + 1);
+    }
+
+    if (Array.isArray(payload)) {
+        return payload.flatMap((item) => extractTextFromResultItem(item, depth + 1));
+    }
+
+    if (!isPlainObject(payload)) return [];
+
+    if (Array.isArray(payload.results) && payload.results.length) {
+        return payload.results.flatMap((item) => extractTextFromResultItem(item, depth + 1));
+    }
+
+    if (isPlainObject(payload.data)) {
+        const fromData = extractPromptGeneratorTextsFromAny(payload.data, depth + 1);
+        if (fromData.length) return fromData;
+    }
+
+    if (isPlainObject(payload.metadata)) {
+        const fromMetadata = extractPromptGeneratorTextsFromAny(payload.metadata, depth + 1);
+        if (fromMetadata.length) return fromMetadata;
+    }
+
+    if (isPlainObject(payload.state) && payload.state.last_output) {
+        return extractTextFromResultItem(payload.state.last_output, depth + 1);
+    }
+
+    if (payload.last_output) {
+        return extractTextFromResultItem(payload.last_output, depth + 1);
+    }
+
+    if (typeof payload.text === "string") {
+        return extractTextFromResultItem(payload.text, depth + 1);
+    }
+
+    return [];
+};
+
+const uniqueCleanTexts = (items = []) => {
+    const seen = new Set();
+
+    return items
+        .map((item) => String(item || "").trim())
+        .filter((item) => item && !isPromptGeneratorStatusText(item))
+        .filter((item) => {
+            if (seen.has(item)) return false;
+            seen.add(item);
+            return true;
+        });
+};
+
+const extractPromptGeneratorDisplayItems = (source = {}, fallbackText = "") => {
+    const payload = unwrapPayload(source);
+    const metadata = isPlainObject(payload.metadata) ? payload.metadata : {};
+    const merged = { ...payload, ...metadata };
+    const type = String(merged.type || "").trim().toLowerCase();
+
+    if (type === "question") {
+        const question = String(merged.message || fallbackText || "").trim();
+        return question && !isPromptGeneratorStatusText(question) ? [question] : [];
+    }
+
+    const fromPayload = extractPromptGeneratorTextsFromAny(merged);
+
+    if (fromPayload.length) {
+        return uniqueCleanTexts(fromPayload);
+    }
+
+    const fromFallback = extractPromptGeneratorTextsFromAny(fallbackText);
+
+    return uniqueCleanTexts(fromFallback);
+};
 
 const persistPromptState = (uuid = activeConversation.value?.uuid) => {
     if (!uuid) return;
@@ -404,6 +570,7 @@ const restorePromptState = (uuid) => {
 
     try {
         const stored = JSON.parse(sessionStorage.getItem(promptStateKey(uuid)) || "null");
+
         promptState.value = {
             ...createDefaultPromptState(),
             ...(stored && typeof stored === "object" ? stored : {}),
@@ -414,20 +581,12 @@ const restorePromptState = (uuid) => {
     }
 };
 
-const unwrapPayload = (source) => {
-    if (!source || typeof source !== "object") return {};
-    return source.data && typeof source.data === "object" ? source.data : source;
-};
-
 const normalizePromptResponse = (source = {}, fallbackText = "") => {
-    let payload = unwrapPayload(source);
-    const metadata = payload.metadata && typeof payload.metadata === "object"
-        ? payload.metadata
-        : {};
+    const rawPayload = unwrapPayload(source);
+    const metadata = isPlainObject(rawPayload.metadata) ? rawPayload.metadata : {};
+    const payload = { ...rawPayload, ...metadata };
 
-    payload = { ...payload, ...metadata };
-
-    const state = payload.state && typeof payload.state === "object"
+    const state = isPlainObject(payload.state)
         ? {
             ...createDefaultPromptState(),
             ...payload.state,
@@ -436,8 +595,10 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         : null;
 
     const type = String(payload.type || metadata.type || "").trim().toLowerCase();
-    const displayItems = extractPromptGeneratorDisplayItems(source, fallbackText);
     const isQuestion = type === "question";
+    const displayItems = extractPromptGeneratorDisplayItems(source, fallbackText);
+    const results = isQuestion ? [] : displayItems;
+    const content = isQuestion ? (displayItems[0] || "") : "";
 
     return {
         success: payload.success !== false,
@@ -446,10 +607,10 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         provider: payload.provider || null,
         model_key: payload.model_key || PROMPT_GENERATOR_MODEL_KEY,
         state,
-        content: isQuestion ? (displayItems[0] || "") : "",
-        results: isQuestion ? [] : displayItems,
-        usage: payload.usage && typeof payload.usage === "object" ? payload.usage : null,
-        cost: payload.cost && typeof payload.cost === "object" ? payload.cost : null,
+        content,
+        results,
+        usage: isPlainObject(payload.usage) ? payload.usage : null,
+        cost: isPlainObject(payload.cost) ? payload.cost : null,
         isPromptGenerator: isPromptGeneratorResponse(payload, fallbackText),
         isQuestion,
     };
@@ -458,7 +619,7 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
 const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) => {
     if (isPromptGeneratorStatusText(content)) return true;
     if (promptGeneratorResponse && results.length) return true;
-    if (promptGeneratorResponse && parsePromptGeneratorJson(content)) return true;
+    if (promptGeneratorResponse && safeJsonParse(content)) return true;
     if (!content || !results.length) return false;
 
     const normalizedContent = String(content).trim();
@@ -470,7 +631,8 @@ const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) =
 const mapMessage = (message = {}, index = 0) => {
     const normalized = message.role === "assistant"
         ? normalizePromptResponse(message, message.content)
-        : { results: [], state: null, usage: null, cost: null };
+        : { results: [], state: null, usage: null, cost: null, isQuestion: false };
+
     const results = normalized.results || [];
 
     return {
@@ -506,7 +668,13 @@ const conversationTitle = (conversation = {}) => {
         || conversation.first_message_content
         || conversation.message?.find?.((message) => message.role === "user")?.content
         || "";
-    const title = String(firstMessage).replace(/<[^>]*>/g, " ").trim().split(/\s+/).slice(0, 4).join(" ");
+
+    const title = String(firstMessage)
+        .replace(/<[^>]*>/g, " ")
+        .trim()
+        .split(/\s+/)
+        .slice(0, 4)
+        .join(" ");
 
     return title || `${copy.value.title} ${String(conversation.uuid || "").slice(-5)}`;
 };
@@ -518,6 +686,7 @@ const formatConversation = (conversation = {}) => ({
 
 const scrollToBottom = async () => {
     await nextTick();
+
     if (messagesContainer.value) {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
     }
@@ -525,18 +694,23 @@ const scrollToBottom = async () => {
 
 const autoResize = () => {
     if (!textareaRef.value) return;
+
     textareaRef.value.style.height = "auto";
     textareaRef.value.style.height = `${Math.min(textareaRef.value.scrollHeight, 180)}px`;
 };
 
 const resetTextarea = () => {
-    if (textareaRef.value) textareaRef.value.style.height = "auto";
+    if (textareaRef.value) {
+        textareaRef.value.style.height = "auto";
+    }
 };
 
 const requireAuth = async () => {
     if (localStorage.getItem("auth_token")) return true;
+
     errorMessage.value = copy.value.authRequired;
     await router.push(`/${homeService.getLang()}/auth`);
+
     return false;
 };
 
@@ -572,9 +746,11 @@ const loadConversations = async () => {
     }
 
     loadingConversations.value = true;
+
     try {
         const response = await chatServices.getConversations();
         const rows = Array.isArray(response?.data) ? response.data : [];
+
         conversations.value = rows
             .filter((conversation) => Number(conversation.sub_tool_id) === PROMPT_GENERATOR_SUB_TOOL_ID)
             .map(formatConversation);
@@ -595,6 +771,7 @@ const hydrateStateFromMessages = (rows) => {
             ...latestState,
             extra_options: Array.isArray(latestState.extra_options) ? latestState.extra_options : [],
         };
+
         persistPromptState();
     }
 };
@@ -607,6 +784,7 @@ const loadConversationDetails = async (uuid) => {
     }
 
     loadingMessages.value = true;
+
     try {
         const response = await chatServices.getConversation(uuid);
         const conversation = response?.data || null;
@@ -614,7 +792,9 @@ const loadConversationDetails = async (uuid) => {
 
         if (conversation) {
             activeConversation.value = formatConversation(conversation);
+
             const existingIndex = conversations.value.findIndex((item) => item.uuid === uuid);
+
             if (existingIndex >= 0) {
                 conversations.value[existingIndex] = activeConversation.value;
             }
@@ -640,7 +820,9 @@ const ensureConversation = async () => {
         conversation,
         ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
     ];
+
     restorePromptState(conversation.uuid);
+
     await router.replace(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2/${conversation.uuid}`);
 
     return conversation;
@@ -651,6 +833,7 @@ const closeStream = () => {
         eventSource.value.close();
         eventSource.value = null;
     }
+
     streamingAssistant.value = false;
 };
 
@@ -665,6 +848,7 @@ const openAssistantStream = async (conversation, afterId) => {
         typing: true,
         created_at: now(),
     });
+
     messages.value.push(typingMessage);
     await scrollToBottom();
 
@@ -672,6 +856,7 @@ const openAssistantStream = async (conversation, afterId) => {
         after_id: String(afterId || 0),
         token: localStorage.getItem("auth_token") || "",
     });
+
     const source = new EventSource(`/api/v1/conversation/${conversation.uuid}/stream?${params.toString()}`);
     eventSource.value = source;
 
@@ -680,8 +865,6 @@ const openAssistantStream = async (conversation, afterId) => {
         const index = messages.value.findIndex((message) => message.localKey === typingMessage.localKey);
 
         if (payload.type === "token" && index >= 0) {
-            // Prompt Generator output is rendered from metadata.results after
-            // the done event, so streamed status text stays behind the loader.
             return;
         }
 
@@ -706,6 +889,7 @@ const openAssistantStream = async (conversation, afterId) => {
 
 const sendMessage = async () => {
     const text = userMessage.value.trim();
+
     if (!text || sendDisabled.value || subtool.value.id !== PROMPT_GENERATOR_SUB_TOOL_ID) return;
 
     errorMessage.value = "";
@@ -713,6 +897,7 @@ const sendMessage = async () => {
 
     try {
         const conversation = await ensureConversation();
+
         if (!conversation?.uuid) return;
 
         const requestState = {
@@ -720,6 +905,7 @@ const sendMessage = async () => {
             ...promptState.value,
             extra_options: [...promptState.value.extra_options],
         };
+
         const payload = {
             user_id: Number(conversation.user_id) || null,
             sub_tool_id: PROMPT_GENERATOR_SUB_TOOL_ID,
@@ -735,6 +921,7 @@ const sendMessage = async () => {
             content: text,
             created_at: now(),
         }));
+
         userMessage.value = "";
         resetTextarea();
         persistPromptState(conversation.uuid);
@@ -751,12 +938,17 @@ const sendMessage = async () => {
                 metadata: directResponse,
                 created_at: now(),
             }));
+
             if (directResponse.state) {
                 promptState.value = directResponse.state;
                 persistPromptState(conversation.uuid);
             }
+
             await scrollToBottom();
-        } else if (directResponse.results.length) {
+            return;
+        }
+
+        if (directResponse.results.length) {
             messages.value.push(mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
@@ -764,14 +956,17 @@ const sendMessage = async () => {
                 metadata: directResponse,
                 created_at: now(),
             }));
+
             if (directResponse.state) {
                 promptState.value = directResponse.state;
                 persistPromptState(conversation.uuid);
             }
+
             await scrollToBottom();
-        } else {
-            await openAssistantStream(conversation, response?.data?.message_id);
+            return;
         }
+
+        await openAssistantStream(conversation, response?.data?.message_id);
     } catch (error) {
         errorMessage.value = error?.response?.data?.message || copy.value.genericError;
     } finally {
@@ -784,6 +979,7 @@ const startNewChat = async () => {
 
     creatingConversation.value = true;
     errorMessage.value = "";
+
     try {
         const response = await chatServices.createConversation(route.params.slug);
         const conversation = formatConversation(response?.data || {});
@@ -793,9 +989,11 @@ const startNewChat = async () => {
             conversation,
             ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
         ];
+
         messages.value = [];
         promptState.value = createDefaultPromptState();
         sidebarOpen.value = false;
+
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2/${conversation.uuid}`);
     } finally {
         creatingConversation.value = false;
@@ -804,6 +1002,7 @@ const startNewChat = async () => {
 
 const openConversation = async (conversation) => {
     if (!conversation?.uuid) return;
+
     sidebarOpen.value = false;
     restorePromptState(conversation.uuid);
 
@@ -819,6 +1018,7 @@ const deleteConversation = async (conversation) => {
     if (!conversation?.uuid || deletingUuid.value) return;
 
     deletingUuid.value = conversation.uuid;
+
     try {
         await chatServices.deleteConversation(conversation.uuid);
         conversations.value = conversations.value.filter((item) => item.uuid !== conversation.uuid);
@@ -837,6 +1037,7 @@ const deleteConversation = async (conversation) => {
 
 const fillPlaceholder = () => {
     userMessage.value = subtool.value.promptPlaceholder;
+
     nextTick(() => {
         textareaRef.value?.focus();
         autoResize();
@@ -845,7 +1046,9 @@ const fillPlaceholder = () => {
 
 const copyResult = async (text, resultId) => {
     await navigator.clipboard.writeText(text);
+
     copiedResult.value = resultId;
+
     window.setTimeout(() => {
         copiedResult.value = null;
     }, 1200);
@@ -853,6 +1056,7 @@ const copyResult = async (text, resultId) => {
 
 const initialize = async () => {
     locale.value = homeService.getLang();
+
     await Promise.all([loadSubtool(), loadConversations()]);
 
     if (route.params.uuid) {
@@ -880,6 +1084,7 @@ watch(
     () => route.params.uuid,
     async (uuid, previousUuid) => {
         if (uuid === previousUuid) return;
+
         closeStream();
         restorePromptState(uuid);
 
@@ -895,10 +1100,12 @@ watch(
     () => route.params.slug,
     async (slug, previousSlug) => {
         if (slug === previousSlug) return;
+
         closeStream();
         activeConversation.value = null;
         messages.value = [];
         promptState.value = createDefaultPromptState();
+
         await initialize();
     }
 );
