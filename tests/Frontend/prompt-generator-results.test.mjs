@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-    extractPromptGeneratorTexts,
+    extractPromptGeneratorDisplayItems,
     isPromptGeneratorStatusText,
 } from "../../resources/js/utils/promptGeneratorResults.js";
 
 test("returns only response.results text values", () => {
-    const results = extractPromptGeneratorTexts({
+    const results = extractPromptGeneratorDisplayItems({
+        type: "result",
         tool: "ai_prompt_generator",
         result: "This fallback must not win.",
         message: "This message must not win.",
@@ -42,8 +43,9 @@ test("unwraps one nested JSON results payload from a result text", () => {
         ],
     });
 
-    const results = extractPromptGeneratorTexts({
+    const results = extractPromptGeneratorDisplayItems({
         success: true,
+        type: "result",
         tool: "ai_prompt_generator",
         message: "Prompt generated successfully.",
         results: [{ id: 99, text: rawJson }],
@@ -68,11 +70,12 @@ test("extracts nested result text from a data-wrapped API response", () => {
         ],
     });
 
-    const results = extractPromptGeneratorTexts({
+    const results = extractPromptGeneratorDisplayItems({
         success: true,
         message: "Prompt generated successfully.",
         data: {
             tool: "ai_prompt_generator",
+            type: "result",
             message: "Prompt generated successfully.",
             results: [{ text: rawJson }],
         },
@@ -87,7 +90,8 @@ test("extracts nested result text from a data-wrapped API response", () => {
 });
 
 test("parses state.last_output JSON only when direct results are absent", () => {
-    const results = extractPromptGeneratorTexts({
+    const results = extractPromptGeneratorDisplayItems({
+        type: "result",
         tool: "ai_prompt_generator",
         state: {
             last_output: JSON.stringify({
@@ -101,16 +105,30 @@ test("parses state.last_output JSON only when direct results are absent", () => 
 
 test("rejects Prompt Generator status messages as plain-text fallbacks", () => {
     assert.deepEqual(
-        extractPromptGeneratorTexts(
-            { tool: "ai_prompt_generator" },
+        extractPromptGeneratorDisplayItems(
+            { type: "result", tool: "ai_prompt_generator" },
             "Prompt generated successfully."
         ),
         []
     );
     assert.deepEqual(
-        extractPromptGeneratorTexts(
-            { sub_tool_id: 9 },
+        extractPromptGeneratorDisplayItems(
+            { type: "result", sub_tool_id: 9 },
             "تم توليد البرومبت بنجاح."
+        ),
+        []
+    );
+    assert.deepEqual(
+        extractPromptGeneratorDisplayItems(
+            { type: "result", sub_tool_id: 9 },
+            "Generated successfully."
+        ),
+        []
+    );
+    assert.deepEqual(
+        extractPromptGeneratorDisplayItems(
+            { type: "result", sub_tool_id: 9 },
+            "Success"
         ),
         []
     );
@@ -118,8 +136,33 @@ test("rejects Prompt Generator status messages as plain-text fallbacks", () => {
     assert.equal(isPromptGeneratorStatusText("تم توليد البرومبت بنجاح."), true);
 });
 
+test("returns the AI message for a question response", () => {
+    const items = extractPromptGeneratorDisplayItems({
+        success: true,
+        type: "question",
+        tool: "ai_prompt_generator",
+        message: "What task or idea should I create a prompt for?",
+        results: [],
+    });
+
+    assert.deepEqual(items, ["What task or idea should I create a prompt for?"]);
+});
+
+test("does not use the success message for a result response", () => {
+    const items = extractPromptGeneratorDisplayItems({
+        success: true,
+        type: "result",
+        tool: "ai_prompt_generator",
+        message: "Prompt generated successfully.",
+        results: [{ text: "ACTUAL PROMPT TEXT HERE" }],
+    });
+
+    assert.deepEqual(items, ["ACTUAL PROMPT TEXT HERE"]);
+    assert.equal(items.includes("Prompt generated successfully."), false);
+});
+
 test("uses plain message content only when no result text exists", () => {
-    const results = extractPromptGeneratorTexts(
+    const results = extractPromptGeneratorDisplayItems(
         { tool: "ai_prompt_generator" },
         "Plain saved assistant response"
     );
@@ -128,7 +171,7 @@ test("uses plain message content only when no result text exists", () => {
 });
 
 test("keeps non Prompt Generator legacy messages out of result cards", () => {
-    const results = extractPromptGeneratorTexts(
+    const results = extractPromptGeneratorDisplayItems(
         { tool: "legacy_writer", message: "Legacy assistant response" },
         "Legacy assistant response"
     );

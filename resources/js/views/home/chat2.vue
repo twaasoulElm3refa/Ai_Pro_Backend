@@ -213,7 +213,7 @@ import {
     PROMPT_GENERATOR_MODEL_KEY,
     PROMPT_GENERATOR_SUB_TOOL_ID,
     PROMPT_GENERATOR_TOOL_KEY,
-    extractPromptGeneratorTexts,
+    extractPromptGeneratorDisplayItems,
     isPromptGeneratorResponse,
     isPromptGeneratorStatusText,
     parsePromptGeneratorJson,
@@ -435,19 +435,23 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         }
         : null;
 
-    const results = extractPromptGeneratorTexts(source, fallbackText);
+    const type = String(payload.type || metadata.type || "").trim().toLowerCase();
+    const displayItems = extractPromptGeneratorDisplayItems(source, fallbackText);
+    const isQuestion = type === "question";
 
     return {
         success: payload.success !== false,
-        type: payload.type || metadata.type || "",
+        type,
         tool: payload.tool || PROMPT_GENERATOR_TOOL_KEY,
         provider: payload.provider || null,
         model_key: payload.model_key || PROMPT_GENERATOR_MODEL_KEY,
         state,
-        results,
+        content: isQuestion ? (displayItems[0] || "") : "",
+        results: isQuestion ? [] : displayItems,
         usage: payload.usage && typeof payload.usage === "object" ? payload.usage : null,
         cost: payload.cost && typeof payload.cost === "object" ? payload.cost : null,
         isPromptGenerator: isPromptGeneratorResponse(payload, fallbackText),
+        isQuestion,
     };
 };
 
@@ -472,11 +476,15 @@ const mapMessage = (message = {}, index = 0) => {
     return {
         ...message,
         localKey: message.localKey || `${message.role || "message"}-${message.id || index}-${message.created_at || now()}`,
-        content: shouldHideDuplicateContent(
-            message.content,
-            results,
-            normalized.isPromptGenerator
-        ) ? "" : String(message.content || ""),
+        content: normalized.isQuestion
+            ? normalized.content
+            : (
+                shouldHideDuplicateContent(
+                    message.content,
+                    results,
+                    normalized.isPromptGenerator
+                ) ? "" : String(message.content || "")
+            ),
         role: message.role || "assistant",
         results,
         responseState: normalized.state,
@@ -735,7 +743,20 @@ const sendMessage = async () => {
         const response = await chatServices.sendMessage(payload);
         const directResponse = normalizePromptResponse(response);
 
-        if (directResponse.results.length) {
+        if (directResponse.isQuestion && directResponse.content) {
+            messages.value.push(mapMessage({
+                localKey: createLocalKey(),
+                role: "assistant",
+                content: directResponse.content,
+                metadata: directResponse,
+                created_at: now(),
+            }));
+            if (directResponse.state) {
+                promptState.value = directResponse.state;
+                persistPromptState(conversation.uuid);
+            }
+            await scrollToBottom();
+        } else if (directResponse.results.length) {
             messages.value.push(mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",

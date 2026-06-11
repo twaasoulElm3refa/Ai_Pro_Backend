@@ -83,36 +83,62 @@ export const isPromptGeneratorStatusText = (value) => {
     const normalized = normalizeStatusText(value);
 
     return normalized === "prompt generated successfully"
-        || normalized === "تم توليد البرومبت بنجاح";
+        || normalized === "تم توليد البرومبت بنجاح"
+        || normalized === "generated successfully"
+        || normalized === "success";
 };
 
-export const extractPromptGeneratorTexts = (source = {}, messageContent = "") => {
+const firstPlainText = (values) => {
+    for (const value of values) {
+        if (
+            typeof value === "string"
+            && value.trim()
+            && !parsePromptGeneratorJson(value)
+            && !isPromptGeneratorStatusText(value)
+        ) {
+            return value.trim();
+        }
+    }
+
+    return "";
+};
+
+export const extractPromptGeneratorDisplayItems = (source = {}, fallbackText = "") => {
     const payload = mergePayloadMetadata(source);
-    const promptGeneratorResponse = isPromptGeneratorResponse(payload, messageContent);
+    const promptGeneratorResponse = isPromptGeneratorResponse(payload, fallbackText);
+    const responseType = String(payload.type || "").trim().toLowerCase();
+
+    if (!promptGeneratorResponse) return [];
+
+    if (responseType === "question") {
+        const question = firstPlainText([
+            payload.message,
+            payload.content,
+            fallbackText,
+        ]);
+
+        return question ? [question] : [];
+    }
 
     for (const layer of payloadLayers(source)) {
         const directTexts = textsFromResults(layer.results);
         if (directTexts.length) return directTexts;
     }
 
-    // A normal /message/send acknowledgement must continue to SSE instead of
-    // being rendered as an assistant result.
-    if (!promptGeneratorResponse) return [];
-
     const parsedLastOutput = parsePromptGeneratorJson(payload.state?.last_output);
     const lastOutputTexts = textsFromResults(parsedLastOutput?.results);
     if (lastOutputTexts.length) return lastOutputTexts;
 
-    const parsedMessageContent = parsePromptGeneratorJson(messageContent);
+    const plainLastOutput = firstPlainText([payload.state?.last_output]);
+    if (plainLastOutput) return [plainLastOutput];
+
+    const parsedMessageContent = parsePromptGeneratorJson(fallbackText);
     const contentTexts = textsFromResults(parsedMessageContent?.results);
     if (contentTexts.length) return contentTexts;
 
-    return typeof messageContent === "string"
-        && messageContent.trim()
-        && !parsedMessageContent
-        && !isPromptGeneratorStatusText(messageContent)
-        ? [messageContent.trim()]
-        : [];
+    const fallback = firstPlainText([fallbackText]);
+    return fallback ? [fallback] : [];
 };
 
-export const normalizePromptGeneratorResults = extractPromptGeneratorTexts;
+export const extractPromptGeneratorTexts = extractPromptGeneratorDisplayItems;
+export const normalizePromptGeneratorResults = extractPromptGeneratorDisplayItems;
