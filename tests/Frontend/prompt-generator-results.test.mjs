@@ -32,18 +32,28 @@ test("returns only response.results text values", () => {
 test("unwraps one nested JSON results payload from a result text", () => {
     const rawJson = JSON.stringify({
         results: [
-            { id: 1, text: "Inner prompt one" },
-            { id: 2, text: "Inner prompt two" },
+            {
+                id: 1,
+                title: null,
+                subject: null,
+                text: "Actual prompt here...",
+            },
         ],
     });
 
     const results = extractPromptGeneratorTexts({
+        success: true,
         tool: "ai_prompt_generator",
+        message: "Prompt generated successfully.",
         results: [{ id: 99, text: rawJson }],
     });
 
-    assert.deepEqual(results, ["Inner prompt one", "Inner prompt two"]);
+    assert.deepEqual(results, ["Actual prompt here..."]);
     assert.equal(results.includes(rawJson), false);
+    assert.equal(results.includes("Prompt generated successfully."), false);
+    assert.equal(JSON.stringify(results).includes("title"), false);
+    assert.equal(JSON.stringify(results).includes("subject"), false);
+    assert.equal(JSON.stringify(results).includes("null"), false);
 });
 
 test("parses state.last_output JSON only when direct results are absent", () => {

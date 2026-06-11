@@ -453,12 +453,12 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         results,
         usage: payload.usage && typeof payload.usage === "object" ? payload.usage : null,
         cost: payload.cost && typeof payload.cost === "object" ? payload.cost : null,
-        message: String(payload.message || ""),
         isPromptGenerator: isPromptGeneratorResponse(payload, fallbackText),
     };
 };
 
 const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) => {
+    if (promptGeneratorResponse && results.length) return true;
     if (promptGeneratorResponse && parsePromptGeneratorJson(content)) return true;
     if (!content || !results.length) return false;
 
@@ -744,7 +744,7 @@ const sendMessage = async () => {
             messages.value.push(mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
-                content: directResponse.message,
+                content: "",
                 metadata: directResponse,
                 created_at: now(),
             }));
