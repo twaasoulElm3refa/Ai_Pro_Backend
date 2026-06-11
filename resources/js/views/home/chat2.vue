@@ -4,7 +4,7 @@
             <div class="sidebar-brand">
                 <span class="brand-icon"><i class="bi bi-stars"></i></span>
                 <div>
-                    <strong>{{ copy.title }}</strong>
+                    <strong>{{ pageTitle }}</strong>
                     <small>{{ copy.subtitle }}</small>
                 </div>
                 <button class="icon-button mobile-only" type="button" @click="sidebarOpen = false">
@@ -18,8 +18,10 @@
             </button>
 
             <p class="section-label">{{ copy.recent }}</p>
+
             <div v-if="loadingConversations" class="sidebar-status">{{ copy.loading }}</div>
             <div v-else-if="conversations.length === 0" class="sidebar-status">{{ copy.noChats }}</div>
+
             <div v-else class="conversation-list">
                 <div
                     v-for="conversation in conversations"
@@ -31,6 +33,7 @@
                         <i class="bi bi-chat-left-text"></i>
                         <span>{{ conversation.title }}</span>
                     </button>
+
                     <button
                         type="button"
                         class="conversation-delete"
@@ -51,13 +54,15 @@
                 <button class="icon-button mobile-only" type="button" @click="sidebarOpen = true">
                     <i class="bi bi-list"></i>
                 </button>
+
                 <div>
-                    <p class="eyebrow">{{ copy.promptGenerator }}</p>
-                    <h1>{{ subtool.name || copy.title }}</h1>
+                    <p class="eyebrow">{{ toolEyebrow }}</p>
+                    <h1>{{ pageTitle }}</h1>
                 </div>
+
                 <div class="tool-badges">
-                    <span>ai_prompt_generator</span>
-                    <span>prompt_generator</span>
+                    <span v-if="toolKeyBadge">{{ toolKeyBadge }}</span>
+                    <span v-if="modelKeyBadge">{{ modelKeyBadge }}</span>
                 </div>
             </header>
 
@@ -71,6 +76,7 @@
                     <span class="welcome-icon"><i class="bi bi-magic"></i></span>
                     <h2>{{ copy.welcomeTitle }}</h2>
                     <p>{{ subtool.description || copy.welcomeText }}</p>
+
                     <button
                         v-if="subtool.promptPlaceholder"
                         class="suggestion"
@@ -111,7 +117,8 @@
                                         class="result-card"
                                     >
                                         <div class="result-header">
-                                            <strong>Prompt {{ index + 1 }}</strong>
+                                            <strong>{{ message.resultTitle }} {{ index + 1 }}</strong>
+
                                             <button type="button" @click="copyResult(resultText, index)">
                                                 <i class="bi bi-copy"></i>
                                                 {{ copiedResult === index ? copy.copied : copy.copy }}
@@ -214,8 +221,8 @@ import DOMPurify from "dompurify";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
-import * as promptGeneratorResults from "@/utils/promptGeneratorResults";
 
+const DEFAULT_SUB_TOOL_ID = 9;
 const PROMPT_GENERATOR_SUB_TOOL_ID = 9;
 const PROMPT_GENERATOR_TOOL_KEY = "ai_prompt_generator";
 const PROMPT_GENERATOR_MODEL_KEY = "prompt_generator";
@@ -265,13 +272,14 @@ const copy = computed(() => isArabic.value ? {
     noChats: "لا توجد محادثات بعد",
     deleteChat: "حذف المحادثة",
     loadingConversation: "جارٍ تحميل المحادثة...",
-    welcomeTitle: "حوّل فكرتك إلى برومبت احترافي",
-    welcomeText: "اشرح النتيجة التي تريدها وسنبني لك برومبتات منظمة وقابلة للاستخدام.",
-    result: "النتيجة",
+    welcomeTitle: "ابدأ محادثتك الآن",
+    welcomeText: "اكتب طلبك وسنجهز لك الرد المناسب حسب الأداة المحددة.",
+    result: "Result",
+    prompt: "Prompt",
     copy: "نسخ",
     copied: "تم النسخ",
     tokens: "توكن",
-    options: "خيارات البرومبت",
+    options: "خيارات الأداة",
     resultsCount: "عدد النتائج",
     constraints: "تضمين قيود",
     defaultValue: "افتراضي",
@@ -279,12 +287,11 @@ const copy = computed(() => isArabic.value ? {
     no: "لا",
     extraOptions: "خيارات إضافية",
     extraOptionsPlaceholder: "افصل الخيارات بفاصلة",
-    placeholder: "اكتب البرومبت الذي تريد توليده...",
+    placeholder: "اكتب رسالتك هنا...",
     send: "إرسال",
     hint: "Enter للإرسال، وShift + Enter لسطر جديد",
     authRequired: "يجب تسجيل الدخول أولًا.",
-    genericError: "تعذر إنشاء البرومبت. حاول مرة أخرى.",
-    wrongTool: "هذه الصفحة مخصصة لأداة Prompt Generator فقط.",
+    genericError: "تعذر تنفيذ الطلب. حاول مرة أخرى.",
 } : {
     title: "Prompt Generator",
     subtitle: "Dedicated workspace",
@@ -296,13 +303,14 @@ const copy = computed(() => isArabic.value ? {
     noChats: "No conversations yet",
     deleteChat: "Delete conversation",
     loadingConversation: "Loading conversation...",
-    welcomeTitle: "Turn an idea into a professional prompt",
-    welcomeText: "Describe the result you need and generate structured, reusable prompts.",
+    welcomeTitle: "Start your conversation",
+    welcomeText: "Write your request and the selected tool will generate the response.",
     result: "Result",
+    prompt: "Prompt",
     copy: "Copy",
     copied: "Copied",
     tokens: "tokens",
-    options: "Prompt options",
+    options: "Tool options",
     resultsCount: "Results count",
     constraints: "Include constraints",
     defaultValue: "Default",
@@ -310,12 +318,11 @@ const copy = computed(() => isArabic.value ? {
     no: "No",
     extraOptions: "Extra options",
     extraOptionsPlaceholder: "Separate options with commas",
-    placeholder: "Describe the prompt you want to generate...",
+    placeholder: "Write your message here...",
     send: "Send",
     hint: "Press Enter to send, Shift + Enter for a new line",
     authRequired: "Please sign in first.",
-    genericError: "The prompt could not be generated. Please try again.",
-    wrongTool: "This page is reserved for the Prompt Generator tool.",
+    genericError: "The request could not be completed. Please try again.",
 });
 
 const textFields = computed(() => [
@@ -330,10 +337,13 @@ const textFields = computed(() => [
 ]);
 
 const subtool = ref({
-    id: PROMPT_GENERATOR_SUB_TOOL_ID,
-    name: "Prompt Generator",
+    id: DEFAULT_SUB_TOOL_ID,
+    name: "",
     description: "",
     promptPlaceholder: "",
+    toolKey: "",
+    modelKey: "",
+    config: {},
 });
 
 const conversations = ref([]);
@@ -360,6 +370,38 @@ const markdown = new MarkdownIt({
     linkify: true,
 });
 
+const activeSubToolId = computed(() => Number(subtool.value.id || DEFAULT_SUB_TOOL_ID));
+
+const toolKeyBadge = computed(() =>
+    subtool.value.toolKey
+    || subtool.value.config?.tool_key
+    || subtool.value.config?.tool
+    || ""
+);
+
+const modelKeyBadge = computed(() =>
+    subtool.value.modelKey
+    || subtool.value.config?.model_key
+    || ""
+);
+
+const isActivePromptGenerator = computed(() =>
+    activeSubToolId.value === PROMPT_GENERATOR_SUB_TOOL_ID
+    || toolKeyBadge.value === PROMPT_GENERATOR_TOOL_KEY
+    || modelKeyBadge.value === PROMPT_GENERATOR_MODEL_KEY
+);
+
+const pageTitle = computed(() =>
+    subtool.value.name
+    || (isActivePromptGenerator.value ? copy.value.title : copy.value.promptGenerator)
+);
+
+const toolEyebrow = computed(() =>
+    isActivePromptGenerator.value
+        ? "Prompt Generator"
+        : (toolKeyBadge.value || "AI Tool")
+);
+
 const sendDisabled = computed(() => sendingMessage.value || streamingAssistant.value);
 
 const extraOptionsText = computed({
@@ -381,11 +423,12 @@ const optionsSummary = computed(() => {
 });
 
 useSeoMeta({
-    title: computed(() => `${copy.value.title} | Ai Pro`),
+    title: computed(() => `${pageTitle.value} | Ai Pro`),
     description: computed(() =>
-        isArabic.value
-            ? "أنشئ برومبتات احترافية ومنظمة باستخدام أداة Prompt Generator."
-            : "Generate professional, structured prompts with the Prompt Generator tool."
+        subtool.value.description
+        || (isArabic.value
+            ? "مساحة محادثة مخصصة لاستخدام أدوات الذكاء الاصطناعي."
+            : "Dedicated workspace for AI tools.")
     ),
 });
 
@@ -396,14 +439,9 @@ const formatMessage = (value = "") => {
 
 const now = () => new Date().toISOString();
 const createLocalKey = () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const promptStateKey = (uuid) => `prompt-generator-state:${uuid || "new"}`;
+const promptStateKey = (uuid) => `tool-state:${activeSubToolId.value}:${uuid || "new"}`;
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-
-const unwrapPayload = (source) => {
-    if (!source || typeof source !== "object") return {};
-    return source.data && typeof source.data === "object" ? source.data : source;
-};
 
 const safeJsonParse = (value) => {
     if (typeof value !== "string") return null;
@@ -421,7 +459,23 @@ const safeJsonParse = (value) => {
     }
 };
 
-const isPromptGeneratorStatusText = (value) => {
+const parseMaybeJson = (value) => {
+    if (isPlainObject(value)) return value;
+
+    if (typeof value === "string") {
+        const parsed = safeJsonParse(value);
+        return isPlainObject(parsed) ? parsed : {};
+    }
+
+    return {};
+};
+
+const unwrapPayload = (source) => {
+    if (!source || typeof source !== "object") return {};
+    return source.data && typeof source.data === "object" ? source.data : source;
+};
+
+const isStatusText = (value) => {
     const text = String(value || "").trim();
 
     if (!text) return true;
@@ -437,14 +491,15 @@ const isPromptGeneratorResponse = (payload = {}, fallbackText = "") => {
     return Number(data.sub_tool_id) === PROMPT_GENERATOR_SUB_TOOL_ID
         || data.tool === PROMPT_GENERATOR_TOOL_KEY
         || data.model_key === PROMPT_GENERATOR_MODEL_KEY
+        || isActivePromptGenerator.value
         || String(fallbackText || "").includes(PROMPT_GENERATOR_TOOL_KEY);
 };
 
 const extractTextFromResultItem = (item, depth = 0) => {
-    if (depth > 3 || item === null || item === undefined) return [];
+    if (depth > 4 || item === null || item === undefined) return [];
 
     if (typeof item === "string") {
-        if (isPromptGeneratorStatusText(item)) return [];
+        if (isStatusText(item)) return [];
 
         const parsed = safeJsonParse(item);
 
@@ -477,7 +532,7 @@ const extractTextFromResultItem = (item, depth = 0) => {
 };
 
 const extractPromptGeneratorTextsFromAny = (payload, depth = 0) => {
-    if (depth > 3 || payload === null || payload === undefined) return [];
+    if (depth > 4 || payload === null || payload === undefined) return [];
 
     if (typeof payload === "string") {
         return extractTextFromResultItem(payload, depth + 1);
@@ -523,7 +578,7 @@ const uniqueCleanTexts = (items = []) => {
 
     return items
         .map((item) => String(item || "").trim())
-        .filter((item) => item && !isPromptGeneratorStatusText(item))
+        .filter((item) => item && !isStatusText(item))
         .filter((item) => {
             if (seen.has(item)) return false;
             seen.add(item);
@@ -539,7 +594,7 @@ const extractPromptGeneratorDisplayItems = (source = {}, fallbackText = "") => {
 
     if (type === "question") {
         const question = String(merged.message || fallbackText || "").trim();
-        return question && !isPromptGeneratorStatusText(question) ? [question] : [];
+        return question && !isStatusText(question) ? [question] : [];
     }
 
     const fromPayload = extractPromptGeneratorTextsFromAny(merged);
@@ -551,6 +606,22 @@ const extractPromptGeneratorDisplayItems = (source = {}, fallbackText = "") => {
     const fromFallback = extractPromptGeneratorTextsFromAny(fallbackText);
 
     return uniqueCleanTexts(fromFallback);
+};
+
+const extractGenericResults = (payload = {}) => {
+    const items = [];
+
+    if (Array.isArray(payload.results)) {
+        payload.results.forEach((item) => {
+            if (typeof item === "string") {
+                items.push(item);
+            } else if (isPlainObject(item) && typeof item.text === "string") {
+                items.push(item.text);
+            }
+        });
+    }
+
+    return uniqueCleanTexts(items);
 };
 
 const persistPromptState = (uuid = activeConversation.value?.uuid) => {
@@ -582,10 +653,12 @@ const restorePromptState = (uuid) => {
     }
 };
 
-const normalizePromptResponse = (source = {}, fallbackText = "") => {
+const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
     const rawPayload = unwrapPayload(source);
     const metadata = isPlainObject(rawPayload.metadata) ? rawPayload.metadata : {};
     const payload = { ...rawPayload, ...metadata };
+    const type = String(payload.type || metadata.type || "").trim().toLowerCase();
+    const isPrompt = isPromptGeneratorResponse(payload, fallbackText);
 
     const state = isPlainObject(payload.state)
         ? {
@@ -595,32 +668,56 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         }
         : null;
 
-    const type = String(payload.type || metadata.type || "").trim().toLowerCase();
-    const isQuestion = type === "question";
-    const displayItems = promptGeneratorResults.extractPromptGeneratorDisplayItems(source, fallbackText);
-    const results = isQuestion ? [] : displayItems;
-    const content = isQuestion ? (displayItems[0] || "") : "";
+    if (isPrompt) {
+        const isQuestion = type === "question";
+        const displayItems = extractPromptGeneratorDisplayItems(source, fallbackText);
+
+        return {
+            success: payload.success !== false,
+            type,
+            tool: payload.tool || toolKeyBadge.value || PROMPT_GENERATOR_TOOL_KEY,
+            provider: payload.provider || null,
+            model_key: payload.model_key || modelKeyBadge.value || PROMPT_GENERATOR_MODEL_KEY,
+            state,
+            content: isQuestion ? (displayItems[0] || "") : "",
+            results: isQuestion ? [] : displayItems,
+            resultTitle: copy.value.prompt,
+            usage: isPlainObject(payload.usage) ? payload.usage : null,
+            cost: isPlainObject(payload.cost) ? payload.cost : null,
+            isPromptGenerator: true,
+            isQuestion,
+        };
+    }
+
+    const genericResults = extractGenericResults(payload);
+    const content = String(
+        payload.content
+        || payload.message
+        || fallbackText
+        || ""
+    ).trim();
 
     return {
         success: payload.success !== false,
         type,
-        tool: payload.tool || PROMPT_GENERATOR_TOOL_KEY,
+        tool: payload.tool || toolKeyBadge.value || "",
         provider: payload.provider || null,
-        model_key: payload.model_key || PROMPT_GENERATOR_MODEL_KEY,
+        model_key: payload.model_key || modelKeyBadge.value || "",
         state,
-        content,
-        results,
+        content: genericResults.length ? "" : content,
+        results: genericResults,
+        resultTitle: copy.value.result,
         usage: isPlainObject(payload.usage) ? payload.usage : null,
         cost: isPlainObject(payload.cost) ? payload.cost : null,
-        isPromptGenerator: promptGeneratorResults.isPromptGeneratorResponse(payload, fallbackText),
-        isQuestion,
+        isPromptGenerator: false,
+        isQuestion: type === "question",
     };
 };
 
-const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) => {
-    if (promptGeneratorResults.isPromptGeneratorStatusText(content)) return true;
-    if (promptGeneratorResponse && results.length) return true;
-    if (promptGeneratorResponse && promptGeneratorResults.parsePromptGeneratorJson(content)) return true;
+const shouldHideDuplicateContent = (content, results, isPrompt) => {
+    if (isPrompt && isStatusText(content)) return true;
+    if (isPrompt && results.length) return true;
+    if (isPrompt && safeJsonParse(content)) return true;
     if (!content || !results.length) return false;
 
     const normalizedContent = String(content).trim();
@@ -631,8 +728,16 @@ const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) =
 
 const mapMessage = (message = {}, index = 0) => {
     const normalized = message.role === "assistant"
-        ? normalizePromptResponse(message, message.content)
-        : { results: [], state: null, usage: null, cost: null, isQuestion: false };
+        ? normalizeAssistantResponse(message, message.content)
+        : {
+            results: [],
+            state: null,
+            usage: null,
+            cost: null,
+            isQuestion: false,
+            isPromptGenerator: false,
+            resultTitle: copy.value.result,
+        };
 
     const results = normalized.results || [];
 
@@ -646,10 +751,11 @@ const mapMessage = (message = {}, index = 0) => {
                     message.content,
                     results,
                     normalized.isPromptGenerator
-                ) ? "" : String(message.content || "")
+                ) ? "" : String(message.content || normalized.content || "")
             ),
         role: message.role || "assistant",
         results,
+        resultTitle: normalized.resultTitle || copy.value.result,
         responseState: normalized.state,
         usage: normalized.usage,
         cost: normalized.cost,
@@ -677,7 +783,7 @@ const conversationTitle = (conversation = {}) => {
         .slice(0, 4)
         .join(" ");
 
-    return title || `${copy.value.title} ${String(conversation.uuid || "").slice(-5)}`;
+    return title || `${pageTitle.value} ${String(conversation.uuid || "").slice(-5)}`;
 };
 
 const formatConversation = (conversation = {}) => ({
@@ -719,23 +825,26 @@ const loadSubtool = async () => {
     try {
         const response = await homeService.showSubtool(route.params.slug);
         const data = response?.data || {};
+        const config = parseMaybeJson(data.config || data.settings);
 
         subtool.value = {
-            id: Number(data.id || PROMPT_GENERATOR_SUB_TOOL_ID),
-            name: data.name || data.translation?.name || copy.value.title,
-            description: data.description || data.translation?.description || "",
-            promptPlaceholder: data.prompt_placeholder || data.translation?.prompt_placeholder || "",
+            id: Number(data.id || config.sub_tool_id || DEFAULT_SUB_TOOL_ID),
+            name: data.name || data.translation?.name || config.name || copy.value.title,
+            description: data.description || data.translation?.description || config.description || "",
+            promptPlaceholder: data.prompt_placeholder || data.translation?.prompt_placeholder || config.prompt_placeholder || "",
+            toolKey: data.tool_key || data.tool || config.tool_key || config.tool || "",
+            modelKey: data.model_key || config.model_key || "",
+            config,
         };
-
-        if (subtool.value.id !== PROMPT_GENERATOR_SUB_TOOL_ID) {
-            errorMessage.value = copy.value.wrongTool;
-        }
     } catch {
         subtool.value = {
-            id: PROMPT_GENERATOR_SUB_TOOL_ID,
+            id: DEFAULT_SUB_TOOL_ID,
             name: copy.value.title,
             description: copy.value.welcomeText,
             promptPlaceholder: copy.value.placeholder,
+            toolKey: PROMPT_GENERATOR_TOOL_KEY,
+            modelKey: PROMPT_GENERATOR_MODEL_KEY,
+            config: {},
         };
     }
 };
@@ -753,7 +862,7 @@ const loadConversations = async () => {
         const rows = Array.isArray(response?.data) ? response.data : [];
 
         conversations.value = rows
-            .filter((conversation) => Number(conversation.sub_tool_id) === PROMPT_GENERATOR_SUB_TOOL_ID)
+            .filter((conversation) => Number(conversation.sub_tool_id) === activeSubToolId.value)
             .map(formatConversation);
     } finally {
         loadingConversations.value = false;
@@ -866,7 +975,9 @@ const openAssistantStream = async (conversation, afterId) => {
         const index = messages.value.findIndex((message) => message.localKey === typingMessage.localKey);
 
         if (payload.type === "token" && index >= 0) {
-            return;
+            messages.value[index].typing = false;
+            messages.value[index].content += payload.content || "";
+            await scrollToBottom();
         }
 
         if (payload.type === "error" && index >= 0) {
@@ -891,7 +1002,7 @@ const openAssistantStream = async (conversation, afterId) => {
 const sendMessage = async () => {
     const text = userMessage.value.trim();
 
-    if (!text || sendDisabled.value || subtool.value.id !== PROMPT_GENERATOR_SUB_TOOL_ID) return;
+    if (!text || sendDisabled.value || !activeSubToolId.value) return;
 
     errorMessage.value = "";
     sendingMessage.value = true;
@@ -909,7 +1020,7 @@ const sendMessage = async () => {
 
         const payload = {
             user_id: Number(conversation.user_id) || null,
-            sub_tool_id: PROMPT_GENERATOR_SUB_TOOL_ID,
+            sub_tool_id: activeSubToolId.value,
             conversation_uuid: conversation.uuid,
             user_message: text,
             state: requestState,
@@ -929,7 +1040,7 @@ const sendMessage = async () => {
         await scrollToBottom();
 
         const response = await chatServices.sendMessage(payload);
-        const directResponse = normalizePromptResponse(response);
+        const directResponse = normalizeAssistantResponse(response);
 
         if (directResponse.isQuestion && directResponse.content) {
             messages.value.push(mapMessage({
@@ -954,6 +1065,24 @@ const sendMessage = async () => {
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: "",
+                metadata: directResponse,
+                created_at: now(),
+            }));
+
+            if (directResponse.state) {
+                promptState.value = directResponse.state;
+                persistPromptState(conversation.uuid);
+            }
+
+            await scrollToBottom();
+            return;
+        }
+
+        if (directResponse.content) {
+            messages.value.push(mapMessage({
+                localKey: createLocalKey(),
+                role: "assistant",
+                content: directResponse.content,
                 metadata: directResponse,
                 created_at: now(),
             }));
@@ -1058,10 +1187,11 @@ const copyResult = async (text, resultId) => {
 const initialize = async () => {
     locale.value = homeService.getLang();
 
-    await Promise.all([loadSubtool(), loadConversations()]);
+    await loadSubtool();
+    restorePromptState(route.params.uuid);
+    await loadConversations();
 
     if (route.params.uuid) {
-        restorePromptState(route.params.uuid);
         await loadConversationDetails(route.params.uuid);
     }
 };
