@@ -25,76 +25,28 @@ const unwrapPayload = (source) => {
     return source.data && typeof source.data === "object" ? source.data : source;
 };
 
-const normalizeBasicResult = (item, index) => {
-    if (typeof item === "string") {
-        const text = item.trim();
-        return text ? {
-            id: index + 1,
-            title: null,
-            subject: null,
-            text,
-            meta: {},
-        } : null;
-    }
+const resultItemText = (item) => {
+    if (typeof item === "string") return item.trim();
+    if (!item || typeof item !== "object") return "";
 
-    if (!item || typeof item !== "object") return null;
-
-    const text = item.text ?? item.prompt ?? item.output ?? item.result ?? item.content;
-    if (text === null || text === undefined || String(text).trim() === "") return null;
-
-    return {
-        ...item,
-        id: item.id ?? index + 1,
-        title: item.title ?? item.name ?? null,
-        subject: item.subject ?? null,
-        text: String(text).trim(),
-        meta: item.meta && typeof item.meta === "object" ? item.meta : {},
-    };
+    return typeof item.text === "string" ? item.text.trim() : "";
 };
 
-const normalizeResultCollection = (candidate, expandNestedText = true) => {
-    if (candidate === null || candidate === undefined || candidate === "") return [];
+const textsFromResults = (results, unwrapNestedText = true) => {
+    if (!Array.isArray(results)) return [];
 
-    if (typeof candidate === "string") {
-        const parsed = parsePromptGeneratorJson(candidate);
-        return parsed
-            ? normalizeResultCollection(parsed, expandNestedText)
-            : [normalizeBasicResult(candidate, 0)].filter(Boolean);
-    }
+    return results.flatMap((item) => {
+        const text = resultItemText(item);
+        if (!text) return [];
 
-    if (Array.isArray(candidate)) {
-        return candidate.flatMap((item, index) => {
-            const normalized = normalizeBasicResult(item, index);
-            if (!normalized) return [];
+        if (!unwrapNestedText) return [text];
 
-            if (!expandNestedText) return [normalized];
+        const nestedPayload = parsePromptGeneratorJson(text);
+        if (!Array.isArray(nestedPayload?.results)) return [text];
 
-            const nested = parsePromptGeneratorJson(normalized.text);
-            if (!nested) return [normalized];
-
-            const nestedResults = normalizeResultCollection(
-                nested.results ?? nested.result ?? nested,
-                false
-            );
-
-            return nestedResults.length ? nestedResults : [normalized];
-        });
-    }
-
-    if (typeof candidate === "object") {
-        if (Array.isArray(candidate.results)) {
-            return normalizeResultCollection(candidate.results, expandNestedText);
-        }
-
-        if (candidate.result !== undefined) {
-            return normalizeResultCollection(candidate.result, expandNestedText);
-        }
-
-        const normalized = normalizeBasicResult(candidate, 0);
-        return normalized ? [normalized] : [];
-    }
-
-    return [];
+        const innerTexts = textsFromResults(nestedPayload.results, false);
+        return innerTexts.length ? innerTexts : [];
+    });
 };
 
 const mergePayloadMetadata = (source) => {
@@ -117,28 +69,30 @@ export const isPromptGeneratorResponse = (source = {}, messageContent = "") => {
         || Array.isArray(parsedContent?.results);
 };
 
-export const normalizePromptGeneratorResults = (source = {}, messageContent = "") => {
+export const extractPromptGeneratorTexts = (source = {}, messageContent = "") => {
     const payload = mergePayloadMetadata(source);
     const promptGeneratorResponse = isPromptGeneratorResponse(payload, messageContent);
 
-    const directResults = normalizeResultCollection(payload.results);
-    if (directResults.length) return directResults;
+    const directTexts = textsFromResults(payload.results);
+    if (directTexts.length) return directTexts;
 
     // A normal /message/send acknowledgement must continue to SSE instead of
     // being rendered as an assistant result.
     if (!promptGeneratorResponse) return [];
 
-    const fallbackCandidates = [
-        payload.result,
-        payload.message,
-        payload.state?.last_output,
-        messageContent,
-    ];
+    const parsedLastOutput = parsePromptGeneratorJson(payload.state?.last_output);
+    const lastOutputTexts = textsFromResults(parsedLastOutput?.results);
+    if (lastOutputTexts.length) return lastOutputTexts;
 
-    for (const candidate of fallbackCandidates) {
-        const results = normalizeResultCollection(candidate);
-        if (results.length) return results;
-    }
+    const parsedMessageContent = parsePromptGeneratorJson(messageContent);
+    const contentTexts = textsFromResults(parsedMessageContent?.results);
+    if (contentTexts.length) return contentTexts;
 
-    return [];
+    return typeof messageContent === "string"
+        && messageContent.trim()
+        && !parsedMessageContent
+        ? [messageContent.trim()]
+        : [];
 };
+
+export const normalizePromptGeneratorResults = extractPromptGeneratorTexts;

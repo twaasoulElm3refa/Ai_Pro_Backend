@@ -79,17 +79,13 @@ class Chat2PromptGeneratorPageTest extends TestCase
             $chat2Page
         );
         $this->assertStringContainsString(
-            'normalizePromptGeneratorResults',
+            'extractPromptGeneratorTexts',
             $chat2Page
         );
-        $this->assertStringContainsString(
-            'v-if="result.subject"',
-            $chat2Page
-        );
-        $this->assertStringContainsString(
-            'copyResult(result.text',
-            $chat2Page
-        );
+        $this->assertStringContainsString('Prompt {{ index + 1 }}', $chat2Page);
+        $this->assertStringContainsString('copyResult(resultText, index)', $chat2Page);
+        $this->assertStringNotContainsString('result.title', $chat2Page);
+        $this->assertStringNotContainsString('result.subject', $chat2Page);
         $this->assertStringNotContainsString('chat2', $legacyChat);
     }
 

@@ -105,19 +105,18 @@
 
                                 <div v-if="message.results.length" class="result-list">
                                     <section
-                                        v-for="(result, index) in message.results"
-                                        :key="result.id || index"
+                                        v-for="(resultText, index) in message.results"
+                                        :key="index"
                                         class="result-card"
                                     >
                                         <div class="result-header">
-                                            <strong>{{ result.title || `${copy.result} ${index + 1}` }}</strong>
-                                            <button type="button" @click="copyResult(result.text, result.id || index)">
+                                            <strong>Prompt {{ index + 1 }}</strong>
+                                            <button type="button" @click="copyResult(resultText, index)">
                                                 <i class="bi bi-copy"></i>
-                                                {{ copiedResult === (result.id || index) ? copy.copied : copy.copy }}
+                                                {{ copiedResult === index ? copy.copied : copy.copy }}
                                             </button>
                                         </div>
-                                        <p v-if="result.subject" class="result-subject">{{ result.subject }}</p>
-                                        <div class="result-text" v-html="formatMessage(result.text)"></div>
+                                        <div class="result-text" v-html="formatMessage(resultText)"></div>
                                     </section>
                                 </div>
 
@@ -214,8 +213,8 @@ import {
     PROMPT_GENERATOR_MODEL_KEY,
     PROMPT_GENERATOR_SUB_TOOL_ID,
     PROMPT_GENERATOR_TOOL_KEY,
+    extractPromptGeneratorTexts,
     isPromptGeneratorResponse,
-    normalizePromptGeneratorResults,
     parsePromptGeneratorJson,
 } from "@/utils/promptGeneratorResults";
 
@@ -436,7 +435,7 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         }
         : null;
 
-    const results = normalizePromptGeneratorResults(
+    const results = extractPromptGeneratorTexts(
         {
             ...payload,
             state: state || payload.state || parsedFallback?.state,
@@ -464,7 +463,7 @@ const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) =
     if (!content || !results.length) return false;
 
     const normalizedContent = String(content).trim();
-    const combinedResults = results.map((result) => result.text).join("\n\n").trim();
+    const combinedResults = results.join("\n\n").trim();
 
     return normalizedContent === combinedResults;
 };
@@ -1244,13 +1243,6 @@ button:disabled {
 .result-text {
     padding: 15px;
     color: var(--ink);
-}
-
-.result-subject {
-    margin: 0;
-    padding: 10px 15px 0;
-    color: var(--muted);
-    font-size: 13px;
 }
 
 .response-meta {
