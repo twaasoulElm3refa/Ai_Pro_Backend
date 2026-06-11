@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             MainToolSeeder::class,
             SubToolSeeder::class,
             ProductDescriptionGeneratorSeeder::class,
+            PromptGeneratorSeeder::class,
         ]);
     }
 }

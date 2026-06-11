@@ -193,7 +193,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             }
 
             $payload = $payloadBuilder->withTaskOptions($payload, $this->taskOptions);
-            if (is_array($jobState) && $jobState !== []) {
+            if (! $usesDynamicConfig && is_array($jobState) && $jobState !== []) {
                 $payload = $payloadBuilder->withState($payload, $jobState);
             }
 
@@ -211,6 +211,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $providerRequestId = null;
             $modelKey = null;
             $providerHasTotalCost = false;
+            $dynamicResponseMetadata = null;
 
             try {
                 $response = method_exists($writerService, 'generateReplyWithUsage')
@@ -223,6 +224,36 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     $providerCost = is_array($response['cost'] ?? null) ? $response['cost'] : [];
                     $providerRequestId = isset($response['request_id']) ? (string) $response['request_id'] : null;
                     $modelKey = isset($response['model_key']) ? (string) $response['model_key'] : null;
+
+                    if ($usesDynamicConfig) {
+                        $responseState = is_array($response['state'] ?? null) ? $response['state'] : [];
+                        $mergedResponseState = array_replace(
+                            is_array($payload['state'] ?? null) ? $payload['state'] : [],
+                            $responseState
+                        );
+                        $mergedResponseState['last_output'] = $content;
+                        $results = is_array($response['results'] ?? null) ? $response['results'] : [];
+                        $raw = is_array($response['raw'] ?? null) ? $response['raw'] : [];
+                        $type = trim((string) ($response['type'] ?? ''));
+
+                        if ($type === '') {
+                            $type = $results !== [] ? 'result' : 'message';
+                        }
+
+                        $dynamicResponseMetadata = [
+                            'success' => (bool) ($raw['success'] ?? true),
+                            'type' => $type,
+                            'tool' => (string) ($response['tool'] ?? ($dynamicConfig['tool_key'] ?? '')),
+                            'provider' => (string) ($response['provider'] ?? ($dynamicConfig['provider'] ?? '')),
+                            'model_key' => (string) ($response['model_key'] ?? ($dynamicConfig['model_key'] ?? '')),
+                            'request_id' => $providerRequestId,
+                            'sub_tool_id' => (int) $conversation->sub_tool_id,
+                            'conversation_uuid' => (string) $conversation->uuid,
+                            'state' => $mergedResponseState,
+                            'results' => $results,
+                            'count' => (int) ($response['count'] ?? count($results)),
+                        ];
+                    }
                 } else {
                     $content = (string) $response;
                     $usage = [];
@@ -370,6 +401,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     'content' => $content,
                     'role' => 'assistant',
                     'is_error' => $isError,
+                    'metadata' => $dynamicResponseMetadata,
                 ]
             );
 
