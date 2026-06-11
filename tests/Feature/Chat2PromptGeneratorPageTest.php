@@ -82,6 +82,10 @@ class Chat2PromptGeneratorPageTest extends TestCase
             'extractPromptGeneratorDisplayItems',
             $chat2Page
         );
+        $this->assertStringContainsString(
+            'promptGeneratorResults.extractPromptGeneratorDisplayItems(source, fallbackText)',
+            $chat2Page
+        );
         $this->assertStringContainsString('directResponse.isQuestion', $chat2Page);
         $this->assertStringContainsString('content: directResponse.content', $chat2Page);
         $this->assertStringContainsString('Prompt {{ index + 1 }}', $chat2Page);

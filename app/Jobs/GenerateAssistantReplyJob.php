@@ -7,6 +7,7 @@ use App\Models\CostLogger;
 use App\Models\Message;
 use App\Models\Wallet;
 use App\Services\AI\AIPayloadBuilder;
+use App\Services\AI\AssistantResponseContentResolver;
 use App\Services\AI\DynamicToolConfigService;
 use App\Services\AI\DynamicToolPayloadBuilder;
 use App\Services\AiArabicWriterService;
@@ -52,6 +53,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
     public function handle(
         AiArabicWriterService $writerService,
         AIPayloadBuilder $payloadBuilder,
+        AssistantResponseContentResolver $contentResolver,
         ConversationMessageCacheService $messageCache,
         QdrantService $qdrantService
     ): void {
@@ -219,7 +221,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     : $writerService->generateReply($payload, $endpoint);
 
                 if (is_array($response)) {
-                    $content = (string) ($response['reply'] ?? $response['content'] ?? '');
+                    $content = $contentResolver->resolve($response, (int) $conversation->sub_tool_id);
                     $usage = is_array($response['usage'] ?? null) ? $response['usage'] : [];
                     $providerCost = is_array($response['cost'] ?? null) ? $response['cost'] : [];
                     $providerRequestId = isset($response['request_id']) ? (string) $response['request_id'] : null;
@@ -252,6 +254,9 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                             'state' => $mergedResponseState,
                             'results' => $results,
                             'count' => (int) ($response['count'] ?? count($results)),
+                            'message' => is_string($raw['message'] ?? null) ? $raw['message'] : null,
+                            'usage' => $usage,
+                            'cost' => $providerCost,
                         ];
                     }
                 } else {

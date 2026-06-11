@@ -60,6 +60,7 @@ class PromptGeneratorToolTest extends TestCase
                 'success' => true,
                 'type' => 'result',
                 'tool' => 'ai_prompt_generator',
+                'message' => 'Prompt generated successfully.',
                 'provider' => 'openrouter',
                 'model_key' => 'prompt_generator',
                 'state' => $providerState,
@@ -154,6 +155,11 @@ class PromptGeneratorToolTest extends TestCase
             ->firstOrFail();
 
         $this->assertSame('result', $assistant->metadata['type']);
+        $this->assertSame(
+            "Prompt result one\n\nPrompt result two\n\nPrompt result three",
+            $assistant->content
+        );
+        $this->assertNotSame('Prompt generated successfully.', $assistant->content);
         $this->assertSame('ai_prompt_generator', $assistant->metadata['tool']);
         $this->assertSame('prompt_generator', $assistant->metadata['model_key']);
         $this->assertSame(3, $assistant->metadata['state']['results_count']);
@@ -168,5 +174,90 @@ class PromptGeneratorToolTest extends TestCase
             '/(?:subToolId|sub_tool_id)[^\r\n]*(?:===|==|=>)\s*9\b/',
             $controller
         );
+    }
+
+    public function test_prompt_generator_question_is_saved_as_the_assistant_content(): void
+    {
+        $question = 'What task or idea should I create a prompt for?';
+
+        Http::fake([
+            'https://api.aiarabic.test/generate/prompt' => Http::response([
+                'success' => true,
+                'type' => 'question',
+                'tool' => 'ai_prompt_generator',
+                'provider' => 'openrouter',
+                'model_key' => 'prompt_generator',
+                'message' => $question,
+                'results' => [],
+                'state' => [
+                    'task' => null,
+                    'last_output' => null,
+                ],
+            ]),
+            '*' => Http::response(['status' => 'ok']),
+        ]);
+
+        $user = User::factory()->create();
+        $mainTool = MainTools::create([
+            'name' => 'Prompt Tools',
+            'slug' => 'prompt-tools-'.Str::random(6),
+        ]);
+        SubTools::create([
+            'id' => 9,
+            'main_tool_id' => $mainTool->id,
+            'name' => 'Prompt Generator',
+            'slug' => 'ai-prompt-generator',
+            'endpoint' => '/generate/prompt',
+        ]);
+        $this->seed(PromptGeneratorSeeder::class);
+
+        $conversation = Conversation::create([
+            'user_id' => $user->id,
+            'sub_tool_id' => 9,
+            'uuid' => (string) Str::uuid(),
+        ]);
+        Wallet::create([
+            'user_id' => $user->id,
+            'uuid' => (string) Str::uuid(),
+            'balance' => 1000,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->withHeaders([
+            'X-API-KEY' => 'testing-api-key',
+        ])->postJson('/api/v1/message/send', [
+            'user_id' => $user->id,
+            'sub_tool_id' => 9,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => 'Create a prompt.',
+            'state' => [
+                'task' => null,
+                'target_ai_tool' => null,
+                'output_type' => null,
+                'language' => null,
+                'tone' => null,
+                'audience' => null,
+                'prompt_style' => null,
+                'detail_level' => null,
+                'include_constraints' => null,
+                'results_count' => null,
+                'extra_options' => [],
+                'last_output' => null,
+            ],
+            'debug' => false,
+        ]);
+
+        $response->assertOk();
+
+        $assistant = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->firstOrFail();
+
+        $this->assertSame($question, $assistant->content);
+        $this->assertSame('question', $assistant->metadata['type']);
+        $this->assertSame($question, $assistant->metadata['message']);
+        $this->assertSame([], $assistant->metadata['results']);
     }
 }

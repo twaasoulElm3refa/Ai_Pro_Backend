@@ -214,6 +214,7 @@ import DOMPurify from "dompurify";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
+import * as promptGeneratorResults from "@/utils/promptGeneratorResults";
 
 const PROMPT_GENERATOR_SUB_TOOL_ID = 9;
 const PROMPT_GENERATOR_TOOL_KEY = "ai_prompt_generator";
@@ -596,7 +597,7 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
 
     const type = String(payload.type || metadata.type || "").trim().toLowerCase();
     const isQuestion = type === "question";
-    const displayItems = extractPromptGeneratorDisplayItems(source, fallbackText);
+    const displayItems = promptGeneratorResults.extractPromptGeneratorDisplayItems(source, fallbackText);
     const results = isQuestion ? [] : displayItems;
     const content = isQuestion ? (displayItems[0] || "") : "";
 
@@ -611,15 +612,15 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         results,
         usage: isPlainObject(payload.usage) ? payload.usage : null,
         cost: isPlainObject(payload.cost) ? payload.cost : null,
-        isPromptGenerator: isPromptGeneratorResponse(payload, fallbackText),
+        isPromptGenerator: promptGeneratorResults.isPromptGeneratorResponse(payload, fallbackText),
         isQuestion,
     };
 };
 
 const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) => {
-    if (isPromptGeneratorStatusText(content)) return true;
+    if (promptGeneratorResults.isPromptGeneratorStatusText(content)) return true;
     if (promptGeneratorResponse && results.length) return true;
-    if (promptGeneratorResponse && safeJsonParse(content)) return true;
+    if (promptGeneratorResponse && promptGeneratorResults.parsePromptGeneratorJson(content)) return true;
     if (!content || !results.length) return false;
 
     const normalizedContent = String(content).trim();

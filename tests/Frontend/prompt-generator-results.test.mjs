@@ -133,6 +133,10 @@ test("rejects Prompt Generator status messages as plain-text fallbacks", () => {
         []
     );
     assert.equal(isPromptGeneratorStatusText("Prompt generated successfully."), true);
+    assert.equal(
+        isPromptGeneratorStatusText("\u062a\u0645 \u062a\u0648\u0644\u064a\u062f \u0627\u0644\u0628\u0631\u0648\u0645\u0628\u062a \u0628\u0646\u062c\u0627\u062d."),
+        true
+    );
     assert.equal(isPromptGeneratorStatusText("تم توليد البرومبت بنجاح."), true);
 });
 
