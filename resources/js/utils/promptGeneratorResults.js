@@ -20,9 +20,16 @@ export const parsePromptGeneratorJson = (value) => {
     }
 };
 
-const unwrapPayload = (source) => {
-    if (!source || typeof source !== "object") return {};
-    return source.data && typeof source.data === "object" ? source.data : source;
+const asObject = (value) =>
+    value && typeof value === "object" && !Array.isArray(value) ? value : {};
+
+const payloadLayers = (source) => {
+    const root = asObject(source);
+    const data = asObject(root.data);
+    const metadata = asObject(root.metadata);
+    const dataMetadata = asObject(data.metadata);
+
+    return [root, data, metadata, dataMetadata];
 };
 
 const resultItemText = (item) => {
@@ -50,12 +57,8 @@ const textsFromResults = (results, unwrapNestedText = true) => {
 };
 
 const mergePayloadMetadata = (source) => {
-    const payload = unwrapPayload(source);
-    const metadata = payload.metadata && typeof payload.metadata === "object"
-        ? payload.metadata
-        : {};
-
-    return { ...payload, ...metadata };
+    const [root, data, metadata, dataMetadata] = payloadLayers(source);
+    return { ...root, ...data, ...metadata, ...dataMetadata };
 };
 
 export const isPromptGeneratorResponse = (source = {}, messageContent = "") => {
@@ -69,12 +72,28 @@ export const isPromptGeneratorResponse = (source = {}, messageContent = "") => {
         || Array.isArray(parsedContent?.results);
 };
 
+const normalizeStatusText = (value) =>
+    String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[.!؟]+$/g, "")
+        .replace(/\s+/g, " ");
+
+export const isPromptGeneratorStatusText = (value) => {
+    const normalized = normalizeStatusText(value);
+
+    return normalized === "prompt generated successfully"
+        || normalized === "تم توليد البرومبت بنجاح";
+};
+
 export const extractPromptGeneratorTexts = (source = {}, messageContent = "") => {
     const payload = mergePayloadMetadata(source);
     const promptGeneratorResponse = isPromptGeneratorResponse(payload, messageContent);
 
-    const directTexts = textsFromResults(payload.results);
-    if (directTexts.length) return directTexts;
+    for (const layer of payloadLayers(source)) {
+        const directTexts = textsFromResults(layer.results);
+        if (directTexts.length) return directTexts;
+    }
 
     // A normal /message/send acknowledgement must continue to SSE instead of
     // being rendered as an assistant result.
@@ -91,6 +110,7 @@ export const extractPromptGeneratorTexts = (source = {}, messageContent = "") =>
     return typeof messageContent === "string"
         && messageContent.trim()
         && !parsedMessageContent
+        && !isPromptGeneratorStatusText(messageContent)
         ? [messageContent.trim()]
         : [];
 };

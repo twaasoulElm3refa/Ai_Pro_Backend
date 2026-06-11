@@ -215,6 +215,7 @@ import {
     PROMPT_GENERATOR_TOOL_KEY,
     extractPromptGeneratorTexts,
     isPromptGeneratorResponse,
+    isPromptGeneratorStatusText,
     parsePromptGeneratorJson,
 } from "@/utils/promptGeneratorResults";
 
@@ -425,7 +426,6 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         : {};
 
     payload = { ...payload, ...metadata };
-    const parsedFallback = parsePromptGeneratorJson(fallbackText);
 
     const state = payload.state && typeof payload.state === "object"
         ? {
@@ -435,13 +435,7 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
         }
         : null;
 
-    const results = extractPromptGeneratorTexts(
-        {
-            ...payload,
-            state: state || payload.state || parsedFallback?.state,
-        },
-        fallbackText
-    );
+    const results = extractPromptGeneratorTexts(source, fallbackText);
 
     return {
         success: payload.success !== false,
@@ -458,6 +452,7 @@ const normalizePromptResponse = (source = {}, fallbackText = "") => {
 };
 
 const shouldHideDuplicateContent = (content, results, promptGeneratorResponse) => {
+    if (isPromptGeneratorStatusText(content)) return true;
     if (promptGeneratorResponse && results.length) return true;
     if (promptGeneratorResponse && parsePromptGeneratorJson(content)) return true;
     if (!content || !results.length) return false;
@@ -677,9 +672,9 @@ const openAssistantStream = async (conversation, afterId) => {
         const index = messages.value.findIndex((message) => message.localKey === typingMessage.localKey);
 
         if (payload.type === "token" && index >= 0) {
-            messages.value[index].typing = false;
-            messages.value[index].content += payload.content || "";
-            await scrollToBottom();
+            // Prompt Generator output is rendered from metadata.results after
+            // the done event, so streamed status text stays behind the loader.
+            return;
         }
 
         if (payload.type === "error" && index >= 0) {

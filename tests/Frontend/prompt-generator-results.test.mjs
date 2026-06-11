@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
     extractPromptGeneratorTexts,
+    isPromptGeneratorStatusText,
 } from "../../resources/js/utils/promptGeneratorResults.js";
 
 test("returns only response.results text values", () => {
@@ -56,6 +57,35 @@ test("unwraps one nested JSON results payload from a result text", () => {
     assert.equal(JSON.stringify(results).includes("null"), false);
 });
 
+test("extracts nested result text from a data-wrapped API response", () => {
+    const rawJson = JSON.stringify({
+        results: [
+            {
+                title: null,
+                subject: null,
+                text: "ACTUAL PROMPT",
+            },
+        ],
+    });
+
+    const results = extractPromptGeneratorTexts({
+        success: true,
+        message: "Prompt generated successfully.",
+        data: {
+            tool: "ai_prompt_generator",
+            message: "Prompt generated successfully.",
+            results: [{ text: rawJson }],
+        },
+    });
+
+    assert.deepEqual(results, ["ACTUAL PROMPT"]);
+    assert.equal(JSON.stringify(results).includes("Prompt generated successfully"), false);
+    assert.equal(JSON.stringify(results).includes("title"), false);
+    assert.equal(JSON.stringify(results).includes("subject"), false);
+    assert.equal(JSON.stringify(results).includes("null"), false);
+    assert.equal(JSON.stringify(results).includes('{"results"'), false);
+});
+
 test("parses state.last_output JSON only when direct results are absent", () => {
     const results = extractPromptGeneratorTexts({
         tool: "ai_prompt_generator",
@@ -67,6 +97,25 @@ test("parses state.last_output JSON only when direct results are absent", () => 
     });
 
     assert.deepEqual(results, ["Prompt recovered from state"]);
+});
+
+test("rejects Prompt Generator status messages as plain-text fallbacks", () => {
+    assert.deepEqual(
+        extractPromptGeneratorTexts(
+            { tool: "ai_prompt_generator" },
+            "Prompt generated successfully."
+        ),
+        []
+    );
+    assert.deepEqual(
+        extractPromptGeneratorTexts(
+            { sub_tool_id: 9 },
+            "تم توليد البرومبت بنجاح."
+        ),
+        []
+    );
+    assert.equal(isPromptGeneratorStatusText("Prompt generated successfully."), true);
+    assert.equal(isPromptGeneratorStatusText("تم توليد البرومبت بنجاح."), true);
 });
 
 test("uses plain message content only when no result text exists", () => {
