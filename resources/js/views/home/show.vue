@@ -149,7 +149,7 @@
                                     type="button"
                                     class="chat-button"
                                     :aria-label="t('user.toolShow.chatAria', { name: subtool.title })"
-                                    @click="router.push(`/${homeService.getLang()}/subtool/${subtool.slug}/chat`)"
+                                    @click="openSubtoolChat(subtool)"
                                 >
                                     <i class="bi bi-chat-fill"></i>
                                     {{ t("user.toolShow.chatButton") }}
@@ -178,6 +178,7 @@ import useSeoMeta from "@/composables/useSeoMeta";
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
+const PROMPT_GENERATOR_MAIN_TOOL_ID = 2;
 
 const loading = ref(true);
 const rawTool = ref({});
@@ -308,6 +309,16 @@ const rawSubtools = computed(() => {
 const subtools = computed(() =>
     rawSubtools.value.map(mapSubtool)
 );
+
+const openSubtoolChat = async (subtool) => {
+    const chatPage = Number(tool.value.id) === PROMPT_GENERATOR_MAIN_TOOL_ID
+        ? "chat2"
+        : "chat";
+
+    await router.push(
+        `/${homeService.getLang()}/subtool/${subtool.slug}/${chatPage}`
+    );
+};
 
 const seoTitle = computed(() =>
     isArabic.value
