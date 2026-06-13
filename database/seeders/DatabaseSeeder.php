@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             ProductDescriptionGeneratorSeeder::class,
             PromptGeneratorSeeder::class,
             PromptEnhancerSeeder::class,
+            IdeaGeneratorSeeder::class,
         ]);
     }
 }

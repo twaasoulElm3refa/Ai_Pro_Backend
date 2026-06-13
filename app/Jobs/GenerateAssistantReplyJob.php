@@ -243,15 +243,17 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                         $mergedResponseState['last_output'] = $content;
                         $results = is_array($response['results'] ?? null) ? $response['results'] : [];
                         $raw = is_array($response['raw'] ?? null) ? $response['raw'] : [];
+                        $rawData = is_array($raw['data'] ?? null) ? $raw['data'] : [];
                         $type = trim((string) ($response['type'] ?? ''));
-                        $responseIsError = $type === 'error' || ($raw['success'] ?? true) === false;
+                        $responseIsError = $type === 'error'
+                            || ($raw['success'] ?? ($rawData['success'] ?? true)) === false;
 
                         if ($type === '') {
                             $type = $results !== [] ? 'result' : 'message';
                         }
 
                         $dynamicResponseMetadata = [
-                            'success' => (bool) ($raw['success'] ?? true),
+                            'success' => (bool) ($raw['success'] ?? ($rawData['success'] ?? true)),
                             'type' => $type,
                             'tool' => (string) (
                                 $response['tool']
@@ -272,8 +274,12 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                             'state' => $mergedResponseState,
                             'results' => $results,
                             'count' => (int) ($response['count'] ?? count($results)),
-                            'message' => is_string($raw['message'] ?? null) ? $raw['message'] : null,
-                            'error' => is_string($raw['error'] ?? null) ? $raw['error'] : null,
+                            'message' => is_string($raw['message'] ?? ($rawData['message'] ?? null))
+                                ? ($raw['message'] ?? $rawData['message'])
+                                : null,
+                            'error' => is_string($raw['error'] ?? ($rawData['error'] ?? null))
+                                ? ($raw['error'] ?? $rawData['error'])
+                                : null,
                             'usage' => $usage,
                             'cost' => $providerCost,
                             'debug' => $this->debug ? [
@@ -291,6 +297,18 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                         )) {
                             Log::info('PROMPT ENHANCER FINAL API RESPONSE', [
                                 'response' => $dynamicResponseMetadata,
+                                'results' => $dynamicResponseMetadata['results'],
+                                'state' => $dynamicResponseMetadata['state'],
+                                'last_output' => $dynamicResponseMetadata['state']['last_output'] ?? null,
+                            ]);
+                        }
+
+                        if ($this->isIdeaGeneratorResponse(
+                            $dynamicResponseMetadata,
+                            (int) $conversation->sub_tool_id
+                        )) {
+                            Log::info('IDEA GENERATOR FINAL RESPONSE', [
+                                'tool_response' => $dynamicResponseMetadata,
                                 'results' => $dynamicResponseMetadata['results'],
                                 'state' => $dynamicResponseMetadata['state'],
                                 'last_output' => $dynamicResponseMetadata['state']['last_output'] ?? null,
@@ -562,6 +580,13 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
         return $subToolId === 10
             || strtolower(trim((string) ($response['tool'] ?? ''))) === 'ai_prompt_enhancer'
             || strtolower(trim((string) ($response['model_key'] ?? ''))) === 'prompt_enhancer';
+    }
+
+    protected function isIdeaGeneratorResponse(?array $response, int $subToolId): bool
+    {
+        return $subToolId === 11
+            || strtolower(trim((string) ($response['tool'] ?? ''))) === 'ai_idea_generator'
+            || strtolower(trim((string) ($response['model_key'] ?? ''))) === 'idea_generator';
     }
 
     public function failed(?\Throwable $exception): void

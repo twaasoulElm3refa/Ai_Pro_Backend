@@ -213,8 +213,8 @@ class AiArabicWriterService
                 ['results'],
                 ['data', 'results'],
             ]) ?? [],
-            'count' => isset($responsePayload['count']) && is_numeric($responsePayload['count'])
-                ? (int) $responsePayload['count']
+            'count' => is_numeric($responsePayload['count'] ?? ($responsePayload['data']['count'] ?? null))
+                ? (int) ($responsePayload['count'] ?? $responsePayload['data']['count'])
                 : null,
             'raw' => is_array($responsePayload) ? $responsePayload : null,
         ];

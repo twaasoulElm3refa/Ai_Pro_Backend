@@ -202,6 +202,18 @@ class ConversationController extends Controller
                 ]);
             }
 
+            if (
+                (int) ($assistantResponse['sub_tool_id'] ?? 0) === 11
+                || ($assistantResponse['tool'] ?? null) === 'ai_idea_generator'
+            ) {
+                Log::info('IDEA GENERATOR SSE DONE PAYLOAD', [
+                    'payload' => $donePayload,
+                    'response' => $donePayload['response'] ?? null,
+                    'results' => $donePayload['response']['results'] ?? null,
+                    'state' => $donePayload['response']['state'] ?? null,
+                ]);
+            }
+
             $this->sendSseEvent($donePayload);
         }, 200, [
             'Content-Type' => 'text/event-stream',

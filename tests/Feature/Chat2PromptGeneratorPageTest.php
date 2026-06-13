@@ -50,7 +50,7 @@ class Chat2PromptGeneratorPageTest extends TestCase
             $router
         );
         $this->assertStringContainsString(
-            'const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10];',
+            'const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10, 11];',
             $showPage
         );
         $this->assertStringContainsString(
@@ -63,6 +63,10 @@ class Chat2PromptGeneratorPageTest extends TestCase
         );
         $this->assertStringContainsString(
             'const PROMPT_ENHANCER_SUB_TOOL_ID = 10;',
+            $chat2Page
+        );
+        $this->assertStringContainsString(
+            'const IDEA_GENERATOR_SUB_TOOL_ID = 11;',
             $chat2Page
         );
         $this->assertStringContainsString(
@@ -92,9 +96,9 @@ class Chat2PromptGeneratorPageTest extends TestCase
         $this->assertStringContainsString('directResponse.isQuestion', $chat2Page);
         $this->assertStringContainsString('content: directResponse.content', $chat2Page);
         $this->assertStringContainsString('message.resultTitle', $chat2Page);
-        $this->assertStringContainsString('copyResult(resultText, index)', $chat2Page);
-        $this->assertStringNotContainsString('result.title', $chat2Page);
-        $this->assertStringNotContainsString('result.subject', $chat2Page);
+        $this->assertStringContainsString('copyResult(resultCopyText(resultItem), index)', $chat2Page);
+        $this->assertStringContainsString('isPlainObject(result) && result.title', $chat2Page);
+        $this->assertStringContainsString('isPlainObject(result) ? String(result.subject || "")', $chat2Page);
         $this->assertStringNotContainsString('content: directResponse.message', $chat2Page);
         $this->assertStringNotContainsString('message: String(payload.message', $chat2Page);
         $this->assertStringContainsString('isStatusText(content)', $chat2Page);
