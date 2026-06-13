@@ -541,6 +541,24 @@ const formatMessage = (value = "") => {
 
 const now = () => new Date().toISOString();
 const createLocalKey = () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const debugClone = (value) => {
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch {
+        return value;
+    }
+};
+
+const debugCurrentTool = () => ({
+    activeSubToolId: activeSubToolId.value,
+    isPromptGenerator: isActivePromptGenerator.value,
+    isPromptEnhancer: isActivePromptEnhancer.value,
+    toolKeyBadge: toolKeyBadge.value,
+    modelKeyBadge: modelKeyBadge.value,
+    subtool: debugClone(subtool.value),
+});
+
 const promptStateKey = (uuid) => `tool-state:${activeSubToolId.value}:${uuid || "new"}`;
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -1082,6 +1100,11 @@ const openAssistantStream = async (conversation, afterId) => {
     closeStream();
     streamingAssistant.value = true;
 
+    console.groupCollapsed("AI STREAM DEBUG");
+    console.log("Conversation:", debugClone(conversation));
+    console.log("After message id:", afterId);
+    console.log("Stream URL:", `/api/v1/conversation/${conversation.uuid}/stream?after_id=${String(afterId || 0)}`);
+
     const typingMessage = mapMessage({
         localKey: createLocalKey(),
         role: "assistant",
@@ -1089,6 +1112,8 @@ const openAssistantStream = async (conversation, afterId) => {
         typing: true,
         created_at: now(),
     });
+
+    console.log("Typing assistant message pushed before stream:", debugClone(typingMessage));
 
     messages.value.push(typingMessage);
     await scrollToBottom();
@@ -1102,12 +1127,24 @@ const openAssistantStream = async (conversation, afterId) => {
     eventSource.value = source;
 
     source.onmessage = async (event) => {
+        console.groupCollapsed("AI STREAM EVENT");
+        console.log("Raw stream event:", event);
+        console.log("Raw event.data:", event.data);
+
         const payload = JSON.parse(event.data || "{}");
         const index = messages.value.findIndex((message) => message.localKey === typingMessage.localKey);
+
+        console.log("Parsed stream payload:", debugClone(payload));
+        console.log("Typing message index:", index);
 
         if (payload.type === "token" && index >= 0) {
             messages.value[index].typing = false;
             messages.value[index].content += payload.content || "";
+
+            console.log("AI token content:", payload.content || "");
+            console.log("Assistant content after token:", messages.value[index].content);
+            console.log("Message printed in frontend from stream:", debugClone(messages.value[index]));
+
             await scrollToBottom();
         }
 
@@ -1115,16 +1152,24 @@ const openAssistantStream = async (conversation, afterId) => {
             messages.value[index].typing = false;
             messages.value[index].is_error = true;
             messages.value[index].content = payload.content || copy.value.genericError;
+
+            console.error("AI stream error payload:", debugClone(payload));
+            console.log("Error message printed in frontend:", debugClone(messages.value[index]));
+
             closeStream();
         }
 
         if (payload.type === "done") {
+            console.log("AI stream done payload:", debugClone(payload));
             closeStream();
             await loadConversationDetails(conversation.uuid);
         }
+
+        console.groupEnd();
     };
 
-    source.onerror = async () => {
+    source.onerror = async (error) => {
+        console.error("AI stream EventSource error:", error);
         closeStream();
         await loadConversationDetails(conversation.uuid);
     };
@@ -1138,12 +1183,37 @@ const sendMessage = async () => {
     errorMessage.value = "";
     sendingMessage.value = true;
 
+    let debugGroupOpen = false;
+
+    const closeSendDebugGroup = () => {
+        if (debugGroupOpen) {
+            console.groupEnd();
+            debugGroupOpen = false;
+        }
+    };
+
     try {
+        console.groupCollapsed("SEND MESSAGE FULL DEBUG");
+        debugGroupOpen = true;
+
+        console.log("1) USER TEXT FROM COMPOSER:", text);
+        console.log("2) TOOL INFO BEFORE SEND:", debugCurrentTool());
+        console.log("3) ACTIVE CONVERSATION BEFORE ensureConversation:", debugClone(activeConversation.value));
+        console.log("4) CURRENT promptState BEFORE normalize:", debugClone(promptState.value));
+
         const conversation = await ensureConversation();
 
-        if (!conversation?.uuid) return;
+        console.log("5) CONVERSATION AFTER ensureConversation:", debugClone(conversation));
+
+        if (!conversation?.uuid) {
+            console.warn("No conversation UUID. Request stopped before sending.");
+            closeSendDebugGroup();
+            return;
+        }
 
         const requestState = normalizeToolState(promptState.value);
+
+        console.log("6) NORMALIZED REQUEST STATE:", debugClone(requestState));
 
         const payload = {
             user_id: Number(conversation.user_id) || null,
@@ -1151,15 +1221,23 @@ const sendMessage = async () => {
             conversation_uuid: conversation.uuid,
             user_message: text,
             state: requestState,
-            debug: false,
+            debug: true,
         };
 
-        messages.value.push(mapMessage({
+        console.log("7) PAYLOAD SENT TO BACKEND:", debugClone(payload));
+        console.log("7.1) PAYLOAD JSON:", JSON.stringify(payload, null, 2));
+
+        const userMessageObject = mapMessage({
             localKey: createLocalKey(),
             role: "user",
             content: text,
             created_at: now(),
-        }));
+        });
+
+        console.log("8) USER MESSAGE OBJECT PUSHED TO FRONTEND:", debugClone(userMessageObject));
+        console.log("8.1) USER TEXT PRINTED IN FRONTEND:", userMessageObject.content);
+
+        messages.value.push(userMessageObject);
 
         userMessage.value = "";
         resetTextarea();
@@ -1167,67 +1245,149 @@ const sendMessage = async () => {
         persistPromptState(conversation.uuid);
         await scrollToBottom();
 
+        console.time("9) chatServices.sendMessage duration");
         const response = await chatServices.sendMessage(payload);
+        console.timeEnd("9) chatServices.sendMessage duration");
+
+        console.groupCollapsed("10) RAW BACKEND RESPONSE");
+        console.log("RAW response:", response);
+        console.log("response.data:", response?.data);
+        console.log("response.data.success:", response?.data?.success);
+        console.log("response.data.type:", response?.data?.type);
+        console.log("response.data.tool:", response?.data?.tool);
+        console.log("response.data.provider:", response?.data?.provider);
+        console.log("response.data.model_key:", response?.data?.model_key);
+        console.log("response.data.message:", response?.data?.message);
+        console.log("response.data.content:", response?.data?.content);
+        console.log("response.data.results:", response?.data?.results);
+        console.log("response.data.results[0]:", response?.data?.results?.[0]);
+        console.log("response.data.results[0].text:", response?.data?.results?.[0]?.text);
+        console.log("response.data.state:", response?.data?.state);
+        console.log("response.data.state.last_output:", response?.data?.state?.last_output);
+        console.log("response.data.last_output:", response?.data?.last_output);
+        console.log("response.data.text:", response?.data?.text);
+        console.log("response.data.usage:", response?.data?.usage);
+        console.log("response.data.cost:", response?.data?.cost);
+        console.log("response.data.count:", response?.data?.count);
+        console.log("response.data.request_id:", response?.data?.request_id);
+        console.log("RAW response JSON:", JSON.stringify(debugClone(response?.data || response), null, 2));
+        console.groupEnd();
+
         const directResponse = normalizeAssistantResponse(response);
-        console.log("Direct response:", directResponse);
+
+        console.groupCollapsed("11) NORMALIZED DIRECT RESPONSE USED BY FRONTEND");
+        console.log("directResponse:", debugClone(directResponse));
+        console.log("directResponse.content:", directResponse.content);
+        console.log("directResponse.results:", debugClone(directResponse.results));
+        console.log("directResponse.results[0]:", directResponse.results?.[0]);
+        console.log("directResponse.resultTitle:", directResponse.resultTitle);
+        console.log("directResponse.state:", debugClone(directResponse.state));
+        console.log("directResponse.usage:", debugClone(directResponse.usage));
+        console.log("directResponse.cost:", debugClone(directResponse.cost));
+        console.groupEnd();
 
         if (directResponse.isQuestion && directResponse.content) {
-            messages.value.push(mapMessage({
+            const assistantMessage = mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: directResponse.content,
                 metadata: directResponse,
                 created_at: now(),
-            }));
+            });
+
+            console.groupCollapsed("12) ASSISTANT QUESTION MESSAGE PRINTED IN FRONTEND");
+            console.log("assistantMessage:", debugClone(assistantMessage));
+            console.log("assistantMessage.content:", assistantMessage.content);
+            console.log("THIS IS PRINTED IN FRONTEND:", assistantMessage.content);
+            console.groupEnd();
+
+            messages.value.push(assistantMessage);
 
             if (directResponse.state) {
                 promptState.value = directResponse.state;
                 persistPromptState(conversation.uuid);
             }
 
+            console.log("13) ALL MESSAGES AFTER ASSISTANT QUESTION PUSH:", debugClone(messages.value));
             await scrollToBottom();
+            closeSendDebugGroup();
             return;
         }
 
         if (directResponse.results.length) {
-            messages.value.push(mapMessage({
+            const assistantMessage = mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: "",
                 metadata: directResponse,
                 created_at: now(),
-            }));
+            });
+
+            console.groupCollapsed("12) ASSISTANT RESULT MESSAGE PRINTED IN FRONTEND");
+            console.log("assistantMessage:", debugClone(assistantMessage));
+            console.log("assistantMessage.results:", debugClone(assistantMessage.results));
+            console.log("assistantMessage.results[0]:", assistantMessage.results?.[0]);
+            console.log("THIS IS PRINTED IN FRONTEND:", assistantMessage.results?.[0]);
+            console.log("Template variable resultText equals each item in assistantMessage.results");
+            console.groupEnd();
+
+            messages.value.push(assistantMessage);
 
             if (directResponse.state) {
                 promptState.value = directResponse.state;
                 persistPromptState(conversation.uuid);
             }
 
+            console.log("13) ALL MESSAGES AFTER ASSISTANT RESULT PUSH:", debugClone(messages.value));
             await scrollToBottom();
+            closeSendDebugGroup();
             return;
         }
 
         if (directResponse.content) {
-            messages.value.push(mapMessage({
+            const assistantMessage = mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: directResponse.content,
                 metadata: directResponse,
                 created_at: now(),
-            }));
+            });
+
+            console.groupCollapsed("12) ASSISTANT CONTENT MESSAGE PRINTED IN FRONTEND");
+            console.log("assistantMessage:", debugClone(assistantMessage));
+            console.log("assistantMessage.content:", assistantMessage.content);
+            console.log("THIS IS PRINTED IN FRONTEND:", assistantMessage.content);
+            console.groupEnd();
+
+            messages.value.push(assistantMessage);
 
             if (directResponse.state) {
                 promptState.value = directResponse.state;
                 persistPromptState(conversation.uuid);
             }
 
+            console.log("13) ALL MESSAGES AFTER ASSISTANT CONTENT PUSH:", debugClone(messages.value));
             await scrollToBottom();
+            closeSendDebugGroup();
             return;
         }
 
+        console.warn("12) No direct question, no direct results, no direct content. Opening stream...");
+        console.log("Stream after_id:", response?.data?.message_id);
+        console.log("This usually means frontend did not receive printable AI text in direct response.");
+
         await openAssistantStream(conversation, response?.data?.message_id);
+        closeSendDebugGroup();
     } catch (error) {
+        console.groupCollapsed("SEND MESSAGE ERROR DEBUG");
+        console.error("Caught error:", error);
+        console.error("error.response:", error?.response);
+        console.error("error.response.data:", error?.response?.data);
+        console.error("error.message:", error?.message);
+        console.groupEnd();
+
         errorMessage.value = error?.response?.data?.message || copy.value.genericError;
+        closeSendDebugGroup();
     } finally {
         sendingMessage.value = false;
     }
