@@ -38,7 +38,6 @@ class Chat2PromptGeneratorPageTest extends TestCase
         $router = file_get_contents(resource_path('js/router/index.js'));
         $showPage = file_get_contents(resource_path('js/views/home/show.vue'));
         $chat2Page = file_get_contents(resource_path('js/views/home/chat2.vue'));
-        $promptResultsHelper = file_get_contents(resource_path('js/utils/promptGeneratorResults.js'));
         $legacyChat = file_get_contents(resource_path('js/views/home/chat.vue'));
         $chatService = file_get_contents(resource_path('js/services/chat/chatServices.js'));
 
@@ -51,16 +50,20 @@ class Chat2PromptGeneratorPageTest extends TestCase
             $router
         );
         $this->assertStringContainsString(
-            'const PROMPT_GENERATOR_MAIN_TOOL_ID = 2;',
+            'const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10];',
             $showPage
         );
         $this->assertStringContainsString(
-            'Number(tool.value.id) === PROMPT_GENERATOR_MAIN_TOOL_ID',
+            'PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))',
             $showPage
         );
         $this->assertStringContainsString(
             'const PROMPT_GENERATOR_SUB_TOOL_ID = 9;',
-            $promptResultsHelper
+            $chat2Page
+        );
+        $this->assertStringContainsString(
+            'const PROMPT_ENHANCER_SUB_TOOL_ID = 10;',
+            $chat2Page
         );
         $this->assertStringContainsString(
             'const response = await chatServices.sendMessage(payload);',
@@ -71,7 +74,7 @@ class Chat2PromptGeneratorPageTest extends TestCase
             $chatService
         );
         $this->assertStringContainsString(
-            'sub_tool_id: PROMPT_GENERATOR_SUB_TOOL_ID',
+            'sub_tool_id: activeSubToolId.value',
             $chat2Page
         );
         $this->assertStringContainsString(
@@ -79,23 +82,22 @@ class Chat2PromptGeneratorPageTest extends TestCase
             $chat2Page
         );
         $this->assertStringContainsString(
-            'extractPromptGeneratorDisplayItems',
+            'extractPromptToolDisplayItems',
             $chat2Page
         );
         $this->assertStringContainsString(
-            'promptGeneratorResults.extractPromptGeneratorDisplayItems(source, fallbackText)',
+            'const directResponse = normalizeAssistantResponse(response);',
             $chat2Page
         );
         $this->assertStringContainsString('directResponse.isQuestion', $chat2Page);
         $this->assertStringContainsString('content: directResponse.content', $chat2Page);
-        $this->assertStringContainsString('Prompt {{ index + 1 }}', $chat2Page);
+        $this->assertStringContainsString('message.resultTitle', $chat2Page);
         $this->assertStringContainsString('copyResult(resultText, index)', $chat2Page);
         $this->assertStringNotContainsString('result.title', $chat2Page);
         $this->assertStringNotContainsString('result.subject', $chat2Page);
         $this->assertStringNotContainsString('content: directResponse.message', $chat2Page);
         $this->assertStringNotContainsString('message: String(payload.message', $chat2Page);
-        $this->assertStringContainsString('isPromptGeneratorStatusText(content)', $chat2Page);
-        $this->assertStringContainsString('isPromptGeneratorStatusText', $promptResultsHelper);
+        $this->assertStringContainsString('isStatusText(content)', $chat2Page);
         $this->assertStringNotContainsString('chat2', $legacyChat);
     }
 

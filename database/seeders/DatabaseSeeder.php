@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             SubToolSeeder::class,
             ProductDescriptionGeneratorSeeder::class,
             PromptGeneratorSeeder::class,
+            PromptEnhancerSeeder::class,
         ]);
     }
 }

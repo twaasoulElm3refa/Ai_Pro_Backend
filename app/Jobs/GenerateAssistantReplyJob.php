@@ -7,7 +7,6 @@ use App\Models\CostLogger;
 use App\Models\Message;
 use App\Models\Wallet;
 use App\Services\AI\AIPayloadBuilder;
-use App\Services\AI\AssistantResponseContentResolver;
 use App\Services\AI\DynamicToolConfigService;
 use App\Services\AI\DynamicToolPayloadBuilder;
 use App\Services\AiArabicWriterService;
@@ -53,7 +52,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
     public function handle(
         AiArabicWriterService $writerService,
         AIPayloadBuilder $payloadBuilder,
-        AssistantResponseContentResolver $contentResolver,
         ConversationMessageCacheService $messageCache,
         QdrantService $qdrantService
     ): void {
@@ -214,6 +212,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $modelKey = null;
             $providerHasTotalCost = false;
             $dynamicResponseMetadata = null;
+            $responseIsError = false;
 
             try {
                 $response = method_exists($writerService, 'generateReplyWithUsage')
@@ -221,7 +220,13 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     : $writerService->generateReply($payload, $endpoint);
 
                 if (is_array($response)) {
-                    $content = $contentResolver->resolve($response, (int) $conversation->sub_tool_id);
+                    $contentResolver = app(\App\Services\AI\AssistantResponseContentResolver::class);
+                    $response = $contentResolver->sanitize($response);
+                    $content = $contentResolver->resolve(
+                        $response,
+                        (int) $conversation->sub_tool_id,
+                        $dynamicConfig
+                    );
                     $usage = is_array($response['usage'] ?? null) ? $response['usage'] : [];
                     $providerCost = is_array($response['cost'] ?? null) ? $response['cost'] : [];
                     $providerRequestId = isset($response['request_id']) ? (string) $response['request_id'] : null;
@@ -237,6 +242,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                         $results = is_array($response['results'] ?? null) ? $response['results'] : [];
                         $raw = is_array($response['raw'] ?? null) ? $response['raw'] : [];
                         $type = trim((string) ($response['type'] ?? ''));
+                        $responseIsError = $type === 'error' || ($raw['success'] ?? true) === false;
 
                         if ($type === '') {
                             $type = $results !== [] ? 'result' : 'message';
@@ -249,14 +255,23 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                             'provider' => (string) ($response['provider'] ?? ($dynamicConfig['provider'] ?? '')),
                             'model_key' => (string) ($response['model_key'] ?? ($dynamicConfig['model_key'] ?? '')),
                             'request_id' => $providerRequestId,
+                            'user_id' => (int) $conversation->user_id,
                             'sub_tool_id' => (int) $conversation->sub_tool_id,
                             'conversation_uuid' => (string) $conversation->uuid,
                             'state' => $mergedResponseState,
                             'results' => $results,
                             'count' => (int) ($response['count'] ?? count($results)),
                             'message' => is_string($raw['message'] ?? null) ? $raw['message'] : null,
+                            'error' => is_string($raw['error'] ?? null) ? $raw['error'] : null,
                             'usage' => $usage,
                             'cost' => $providerCost,
+                            'debug' => $this->debug ? [
+                                'payload' => $payload,
+                                'state' => $mergedResponseState,
+                                'raw_response' => $raw,
+                                'usage' => $usage,
+                                'cost' => $providerCost,
+                            ] : null,
                         ];
                     }
                 } else {
@@ -264,7 +279,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     $usage = [];
                 }
 
-                $isError = false;
+                $isError = $responseIsError;
 
                 /*
                  |--------------------------------------------------------------------------
@@ -471,6 +486,52 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $assistantMessage->setRelation('conversation', $conversation);
             $messageCache->updateAfterMessage($assistantMessage);
         }
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        $userMessage = Message::with('conversation.subTool')->find($this->userMessageId);
+        $conversation = $userMessage?->conversation;
+
+        if (! $userMessage || ! $conversation) {
+            return;
+        }
+
+        $config = app(DynamicToolConfigService::class)->configFor($conversation->subTool);
+        $content = trim((string) ($config['error_message'] ?? 'Failed to generate a response.'));
+
+        $assistantMessage = Message::firstOrCreate(
+            ['reply_to_message_id' => $userMessage->id],
+            [
+                'conversation_id' => $conversation->id,
+                'content' => $content,
+                'role' => 'assistant',
+                'is_error' => true,
+                'metadata' => [
+                    'success' => false,
+                    'type' => 'error',
+                    'tool' => (string) ($config['tool_key'] ?? ''),
+                    'provider' => (string) ($config['provider'] ?? ''),
+                    'model_key' => (string) ($config['model_key'] ?? ''),
+                    'user_id' => (int) $conversation->user_id,
+                    'sub_tool_id' => (int) $conversation->sub_tool_id,
+                    'conversation_uuid' => (string) $conversation->uuid,
+                    'message' => $content,
+                    'error' => $exception?->getMessage(),
+                    'debug' => $this->debug ? [
+                        'state' => $this->state,
+                        'error' => $exception?->getMessage(),
+                    ] : null,
+                ],
+            ]
+        );
+
+        if ($assistantMessage->wasRecentlyCreated) {
+            $assistantMessage->setRelation('conversation', $conversation);
+            app(ConversationMessageCacheService::class)->updateAfterMessage($assistantMessage);
+        }
+
+        Cache::forget(self::dispatchMarkerKey($this->userMessageId));
     }
 
     protected function qdrantContext(Message $userMessage, QdrantService $qdrantService): string

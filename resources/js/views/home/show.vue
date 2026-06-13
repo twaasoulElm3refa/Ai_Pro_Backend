@@ -178,7 +178,7 @@ import useSeoMeta from "@/composables/useSeoMeta";
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
-const PROMPT_GENERATOR_MAIN_TOOL_ID = 2;
+const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10];
 
 const loading = ref(true);
 const rawTool = ref({});
@@ -311,7 +311,7 @@ const subtools = computed(() =>
 );
 
 const openSubtoolChat = async (subtool) => {
-    const chatPage = Number(tool.value.id) === PROMPT_GENERATOR_MAIN_TOOL_ID
+    const chatPage = PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
         ? "chat2"
         : "chat";
 

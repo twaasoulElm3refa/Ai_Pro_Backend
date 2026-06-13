@@ -117,7 +117,9 @@
                                         class="result-card"
                                     >
                                         <div class="result-header">
-                                            <strong>{{ message.resultTitle }} {{ index + 1 }}</strong>
+                                            <strong>
+                                                {{ message.resultTitle }}{{ message.results.length > 1 ? ` ${index + 1}` : "" }}
+                                            </strong>
 
                                             <button type="button" @click="copyResult(resultText, index)">
                                                 <i class="bi bi-copy"></i>
@@ -221,6 +223,7 @@ import DOMPurify from "dompurify";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
+import { cleanPromptEnhancerText } from "@/utils/promptEnhancerResults";
 
 const DEFAULT_SUB_TOOL_ID = 9;
 
@@ -296,10 +299,10 @@ const isArabic = computed(() =>
 
 const copy = computed(() => isArabic.value ? {
     title: "مولد البرومبت",
-    enhancerTitle: "محسن البرومبت",
+    enhancerTitle: "محسن البرومبتات",
     subtitle: "مساحة عمل مخصصة",
     promptGenerator: "Prompt Generator",
-    promptEnhancer: "Prompt Enhancer",
+    promptEnhancer: "محسن البرومبتات",
     newChat: "محادثة جديدة",
     creating: "جارٍ الإنشاء...",
     recent: "المحادثات الأخيرة",
@@ -313,7 +316,7 @@ const copy = computed(() => isArabic.value ? {
     welcomeText: "اكتب طلبك وسنجهز لك الرد المناسب حسب الأداة المحددة.",
     result: "Result",
     prompt: "Prompt",
-    enhancedPrompt: "Enhanced Prompt",
+    enhancedPrompt: "البرومبت المحسن",
     copy: "نسخ",
     copied: "تم النسخ",
     tokens: "توكن",
@@ -691,7 +694,7 @@ const uniqueCleanTexts = (items = []) => {
     const seen = new Set();
 
     return items
-        .map((item) => String(item || "").trim())
+        .map((item) => cleanPromptEnhancerText(item))
         .filter((item) => item && !isStatusText(item))
         .filter((item) => {
             if (seen.has(item)) return false;
@@ -804,7 +807,13 @@ const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
             state,
             content: isQuestion ? (displayItems[0] || "") : "",
             results: isQuestion ? [] : displayItems,
-            resultTitle: isEnhancer ? copy.value.enhancedPrompt : copy.value.prompt,
+            resultTitle: isEnhancer
+                ? (
+                    displayItems.length > 1
+                        ? (isArabic.value ? "النسخة" : "Version")
+                        : copy.value.enhancedPrompt
+                )
+                : copy.value.prompt,
             usage: isPlainObject(payload.usage) ? payload.usage : null,
             cost: isPlainObject(payload.cost) ? payload.cost : null,
             isPromptTool: true,
@@ -952,9 +961,9 @@ const loadSubtool = async () => {
 
         subtool.value = {
             id: Number(data.id || config.sub_tool_id || DEFAULT_SUB_TOOL_ID),
-            name: data.name || data.translation?.name || config.name || copy.value.title,
-            description: data.description || data.translation?.description || config.description || "",
-            promptPlaceholder: data.prompt_placeholder || data.translation?.prompt_placeholder || config.prompt_placeholder || "",
+            name: data.translation?.name || data.name || config.name || copy.value.title,
+            description: data.translation?.description || data.description || config.description || "",
+            promptPlaceholder: data.translation?.prompt_placeholder || data.prompt_placeholder || config.prompt_placeholder || "",
             toolKey: data.tool_key || data.tool || config.tool_key || config.tool || "",
             modelKey: data.model_key || config.model_key || "",
             config,

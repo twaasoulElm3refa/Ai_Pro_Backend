@@ -10,18 +10,38 @@ class AssistantResponseContentResolver
 
     private const STATUS_MESSAGES = [
         'prompt generated successfully',
+        'prompt enhanced successfully',
         'تم توليد البرومبت بنجاح',
         'generated successfully',
         'success',
     ];
 
-    public function resolve(array|string $response, int $subToolId): string
+    public function sanitize(array|string $response): array|string
     {
+        if (is_string($response)) {
+            return $this->sanitizeText($response);
+        }
+
+        foreach ($response as $key => $value) {
+            if (is_string($value)) {
+                $response[$key] = $this->sanitizeText($value);
+            } elseif (is_array($value)) {
+                $response[$key] = $this->sanitize($value);
+            }
+        }
+
+        return $response;
+    }
+
+    public function resolve(array|string $response, int $subToolId, array $config = []): string
+    {
+        $response = $this->sanitize($response);
+
         if (! is_array($response)) {
             return trim($response);
         }
 
-        if (! $this->isPromptGeneratorResponse($response, $subToolId)) {
+        if (! $this->usesResultContent($response, $subToolId, $config)) {
             return trim((string) ($response['reply'] ?? $response['content'] ?? ''));
         }
 
@@ -50,8 +70,12 @@ class AssistantResponseContentResolver
         return $this->isStatusMessage($fallback) ? '' : $fallback;
     }
 
-    private function isPromptGeneratorResponse(array $response, int $subToolId): bool
+    private function usesResultContent(array $response, int $subToolId, array $config): bool
     {
+        if (($config['response_format'] ?? null) === 'results') {
+            return true;
+        }
+
         if ($subToolId === self::PROMPT_GENERATOR_SUB_TOOL_ID) {
             return true;
         }
@@ -201,5 +225,17 @@ class AssistantResponseContentResolver
         $normalized = preg_replace('/[\s.!؟]+$/u', '', $normalized) ?? $normalized;
 
         return in_array($normalized, self::STATUS_MESSAGES, true);
+    }
+
+    private function sanitizeText(string $text): string
+    {
+        $controlCharacters = '\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}\x{007F}';
+        $text = preg_replace(
+            "/(?<=[\p{L}\p{N}])[{$controlCharacters}]+(?=[\p{L}\p{N}])/u",
+            '-',
+            $text
+        ) ?? $text;
+
+        return trim(preg_replace("/[{$controlCharacters}]+/u", ' ', $text) ?? $text);
     }
 }

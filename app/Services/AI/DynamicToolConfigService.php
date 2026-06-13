@@ -15,7 +15,10 @@ class DynamicToolConfigService
         'state_schema',
         'payload_map',
         'default_state',
+        'default_state_mode',
+        'state_extractors',
         'response_format',
+        'error_message',
     ];
 
     public function findSubTool(int $subToolId): ?SubTools
