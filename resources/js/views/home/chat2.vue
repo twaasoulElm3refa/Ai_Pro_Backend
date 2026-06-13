@@ -1168,6 +1168,7 @@ const sendMessage = async () => {
         await scrollToBottom();
 
         const response = await chatServices.sendMessage(payload);
+        console.log("Send message response:", response);
         const directResponse = normalizeAssistantResponse(response);
 
         if (directResponse.isQuestion && directResponse.content) {
