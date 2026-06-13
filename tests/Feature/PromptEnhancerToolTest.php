@@ -46,7 +46,7 @@ class PromptEnhancerToolTest extends TestCase
                 'tool' => 'ai_prompt_enhancer',
                 'provider' => 'openrouter',
                 'model_key' => 'prompt_enhancer',
-                'message' => 'Prompt enhanced successfully.',
+                'message' => 'تم تحسين البرومبت بنجاح.',
                 'state' => [
                     'original_prompt' => 'write an article about AI',
                 ],
@@ -218,6 +218,88 @@ class PromptEnhancerToolTest extends TestCase
         $this->assertSame('Improved prompt', $assistant->metadata['debug']['raw_response']['results'][0]['text']);
         $this->assertArrayHasKey('usage', $assistant->metadata['debug']);
         $this->assertArrayHasKey('cost', $assistant->metadata['debug']);
+    }
+
+    public function test_structured_prompt_enhancer_response_is_preserved_when_worker_cannot_see_dynamic_config(): void
+    {
+        $enhancedPrompt = 'Write a comprehensive article about JWT authentication.';
+
+        Http::fake([
+            'https://api.aiarabic.test/enhance/prompt' => Http::response([
+                'success' => true,
+                'type' => 'result',
+                'tool' => 'ai_prompt_enhancer',
+                'provider' => 'openrouter',
+                'model_key' => 'prompt_enhancer',
+                'message' => 'تم تحسين البرومبت بنجاح.',
+                'state' => [
+                    'last_output' => $enhancedPrompt,
+                ],
+                'results' => [[
+                    'id' => 1,
+                    'text' => $enhancedPrompt,
+                    'title' => null,
+                    'subject' => null,
+                    'meta' => [],
+                ]],
+                'count' => 1,
+                'usage' => [
+                    'input_tokens' => 10,
+                    'output_tokens' => 20,
+                    'total_tokens' => 30,
+                ],
+                'cost' => [
+                    'total_cost' => 0.001,
+                    'currency' => 'USD',
+                ],
+            ]),
+        ]);
+
+        [$user, $conversation] = $this->makePromptEnhancerContext();
+        $conversation->subTool()->update(['config' => null]);
+        Sanctum::actingAs($user);
+
+        $sendResponse = $this->withHeaders([
+            'X-API-KEY' => 'testing-api-key',
+        ])->postJson('/api/v1/message/send', [
+            'sub_tool_id' => 10,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => 'Improve this prompt: write about JWT auth',
+            'state' => $this->emptyState(),
+            'debug' => false,
+        ]);
+
+        $sendResponse->assertOk();
+
+        $assistant = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->firstOrFail();
+
+        $this->assertSame($enhancedPrompt, $assistant->content);
+        $this->assertSame('ai_prompt_enhancer', $assistant->metadata['tool']);
+        $this->assertSame('openrouter', $assistant->metadata['provider']);
+        $this->assertSame('prompt_enhancer', $assistant->metadata['model_key']);
+        $this->assertSame($enhancedPrompt, $assistant->metadata['results'][0]['text']);
+        $this->assertSame($enhancedPrompt, $assistant->metadata['state']['last_output']);
+
+        $streamResponse = $this->get(
+            "/api/v1/conversation/{$conversation->uuid}/stream?after_id={$sendResponse->json('data.message_id')}"
+        );
+
+        preg_match_all('/^data: (.+)$/m', $streamResponse->streamedContent(), $streamEvents);
+        $doneEvent = collect($streamEvents[1] ?? [])
+            ->map(fn (string $event): ?array => json_decode($event, true))
+            ->first(fn (?array $event): bool => ($event['type'] ?? null) === 'done');
+
+        $this->assertSame($enhancedPrompt, data_get($doneEvent, 'message.content'));
+        $this->assertSame('ai_prompt_enhancer', data_get($doneEvent, 'response.tool'));
+        $this->assertSame('openrouter', data_get($doneEvent, 'response.provider'));
+        $this->assertSame('prompt_enhancer', data_get($doneEvent, 'response.model_key'));
+        $this->assertSame($enhancedPrompt, data_get($doneEvent, 'response.results.0.text'));
+        $this->assertSame($enhancedPrompt, data_get($doneEvent, 'response.state.last_output'));
+        $this->assertSame(30, data_get($doneEvent, 'response.usage.total_tokens'));
+        $this->assertSame(0.001, data_get($doneEvent, 'response.cost.total_cost'));
     }
 
     public function test_prompt_enhancer_persists_a_structured_provider_error(): void

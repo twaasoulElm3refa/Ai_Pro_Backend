@@ -170,7 +170,7 @@ class ConversationController extends Controller
                 $cost
             );
 
-            $this->sendSseEvent([
+            $donePayload = [
                 'type' => 'done',
                 'message' => [
                     'id' => $assistantMessage->id,
@@ -188,7 +188,21 @@ class ConversationController extends Controller
                     'points_charged' => $pointsCharged,
                     'balance' => $walletBalance !== null ? (int) $walletBalance : null,
                 ],
-            ]);
+            ];
+
+            if (
+                (int) ($assistantResponse['sub_tool_id'] ?? 0) === 10
+                || ($assistantResponse['tool'] ?? null) === 'ai_prompt_enhancer'
+            ) {
+                Log::info('PROMPT ENHANCER SSE DONE PAYLOAD', [
+                    'payload' => $donePayload,
+                    'response' => $donePayload['response'] ?? null,
+                    'results' => $donePayload['response']['results'] ?? null,
+                    'state' => $donePayload['response']['state'] ?? null,
+                ]);
+            }
+
+            $this->sendSseEvent($donePayload);
         }, 200, [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache, no-transform',

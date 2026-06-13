@@ -232,10 +232,12 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                     $providerRequestId = isset($response['request_id']) ? (string) $response['request_id'] : null;
                     $modelKey = isset($response['model_key']) ? (string) $response['model_key'] : null;
 
-                    if ($usesDynamicConfig) {
+                    if ($usesDynamicConfig || $this->hasStructuredToolResponse($response)) {
                         $responseState = is_array($response['state'] ?? null) ? $response['state'] : [];
                         $mergedResponseState = array_replace(
-                            is_array($payload['state'] ?? null) ? $payload['state'] : [],
+                            is_array($payload['state'] ?? null)
+                                ? $payload['state']
+                                : (is_array($jobState) ? $jobState : []),
                             $responseState
                         );
                         $mergedResponseState['last_output'] = $content;
@@ -251,9 +253,18 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                         $dynamicResponseMetadata = [
                             'success' => (bool) ($raw['success'] ?? true),
                             'type' => $type,
-                            'tool' => (string) ($response['tool'] ?? ($dynamicConfig['tool_key'] ?? '')),
-                            'provider' => (string) ($response['provider'] ?? ($dynamicConfig['provider'] ?? '')),
-                            'model_key' => (string) ($response['model_key'] ?? ($dynamicConfig['model_key'] ?? '')),
+                            'tool' => (string) (
+                                $response['tool']
+                                ?? ($dynamicConfig['tool_key'] ?? ($payload['tool'] ?? ''))
+                            ),
+                            'provider' => (string) (
+                                $response['provider']
+                                ?? ($dynamicConfig['provider'] ?? ($payload['provider'] ?? ''))
+                            ),
+                            'model_key' => (string) (
+                                $response['model_key']
+                                ?? ($dynamicConfig['model_key'] ?? ($payload['model_key'] ?? ''))
+                            ),
                             'request_id' => $providerRequestId,
                             'user_id' => (int) $conversation->user_id,
                             'sub_tool_id' => (int) $conversation->sub_tool_id,
@@ -274,7 +285,10 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                             ] : null,
                         ];
 
-                        if ($dynamicResponseMetadata['tool'] === 'ai_prompt_enhancer') {
+                        if ($this->isPromptEnhancerResponse(
+                            $dynamicResponseMetadata,
+                            (int) $conversation->sub_tool_id
+                        )) {
                             Log::info('PROMPT ENHANCER FINAL API RESPONSE', [
                                 'response' => $dynamicResponseMetadata,
                                 'results' => $dynamicResponseMetadata['results'],
@@ -421,7 +435,19 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
              | 4) Create assistant message
              |--------------------------------------------------------------------------
              */
-            $assistantMessage = Message::firstOrCreate(
+            if ($this->isPromptEnhancerResponse(
+                $dynamicResponseMetadata,
+                (int) $conversation->sub_tool_id
+            )) {
+                Log::info('PROMPT ENHANCER BEFORE SAVE', [
+                    'tool_response' => $dynamicResponseMetadata,
+                    'results' => $dynamicResponseMetadata['results'] ?? null,
+                    'state' => $dynamicResponseMetadata['state'] ?? null,
+                    'last_output' => $dynamicResponseMetadata['state']['last_output'] ?? null,
+                ]);
+            }
+
+            $assistantMessage = Message::updateOrCreate(
                 [
                     'reply_to_message_id' => $userMessage->id,
                 ],
@@ -434,10 +460,25 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 ]
             );
 
+            $assistantMessage->setRelation('conversation', $conversation);
+
+            if ($this->isPromptEnhancerResponse(
+                $dynamicResponseMetadata,
+                (int) $conversation->sub_tool_id
+            )) {
+                Log::info('PROMPT ENHANCER AFTER SAVE', [
+                    'message' => $assistantMessage,
+                    'content' => $assistantMessage->content,
+                    'metadata' => $assistantMessage->metadata,
+                ]);
+            }
+
             if ($assistantMessage->wasRecentlyCreated) {
-                $assistantMessage->setRelation('conversation', $conversation);
                 $messageCache->updateAfterMessage($assistantMessage);
                 $this->storeMessageInQdrant($assistantMessage, $qdrantService);
+            } else {
+                $messageCache->forget((string) $conversation->uuid);
+                $messageCache->remember($conversation);
             }
 
             /*
@@ -495,6 +536,32 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             $assistantMessage->setRelation('conversation', $conversation);
             $messageCache->updateAfterMessage($assistantMessage);
         }
+    }
+
+    protected function hasStructuredToolResponse(array $response): bool
+    {
+        if (is_array($response['results'] ?? null) && $response['results'] !== []) {
+            return true;
+        }
+
+        if (is_array($response['state'] ?? null) && $response['state'] !== []) {
+            return true;
+        }
+
+        foreach (['tool', 'provider', 'model_key', 'type'] as $key) {
+            if (is_string($response[$key] ?? null) && trim($response[$key]) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function isPromptEnhancerResponse(?array $response, int $subToolId): bool
+    {
+        return $subToolId === 10
+            || strtolower(trim((string) ($response['tool'] ?? ''))) === 'ai_prompt_enhancer'
+            || strtolower(trim((string) ($response['model_key'] ?? ''))) === 'prompt_enhancer';
     }
 
     public function failed(?\Throwable $exception): void

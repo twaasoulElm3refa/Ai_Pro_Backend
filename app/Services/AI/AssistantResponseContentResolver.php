@@ -76,6 +76,12 @@ class AssistantResponseContentResolver
             return true;
         }
 
+        foreach ($this->payloadLayers($response) as $payload) {
+            if (is_array($payload['results'] ?? null) && $payload['results'] !== []) {
+                return true;
+            }
+        }
+
         if ($subToolId === self::PROMPT_GENERATOR_SUB_TOOL_ID) {
             return true;
         }

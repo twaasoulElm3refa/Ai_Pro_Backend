@@ -230,6 +230,20 @@ class AiArabicWriterService
             return '';
         }
 
+        $type = strtolower(trim((string) (
+            $payload['type']
+            ?? ($payload['data']['type'] ?? '')
+        )));
+        $results = $payload['results'] ?? ($payload['data']['results'] ?? []);
+
+        if ($type === 'result' && is_array($results) && $results !== []) {
+            $resultContent = $this->formatResultsAsText($results);
+
+            if ($resultContent !== '') {
+                return $resultContent;
+            }
+        }
+
         $paths = [
             ['reply'],
             ['message'],
@@ -277,7 +291,6 @@ class AiArabicWriterService
             return $this->formatHeadlinesAsText($payload);
         }
 
-        $results = $payload['results'] ?? ($payload['data']['results'] ?? []);
         if (is_array($results) && ! empty($results)) {
             return $this->formatResultsAsText($results);
         }
