@@ -1169,6 +1169,7 @@ const sendMessage = async () => {
 
         const response = await chatServices.sendMessage(payload);
         const directResponse = normalizeAssistantResponse(response);
+        console.log("Direct response:", directResponse);
 
         if (directResponse.isQuestion && directResponse.content) {
             messages.value.push(mapMessage({
