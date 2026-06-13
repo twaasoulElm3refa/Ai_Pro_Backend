@@ -90,7 +90,8 @@ class PromptEnhancerToolTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.conversation_id', $conversation->id);
+            ->assertJsonPath('data.conversation_id', $conversation->id)
+            ->assertJsonPath('data.assistant', null);
 
         Http::assertSent(function (Request $request): bool {
             $payload = $request->data();
@@ -138,6 +139,44 @@ class PromptEnhancerToolTest extends TestCase
             '/(?:subToolId|sub_tool_id)[^\r\n]*(?:===|==|=>)\s*10\b/',
             file_get_contents(base_path('app/Http/Controllers/api/home/MessageController.php'))
         );
+
+        $conversationResponse = $this->withHeaders([
+            'X-API-KEY' => 'testing-api-key',
+        ])->getJson("/api/v1/conversation/{$conversation->uuid}");
+
+        $conversationResponse->assertOk();
+        $assistantIndex = collect($conversationResponse->json('data.message'))
+            ->search(fn (array $message): bool => ($message['role'] ?? null) === 'assistant');
+
+        $this->assertNotFalse($assistantIndex);
+        $conversationResponse
+            ->assertJsonPath("data.message.{$assistantIndex}.type", 'result')
+            ->assertJsonPath("data.message.{$assistantIndex}.tool", 'ai_prompt_enhancer')
+            ->assertJsonPath("data.message.{$assistantIndex}.provider", 'openrouter')
+            ->assertJsonPath("data.message.{$assistantIndex}.model_key", 'prompt_enhancer')
+            ->assertJsonPath("data.message.{$assistantIndex}.sub_tool_id", 10)
+            ->assertJsonPath("data.message.{$assistantIndex}.state.last_output", $cleanResult)
+            ->assertJsonPath("data.message.{$assistantIndex}.results.0.text", $cleanResult)
+            ->assertJsonPath("data.message.{$assistantIndex}.usage.total_tokens", 18)
+            ->assertJsonPath("data.message.{$assistantIndex}.cost.total_cost", 0);
+
+        $streamResponse = $this->get(
+            "/api/v1/conversation/{$conversation->uuid}/stream?after_id={$response->json('data.message_id')}"
+        );
+
+        $streamResponse->assertOk();
+
+        preg_match_all('/^data: (.+)$/m', $streamResponse->streamedContent(), $streamEvents);
+        $doneEvent = collect($streamEvents[1] ?? [])
+            ->map(fn (string $event): ?array => json_decode($event, true))
+            ->first(fn (?array $event): bool => ($event['type'] ?? null) === 'done');
+
+        $this->assertIsArray($doneEvent);
+        $this->assertSame($cleanResult, data_get($doneEvent, 'response.results.0.text'));
+        $this->assertSame($cleanResult, data_get($doneEvent, 'response.state.last_output'));
+        $this->assertSame('openrouter', data_get($doneEvent, 'response.provider'));
+        $this->assertSame(18, data_get($doneEvent, 'response.usage.total_tokens'));
+        $this->assertSame(0, data_get($doneEvent, 'response.cost.total_cost'));
     }
 
     public function test_prompt_enhancer_debug_metadata_contains_payload_state_and_raw_response(): void

@@ -102,15 +102,43 @@ class ConversationMessageCacheService
         return collect($messages)
             ->filter(fn (array $message) => $this->isValidCachedMessage($message))
             ->map(static function (array $message) {
-                return [
+                $metadata = is_array($message['metadata'] ?? null)
+                    ? $message['metadata']
+                    : null;
+
+                $responseMessage = [
                     'id' => $message['id'] ?? null,
                     'role' => $message['role'] ?? 'user',
                     'content' => $message['content'] ?? '',
                     'created_at' => $message['created_at'] ?? null,
                     'is_error' => (bool) ($message['is_error'] ?? false),
-                    'metadata' => is_array($message['metadata'] ?? null) ? $message['metadata'] : null,
+                    'metadata' => $metadata,
                     'sub_tool_id' => $message['sub_tool_id'] ?? null,
                 ];
+
+                if (($responseMessage['role'] ?? null) !== 'assistant' || $metadata === null) {
+                    return $responseMessage;
+                }
+
+                foreach ([
+                    'success',
+                    'type',
+                    'tool',
+                    'provider',
+                    'model_key',
+                    'sub_tool_id',
+                    'state',
+                    'results',
+                    'count',
+                    'usage',
+                    'cost',
+                ] as $key) {
+                    if (array_key_exists($key, $metadata)) {
+                        $responseMessage[$key] = $metadata[$key];
+                    }
+                }
+
+                return $responseMessage;
             })
             ->values()
             ->all();

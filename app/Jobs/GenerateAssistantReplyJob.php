@@ -273,6 +273,15 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                                 'cost' => $providerCost,
                             ] : null,
                         ];
+
+                        if ($dynamicResponseMetadata['tool'] === 'ai_prompt_enhancer') {
+                            Log::info('PROMPT ENHANCER FINAL API RESPONSE', [
+                                'response' => $dynamicResponseMetadata,
+                                'results' => $dynamicResponseMetadata['results'],
+                                'state' => $dynamicResponseMetadata['state'],
+                                'last_output' => $dynamicResponseMetadata['state']['last_output'] ?? null,
+                            ]);
+                        }
                     }
                 } else {
                     $content = (string) $response;

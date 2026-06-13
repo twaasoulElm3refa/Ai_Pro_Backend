@@ -160,6 +160,15 @@ class ConversationController extends Controller
             }
 
             $walletBalance = optional($conversation->user()->with('wallet')->first()?->wallet)->balance;
+            $assistantMetadata = is_array($assistantMessage->metadata ?? null)
+                ? $assistantMessage->metadata
+                : [];
+            $assistantResponse = $this->assistantApiResponse(
+                $assistantMessage,
+                $assistantMetadata,
+                $usage,
+                $cost
+            );
 
             $this->sendSseEvent([
                 'type' => 'done',
@@ -170,7 +179,9 @@ class ConversationController extends Controller
                     'content' => $assistantMessage->content,
                     'is_error' => (bool) $assistantMessage->is_error,
                     'created_at' => optional($assistantMessage->created_at)->toISOString(),
+                    'metadata' => $assistantMetadata !== [] ? $assistantMetadata : null,
                 ],
+                'response' => $assistantResponse,
                 'usage' => $usage,
                 'cost' => $cost,
                 'wallet' => [
@@ -285,6 +296,31 @@ class ConversationController extends Controller
         }
 
         return null;
+    }
+
+    protected function assistantApiResponse(
+        Message $message,
+        array $metadata,
+        ?array $usage,
+        ?array $cost
+    ): array {
+        $results = is_array($metadata['results'] ?? null) ? $metadata['results'] : [];
+        $state = is_array($metadata['state'] ?? null) ? $metadata['state'] : null;
+
+        return [
+            'success' => (bool) ($metadata['success'] ?? ! $message->is_error),
+            'type' => (string) ($metadata['type'] ?? ($message->is_error ? 'error' : 'result')),
+            'tool' => $metadata['tool'] ?? null,
+            'provider' => $metadata['provider'] ?? null,
+            'model_key' => $metadata['model_key'] ?? null,
+            'sub_tool_id' => $metadata['sub_tool_id'] ?? $message->conversation?->sub_tool_id,
+            'message' => $metadata['message'] ?? null,
+            'state' => $state,
+            'results' => $results,
+            'count' => (int) ($metadata['count'] ?? count($results)),
+            'usage' => is_array($metadata['usage'] ?? null) ? $metadata['usage'] : $usage,
+            'cost' => is_array($metadata['cost'] ?? null) ? $metadata['cost'] : $cost,
+        ];
     }
 
     protected function chunkText(string $text, int $size = 12): array
