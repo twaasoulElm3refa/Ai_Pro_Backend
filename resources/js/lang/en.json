@@ -117,7 +117,7 @@
             "sectionSubtitle": "Connected experiences you can chat with",
             "statusActive": "Active",
             "statusInactive": "Inactive",
-            "chatButton": "Chat",
+            "chatButton": "Start Now",
             "chatAria": "Start chat with {name}",
             "empty": "No related subtools found",
             "untitledTool": "Untitled Tool",

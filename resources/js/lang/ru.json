@@ -117,7 +117,7 @@
             "sectionSubtitle": "Связанные возможности, с которыми можно общаться",
             "statusActive": "Активен",
             "statusInactive": "Неактивен",
-            "chatButton": "Чат",
+            "chatButton": "Начать сейчас",
             "chatAria": "Начать чат с {name}",
             "empty": "Связанные подинструменты не найдены",
             "untitledTool": "Инструмент без названия",

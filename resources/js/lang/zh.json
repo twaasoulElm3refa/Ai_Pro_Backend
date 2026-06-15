@@ -117,7 +117,7 @@
             "sectionSubtitle": "您可以与之对话的关联体验",
             "statusActive": "活跃",
             "statusInactive": "未激活",
-            "chatButton": "聊天",
+            "chatButton": "立即开始",
             "chatAria": "开始与 {name} 聊天",
             "empty": "未找到相关子工具",
             "untitledTool": "未命名工具",

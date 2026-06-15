@@ -117,7 +117,7 @@
             "sectionSubtitle": "Expériences connectées avec lesquelles vous pouvez discuter",
             "statusActive": "Actif",
             "statusInactive": "Inactif",
-            "chatButton": "Discuter",
+            "chatButton": "Commencer maintenant",
             "chatAria": "Commencer la discussion avec {name}",
             "empty": "Aucun sous-outil connexe trouvé",
             "untitledTool": "Outil sans titre",
