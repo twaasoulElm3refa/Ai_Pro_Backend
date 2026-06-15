@@ -18,6 +18,8 @@ class DynamicToolConfigService
         'default_state_mode',
         'state_extractors',
         'response_format',
+        'last_output_source',
+        'normalize_results',
         'error_message',
     ];
 

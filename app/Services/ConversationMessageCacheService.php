@@ -126,12 +126,16 @@ class ConversationMessageCacheService
                     'tool',
                     'provider',
                     'model_key',
+                    'request_id',
+                    'user_id',
                     'sub_tool_id',
+                    'conversation_uuid',
                     'state',
                     'results',
                     'count',
                     'usage',
                     'cost',
+                    'debug',
                 ] as $key) {
                     if (array_key_exists($key, $metadata)) {
                         $responseMessage[$key] = $metadata[$key];

@@ -47,6 +47,7 @@ class DynamicToolPayloadBuilder
             'provider' => 'provider',
             'system_prompt' => 'system_prompt',
             'response_format' => 'response_format',
+            'normalize_results' => 'normalize_results',
         ];
 
         foreach ($optionalFields as $configKey => $payloadKey) {

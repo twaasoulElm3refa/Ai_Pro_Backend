@@ -86,3 +86,18 @@ Dashboard:
     Settings:
       - Footer Data
       - Contct Us Data
+
+
+The Integrated Ai Tools Until Now :
+    --Text Writer
+    --Text Summarizer
+    --Text Paraphraser
+    --Headline Generator
+    --Social-Post Generator
+    --Email Writer
+    --Script Generator
+    --Product-Description Generator 
+    --Prompt Generator
+    --Prompt Enhancer
+    --Ideas Generator
+    --Hook Generator

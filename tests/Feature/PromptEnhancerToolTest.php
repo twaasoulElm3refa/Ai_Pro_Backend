@@ -377,7 +377,7 @@ class PromptEnhancerToolTest extends TestCase
         $helper = file_get_contents(resource_path('js/utils/promptEnhancerResults.js'));
 
         $this->assertStringContainsString(
-            'const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10, 11];',
+            'const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10, 11, 12];',
             $showPage
         );
         $this->assertStringContainsString(

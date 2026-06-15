@@ -339,13 +339,17 @@ class ConversationController extends Controller
             'tool' => $metadata['tool'] ?? null,
             'provider' => $metadata['provider'] ?? null,
             'model_key' => $metadata['model_key'] ?? null,
+            'request_id' => $metadata['request_id'] ?? null,
+            'user_id' => $metadata['user_id'] ?? $message->conversation?->user_id,
             'sub_tool_id' => $metadata['sub_tool_id'] ?? $message->conversation?->sub_tool_id,
+            'conversation_uuid' => $metadata['conversation_uuid'] ?? $message->conversation?->uuid,
             'message' => $metadata['message'] ?? null,
             'state' => $state,
             'results' => $results,
             'count' => (int) ($metadata['count'] ?? count($results)),
             'usage' => is_array($metadata['usage'] ?? null) ? $metadata['usage'] : $usage,
             'cost' => is_array($metadata['cost'] ?? null) ? $metadata['cost'] : $cost,
+            'debug' => $metadata['debug'] ?? null,
         ];
     }
 

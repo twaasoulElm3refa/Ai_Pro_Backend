@@ -240,8 +240,13 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                                 : (is_array($jobState) ? $jobState : []),
                             $responseState
                         );
-                        $mergedResponseState['last_output'] = $content;
                         $results = is_array($response['results'] ?? null) ? $response['results'] : [];
+                        $mergedResponseState['last_output'] = $this->resolveLastOutput(
+                            $content,
+                            $results,
+                            $responseState,
+                            $dynamicConfig
+                        );
                         $raw = is_array($response['raw'] ?? null) ? $response['raw'] : [];
                         $rawData = is_array($raw['data'] ?? null) ? $raw['data'] : [];
                         $type = trim((string) ($response['type'] ?? ''));
@@ -573,6 +578,30 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
         }
 
         return false;
+    }
+
+    protected function resolveLastOutput(
+        string $content,
+        array $results,
+        array $responseState,
+        array $config
+    ): string {
+        if (($config['last_output_source'] ?? null) === 'first_result') {
+            $firstResult = $results[0] ?? null;
+            $firstText = is_array($firstResult) && is_scalar($firstResult['text'] ?? null)
+                ? trim((string) $firstResult['text'])
+                : '';
+
+            if ($firstText !== '') {
+                return $firstText;
+            }
+        }
+
+        $providerLastOutput = is_scalar($responseState['last_output'] ?? null)
+            ? trim((string) $responseState['last_output'])
+            : '';
+
+        return $providerLastOutput !== '' ? $providerLastOutput : $content;
     }
 
     protected function isPromptEnhancerResponse(?array $response, int $subToolId): bool

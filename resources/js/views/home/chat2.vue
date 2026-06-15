@@ -236,6 +236,10 @@ import {
     createIdeaGeneratorState,
     extractIdeaGeneratorResults,
 } from "@/utils/ideaGeneratorResults";
+import {
+    createHookGeneratorState,
+    extractHookGeneratorResults,
+} from "@/utils/hookGeneratorResults";
 
 const DEFAULT_SUB_TOOL_ID = 9;
 
@@ -250,6 +254,10 @@ const PROMPT_ENHANCER_MODEL_KEY = "prompt_enhancer";
 const IDEA_GENERATOR_SUB_TOOL_ID = 11;
 const IDEA_GENERATOR_TOOL_KEY = "ai_idea_generator";
 const IDEA_GENERATOR_MODEL_KEY = "idea_generator";
+
+const HOOK_GENERATOR_SUB_TOOL_ID = 12;
+const HOOK_GENERATOR_TOOL_KEY = "ai_hook_generator";
+const HOOK_GENERATOR_MODEL_KEY = "hook_generator";
 
 const STATUS_TEXTS = [
     "Prompt generated successfully.",
@@ -270,6 +278,12 @@ const STATUS_TEXTS = [
     "Ideas generated successfully",
     "تم توليد الأفكار بنجاح.",
     "تم توليد الأفكار بنجاح",
+    "Hook generated successfully.",
+    "Hook generated successfully",
+    "Hooks generated successfully.",
+    "Hooks generated successfully",
+    "تم توليد الهوكات بنجاح.",
+    "تم توليد الهوكات بنجاح",
     "Success",
     "success",
 ];
@@ -304,6 +318,10 @@ const createPromptEnhancerState = () => ({
 });
 
 const createDefaultToolState = (subToolId = DEFAULT_SUB_TOOL_ID) => {
+    if (Number(subToolId) === HOOK_GENERATOR_SUB_TOOL_ID) {
+        return createHookGeneratorState();
+    }
+
     if (Number(subToolId) === IDEA_GENERATOR_SUB_TOOL_ID) {
         return createIdeaGeneratorState();
     }
@@ -327,10 +345,12 @@ const copy = computed(() => isArabic.value ? {
     title: "مولد البرومبت",
     enhancerTitle: "محسن البرومبتات",
     ideaGeneratorTitle: "مولد الأفكار",
+    hookGeneratorTitle: "مولد الهوكات",
     subtitle: "مساحة عمل مخصصة",
     promptGenerator: "Prompt Generator",
     promptEnhancer: "محسن البرومبتات",
     ideaGenerator: "مولد الأفكار",
+    hookGenerator: "مولد الهوكات",
     newChat: "محادثة جديدة",
     creating: "جارٍ الإنشاء...",
     recent: "المحادثات الأخيرة",
@@ -342,11 +362,13 @@ const copy = computed(() => isArabic.value ? {
     generatorWelcome: "اكتب فكرتك وسنحولها إلى برومبت احترافي منظم.",
     enhancerWelcome: "اكتب البرومبت الذي تريد تحسينه وسنطوره ليصبح أوضح وأقوى.",
     ideaGeneratorWelcome: "اكتب موضوعك وسنولد لك أفكارًا متنوعة وعملية بعناوين وأوصاف واضحة.",
+    hookGeneratorWelcome: "اكتب موضوعك وسنولد لك هوكات قصيرة وقوية ومناسبة للمنصة.",
     welcomeText: "اكتب طلبك وسنجهز لك الرد المناسب حسب الأداة المحددة.",
     result: "Result",
     prompt: "Prompt",
     enhancedPrompt: "البرومبت المحسن",
     idea: "فكرة",
+    hook: "هوك",
     copy: "نسخ",
     copied: "تم النسخ",
     tokens: "توكن",
@@ -365,6 +387,7 @@ const copy = computed(() => isArabic.value ? {
     generatorPlaceholder: "اكتب فكرة البرومبت الذي تريد توليده...",
     enhancerPlaceholder: "اكتب البرومبت الذي تريد تحسينه...",
     ideaGeneratorPlaceholder: "اكتب الموضوع أو نوع الأفكار التي تريد توليدها...",
+    hookGeneratorPlaceholder: "اكتب الموضوع أو المحتوى الذي تريد توليد هوكات له...",
     send: "إرسال",
     hint: "Enter للإرسال، وShift + Enter لسطر جديد",
     authRequired: "يجب تسجيل الدخول أولًا.",
@@ -373,10 +396,12 @@ const copy = computed(() => isArabic.value ? {
     title: "Prompt Generator",
     enhancerTitle: "Prompt Enhancer",
     ideaGeneratorTitle: "Idea Generator",
+    hookGeneratorTitle: "AI Hook Generator",
     subtitle: "Dedicated workspace",
     promptGenerator: "Prompt Generator",
     promptEnhancer: "Prompt Enhancer",
     ideaGenerator: "Idea Generator",
+    hookGenerator: "Hook Generator",
     newChat: "New chat",
     creating: "Creating...",
     recent: "Recent conversations",
@@ -388,11 +413,13 @@ const copy = computed(() => isArabic.value ? {
     generatorWelcome: "Write your idea and generate a clear professional prompt.",
     enhancerWelcome: "Paste your prompt and enhance it into a clearer, stronger version.",
     ideaGeneratorWelcome: "Describe your topic and generate distinct ideas with clear titles and descriptions.",
+    hookGeneratorWelcome: "Describe your topic and generate short, distinct, scroll-stopping hooks.",
     welcomeText: "Write your request and the selected tool will generate the response.",
     result: "Result",
     prompt: "Prompt",
     enhancedPrompt: "Enhanced Prompt",
     idea: "Idea",
+    hook: "Hook",
     copy: "Copy",
     copied: "Copied",
     tokens: "tokens",
@@ -411,6 +438,7 @@ const copy = computed(() => isArabic.value ? {
     generatorPlaceholder: "Describe the prompt you want to generate...",
     enhancerPlaceholder: "Paste the prompt you want to improve...",
     ideaGeneratorPlaceholder: "Describe the ideas you want to generate...",
+    hookGeneratorPlaceholder: "Describe the hooks you want to generate...",
     send: "Send",
     hint: "Press Enter to send, Shift + Enter for a new line",
     authRequired: "Please sign in first.",
@@ -460,10 +488,17 @@ const isActiveIdeaGenerator = computed(() =>
     || modelKeyBadge.value === IDEA_GENERATOR_MODEL_KEY
 );
 
+const isActiveHookGenerator = computed(() =>
+    activeSubToolId.value === HOOK_GENERATOR_SUB_TOOL_ID
+    || toolKeyBadge.value === HOOK_GENERATOR_TOOL_KEY
+    || modelKeyBadge.value === HOOK_GENERATOR_MODEL_KEY
+);
+
 const isActiveStructuredTool = computed(() =>
     isActivePromptGenerator.value
     || isActivePromptEnhancer.value
     || isActiveIdeaGenerator.value
+    || isActiveHookGenerator.value
 );
 
 const isActivePromptTool = isActiveStructuredTool;
@@ -471,13 +506,18 @@ const isActivePromptTool = isActiveStructuredTool;
 const pageTitle = computed(() =>
     subtool.value.name
     || (
-        isActiveIdeaGenerator.value
-            ? copy.value.ideaGeneratorTitle
-            : (isActivePromptEnhancer.value ? copy.value.enhancerTitle : copy.value.title)
+        isActiveHookGenerator.value
+            ? copy.value.hookGeneratorTitle
+            : (
+                isActiveIdeaGenerator.value
+                    ? copy.value.ideaGeneratorTitle
+                    : (isActivePromptEnhancer.value ? copy.value.enhancerTitle : copy.value.title)
+            )
     )
 );
 
 const toolEyebrow = computed(() => {
+    if (isActiveHookGenerator.value) return "Hook Generator";
     if (isActiveIdeaGenerator.value) return "Idea Generator";
     if (isActivePromptEnhancer.value) return "Prompt Enhancer";
     if (isActivePromptGenerator.value) return "Prompt Generator";
@@ -485,6 +525,7 @@ const toolEyebrow = computed(() => {
 });
 
 const welcomeTitle = computed(() => {
+    if (isActiveHookGenerator.value) return copy.value.hookGeneratorTitle;
     if (isActiveIdeaGenerator.value) return copy.value.ideaGeneratorTitle;
     if (isActivePromptEnhancer.value) return copy.value.enhancerTitle;
     if (isActivePromptGenerator.value) return copy.value.title;
@@ -492,6 +533,7 @@ const welcomeTitle = computed(() => {
 });
 
 const welcomeText = computed(() => {
+    if (isActiveHookGenerator.value) return copy.value.hookGeneratorWelcome;
     if (isActiveIdeaGenerator.value) return copy.value.ideaGeneratorWelcome;
     if (isActivePromptEnhancer.value) return copy.value.enhancerWelcome;
     if (isActivePromptGenerator.value) return copy.value.generatorWelcome;
@@ -499,6 +541,7 @@ const welcomeText = computed(() => {
 });
 
 const composerPlaceholder = computed(() => {
+    if (isActiveHookGenerator.value) return copy.value.hookGeneratorPlaceholder;
     if (isActiveIdeaGenerator.value) return copy.value.ideaGeneratorPlaceholder;
     if (isActivePromptEnhancer.value) return copy.value.enhancerPlaceholder;
     if (isActivePromptGenerator.value) return copy.value.generatorPlaceholder;
@@ -506,6 +549,10 @@ const composerPlaceholder = computed(() => {
 });
 
 const booleanFields = computed(() => {
+    if (isActiveHookGenerator.value) {
+        return [];
+    }
+
     if (isActiveIdeaGenerator.value) {
         return [
             { key: "include_titles", label: copy.value.includeTitles },
@@ -519,6 +566,19 @@ const booleanFields = computed(() => {
 });
 
 const textFields = computed(() => {
+    if (isActiveHookGenerator.value) {
+        return [
+            { key: "topic", label: isArabic.value ? "الموضوع" : "Topic", placeholder: "AI content marketing" },
+            { key: "platform", label: isArabic.value ? "المنصة" : "Platform", placeholder: "LinkedIn" },
+            { key: "content_type", label: isArabic.value ? "نوع المحتوى" : "Content type", placeholder: "Social post or video" },
+            { key: "language", label: isArabic.value ? "اللغة" : "Language", placeholder: "Arabic" },
+            { key: "tone", label: isArabic.value ? "النبرة" : "Tone", placeholder: "Engaging" },
+            { key: "audience", label: isArabic.value ? "الجمهور" : "Audience", placeholder: "General Audience" },
+            { key: "hook_style", label: isArabic.value ? "أسلوب الهوك" : "Hook style", placeholder: "Scroll-stopping" },
+            { key: "length", label: isArabic.value ? "الطول" : "Length", placeholder: "Short" },
+        ];
+    }
+
     if (isActiveIdeaGenerator.value) {
         return [
             { key: "topic", label: isArabic.value ? "الموضوع" : "Topic", placeholder: "AI tools" },
@@ -654,6 +714,7 @@ const debugCurrentTool = () => ({
     isPromptGenerator: isActivePromptGenerator.value,
     isPromptEnhancer: isActivePromptEnhancer.value,
     isIdeaGenerator: isActiveIdeaGenerator.value,
+    isHookGenerator: isActiveHookGenerator.value,
     toolKeyBadge: toolKeyBadge.value,
     modelKeyBadge: modelKeyBadge.value,
     subtool: debugClone(subtool.value),
@@ -720,16 +781,20 @@ const isPromptToolPayload = (payload = {}, fallbackText = "") => {
     return Number(data.sub_tool_id) === PROMPT_GENERATOR_SUB_TOOL_ID
         || Number(data.sub_tool_id) === PROMPT_ENHANCER_SUB_TOOL_ID
         || Number(data.sub_tool_id) === IDEA_GENERATOR_SUB_TOOL_ID
+        || Number(data.sub_tool_id) === HOOK_GENERATOR_SUB_TOOL_ID
         || data.tool === PROMPT_GENERATOR_TOOL_KEY
         || data.tool === PROMPT_ENHANCER_TOOL_KEY
         || data.tool === IDEA_GENERATOR_TOOL_KEY
+        || data.tool === HOOK_GENERATOR_TOOL_KEY
         || data.model_key === PROMPT_GENERATOR_MODEL_KEY
         || data.model_key === PROMPT_ENHANCER_MODEL_KEY
         || data.model_key === IDEA_GENERATOR_MODEL_KEY
+        || data.model_key === HOOK_GENERATOR_MODEL_KEY
         || isActivePromptTool.value
         || String(fallbackText || "").includes(PROMPT_GENERATOR_TOOL_KEY)
         || String(fallbackText || "").includes(PROMPT_ENHANCER_TOOL_KEY)
-        || String(fallbackText || "").includes(IDEA_GENERATOR_TOOL_KEY);
+        || String(fallbackText || "").includes(IDEA_GENERATOR_TOOL_KEY)
+        || String(fallbackText || "").includes(HOOK_GENERATOR_TOOL_KEY);
 };
 
 const isPromptEnhancerPayload = (payload = {}) => {
@@ -752,6 +817,17 @@ const isIdeaGeneratorPayload = (payload = {}) => {
         || data.tool === IDEA_GENERATOR_TOOL_KEY
         || data.model_key === IDEA_GENERATOR_MODEL_KEY
         || isActiveIdeaGenerator.value;
+};
+
+const isHookGeneratorPayload = (payload = {}) => {
+    const raw = unwrapPayload(payload);
+    const metadata = isPlainObject(raw.metadata) ? raw.metadata : {};
+    const data = { ...raw, ...metadata };
+
+    return Number(data.sub_tool_id) === HOOK_GENERATOR_SUB_TOOL_ID
+        || data.tool === HOOK_GENERATOR_TOOL_KEY
+        || data.model_key === HOOK_GENERATOR_MODEL_KEY
+        || isActiveHookGenerator.value;
 };
 
 const extractTextFromResultItem = (item, depth = 0) => {
@@ -932,6 +1008,7 @@ const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
     const isPromptTool = isPromptToolPayload(payload, fallbackText);
     const isEnhancer = isPromptEnhancerPayload(payload);
     const isIdeaGenerator = isIdeaGeneratorPayload(payload);
+    const isHookGenerator = isHookGeneratorPayload(payload);
 
     const state = isPlainObject(payload.state)
         ? normalizeToolState(payload.state)
@@ -942,9 +1019,13 @@ const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
         const displayItems = isQuestion
             ? extractPromptToolDisplayItems(source, fallbackText)
             : (
-                isIdeaGenerator
-                    ? extractIdeaGeneratorResults(source, fallbackText)
-                    : extractPromptToolDisplayItems(source, fallbackText)
+                isHookGenerator
+                    ? extractHookGeneratorResults(source, fallbackText)
+                    : (
+                        isIdeaGenerator
+                            ? extractIdeaGeneratorResults(source, fallbackText)
+                            : extractPromptToolDisplayItems(source, fallbackText)
+                    )
             );
 
         return {
@@ -953,31 +1034,43 @@ const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
             tool: payload.tool
                 || toolKeyBadge.value
                 || (
-                    isIdeaGenerator
-                        ? IDEA_GENERATOR_TOOL_KEY
-                        : (isEnhancer ? PROMPT_ENHANCER_TOOL_KEY : PROMPT_GENERATOR_TOOL_KEY)
+                    isHookGenerator
+                        ? HOOK_GENERATOR_TOOL_KEY
+                        : (
+                            isIdeaGenerator
+                                ? IDEA_GENERATOR_TOOL_KEY
+                                : (isEnhancer ? PROMPT_ENHANCER_TOOL_KEY : PROMPT_GENERATOR_TOOL_KEY)
+                        )
                 ),
             provider: payload.provider || null,
             model_key: payload.model_key
                 || modelKeyBadge.value
                 || (
-                    isIdeaGenerator
-                        ? IDEA_GENERATOR_MODEL_KEY
-                        : (isEnhancer ? PROMPT_ENHANCER_MODEL_KEY : PROMPT_GENERATOR_MODEL_KEY)
+                    isHookGenerator
+                        ? HOOK_GENERATOR_MODEL_KEY
+                        : (
+                            isIdeaGenerator
+                                ? IDEA_GENERATOR_MODEL_KEY
+                                : (isEnhancer ? PROMPT_ENHANCER_MODEL_KEY : PROMPT_GENERATOR_MODEL_KEY)
+                        )
                 ),
             state,
             content: isQuestion ? (displayItems[0] || "") : "",
             results: isQuestion ? [] : displayItems,
-            resultTitle: isIdeaGenerator
-                ? copy.value.idea
+            resultTitle: isHookGenerator
+                ? copy.value.hook
                 : (
-                    isEnhancer
-                        ? (
-                            displayItems.length > 1
-                                ? (isArabic.value ? "النسخة" : "Version")
-                                : copy.value.enhancedPrompt
+                    isIdeaGenerator
+                        ? copy.value.idea
+                        : (
+                            isEnhancer
+                                ? (
+                                    displayItems.length > 1
+                                        ? (isArabic.value ? "النسخة" : "Version")
+                                        : copy.value.enhancedPrompt
+                                )
+                                : copy.value.prompt
                         )
-                        : copy.value.prompt
                 ),
             usage: isPlainObject(payload.usage) ? payload.usage : null,
             cost: isPlainObject(payload.cost) ? payload.cost : null,

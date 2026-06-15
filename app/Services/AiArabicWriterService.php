@@ -149,6 +149,32 @@ class AiArabicWriterService
 
         $responsePayload = $response->json();
         $content = $this->extractContent($responsePayload);
+        $structuredContent = $this->extractStructuredJson($content);
+        $declaredType = $this->extractScalarString($responsePayload, [
+            ['type'],
+            ['data', 'type'],
+        ]);
+        $declaredSuccess = $responsePayload['success']
+            ?? ($responsePayload['data']['success'] ?? true);
+        $directResults = $this->extractArray($responsePayload, [
+            ['results'],
+            ['data', 'results'],
+        ]);
+
+        if (
+            ($payload['response_format'] ?? null) === 'results'
+            && $declaredSuccess !== false
+            && ! in_array(strtolower((string) $declaredType), ['question', 'error'], true)
+            && ($directResults === null || $directResults === [])
+            && $structuredContent === null
+        ) {
+            throw new AiServiceException('AI returned invalid structured JSON.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'response_body' => $response->body(),
+            ]);
+        }
 
         if ($content === '') {
             Log::error('AI response missing content.', [
@@ -177,12 +203,22 @@ class AiArabicWriterService
             'content_length' => mb_strlen($content),
         ]);
 
+        $rawResults = $directResults
+            ?? (is_array($structuredContent['results'] ?? null) ? $structuredContent['results'] : []);
+        $results = ($payload['normalize_results'] ?? false)
+            ? $this->normalizeResults($rawResults)
+            : $rawResults;
+        $state = $this->extractArray($responsePayload, [
+            ['state'],
+            ['data', 'state'],
+        ]) ?? (is_array($structuredContent['state'] ?? null) ? $structuredContent['state'] : null);
+        $count = $responsePayload['count']
+            ?? ($responsePayload['data']['count'] ?? null)
+            ?? ($structuredContent['count'] ?? null);
+
         return [
             'reply' => $content,
-            'type' => $this->extractScalarString($responsePayload, [
-                ['type'],
-                ['data', 'type'],
-            ]),
+            'type' => $declaredType ?? ($results !== [] ? 'result' : null),
             'tool' => $this->extractScalarString($responsePayload, [
                 ['tool'],
                 ['data', 'tool'],
@@ -201,21 +237,13 @@ class AiArabicWriterService
             ]),
             'usage' => $this->extractUsage($responsePayload),
             'cost' => $this->extractCost($responsePayload),
-            'state' => $this->extractArray($responsePayload, [
-                ['state'],
-                ['data', 'state'],
-            ]),
+            'state' => $state,
             'headlines' => $this->extractArray($responsePayload, [
                 ['headlines'],
                 ['data', 'headlines'],
             ]) ?? [],
-            'results' => $this->extractArray($responsePayload, [
-                ['results'],
-                ['data', 'results'],
-            ]) ?? [],
-            'count' => is_numeric($responsePayload['count'] ?? ($responsePayload['data']['count'] ?? null))
-                ? (int) ($responsePayload['count'] ?? $responsePayload['data']['count'])
-                : null,
+            'results' => $results,
+            'count' => is_numeric($count) ? (int) $count : count($results),
             'raw' => is_array($responsePayload) ? $responsePayload : null,
         ];
     }
@@ -412,6 +440,74 @@ class AiArabicWriterService
             })
             ->filter()
             ->implode("\n\n");
+    }
+
+    protected function extractStructuredJson(string $content): ?array
+    {
+        $content = trim($content);
+
+        if ($content === '') {
+            return null;
+        }
+
+        $content = preg_replace('/^```(?:json)?\s*/i', '', $content) ?? $content;
+        $content = preg_replace('/\s*```$/', '', $content) ?? $content;
+        $decoded = json_decode(trim($content), true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    protected function normalizeResults(mixed $results): array
+    {
+        if (! is_array($results)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($results as $index => $result) {
+            if (is_string($result)) {
+                $nested = $this->extractStructuredJson($result);
+
+                if (is_array($nested['results'] ?? null)) {
+                    array_push($normalized, ...$this->normalizeResults($nested['results']));
+                    continue;
+                }
+
+                $text = trim($result);
+                if ($text === '') {
+                    continue;
+                }
+
+                $result = ['text' => $text];
+            }
+
+            if (! is_array($result)) {
+                continue;
+            }
+
+            $text = is_scalar($result['text'] ?? null)
+                ? trim((string) $result['text'])
+                : '';
+
+            if ($text === '') {
+                continue;
+            }
+
+            $normalized[] = [
+                'id' => $result['id'] ?? ($index + 1),
+                'text' => $text,
+                'title' => isset($result['title']) && is_scalar($result['title'])
+                    ? (string) $result['title']
+                    : null,
+                'subject' => isset($result['subject']) && is_scalar($result['subject'])
+                    ? (string) $result['subject']
+                    : null,
+                'meta' => is_array($result['meta'] ?? null) ? $result['meta'] : [],
+            ];
+        }
+
+        return array_values($normalized);
     }
 
     protected function extractArray(mixed $payload, array $paths): ?array

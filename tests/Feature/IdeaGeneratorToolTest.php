@@ -195,7 +195,7 @@ class IdeaGeneratorToolTest extends TestCase
         $chatPage = file_get_contents(resource_path('js/views/home/chat2.vue'));
         $helper = file_get_contents(resource_path('js/utils/ideaGeneratorResults.js'));
 
-        $this->assertStringContainsString('const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10, 11];', $showPage);
+        $this->assertStringContainsString('const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10, 11, 12];', $showPage);
         $this->assertStringContainsString('const IDEA_GENERATOR_SUB_TOOL_ID = 11;', $chatPage);
         $this->assertStringContainsString('const IDEA_GENERATOR_TOOL_KEY = "ai_idea_generator";', $chatPage);
         $this->assertStringContainsString('const IDEA_GENERATOR_MODEL_KEY = "idea_generator";', $chatPage);
