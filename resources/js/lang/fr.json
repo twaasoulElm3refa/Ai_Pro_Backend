@@ -113,7 +113,7 @@
             "loadingTitle": "Chargement de l'outil...",
             "back": "Retour",
             "backAria": "Retour à la liste des outils",
-            "sectionTitle": "Sous-outils Connexes",
+            "sectionTitle": "Connexes",
             "sectionSubtitle": "Expériences connectées avec lesquelles vous pouvez discuter",
             "statusActive": "Actif",
             "statusInactive": "Inactif",

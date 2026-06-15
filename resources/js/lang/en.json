@@ -113,7 +113,7 @@
             "loadingTitle": "Loading tool...",
             "back": "Back",
             "backAria": "Go back to tools list",
-            "sectionTitle": "Related Subtools",
+            "sectionTitle": "Subtools",
             "sectionSubtitle": "Connected experiences you can chat with",
             "statusActive": "Active",
             "statusInactive": "Inactive",
