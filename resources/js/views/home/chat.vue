@@ -164,6 +164,12 @@
                             <!-- <div v-if="productDescriptionUsage(msg)" class="result-usage">
                                 {{ productDescriptionUsage(msg) }}
                             </div> -->
+                            <div v-if="isSocialPostResult(msg)" class="result-actions">
+                                <button type="button" @click="editSocialPostInputs">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
+                                </button>
+                            </div>
                         </div>
 
                         <div class="msg-avatar user-avatar" v-if="msg.role === 'user'">
@@ -196,6 +202,60 @@
                     <button type="button" class="points-warning-action" @click="goToWallet">
                         Recharge wallet
                     </button>
+                </div>
+
+                <div v-if="isSocialPostGeneratorTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle" @click="socialPostOptionsOpen = !socialPostOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
+                        </span>
+                        <i class="bi" :class="socialPostOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="socialPostOptionsOpen" class="advanced-options-grid">
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "موضوع المنشور" : "Post content" }}</span>
+                            <textarea v-model="socialPostState.content" rows="2"></textarea>
+                        </label>
+
+                        <label v-for="field in socialPostSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="socialPostState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "عدد الهاشتاقات" : "Hashtag count" }}</span>
+                            <input v-model.number="socialPostState.hashtag_count" type="number" min="0" max="30">
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "عدد النتائج" : "Results count" }}</span>
+                            <input v-model.number="socialPostState.results_count" type="number" min="1" max="10">
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "استخدام الإيموجي" : "Include emojis" }}</span>
+                            <select v-model="socialPostState.include_emojis">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option :value="true">{{ isArabic ? "نعم" : "Yes" }}</option>
+                                <option :value="false">{{ isArabic ? "لا" : "No" }}</option>
+                            </select>
+                        </label>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+                            <label v-for="option in socialPostExtraOptions" :key="option" class="check-option">
+                                <input v-model="socialPostState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+                    </div>
                 </div>
 
                 <div v-if="isProductDescriptionGeneratorTool" class="advanced-options">
@@ -835,6 +895,57 @@ const createEmptySocialPostState = () => ({
 });
 
 const socialPostState = ref(createEmptySocialPostState());
+const socialPostOptionsOpen = ref(false);
+
+const socialPostSelectFields = [
+    {
+        key: "platform",
+        labelAr: "المنصة",
+        labelEn: "Platform",
+        options: ["Facebook", "Instagram", "LinkedIn", "X", "TikTok"],
+    },
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Engaging", "Professional", "Friendly", "Formal", "Persuasive", "Simple"],
+    },
+    {
+        key: "audience",
+        labelAr: "الجمهور المستهدف",
+        labelEn: "Audience",
+        options: ["General Audience", "Customers", "Business Owners", "Content Creators", "Students", "Professionals"],
+    },
+    {
+        key: "goal",
+        labelAr: "الهدف",
+        labelEn: "Goal",
+        options: ["Engagement", "Awareness", "Sales", "Traffic", "Branding"],
+    },
+    {
+        key: "length",
+        labelAr: "الطول",
+        labelEn: "Length",
+        options: ["Short", "Medium", "Long"],
+    },
+];
+
+const socialPostExtraOptions = [
+    "Make it ready to publish",
+    "Include call to action",
+    "Use catchy opening",
+    "SEO-friendly",
+    "Hashtag-friendly",
+    "Emotional style",
+    "Professional style",
+    "Simple and direct",
+];
 
 const createEmptyEmailWriterState = () => ({
     purpose: null,
@@ -951,6 +1062,10 @@ const isProductDescriptionGeneratorTool = computed(() =>
 const canSubmitCurrentTool = computed(() =>
     Boolean(
         userInput.value.trim()
+        || (
+            isSocialPostGeneratorTool.value
+            && String(socialPostState.value.content || "").trim()
+        )
         || (
             isProductDescriptionGeneratorTool.value
             && String(productDescriptionState.value.product || "").trim()
@@ -1826,6 +1941,39 @@ const formatGeneratedHeadlinesForDisplay = (content = "") => {
         .trim();
 };
 
+const isSocialPostMessage = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    return Number(metadata.sub_tool_id || msg?.sub_tool_id || 0) === SOCIAL_POST_GENERATOR_SUB_TOOL_ID
+        || String(metadata.tool || "").toLowerCase() === SOCIAL_POST_GENERATOR_TOOL_KEY;
+};
+
+const getSocialPostOutput = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    const resultText = Array.isArray(metadata.results)
+        ? metadata.results
+            .map((item) => String(item?.text || item || "").trim())
+            .filter(Boolean)
+            .join("\n\n")
+        : "";
+
+    return resultText
+        || String(metadata.state?.last_output || "").trim()
+        || String(msg?.content || msg?.message || "").trim();
+};
+
+const isSocialPostResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && !msg?.isTyping
+    && isSocialPostMessage(msg)
+    && String(msg?.metadata?.type || "result") === "result"
+    && Boolean(getSocialPostOutput(msg));
+
 const isProductDescriptionMessage = (msg = {}) => {
     const metadata = msg?.metadata && typeof msg.metadata === "object"
         ? msg.metadata
@@ -1880,6 +2028,10 @@ const displayMessageContent = (msg = {}) => {
         return getProductDescriptionOutput(msg);
     }
 
+    if (msg?.role === "assistant" && isSocialPostMessage(msg)) {
+        return getSocialPostOutput(msg);
+    }
+
     if (
         msg?.role === "assistant"
         && isHeadlineGeneratorMessage(msg)
@@ -1929,6 +2081,11 @@ const regenerateProductDescription = async (msg) => {
 
 const editProductDescriptionInputs = async () => {
     productOptionsOpen.value = true;
+    await focusChatInput();
+};
+
+const editSocialPostInputs = async () => {
+    socialPostOptionsOpen.value = true;
     await focusChatInput();
 };
 
@@ -3281,9 +3438,15 @@ const handleParaphraserSubmit = async (text) => {
 };
 
 const handleSocialPostGeneratorSubmit = async (text) => {
-    const inputText = String(text || "").trim();
+    const initialInputText = String(text || "").trim();
+    const initialStateContent = String(socialPostState.value.content || "").trim();
 
-    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+    if (
+        (!initialInputText && !initialStateContent)
+        || sendingMessage.value
+        || streamingAssistant.value
+        || conversationLimitExceeded.value
+    ) {
         return;
     }
 
@@ -3303,7 +3466,8 @@ const handleSocialPostGeneratorSubmit = async (text) => {
         return;
     }
 
-    const requestState = createEmptySocialPostState();
+    const requestState = resolveSocialPostStateForSubmit(conversation.uuid);
+    const inputText = initialInputText || String(requestState.content || "").trim();
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: SOCIAL_POST_GENERATOR_SUB_TOOL_ID,
