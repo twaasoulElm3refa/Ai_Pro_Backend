@@ -107,6 +107,38 @@
                                     <span></span>
                                 </span>
                             </div>
+                            <div
+                                v-else-if="msg.role === 'assistant'"
+                                class="ai-result-card"
+                                :class="{ 'error-message': msg.is_error }"
+                            >
+                                <div class="ai-result-header">
+                                    <strong class="ai-result-title">
+                                        {{ isArabic ? "النتيجة" : "Result" }}
+                                    </strong>
+
+                                    <button
+                                        type="button"
+                                        class="ai-copy-btn"
+                                        @click="copyAssistantMessage(msg)"
+                                    >
+                                        <i class="bi bi-copy"></i>
+                                        {{
+                                            copiedMessageKey === msg.localKey
+                                                ? (isArabic ? "تم النسخ" : "Copied")
+                                                : (isArabic ? "نسخ" : "Copy")
+                                        }}
+                                    </button>
+                                </div>
+
+                                <div class="ai-result-text">
+                                    <span v-if="msg.streaming && !msg.content" class="typing-indicator">
+                                        <span></span><span></span><span></span>
+                                    </span>
+                                    <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{ displayMessageContent(msg) }}</div>
+                                    <div v-else class="markdown-body" v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
+                                </div>
+                            </div>
                             <div v-else class="msg-content" :class="{ 'error-message': msg.is_error }">
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
@@ -322,6 +354,7 @@ const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const activeEventSource = ref(null);
 const streamingConversationUuid = ref("");
+const copiedMessageKey = ref(null);
 
 const PENDING_SEND_TTL = 5 * 60 * 1000;
 const inFlightSignatures = new Set();
@@ -1856,6 +1889,20 @@ const displayMessageContent = (msg = {}) => {
     }
 
     return content;
+};
+
+const copyAssistantMessage = async (msg) => {
+    const output = displayMessageContent(msg);
+    if (!output) return;
+
+    await navigator.clipboard.writeText(output);
+    copiedMessageKey.value = msg?.localKey || msg?.id || null;
+
+    window.setTimeout(() => {
+        if (copiedMessageKey.value === (msg?.localKey || msg?.id || null)) {
+            copiedMessageKey.value = null;
+        }
+    }, 1200);
 };
 
 const copyProductDescription = async (msg) => {
@@ -5016,6 +5063,75 @@ watch(
 .message-row.assistant .msg-content.error-message {
     border-color: rgba(220, 38, 38, 0.25);
     background: #fff1f2;
+    color: #991b1b;
+}
+
+.ai-result-card {
+    overflow: hidden;
+    border: 1px solid #d6e9f4;
+    border-radius: 14px;
+    background: #fbfdff;
+    box-shadow: 0 18px 32px rgba(21, 70, 119, 0.08);
+    word-break: break-word;
+}
+
+.ai-result-card.error-message {
+    border-color: rgba(220, 38, 38, 0.25);
+    background: #fff1f2;
+    color: #991b1b;
+}
+
+.ai-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 13px;
+    border-bottom: 1px solid #e2eef5;
+    color: var(--navy);
+    background: #f0f8fc;
+}
+
+.ai-result-title {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.ai-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 8px;
+    color: var(--blue);
+    background: #fff;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.ai-copy-btn:hover {
+    background: rgba(43, 166, 222, 0.08);
+    transform: scale(1.02);
+}
+
+.ai-result-text {
+    padding: 15px;
+    color: var(--ink);
+    line-height: 1.75;
+}
+
+.ai-result-card.error-message .ai-result-header {
+    border-bottom-color: rgba(220, 38, 38, 0.18);
+    background: rgba(254, 226, 226, 0.8);
+    color: #991b1b;
+}
+
+.ai-result-card.error-message .ai-result-text {
     color: #991b1b;
 }
 
