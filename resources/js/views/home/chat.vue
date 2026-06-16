@@ -170,6 +170,12 @@
                                     {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
                                 </button>
                             </div>
+                            <div v-if="isEmailWriterResult(msg)" class="result-actions">
+                                <button type="button" @click="editEmailWriterInputs">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
+                                </button>
+                            </div>
                         </div>
 
                         <div class="msg-avatar user-avatar" v-if="msg.role === 'user'">
@@ -252,6 +258,70 @@
                             <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
                             <label v-for="option in socialPostExtraOptions" :key="option" class="check-option">
                                 <input v-model="socialPostState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+                    </div>
+                </div>
+
+                <div v-if="isEmailWriterTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle" @click="emailWriterOptionsOpen = !emailWriterOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
+                        </span>
+                        <i class="bi" :class="emailWriterOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="emailWriterOptionsOpen" class="advanced-options-grid">
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "الغرض من الإيميل" : "Email purpose" }}</span>
+                            <textarea v-model="emailWriterState.purpose" rows="2"></textarea>
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "المستلم" : "Recipient" }}</span>
+                            <input v-model="emailWriterState.recipient" type="text">
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "اسم المرسل" : "Sender name" }}</span>
+                            <input v-model="emailWriterState.sender_name" type="text">
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "سطر العنوان" : "Subject line" }}</span>
+                            <input v-model="emailWriterState.subject_line" type="text">
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "دعوة لاتخاذ إجراء" : "Call to action" }}</span>
+                            <input v-model="emailWriterState.call_to_action" type="text">
+                        </label>
+
+                        <label v-for="field in emailWriterSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="emailWriterState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "تضمين عنوان" : "Include subject" }}</span>
+                            <select v-model="emailWriterState.include_subject">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option :value="true">{{ isArabic ? "نعم" : "Yes" }}</option>
+                                <option :value="false">{{ isArabic ? "لا" : "No" }}</option>
+                            </select>
+                        </label>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+                            <label v-for="option in emailWriterExtraOptions" :key="option" class="check-option">
+                                <input v-model="emailWriterState.extra_options" type="checkbox" :value="option">
                                 <span>{{ option }}</span>
                             </label>
                         </fieldset>
@@ -963,6 +1033,45 @@ const createEmptyEmailWriterState = () => ({
 });
 
 const emailWriterState = ref(createEmptyEmailWriterState());
+const emailWriterOptionsOpen = ref(false);
+
+const emailWriterSelectFields = [
+    {
+        key: "email_type",
+        labelAr: "نوع الإيميل",
+        labelEn: "Email type",
+        options: ["General Email", "Business Email", "Marketing Email", "Support Email", "Follow-up Email", "Apology Email", "Sales Email"],
+    },
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Professional", "Formal", "Friendly", "Casual", "Persuasive", "Simple"],
+    },
+    {
+        key: "length",
+        labelAr: "الطول",
+        labelEn: "Length",
+        options: ["Short", "Medium", "Long"],
+    },
+];
+
+const emailWriterExtraOptions = [
+    "Clear structure",
+    "Ready to send",
+    "Polite opening",
+    "Strong subject line",
+    "Professional closing",
+    "Include call to action",
+    "Simple and direct",
+    "Persuasive style",
+];
 
 const createEmptyScriptGeneratorState = () => ({
     topic: null,
@@ -1065,6 +1174,10 @@ const canSubmitCurrentTool = computed(() =>
         || (
             isSocialPostGeneratorTool.value
             && String(socialPostState.value.content || "").trim()
+        )
+        || (
+            isEmailWriterTool.value
+            && String(emailWriterState.value.purpose || "").trim()
         )
         || (
             isProductDescriptionGeneratorTool.value
@@ -1974,6 +2087,46 @@ const isSocialPostResult = (msg = {}) =>
     && String(msg?.metadata?.type || "result") === "result"
     && Boolean(getSocialPostOutput(msg));
 
+const isEmailWriterMessage = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    return Number(metadata.sub_tool_id || msg?.sub_tool_id || 0) === EMAIL_WRITER_SUB_TOOL_ID
+        || String(metadata.tool || "").toLowerCase() === EMAIL_WRITER_TOOL_KEY;
+};
+
+const getEmailWriterOutput = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    const resultText = Array.isArray(metadata.results)
+        ? metadata.results
+            .map((item) => {
+                if (typeof item === "string") return item.trim();
+
+                const subject = String(item?.subject || item?.title || "").trim();
+                const text = String(item?.text || item || "").trim();
+
+                return [subject, text].filter(Boolean).join("\n\n");
+            })
+            .filter(Boolean)
+            .join("\n\n")
+        : "";
+
+    return resultText
+        || String(metadata.state?.last_output || "").trim()
+        || String(msg?.content || msg?.message || "").trim();
+};
+
+const isEmailWriterResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && !msg?.isTyping
+    && isEmailWriterMessage(msg)
+    && String(msg?.metadata?.type || "result") === "result"
+    && Boolean(getEmailWriterOutput(msg));
+
 const isProductDescriptionMessage = (msg = {}) => {
     const metadata = msg?.metadata && typeof msg.metadata === "object"
         ? msg.metadata
@@ -2032,6 +2185,10 @@ const displayMessageContent = (msg = {}) => {
         return getSocialPostOutput(msg);
     }
 
+    if (msg?.role === "assistant" && isEmailWriterMessage(msg)) {
+        return getEmailWriterOutput(msg);
+    }
+
     if (
         msg?.role === "assistant"
         && isHeadlineGeneratorMessage(msg)
@@ -2086,6 +2243,11 @@ const editProductDescriptionInputs = async () => {
 
 const editSocialPostInputs = async () => {
     socialPostOptionsOpen.value = true;
+    await focusChatInput();
+};
+
+const editEmailWriterInputs = async () => {
+    emailWriterOptionsOpen.value = true;
     await focusChatInput();
 };
 
@@ -3672,9 +3834,10 @@ const loadSubtool = async () => {
 };
 
 const handleEmailWriterSubmit = async (text) => {
-    const inputText = String(text || "").trim();
+    const initialInputText = String(text || "").trim();
+    const initialStatePurpose = String(emailWriterState.value.purpose || "").trim();
 
-    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+    if ((!initialInputText && !initialStatePurpose) || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
         return;
     }
 
@@ -3692,6 +3855,7 @@ const handleEmailWriterSubmit = async (text) => {
     }
 
     const requestState = resolveEmailWriterStateForSubmit(conversation.uuid);
+    const inputText = initialInputText || String(requestState.purpose || "").trim();
     const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
 
     await addUserLocalMessage(inputText, {
