@@ -161,9 +161,9 @@
                                     {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
                                 </button>
                             </div>
-                            <div v-if="productDescriptionUsage(msg)" class="result-usage">
+                            <!-- <div v-if="productDescriptionUsage(msg)" class="result-usage">
                                 {{ productDescriptionUsage(msg) }}
-                            </div>
+                            </div> -->
                         </div>
 
                         <div class="msg-avatar user-avatar" v-if="msg.role === 'user'">

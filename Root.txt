@@ -119,3 +119,59 @@ For EACH feature:
 - Analyze the project structure
 - Follow these rules strictly
 - Then start implementation step-by-step
+
+
+
+
+{
+    "type": "user_input",
+    "tool": "ai_product_description_generator",
+    "model_key": "product_description_generator",
+    "sub_tool_id": 8,
+    "conversation_uuid": "ab81c261-497d-4f49-8f36-21baa399d784",
+    "state": {
+        "product": "ي وصف لمنتج من ماركه تواصل المعرفه وهو عباره عن شامبو ضد الشعر يجعل الانسان اصلع وراسه تلمع العبوه 150 ملي صنع في مدينه المنصوره",
+        "brand_name": null,
+        "product_features": null,
+        "target_audience": "General Customers",
+        "language": "Arabic",
+        "tone": "Marketing",
+        "length": "Medium",
+        "platform": "Website / Store",
+        "include_bullets": true,
+        "include_seo_keywords": true,
+        "extra_options": [
+            "Benefit-focused",
+            "Clear and persuasive"
+        ],
+        "last_output": null
+    }
+}
+
+
+
+
+{
+    "type": "user_input",
+    "tool": "ai_product_description_generator",
+    "model_key": "product_description_generator",
+    "sub_tool_id": 8,
+    "conversation_uuid": "ab81c261-497d-4f49-8f36-21baa399d784",
+    "state": {
+        "product": "ي وصف لمنتج من ماركه تواصل المعرفه وهو عباره عن شامبو ضد الشعر يجعل الانسان اصلع وراسه تلمع العبوه 150 ملي صنع في مدينه المنصوره",
+        "brand_name": null,
+        "product_features": null,
+        "target_audience": "General Customers",
+        "language": "Auto Detect",
+        "tone": "Marketing",
+        "length": "Medium",
+        "platform": "Website / Store",
+        "include_bullets": true,
+        "include_seo_keywords": true,
+        "extra_options": [
+            "Benefit-focused",
+            "Clear and persuasive"
+        ],
+        "last_output": "شامبو ضد الشعر من تواصل المعرفه – 150 مل – مصنوع في المنصورة\n\n- يجعل الشعر يتساقط تدريجيًا لتحقيق مظهر أصلع\n- يمنح الرأس لمعانًا ولمسة ناعمة\n- حجم عملي 150 مل مناسب للاستخدام اليومي\n- تركيبة خاصة تُنتج تأثيرًا واضحًا على فروة الرأس"
+    }
+}
