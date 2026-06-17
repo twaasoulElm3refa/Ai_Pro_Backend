@@ -176,6 +176,12 @@
                                     {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
                                 </button>
                             </div>
+                            <div v-if="isScriptGeneratorResult(msg)" class="result-actions">
+                                <button type="button" @click="editScriptGeneratorInputs">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
+                                </button>
+                            </div>
                         </div>
 
                         <div class="msg-avatar user-avatar" v-if="msg.role === 'user'">
@@ -322,6 +328,55 @@
                             <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
                             <label v-for="option in emailWriterExtraOptions" :key="option" class="check-option">
                                 <input v-model="emailWriterState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+                    </div>
+                </div>
+
+                <div v-if="isScriptGeneratorTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle" @click="scriptGeneratorOptionsOpen = !scriptGeneratorOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
+                        </span>
+                        <i class="bi" :class="scriptGeneratorOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="scriptGeneratorOptionsOpen" class="advanced-options-grid">
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "موضوع السكريبت" : "Script topic" }}</span>
+                            <textarea v-model="scriptGeneratorState.topic" rows="2"></textarea>
+                        </label>
+
+                        <label v-for="field in scriptGeneratorSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="scriptGeneratorState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "عدد النتائج" : "Results count" }}</span>
+                            <input v-model.number="scriptGeneratorState.results_count" type="number" min="1" max="10">
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "تضمين ملاحظات المشاهد" : "Include scene notes" }}</span>
+                            <select v-model="scriptGeneratorState.include_scene_notes">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option :value="true">{{ isArabic ? "نعم" : "Yes" }}</option>
+                                <option :value="false">{{ isArabic ? "لا" : "No" }}</option>
+                            </select>
+                        </label>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+                            <label v-for="option in scriptGeneratorExtraOptions" :key="option" class="check-option">
+                                <input v-model="scriptGeneratorState.extra_options" type="checkbox" :value="option">
                                 <span>{{ option }}</span>
                             </label>
                         </fieldset>
@@ -1089,6 +1144,65 @@ const createEmptyScriptGeneratorState = () => ({
 });
 
 const scriptGeneratorState = ref(createEmptyScriptGeneratorState());
+const scriptGeneratorOptionsOpen = ref(false);
+
+const scriptGeneratorSelectFields = [
+    {
+        key: "script_type",
+        labelAr: "نوع السكريبت",
+        labelEn: "Script type",
+        options: ["Video Script", "Ad Script", "YouTube Script", "TikTok Script", "Reel Script", "Podcast Script", "Voice Over Script"],
+    },
+    {
+        key: "platform",
+        labelAr: "المنصة",
+        labelEn: "Platform",
+        options: ["YouTube", "TikTok", "Instagram Reels", "Facebook", "X", "Podcast", "General"],
+    },
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Engaging", "Professional", "Friendly", "Formal", "Persuasive", "Funny", "Emotional", "Simple"],
+    },
+    {
+        key: "audience",
+        labelAr: "الجمهور المستهدف",
+        labelEn: "Target audience",
+        options: ["General Audience", "Customers", "Business Owners", "Content Creators", "Students", "Professionals", "Parents", "Youth"],
+    },
+    {
+        key: "duration",
+        labelAr: "مدة السكريبت",
+        labelEn: "Script duration",
+        options: ["15 seconds", "30 seconds", "60 seconds", "90 seconds", "2 minutes", "3 minutes", "5 minutes"],
+    },
+    {
+        key: "format",
+        labelAr: "تنسيق السكريبت",
+        labelEn: "Script format",
+        options: ["Hook + Body + CTA", "Scene by Scene", "Voice Over", "Dialogue", "Bullet Script", "Full Script"],
+    },
+];
+
+const scriptGeneratorExtraOptions = [
+    "Strong hook",
+    "Include call to action",
+    "Scene by scene",
+    "Add visual notes",
+    "Add voice over direction",
+    "Short and catchy",
+    "Emotional style",
+    "Professional style",
+    "Ready to record",
+    "Simple and direct",
+];
 
 const createEmptyProductDescriptionState = () => ({
     product: null,
@@ -1180,6 +1294,10 @@ const canSubmitCurrentTool = computed(() =>
             && String(emailWriterState.value.purpose || "").trim()
         )
         || (
+            isScriptGeneratorTool.value
+            && String(scriptGeneratorState.value.topic || "").trim()
+        )
+        || (
             isProductDescriptionGeneratorTool.value
             && String(productDescriptionState.value.product || "").trim()
         )
@@ -1195,6 +1313,12 @@ const chatPlaceholder = computed(() => {
         return isArabic.value
             ? "اكتب وصف المنتج أو فكرته هنا"
             : "Write the product description or idea here";
+    }
+
+    if (isScriptGeneratorTool.value) {
+        return isArabic.value
+            ? "اكتب موضوع السكريبت أو فكرته هنا"
+            : "Write the script topic or idea here";
     }
 
     return subtool.value.promptPlaceholder || t("user.chat.inputPlaceholder");
@@ -2127,6 +2251,46 @@ const isEmailWriterResult = (msg = {}) =>
     && String(msg?.metadata?.type || "result") === "result"
     && Boolean(getEmailWriterOutput(msg));
 
+const isScriptGeneratorMessage = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    return Number(metadata.sub_tool_id || msg?.sub_tool_id || 0) === SCRIPT_GENERATOR_SUB_TOOL_ID
+        || String(metadata.tool || "").toLowerCase() === SCRIPT_GENERATOR_TOOL_KEY;
+};
+
+const getScriptGeneratorOutput = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    const resultText = Array.isArray(metadata.results)
+        ? metadata.results
+            .map((item) => {
+                if (typeof item === "string") return item.trim();
+
+                const title = String(item?.title || item?.name || "").trim();
+                const text = String(item?.text || item?.content || item?.script || "").trim();
+
+                return [title, text].filter(Boolean).join("\n\n");
+            })
+            .filter(Boolean)
+            .join("\n\n")
+        : "";
+
+    return resultText
+        || String(metadata.state?.last_output || "").trim()
+        || String(msg?.content || msg?.message || "").trim();
+};
+
+const isScriptGeneratorResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && !msg?.isTyping
+    && isScriptGeneratorMessage(msg)
+    && String(msg?.metadata?.type || "result") === "result"
+    && Boolean(getScriptGeneratorOutput(msg));
+
 const isProductDescriptionMessage = (msg = {}) => {
     const metadata = msg?.metadata && typeof msg.metadata === "object"
         ? msg.metadata
@@ -2189,6 +2353,10 @@ const displayMessageContent = (msg = {}) => {
         return getEmailWriterOutput(msg);
     }
 
+    if (msg?.role === "assistant" && isScriptGeneratorMessage(msg)) {
+        return getScriptGeneratorOutput(msg);
+    }
+
     if (
         msg?.role === "assistant"
         && isHeadlineGeneratorMessage(msg)
@@ -2248,6 +2416,11 @@ const editSocialPostInputs = async () => {
 
 const editEmailWriterInputs = async () => {
     emailWriterOptionsOpen.value = true;
+    await focusChatInput();
+};
+
+const editScriptGeneratorInputs = async () => {
+    scriptGeneratorOptionsOpen.value = true;
     await focusChatInput();
 };
 
@@ -4004,9 +4177,10 @@ const handleEmailWriterSubmit = async (text) => {
 };
 
 const handleScriptGeneratorSubmit = async (text) => {
-    const inputText = String(text || "").trim();
+    const initialInputText = String(text || "").trim();
+    const initialStateTopic = String(scriptGeneratorState.value.topic || "").trim();
 
-    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+    if ((!initialInputText && !initialStateTopic) || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
         return;
     }
 
@@ -4024,6 +4198,7 @@ const handleScriptGeneratorSubmit = async (text) => {
     }
 
     const localScriptState = resolveScriptGeneratorStateForSubmit(conversation.uuid);
+    const inputText = initialInputText || String(localScriptState.topic || "").trim();
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
