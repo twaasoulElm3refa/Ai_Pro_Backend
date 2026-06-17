@@ -164,19 +164,43 @@
                             <!-- <div v-if="productDescriptionUsage(msg)" class="result-usage">
                                 {{ productDescriptionUsage(msg) }}
                             </div> -->
+                            <div v-if="isHeadlineGeneratorResult(msg)" class="result-actions">
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateHeadlineResult(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
+                            </div>
+                            <div v-if="isParaphraserResult(msg)" class="result-actions">
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateParaphraserResult(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
+                            </div>
                             <div v-if="isSocialPostResult(msg)" class="result-actions">
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateSocialPostResult(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
                                 <button type="button" @click="editSocialPostInputs">
                                     <i class="bi bi-sliders"></i>
                                     {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
                                 </button>
                             </div>
                             <div v-if="isEmailWriterResult(msg)" class="result-actions">
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateEmailWriterResult(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
                                 <button type="button" @click="editEmailWriterInputs">
                                     <i class="bi bi-sliders"></i>
                                     {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
                                 </button>
                             </div>
                             <div v-if="isScriptGeneratorResult(msg)" class="result-actions">
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateScriptGeneratorResult(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
                                 <button type="button" @click="editScriptGeneratorInputs">
                                     <i class="bi bi-sliders"></i>
                                     {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
@@ -648,8 +672,8 @@ const clearPendingSend = (conversationUuid) => {
     }
 };
 
-const resolveIdempotencyKey = (conversationUuid, content) => {
-    const pending = readPendingSend(conversationUuid);
+const resolveIdempotencyKey = (conversationUuid, content, options = {}) => {
+    const pending = options?.forceNew ? null : readPendingSend(conversationUuid);
 
     if (pending && pending.content === content) {
         return pending.idempotencyKey;
@@ -2124,10 +2148,54 @@ const buildHeadlineResultMessage = (apiResponse) => {
 const isHeadlineGeneratorMessage = (message = {}) => {
     const currentSubToolId = Number(subtool.value?.id || 0);
     const messageSubToolId = Number(message?.sub_tool_id || message?.subToolId || 0);
+    const metadataSubToolId = Number(message?.metadata?.sub_tool_id || 0);
 
     return messageSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID
+        || metadataSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID
         || currentSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID;
 };
+
+const isHeadlineGeneratorResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && !msg?.isTyping
+    && !msg?.is_error
+    && isHeadlineGeneratorMessage(msg)
+    && String(msg?.metadata?.type || "").toLowerCase() === "result"
+    && Boolean(displayMessageContent(msg));
+
+const isParaphraserMessage = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    return Number(metadata.sub_tool_id || msg?.sub_tool_id || 0) === PARAPHRASER_SUB_TOOL_ID
+        || String(metadata.tool || "").toLowerCase() === PARAPHRASER_TOOL_KEY;
+};
+
+const getParaphraserOutput = (msg = {}) => {
+    const metadata = msg?.metadata && typeof msg.metadata === "object"
+        ? msg.metadata
+        : {};
+
+    const resultText = Array.isArray(metadata.results)
+        ? metadata.results
+            .map((item) => String(item?.text || item || "").trim())
+            .filter(Boolean)
+            .join("\n\n")
+        : "";
+
+    return resultText
+        || String(metadata.state?.last_output || "").trim()
+        || String(msg?.content || msg?.message || "").trim();
+};
+
+const isParaphraserResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && !msg?.isTyping
+    && !msg?.is_error
+    && isParaphraserMessage(msg)
+    && String(msg?.metadata?.type || "result") === "result"
+    && Boolean(getParaphraserOutput(msg));
 
 const looksLikeGeneratedHeadlinesText = (content = "") => {
     const text = String(content || "");
@@ -2357,6 +2425,10 @@ const displayMessageContent = (msg = {}) => {
         return getScriptGeneratorOutput(msg);
     }
 
+    if (msg?.role === "assistant" && isParaphraserMessage(msg)) {
+        return getParaphraserOutput(msg);
+    }
+
     if (
         msg?.role === "assistant"
         && isHeadlineGeneratorMessage(msg)
@@ -2396,12 +2468,133 @@ const findUserInputBeforeMessage = (msg) => {
     return [...rows].reverse().find((item) => item?.role === "user")?.content || "";
 };
 
+const regenerateHeadlineResult = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const metadataState = msg?.metadata?.state;
+
+    if (metadataState && typeof metadataState === "object") {
+        headlineState.value = mergeHeadlineState(getInitialHeadlineState(), metadataState);
+    }
+
+    const source = String(headlineState.value.content || "").trim()
+        || findUserInputBeforeMessage(msg)
+        || userInput.value;
+
+    await handleHeadlineGeneratorSubmit(source, {
+        regenerate: true,
+        previousOutput: oldOutput,
+        forceNewIdempotency: true,
+    });
+};
+
+const regenerateParaphraserResult = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const metadataState = msg?.metadata?.state;
+
+    if (metadataState && typeof metadataState === "object") {
+        paraphraserState.value = normalizeParaphraserState(metadataState);
+    }
+
+    const source = String(paraphraserState.value.content || "").trim()
+        || findUserInputBeforeMessage(msg)
+        || userInput.value;
+
+    await handleParaphraserSubmit(source, {
+        regenerate: true,
+        previousOutput: oldOutput,
+        forceNewIdempotency: true,
+    });
+};
+
+const regenerateSocialPostResult = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const metadataState = msg?.metadata?.state;
+
+    if (metadataState && typeof metadataState === "object") {
+        socialPostState.value = normalizeSocialPostState(metadataState);
+    }
+
+    const source = String(socialPostState.value.content || "").trim()
+        || findUserInputBeforeMessage(msg)
+        || userInput.value;
+
+    await handleSocialPostGeneratorSubmit(source, {
+        regenerate: true,
+        previousOutput: oldOutput,
+        forceNewIdempotency: true,
+    });
+};
+
+const regenerateEmailWriterResult = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const metadataState = msg?.metadata?.state;
+
+    if (metadataState && typeof metadataState === "object") {
+        emailWriterState.value = normalizeEmailWriterState(metadataState);
+    }
+
+    const source = String(emailWriterState.value.purpose || "").trim()
+        || findUserInputBeforeMessage(msg)
+        || userInput.value;
+
+    await handleEmailWriterSubmit(source, {
+        regenerate: true,
+        previousOutput: oldOutput,
+        forceNewIdempotency: true,
+    });
+};
+
+const regenerateScriptGeneratorResult = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const metadataState = msg?.metadata?.state;
+
+    if (metadataState && typeof metadataState === "object") {
+        scriptGeneratorState.value = normalizeScriptGeneratorState(metadataState);
+    }
+
+    const source = String(scriptGeneratorState.value.topic || "").trim()
+        || findUserInputBeforeMessage(msg)
+        || userInput.value;
+
+    await handleScriptGeneratorSubmit(source, {
+        regenerate: true,
+        previousOutput: oldOutput,
+        forceNewIdempotency: true,
+    });
+};
+
 const regenerateProductDescription = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const metadataState = msg?.metadata?.state;
+
+    if (metadataState && typeof metadataState === "object") {
+        productDescriptionState.value = mergeProductDescriptionState(
+            productDescriptionState.value,
+            metadataState
+        );
+    }
+
     const source = findUserInputBeforeMessage(msg)
         || productDescriptionState.value.product
         || "";
 
-    await handleProductDescriptionSubmit(source);
+    await handleProductDescriptionSubmit(source, {
+        regenerate: true,
+        previousOutput: oldOutput,
+        forceNewIdempotency: true,
+    });
 };
 
 const editProductDescriptionInputs = async () => {
@@ -3469,7 +3662,13 @@ const resolveCurrentUserId = () => {
     return null;
 };
 
-const handleHeadlineGeneratorSubmit = async (text) => {
+const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
+    const submitOptions = {
+        regenerate: false,
+        previousOutput: "",
+        forceNewIdempotency: false,
+        ...options,
+    };
     const inputText = String(text || "").trim();
 
     if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
@@ -3500,7 +3699,9 @@ const handleHeadlineGeneratorSubmit = async (text) => {
         return;
     }
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
+        forceNew: submitOptions.forceNewIdempotency,
+    });
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
@@ -3521,6 +3722,12 @@ const handleHeadlineGeneratorSubmit = async (text) => {
             debug: HEADLINE_DEBUG_MODE,
             idempotency_key: idempotencyKey,
             state: headlineState.value,
+            ...(submitOptions.regenerate
+                ? {
+                    regenerate: true,
+                    previous_output: submitOptions.previousOutput,
+                }
+                : {}),
         };
 
         const response = await chatServices.sendMessage(payload);
@@ -3612,7 +3819,13 @@ const handleHeadlineGeneratorSubmit = async (text) => {
     }
 };
 
-const handleParaphraserSubmit = async (text) => {
+const handleParaphraserSubmit = async (text, options = {}) => {
+    const submitOptions = {
+        regenerate: false,
+        previousOutput: "",
+        forceNewIdempotency: false,
+        ...options,
+    };
     const inputText = String(text || "").trim();
 
     if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
@@ -3647,7 +3860,9 @@ const handleParaphraserSubmit = async (text) => {
         return;
     }
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
+        forceNew: submitOptions.forceNewIdempotency,
+    });
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
@@ -3672,6 +3887,12 @@ const handleParaphraserSubmit = async (text) => {
             tool: PARAPHRASER_TOOL_KEY,
             state: resolvedParaphraserState,
             debug: false,
+            ...(submitOptions.regenerate
+                ? {
+                    regenerate: true,
+                    previous_output: submitOptions.previousOutput,
+                }
+                : {}),
         };
 
         if (Number(payload.sub_tool_id) === PARAPHRASER_SUB_TOOL_ID && import.meta.env.DEV) {
@@ -3772,7 +3993,13 @@ const handleParaphraserSubmit = async (text) => {
     }
 };
 
-const handleSocialPostGeneratorSubmit = async (text) => {
+const handleSocialPostGeneratorSubmit = async (text, options = {}) => {
+    const submitOptions = {
+        regenerate: false,
+        previousOutput: "",
+        forceNewIdempotency: false,
+        ...options,
+    };
     const initialInputText = String(text || "").trim();
     const initialStateContent = String(socialPostState.value.content || "").trim();
 
@@ -3817,7 +4044,9 @@ const handleSocialPostGeneratorSubmit = async (text) => {
     userInput.value = "";
     resetTextarea();
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
+        forceNew: submitOptions.forceNewIdempotency,
+    });
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
@@ -3836,6 +4065,12 @@ const handleSocialPostGeneratorSubmit = async (text) => {
             user_message: inputText,
             state: requestState,
             debug: false,
+            ...(submitOptions.regenerate
+                ? {
+                    regenerate: true,
+                    previous_output: submitOptions.previousOutput,
+                }
+                : {}),
         };
 
         console.log("[SocialPostGenerator] payload before send:", JSON.stringify(payload, null, 2));
@@ -4006,7 +4241,13 @@ const loadSubtool = async () => {
     }
 };
 
-const handleEmailWriterSubmit = async (text) => {
+const handleEmailWriterSubmit = async (text, options = {}) => {
+    const submitOptions = {
+        regenerate: false,
+        previousOutput: "",
+        forceNewIdempotency: false,
+        ...options,
+    };
     const initialInputText = String(text || "").trim();
     const initialStatePurpose = String(emailWriterState.value.purpose || "").trim();
 
@@ -4029,7 +4270,9 @@ const handleEmailWriterSubmit = async (text) => {
 
     const requestState = resolveEmailWriterStateForSubmit(conversation.uuid);
     const inputText = initialInputText || String(requestState.purpose || "").trim();
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
+        forceNew: submitOptions.forceNewIdempotency,
+    });
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: EMAIL_WRITER_SUB_TOOL_ID,
@@ -4057,6 +4300,12 @@ const handleEmailWriterSubmit = async (text) => {
             state: requestState,
             idempotency_key: idempotencyKey,
             debug: false,
+            ...(submitOptions.regenerate
+                ? {
+                    regenerate: true,
+                    previous_output: submitOptions.previousOutput,
+                }
+                : {}),
         };
 
         console.log("[EmailWriter] payload before send:", JSON.stringify(payload, null, 2));
@@ -4176,7 +4425,13 @@ const handleEmailWriterSubmit = async (text) => {
     }
 };
 
-const handleScriptGeneratorSubmit = async (text) => {
+const handleScriptGeneratorSubmit = async (text, options = {}) => {
+    const submitOptions = {
+        regenerate: false,
+        previousOutput: "",
+        forceNewIdempotency: false,
+        ...options,
+    };
     const initialInputText = String(text || "").trim();
     const initialStateTopic = String(scriptGeneratorState.value.topic || "").trim();
 
@@ -4199,6 +4454,9 @@ const handleScriptGeneratorSubmit = async (text) => {
 
     const localScriptState = resolveScriptGeneratorStateForSubmit(conversation.uuid);
     const inputText = initialInputText || String(localScriptState.topic || "").trim();
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
+        forceNew: submitOptions.forceNewIdempotency,
+    });
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
@@ -4220,10 +4478,17 @@ const handleScriptGeneratorSubmit = async (text) => {
             sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
             conversation_uuid: conversation.uuid,
             user_message: inputText,
+            idempotency_key: idempotencyKey,
             state: hasScriptGeneratorStateValue(localScriptState)
                 ? localScriptState
                 : createEmptyScriptGeneratorState(),
             debug: false,
+            ...(submitOptions.regenerate
+                ? {
+                    regenerate: true,
+                    previous_output: submitOptions.previousOutput,
+                }
+                : {}),
         };
 
         console.log("[ScriptGenerator] payload before send:", JSON.stringify(payload, null, 2));
@@ -4350,7 +4615,14 @@ const handleScriptGeneratorSubmit = async (text) => {
     }
 };
 
-const handleProductDescriptionSubmit = async (text) => {
+const handleProductDescriptionSubmit = async (text, options = {}) => {
+    const submitOptions = {
+        regenerate: false,
+        previousOutput: "",
+        forceNewIdempotency: false,
+        ...options,
+    };
+
     if (sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
         return;
     }
@@ -4402,7 +4674,9 @@ const handleProductDescriptionSubmit = async (text) => {
 
     userInput.value = "";
     resetTextarea();
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
+        forceNew: submitOptions.forceNewIdempotency,
+    });
     const typingId = addAssistantTypingMessage();
 
     try {
@@ -4417,6 +4691,12 @@ const handleProductDescriptionSubmit = async (text) => {
             state: requestState,
             idempotency_key: idempotencyKey,
             debug: false,
+            ...(submitOptions.regenerate
+                ? {
+                    regenerate: true,
+                    previous_output: submitOptions.previousOutput,
+                }
+                : {}),
         });
         removeAssistantTypingMessage(typingId);
 
