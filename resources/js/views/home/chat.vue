@@ -147,6 +147,12 @@
                                 <div v-else class="markdown-body" v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                             </div>
                             <span v-if="!msg.isTyping" class="msg-time">{{ msg.time }}</span>
+                            <div v-if="isTextEditorResult(msg)" class="result-actions">
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateTextEditorResult(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
+                            </div>
                             <div v-if="isProductDescriptionResult(msg)" class="result-actions">
                                 <button type="button" @click="copyProductDescription(msg)">
                                     <i class="bi bi-copy"></i>
@@ -574,11 +580,6 @@ const filteredConversations = computed(() =>
     )
 );
 
-/**
- * Ù…Ù‡Ù…:
- * Ù‡Ù†Ø§ insufficientPoints Ø§ØªØ´Ø§Ù„Øª Ù…Ù† Ø§Ù„ØªØ¹Ø·ÙŠÙ„.
- * Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© ØªØªÙ‚ÙÙ„ ÙÙ‚Ø· Ø¹Ù†Ø¯ limit Ø£Ùˆ Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ø¥Ø±Ø³Ø§Ù„/Ø§Ù„Ø³ØªØ±ÙŠÙ….
- */
 const chatSendDisabled = computed(() =>
     conversationLimitExceeded.value ||
     sendingMessage.value ||
@@ -803,11 +804,6 @@ const hasInsufficientPointsContent = (content = "") => {
     );
 };
 
-/**
- * Ù…Ù‡Ù…:
- * Ø§Ù„Ø¯Ø§Ù„Ø© Ø¯ÙŠ ØªÙØ¶Ù„ Ù…ÙˆØ¬ÙˆØ¯Ø© Ø¹Ø´Ø§Ù† ØªØ¹Ø±Ø¶ Ø§Ù„ØªØ­Ø°ÙŠØ± ÙÙ‚Ø·.
- * Ù„ÙƒÙ†Ù‡Ø§ Ù„Ø§ ØªÙ‚ÙÙ„ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© Ù„Ø£Ù† chatSendDisabled Ù„Ø§ ÙŠØ¹ØªÙ…Ø¯ Ø¹Ù„Ù‰ insufficientPoints.
- */
 const resolveInsufficientPointsState = (rows = []) => {
     const lastAssistantMessage = [...rows]
         .reverse()
@@ -986,9 +982,11 @@ const openAssistantStream = async (conversation, afterId) => {
 };
 
 const hideSearchToggle = computed(() =>
-    Number(subtool.value?.id) === 1 // search
+    Number(subtool.value?.id) === 1
 );
 
+const TEXT_EDITOR_SUB_TOOL_ID = 1;
+const TEXT_EDITOR_TOOL_KEY = "ai_text_editor";
 const PARAPHRASER_SUB_TOOL_ID = 3;
 const PARAPHRASER_TOOL_KEY = "ai_paraphraser";
 const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
@@ -2163,6 +2161,16 @@ const isHeadlineGeneratorResult = (msg = {}) =>
     && String(msg?.metadata?.type || "").toLowerCase() === "result"
     && Boolean(displayMessageContent(msg));
 
+const isTextEditorResult = (msg = {}) => {
+    return (
+        msg?.role === "assistant"
+        && Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
+        && !msg?.isTyping
+        && !msg?.streaming
+        && !msg?.is_error
+    );
+};
+
 const isParaphraserMessage = (msg = {}) => {
     const metadata = msg?.metadata && typeof msg.metadata === "object"
         ? msg.metadata
@@ -2466,6 +2474,20 @@ const findUserInputBeforeMessage = (msg) => {
     const rows = targetIndex >= 0 ? messages.value.slice(0, targetIndex) : messages.value;
 
     return [...rows].reverse().find((item) => item?.role === "user")?.content || "";
+};
+
+const regenerateTextEditorResult = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const content = findUserInputBeforeMessage(msg)
+        || String(userInput.value || "").trim();
+
+    await submitMessage(content, {
+        regenerate: true,
+        previousOutput: oldOutput,
+        forceNewIdempotency: true,
+    });
 };
 
 const regenerateHeadlineResult = async (msg) => {
@@ -5022,8 +5044,14 @@ const ensureConversation = async () => {
     return conversation;
 };
 
-const submitMessage = async () => {
-    const rawContent = userInput.value.trim();
+const submitMessage = async (text = userInput.value, options = {}) => {
+    const submitOptions = {
+        regenerate: false,
+        previousOutput: "",
+        forceNewIdempotency: false,
+        ...options,
+    };
+    const rawContent = String(text || "").trim();
 
     /**
      * Ù…Ù‡Ù…:
@@ -5054,7 +5082,9 @@ const submitMessage = async () => {
         return;
     }
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, content);
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, content, {
+        forceNew: submitOptions.forceNewIdempotency,
+    });
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
@@ -5089,6 +5119,9 @@ const submitMessage = async () => {
             conversation_id: conversation.id,
             role: "user",
             idempotency_key: idempotencyKey,
+            ...(Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
+                ? { tool: TEXT_EDITOR_TOOL_KEY }
+                : {}),
             task_options: searchEnabled.value
                 ? {
                     search_mode: "on",
@@ -5102,6 +5135,12 @@ const submitMessage = async () => {
                     max_tokens: 2500,
                     temperature: 0.45,
                 },
+            ...(submitOptions.regenerate
+                ? {
+                    regenerate: true,
+                    previous_output: submitOptions.previousOutput,
+                }
+                : {}),
         };
 
         console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
