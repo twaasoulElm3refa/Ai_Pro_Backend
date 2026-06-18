@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 class MessageRequest extends FormRequest
 {
     private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
+    private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
 
     /**
      * Determine if the user is authorized to make this request.
@@ -65,17 +66,43 @@ class MessageRequest extends FormRequest
                 'string',
                 'max:5000',
                 Rule::requiredIf(fn (): bool =>
-                    (int) $this->input('sub_tool_id') !== 8
+                    (int) $this->input('sub_tool_id') !== self::TEXT_SUMMARIZER_SUB_TOOL_ID
+                    && (int) $this->input('sub_tool_id') !== 8
                     && ! $this->filled('message')
                     && ! $this->filled('user_message')
                 ),
+            ],
+            'body' => [
+                'nullable',
+                'string',
+                'max:100000',
+            ],
+            'title' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'task_key' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'regenerate' => [
+                'nullable',
+                'boolean',
+            ],
+            'previous_output' => [
+                'nullable',
+                'string',
+                'max:100000',
             ],
             'message' => [
                 'nullable',
                 'string',
                 'max:5000',
                 Rule::requiredIf(fn (): bool =>
-                    (int) $this->input('sub_tool_id') !== 8
+                    (int) $this->input('sub_tool_id') !== self::TEXT_SUMMARIZER_SUB_TOOL_ID
+                    && (int) $this->input('sub_tool_id') !== 8
                     && ! $this->filled('content')
                     && ! $this->filled('user_message')
                 ),
@@ -85,7 +112,8 @@ class MessageRequest extends FormRequest
                 'string',
                 'max:5000',
                 Rule::requiredIf(fn (): bool =>
-                    (int) $this->input('sub_tool_id') !== 8
+                    (int) $this->input('sub_tool_id') !== self::TEXT_SUMMARIZER_SUB_TOOL_ID
+                    && (int) $this->input('sub_tool_id') !== 8
                     && ! $this->filled('content')
                     && ! $this->filled('message')
                 ),

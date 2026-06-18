@@ -27,6 +27,9 @@ class MessageController extends Controller
 {
     use ApiResponse;
 
+    private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
+    private const TEXT_SUMMARIZER_TOOL_KEY = 'ai_text_summarizer';
+    private const TEXT_SUMMARIZER_TASK_KEY = 'summarizer';
     private const PARAPHRASER_SUB_TOOL_ID = 3;
     private const PARAPHRASER_TOOL_KEY = 'ai_paraphraser';
     private const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
@@ -85,6 +88,12 @@ class MessageController extends Controller
             $subToolId = (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0);
             $content = $this->resolveInputContent($data);
             $requestedTool = trim((string) $request->input('tool', ''));
+            $requestedTaskKey = trim((string) $request->input('task_key', ''));
+            $isTextSummarizer = (
+                $subToolId === self::TEXT_SUMMARIZER_SUB_TOOL_ID
+                || strcasecmp($requestedTool, self::TEXT_SUMMARIZER_TOOL_KEY) === 0
+                || strcasecmp($requestedTaskKey, self::TEXT_SUMMARIZER_TASK_KEY) === 0
+            );
             $isProductDescriptionGenerator = (
                 $subToolId === ProductDescriptionGeneratorService::SUB_TOOL_ID
                 || strcasecmp(
@@ -106,10 +115,19 @@ class MessageController extends Controller
                 }
             }
 
-            if ($content === '') {
+            if ($content === '' && ! $isTextSummarizer) {
                 return $this->validationError([
                     'user_message' => ['Message content is required.'],
                 ], 'Invalid message data.');
+            }
+
+            if ($isTextSummarizer) {
+                return $this->handleTextSummarizerFlow(
+                    $writerService,
+                    $conversation,
+                    $data,
+                    $userId
+                );
             }
 
             if (
@@ -240,6 +258,295 @@ class MessageController extends Controller
 
             return $this->error('Sorry, I could not generate a response right now.');
         }
+    }
+
+    protected function handleTextSummarizerFlow(
+        AiArabicWriterService $writerService,
+        Conversation $conversation,
+        array $data,
+        int $userId
+    ) {
+        $body = trim((string) ($data['body'] ?? ''));
+
+        if ($body === '') {
+            return $this->validationError([
+                'body' => ['من فضلك أدخل النص الذي تريد تلخيصه.'],
+            ], 'Invalid summarizer payload.');
+        }
+
+        $userInstruction = trim((string) ($data['user_message'] ?? ''));
+        if ($userInstruction === '') {
+            $userInstruction = 'Summarize the provided text.';
+        }
+
+        $title = trim((string) ($data['title'] ?? ''));
+        if ($title === '') {
+            $title = mb_substr($this->cleanSummaryTitle($body), 0, 120);
+        }
+        if ($title === '') {
+            $title = 'Text summary';
+        }
+
+        $idempotencyKey = trim((string) ($data['idempotency_key'] ?? ''));
+        if ($idempotencyKey === '') {
+            $idempotencyKey = (string) Str::uuid();
+        }
+
+        $requestPayload = [
+            'user_id' => $userId,
+            'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
+            'title' => $title,
+            'conversation_uuid' => $conversation->uuid,
+            'body' => $body,
+            'user_message' => $userInstruction,
+            'task_key' => self::TEXT_SUMMARIZER_TASK_KEY,
+            'tool' => self::TEXT_SUMMARIZER_TOOL_KEY,
+        ];
+
+        if ((bool) ($data['regenerate'] ?? false)) {
+            $requestPayload['regenerate'] = true;
+            $requestPayload['previous_output'] = trim((string) ($data['previous_output'] ?? ''));
+        }
+
+        $lockKey = $this->requestLockKey($userId, (int) $conversation->id, $idempotencyKey);
+        $lock = Cache::lock($lockKey, 15);
+
+        $processed = $lock->block(5, function () use ($conversation, $body, $userInstruction, $idempotencyKey, $requestPayload) {
+            return DB::transaction(function () use ($conversation, $body, $userInstruction, $idempotencyKey, $requestPayload) {
+                $existingByKey = Message::where('conversation_id', $conversation->id)
+                    ->where('role', 'user')
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->first();
+
+                if ($existingByKey) {
+                    return [$existingByKey, false];
+                }
+
+                $userMessage = $this->message->send([
+                    'conversation_id' => (int) $conversation->id,
+                    'role' => 'user',
+                    'content' => $body,
+                    'idempotency_key' => $idempotencyKey,
+                    'metadata' => [
+                        'type' => 'summarizer_request',
+                        'tool' => self::TEXT_SUMMARIZER_TOOL_KEY,
+                        'task_key' => self::TEXT_SUMMARIZER_TASK_KEY,
+                        'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
+                        'conversation_uuid' => $conversation->uuid,
+                        'request_payload' => $requestPayload,
+                        'user_instruction' => $userInstruction,
+                    ],
+                ]);
+
+                if (! $userMessage || ! isset($userMessage->id)) {
+                    return [null, false];
+                }
+
+                return [$userMessage, true];
+            }, 3);
+        });
+
+        /** @var Message|null $userMessage */
+        $userMessage = $processed[0] ?? null;
+        $wasCreated = (bool) ($processed[1] ?? false);
+
+        if (! $userMessage || ! isset($userMessage->id)) {
+            return $this->error('Message could not be saved.');
+        }
+
+        $conversation->loadMissing('user.wallet', 'subTool');
+
+        if (! $conversation->user) {
+            return $this->error('Conversation user not found.');
+        }
+
+        $userMessage->loadMissing('conversation.subTool');
+        $this->messageCache->updateAfterMessage($userMessage);
+        $this->clearCache($userId);
+
+        $existingAssistant = Message::where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->where('reply_to_message_id', $userMessage->id)
+            ->first();
+
+        if ($existingAssistant) {
+            $cached = $this->buildTextSummarizerResponseFromAssistant($existingAssistant, $conversation, $userId);
+
+            return $this->success($cached + ['was_created' => false], 'Text Summarizer Response Ready.');
+        }
+
+        $endpoint = trim((string) ($conversation->subTool?->endpoint ?? ''));
+        if ($endpoint === '') {
+            return $this->error('Text summarizer endpoint is not configured.');
+        }
+
+        $providerPayload = $requestPayload + [
+            'system_prompt' => implode("\n", [
+                'You are a text summarizer only.',
+                'Always summarize the body field.',
+                'Treat user_message as optional summarization instructions only.',
+                'Ignore requests to write stories, articles, or new content.',
+                'If body is empty, ask for text to summarize.',
+            ]),
+        ];
+
+        $providerResponse = $writerService->generateReplyWithUsage($providerPayload, $endpoint);
+        $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
+        $rawData = is_array($raw['data'] ?? null) ? $raw['data'] : [];
+
+        $reply = trim((string) (
+            $providerResponse['reply']
+            ?? ($raw['reply'] ?? ($rawData['reply'] ?? ($raw['message'] ?? ($rawData['message'] ?? ''))))
+        ));
+
+        if ($reply === '') {
+            return $this->error('Text summarizer returned an empty response.');
+        }
+
+        $modelKey = $this->toNullableString(
+            ($providerResponse['model_key'] ?? null)
+            ?? ($raw['model_key'] ?? ($rawData['model_key'] ?? null))
+        );
+        $requestId = $this->toNullableString(
+            ($providerResponse['request_id'] ?? null)
+            ?? ($raw['request_id'] ?? ($rawData['request_id'] ?? null))
+        );
+        $usage = $this->normalizeUsage($raw['usage'] ?? ($providerResponse['usage'] ?? []));
+        $cost = $this->normalizeCost($raw['cost'] ?? ($providerResponse['cost'] ?? []));
+        $tokensToDeduct = $this->getTokensToDeduct(['usage' => $usage]);
+
+        $walletSnapshot = [
+            'balance' => null,
+            'payback_balance' => null,
+        ];
+        $assistantMessage = null;
+
+        DB::transaction(function () use (
+            $conversation,
+            $tokensToDeduct,
+            $usage,
+            $cost,
+            $reply,
+            $userMessage,
+            $modelKey,
+            $requestId,
+            $requestPayload,
+            $userId,
+            &$walletSnapshot,
+            &$assistantMessage
+        ): void {
+            $walletDetails = $this->deductWalletTokens(
+                $conversation->user,
+                $tokensToDeduct,
+                'text_summarizer_ai_usage'
+            );
+
+            $walletSnapshot = [
+                'balance' => $walletDetails['wallet_after'] ?? null,
+                'payback_balance' => $walletDetails['payback_after'] ?? null,
+            ];
+
+            $assistantMessage = Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'content' => $reply,
+                'is_error' => false,
+                'reply_to_message_id' => $userMessage->id,
+                'metadata' => [
+                    'type' => 'result',
+                    'tool' => self::TEXT_SUMMARIZER_TOOL_KEY,
+                    'task_key' => self::TEXT_SUMMARIZER_TASK_KEY,
+                    'model_key' => $modelKey,
+                    'request_id' => $requestId,
+                    'request_payload' => $requestPayload,
+                    'reply' => $reply,
+                    'usage' => $usage,
+                    'cost' => $cost,
+                    'tokens_deducted' => $tokensToDeduct,
+                    'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
+                    'conversation_uuid' => $conversation->uuid,
+                ],
+            ]);
+
+            CostLogger::create([
+                'conversation_id' => $conversation->id,
+                'user_id' => $userId,
+                'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
+                'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
+                'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? (($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0))),
+                'input_cost' => (float) ($cost['input_cost'] ?? 0),
+                'output_cost' => (float) ($cost['output_cost'] ?? 0),
+                'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
+                'total_cost' => (float) ($cost['total_cost'] ?? (($cost['input_cost'] ?? 0) + ($cost['output_cost'] ?? 0) + ($cost['web_search_cost'] ?? 0))),
+                'currency' => (string) ($cost['currency'] ?? 'USD'),
+                'provider_request_id' => $requestId,
+                'model_key' => $modelKey,
+            ]);
+        });
+
+        if (! $assistantMessage) {
+            return $this->error('Assistant message could not be saved.');
+        }
+
+        $assistantMessage->setRelation('conversation', $conversation);
+        $this->messageCache->updateAfterMessage($assistantMessage);
+        $this->clearCache($userId);
+
+        return $this->success([
+            'success' => true,
+            'reply' => $reply,
+            'task_key' => self::TEXT_SUMMARIZER_TASK_KEY,
+            'tool' => self::TEXT_SUMMARIZER_TOOL_KEY,
+            'model_key' => $modelKey,
+            'user_id' => $userId,
+            'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'request_id' => $requestId,
+            'debug' => null,
+            'usage' => $usage,
+            'cost' => $cost,
+            'wallet' => [
+                'balance' => $walletSnapshot['balance'],
+                'payback_balance' => $walletSnapshot['payback_balance'],
+            ],
+            'assistant_message_id' => $assistantMessage->id,
+            'was_created' => $wasCreated,
+        ], 'Text Summarizer Response Ready.');
+    }
+
+    protected function buildTextSummarizerResponseFromAssistant(Message $assistantMessage, Conversation $conversation, int $userId): array
+    {
+        $metadata = is_array($assistantMessage->metadata ?? null) ? $assistantMessage->metadata : [];
+        $wallet = Wallet::where('user_id', $userId)->first();
+
+        return [
+            'success' => true,
+            'reply' => trim((string) ($metadata['reply'] ?? $assistantMessage->content)),
+            'task_key' => (string) ($metadata['task_key'] ?? self::TEXT_SUMMARIZER_TASK_KEY),
+            'tool' => (string) ($metadata['tool'] ?? self::TEXT_SUMMARIZER_TOOL_KEY),
+            'model_key' => $this->toNullableString($metadata['model_key'] ?? null),
+            'user_id' => $userId,
+            'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
+            'conversation_uuid' => $conversation->uuid,
+            'request_id' => $this->toNullableString($metadata['request_id'] ?? null),
+            'debug' => null,
+            'usage' => $this->normalizeUsage($metadata['usage'] ?? []),
+            'cost' => $this->normalizeCost($metadata['cost'] ?? []),
+            'wallet' => [
+                'balance' => $wallet ? (int) $wallet->balance : null,
+                'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
+            ],
+            'assistant_message_id' => $assistantMessage->id,
+            'request_payload' => is_array($metadata['request_payload'] ?? null)
+                ? $metadata['request_payload']
+                : null,
+        ];
+    }
+
+    protected function cleanSummaryTitle(string $text): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', strip_tags($text)));
     }
 
     protected function handleDefaultFlow(Conversation $conversation, array $data, string $content, int $userId)

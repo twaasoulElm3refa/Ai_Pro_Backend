@@ -153,6 +153,12 @@
                                     {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
                                 </button>
                             </div>
+                            <div v-if="isTextSummarizerResult(msg)" class="result-actions">
+                                <button type="button" :disabled="chatSendDisabled" @click="regenerateTextSummarizerResult(msg)">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
+                                </button>
+                            </div>
                             <div v-if="isProductDescriptionResult(msg)" class="result-actions">
                                 <button type="button" @click="copyProductDescription(msg)">
                                     <i class="bi bi-copy"></i>
@@ -987,6 +993,9 @@ const hideSearchToggle = computed(() =>
 
 const TEXT_EDITOR_SUB_TOOL_ID = 1;
 const TEXT_EDITOR_TOOL_KEY = "ai_text_editor";
+const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
+const TEXT_SUMMARIZER_TOOL_KEY = "ai_text_summarizer";
+const TEXT_SUMMARIZER_TASK_KEY = "summarizer";
 const PARAPHRASER_SUB_TOOL_ID = 3;
 const PARAPHRASER_TOOL_KEY = "ai_paraphraser";
 const HEADLINE_GENERATOR_SUB_TOOL_ID = 4;
@@ -1243,6 +1252,7 @@ const createEmptyProductDescriptionState = () => ({
 
 const productDescriptionState = ref(createEmptyProductDescriptionState());
 const productOptionsOpen = ref(false);
+const textSummarizerLastRequest = ref(null);
 
 const productDescriptionSelectFields = [
     {
@@ -1286,6 +1296,10 @@ const isHeadlineGeneratorTool = computed(() =>
 
 const isParaphraserTool = computed(() =>
     Number(subtool.value?.id) === PARAPHRASER_SUB_TOOL_ID
+);
+
+const isTextSummarizerTool = computed(() =>
+    Number(subtool.value?.id) === TEXT_SUMMARIZER_SUB_TOOL_ID
 );
 
 const isSocialPostGeneratorTool = computed(() =>
@@ -2171,6 +2185,58 @@ const isTextEditorResult = (msg = {}) => {
     );
 };
 
+const getTextSummarizerMeta = (msg = {}) => {
+    if (msg?.toolMeta && typeof msg.toolMeta === "object") {
+        return msg.toolMeta;
+    }
+
+    if (msg?.metadata && typeof msg.metadata === "object") {
+        return msg.metadata;
+    }
+
+    return {};
+};
+
+const isTextSummarizerMessage = (msg = {}) => {
+    const meta = getTextSummarizerMeta(msg);
+
+    return Number(msg?.sub_tool_id || 0) === TEXT_SUMMARIZER_SUB_TOOL_ID
+        || Number(meta?.sub_tool_id || 0) === TEXT_SUMMARIZER_SUB_TOOL_ID
+        || String(msg?.task_key || "").toLowerCase() === TEXT_SUMMARIZER_TASK_KEY
+        || String(meta?.task_key || "").toLowerCase() === TEXT_SUMMARIZER_TASK_KEY
+        || String(meta?.tool || "").toLowerCase() === TEXT_SUMMARIZER_TOOL_KEY;
+};
+
+const isTextSummarizerResult = (msg = {}) => {
+    if (!msg || msg.role !== "assistant") return false;
+    if (msg.isTyping || msg.streaming || msg.is_error) return false;
+
+    return (
+        isTextSummarizerMessage(msg)
+        || (
+            Number(subtool.value?.id) === TEXT_SUMMARIZER_SUB_TOOL_ID
+            && !isProductDescriptionResult(msg)
+            && !isSocialPostResult(msg)
+            && !isEmailWriterResult(msg)
+            && !isScriptGeneratorResult(msg)
+            && !isHeadlineGeneratorResult(msg)
+            && !isParaphraserResult(msg)
+        )
+    );
+};
+
+const getTextSummarizerOutput = (msg = {}) => {
+    const meta = getTextSummarizerMeta(msg);
+
+    return String(
+        meta?.reply
+        || msg?.reply
+        || msg?.content
+        || msg?.message
+        || ""
+    ).trim();
+};
+
 const isParaphraserMessage = (msg = {}) => {
     const metadata = msg?.metadata && typeof msg.metadata === "object"
         ? msg.metadata
@@ -2417,6 +2483,10 @@ const productDescriptionUsage = (msg = {}) => {
 const displayMessageContent = (msg = {}) => {
     const content = String(msg?.content || msg?.message || "");
 
+    if (msg?.role === "assistant" && isTextSummarizerMessage(msg)) {
+        return getTextSummarizerOutput(msg);
+    }
+
     if (msg?.role === "assistant" && isProductDescriptionMessage(msg)) {
         return getProductDescriptionOutput(msg);
     }
@@ -2474,6 +2544,284 @@ const findUserInputBeforeMessage = (msg) => {
     const rows = targetIndex >= 0 ? messages.value.slice(0, targetIndex) : messages.value;
 
     return [...rows].reverse().find((item) => item?.role === "user")?.content || "";
+};
+
+const buildTextSummarizerTitle = (body = "") => {
+    const cleaned = String(body || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    return cleaned.slice(0, 120) || "Text summary";
+};
+
+const createTextSummarizerPayload = (body, conversation = {}) => {
+    const cleanBody = String(body || "").trim();
+
+    return {
+        user_id: resolveCurrentUserId(),
+        sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+        title: buildTextSummarizerTitle(cleanBody),
+        conversation_uuid: conversation.uuid || activeConversation.value?.uuid || route.params.uuid || "",
+        body: cleanBody,
+        user_message: "Summarize the provided text.",
+        task_key: TEXT_SUMMARIZER_TASK_KEY,
+        tool: TEXT_SUMMARIZER_TOOL_KEY,
+    };
+};
+
+const getTextSummarizerRequestPayload = (msg = {}) => {
+    const meta = getTextSummarizerMeta(msg);
+
+    if (meta?.request_payload && typeof meta.request_payload === "object") {
+        return meta.request_payload;
+    }
+
+    if (msg?.request_payload && typeof msg.request_payload === "object") {
+        return msg.request_payload;
+    }
+
+    const previousUserMessage = findUserInputBeforeMessage(msg);
+    if (previousUserMessage) {
+        const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+
+        return {
+            user_id: resolveCurrentUserId(),
+            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+            title: buildTextSummarizerTitle(previousUserMessage),
+            conversation_uuid: conversationUuid,
+            body: previousUserMessage,
+            user_message: "Summarize the provided text.",
+            task_key: TEXT_SUMMARIZER_TASK_KEY,
+            tool: TEXT_SUMMARIZER_TOOL_KEY,
+        };
+    }
+
+    if (textSummarizerLastRequest.value) {
+        return textSummarizerLastRequest.value;
+    }
+
+    return null;
+};
+
+const sendTextSummarizerRequest = async (payload, options = {}) => {
+    const submitOptions = {
+        forceNewIdempotency: false,
+        addUserMessage: true,
+        ...options,
+    };
+    const body = String(payload?.body || "").trim();
+
+    if (conversationLimitExceeded.value || sendingMessage.value || streamingAssistant.value) {
+        return;
+    }
+
+    if (!body) {
+        await addAssistantLocalMessage(
+            "من فضلك أدخل النص الذي تريد تلخيصه.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: TEXT_SUMMARIZER_TOOL_KEY,
+                    task_key: TEXT_SUMMARIZER_TASK_KEY,
+                    sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                },
+            }
+        );
+        return;
+    }
+
+    if (!(await requireAuth())) {
+        return;
+    }
+
+    sendingMessage.value = true;
+    const conversation = await ensureConversation();
+
+    if (!conversation?.uuid) {
+        sendingMessage.value = false;
+        await addAssistantLocalMessage("تعذر إنشاء المحادثة. حاول مرة أخرى.", {
+            is_error: true,
+            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+        });
+        return;
+    }
+
+    const requestPayload = {
+        ...payload,
+        user_id: payload?.user_id || resolveCurrentUserId(),
+        sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+        title: payload?.title || buildTextSummarizerTitle(body),
+        conversation_uuid: conversation.uuid,
+        conversation_id: conversation.id,
+        body,
+        user_message: String(payload?.user_message || "Summarize the provided text.").trim(),
+        task_key: TEXT_SUMMARIZER_TASK_KEY,
+        tool: TEXT_SUMMARIZER_TOOL_KEY,
+    };
+
+    textSummarizerLastRequest.value = { ...requestPayload };
+
+    const idempotencyKey = resolveIdempotencyKey(
+        conversation.uuid,
+        JSON.stringify({
+            body: requestPayload.body,
+            user_message: requestPayload.user_message,
+            regenerate: Boolean(requestPayload.regenerate),
+            previous_output: requestPayload.previous_output || "",
+        }),
+        { forceNew: submitOptions.forceNewIdempotency }
+    );
+    const requestSignature = `${conversation.id}:${idempotencyKey}`;
+
+    if (inFlightSignatures.has(requestSignature)) {
+        sendingMessage.value = false;
+        return;
+    }
+
+    inFlightSignatures.add(requestSignature);
+
+    if (submitOptions.addUserMessage) {
+        await addUserLocalMessage(body, {
+            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+            metadata: {
+                type: "summarizer_request",
+                tool: TEXT_SUMMARIZER_TOOL_KEY,
+                task_key: TEXT_SUMMARIZER_TASK_KEY,
+                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                request_payload: requestPayload,
+            },
+        });
+    }
+
+    userInput.value = "";
+    resetTextarea();
+    const typingId = addAssistantTypingMessage();
+
+    try {
+        const response = await chatServices.sendMessage({
+            ...requestPayload,
+            idempotency_key: idempotencyKey,
+        });
+        removeAssistantTypingMessage(typingId);
+
+        const apiResponse = normalizeTextSummarizerApiResponse(response);
+
+        if (!apiResponse || !apiResponse.reply) {
+            await addAssistantLocalMessage(
+                "تعذر قراءة نتيجة تلخيص النص. حاول مرة أخرى.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                    metadata: {
+                        type: "error",
+                        tool: TEXT_SUMMARIZER_TOOL_KEY,
+                        task_key: TEXT_SUMMARIZER_TASK_KEY,
+                        sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                        request_payload: requestPayload,
+                    },
+                }
+            );
+            return;
+        }
+
+        const metadata = {
+            type: "result",
+            tool: apiResponse.tool || TEXT_SUMMARIZER_TOOL_KEY,
+            task_key: apiResponse.task_key || TEXT_SUMMARIZER_TASK_KEY,
+            model_key: apiResponse.model_key,
+            request_id: apiResponse.request_id,
+            request_payload: apiResponse.request_payload || requestPayload,
+            reply: apiResponse.reply,
+            usage: apiResponse.usage,
+            cost: apiResponse.cost,
+            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+            conversation_uuid: apiResponse.conversation_uuid || conversation.uuid,
+        };
+
+        await addAssistantLocalMessage(apiResponse.reply, {
+            plainText: false,
+            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+            task_key: TEXT_SUMMARIZER_TASK_KEY,
+            toolMeta: metadata,
+            metadata,
+        });
+
+        if (!conversations.value.find((item) => item.uuid === conversation.uuid)) {
+            conversations.value.unshift(conversation);
+        }
+
+        clearPendingSend(conversation.uuid);
+        await focusChatInput();
+    } catch (error) {
+        console.error("[TextSummarizer] send failed:", error);
+        removeAssistantTypingMessage(typingId);
+        await addAssistantLocalMessage("حدث خطأ أثناء تلخيص النص. حاول مرة أخرى.", {
+            plainText: true,
+            is_error: true,
+            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+            metadata: {
+                type: "error",
+                tool: TEXT_SUMMARIZER_TOOL_KEY,
+                task_key: TEXT_SUMMARIZER_TASK_KEY,
+                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                request_payload: requestPayload,
+            },
+        });
+    } finally {
+        removeAssistantTypingMessage(typingId);
+        inFlightSignatures.delete(requestSignature);
+        sendingMessage.value = false;
+        await scrollToBottom();
+    }
+};
+
+const handleTextSummarizerSubmit = async (text) => {
+    const body = String(text || "").trim();
+
+    if (!body) {
+        await addAssistantLocalMessage(
+            "من فضلك أدخل النص الذي تريد تلخيصه.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+            }
+        );
+        return;
+    }
+
+    await sendTextSummarizerRequest(createTextSummarizerPayload(body));
+};
+
+const regenerateTextSummarizerResult = async (msg) => {
+    if (chatSendDisabled.value) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const oldPayload = getTextSummarizerRequestPayload(msg);
+
+    if (!oldPayload) {
+        console.warn("Missing summarizer request payload for regeneration.");
+        return;
+    }
+
+    await sendTextSummarizerRequest(
+        {
+            ...oldPayload,
+            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+            task_key: TEXT_SUMMARIZER_TASK_KEY,
+            tool: TEXT_SUMMARIZER_TOOL_KEY,
+            regenerate: true,
+            previous_output: oldOutput,
+        },
+        {
+            forceNewIdempotency: true,
+        }
+    );
 };
 
 const regenerateTextEditorResult = async (msg) => {
@@ -3254,6 +3602,56 @@ const hydrateHeadlineStateFromMessages = (rows = []) => {
 
     const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
     headlineState.value = extractHeadlineStateFromMessages(rows, conversationUuid);
+};
+
+const normalizeTextSummarizerApiResponse = (response = {}) => {
+    if (response?.status === "error" || response?.success === false) {
+        return {
+            success: false,
+            reply: String(response?.message || "حدث خطأ أثناء تلخيص النص."),
+            task_key: TEXT_SUMMARIZER_TASK_KEY,
+            tool: TEXT_SUMMARIZER_TOOL_KEY,
+            model_key: null,
+            request_id: null,
+            usage: null,
+            cost: null,
+        };
+    }
+
+    const payload = response?.data && typeof response.data === "object"
+        ? response.data
+        : response;
+    if (!payload || typeof payload !== "object") return null;
+
+    const normalizedSubToolId = Number(payload?.sub_tool_id || subtool.value?.id || 0);
+    const normalizedTaskKey = String(payload?.task_key || "").trim().toLowerCase();
+    const normalizedTool = String(payload?.tool || "").trim().toLowerCase();
+
+    if (
+        normalizedSubToolId !== TEXT_SUMMARIZER_SUB_TOOL_ID
+        && normalizedTaskKey !== TEXT_SUMMARIZER_TASK_KEY
+        && normalizedTool !== TEXT_SUMMARIZER_TOOL_KEY
+    ) {
+        return null;
+    }
+
+    return {
+        success: payload?.success !== false,
+        reply: String(payload?.reply || payload?.message || "").trim(),
+        task_key: normalizedTaskKey || TEXT_SUMMARIZER_TASK_KEY,
+        tool: normalizedTool || TEXT_SUMMARIZER_TOOL_KEY,
+        model_key: payload?.model_key || null,
+        user_id: payload?.user_id ?? null,
+        sub_tool_id: normalizedSubToolId || TEXT_SUMMARIZER_SUB_TOOL_ID,
+        conversation_uuid: payload?.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
+        request_id: payload?.request_id || null,
+        debug: payload?.debug ?? null,
+        usage: payload?.usage && typeof payload.usage === "object" ? payload.usage : null,
+        cost: payload?.cost && typeof payload.cost === "object" ? payload.cost : null,
+        request_payload: payload?.request_payload && typeof payload.request_payload === "object"
+            ? payload.request_payload
+            : null,
+    };
 };
 
 const normalizeHeadlineApiResponse = (response = {}) => {
@@ -5177,6 +5575,11 @@ const submitMessage = async (text = userInput.value, options = {}) => {
 };
 
 const onSubmitMessage = async () => {
+    if (isTextSummarizerTool.value) {
+        await handleTextSummarizerSubmit(userInput.value);
+        return;
+    }
+
     if (isHeadlineGeneratorTool.value) {
         await handleHeadlineGeneratorSubmit(userInput.value);
         return;
