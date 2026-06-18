@@ -2158,21 +2158,47 @@ const buildHeadlineResultMessage = (apiResponse) => {
 };
 
 const isHeadlineGeneratorMessage = (message = {}) => {
-    const currentSubToolId = Number(subtool.value?.id || 0);
-    const messageSubToolId = Number(message?.sub_tool_id || message?.subToolId || 0);
-    const metadataSubToolId = Number(message?.metadata?.sub_tool_id || 0);
+    const metadata = message?.metadata && typeof message.metadata === "object"
+        ? message.metadata
+        : {};
+    const toolMeta = message?.toolMeta && typeof message.toolMeta === "object"
+        ? message.toolMeta
+        : {};
+    const explicitSubToolId = Number(
+        message?.sub_tool_id
+        || message?.subToolId
+        || metadata?.sub_tool_id
+        || toolMeta?.sub_tool_id
+        || 0
+    );
 
-    return messageSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID
-        || metadataSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID
-        || currentSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID;
+    if (explicitSubToolId > 0) {
+        return explicitSubToolId === HEADLINE_GENERATOR_SUB_TOOL_ID;
+    }
+
+    const toolKey = String(
+        metadata?.tool_key
+        || toolMeta?.tool_key
+        || metadata?.tool
+        || toolMeta?.tool
+        || ""
+    ).toLowerCase();
+
+    if (toolKey) {
+        return toolKey === "headline_generator"
+            || toolKey === "ai_headline_generator";
+    }
+
+    return Number(subtool.value?.id || 0) === HEADLINE_GENERATOR_SUB_TOOL_ID;
 };
 
 const isHeadlineGeneratorResult = (msg = {}) =>
     msg?.role === "assistant"
     && !msg?.isTyping
+    && !msg?.streaming
     && !msg?.is_error
     && isHeadlineGeneratorMessage(msg)
-    && String(msg?.metadata?.type || "").toLowerCase() === "result"
+    && String(msg?.metadata?.type || msg?.toolMeta?.type || "result").toLowerCase() === "result"
     && Boolean(displayMessageContent(msg));
 
 const isTextEditorResult = (msg = {}) => {
@@ -2842,7 +2868,7 @@ const regenerateHeadlineResult = async (msg) => {
     if (chatSendDisabled.value) return;
 
     const oldOutput = displayMessageContent(msg);
-    const metadataState = msg?.metadata?.state;
+    const metadataState = msg?.metadata?.state || msg?.toolMeta?.state;
 
     if (metadataState && typeof metadataState === "object") {
         headlineState.value = mergeHeadlineState(getInitialHeadlineState(), metadataState);
@@ -4169,10 +4195,12 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
             provider: apiResponse.provider,
             model_key: apiResponse.model_key,
             tool: apiResponse.tool,
+            tool_key: "headline_generator",
             state: headlineState.value,
             usage: apiResponse.usage,
             cost: apiResponse.cost,
             headlines: apiResponse.headlines,
+            request_payload: payload,
             sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
         };
 
@@ -4186,6 +4214,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
                 {
                     plainText: true,
                     metadata,
+                    toolMeta: metadata,
                     sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
                 }
             );
@@ -4196,6 +4225,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
                 {
                     plainText: false,
                     metadata,
+                    toolMeta: metadata,
                     sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
                 }
             );
@@ -4207,6 +4237,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
                 {
                     plainText: true,
                     metadata,
+                    toolMeta: metadata,
                     sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
                 }
             );
@@ -4218,6 +4249,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
                 {
                     plainText: true,
                     metadata,
+                    toolMeta: metadata,
                     sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
                 }
             );
