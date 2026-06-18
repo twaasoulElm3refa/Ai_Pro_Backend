@@ -55,6 +55,22 @@
         <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
 
         <div class="main-area">
+            <div class="mobile-chat-topbar">
+                <button
+                    type="button"
+                    class="mobile-sidebar-toggle"
+                    :aria-label="isArabic ? 'فتح قائمة المحادثات' : 'Open conversations sidebar'"
+                    @click="sidebarOpen = true"
+                >
+                    <i class="bi bi-layout-sidebar-inset"></i>
+                </button>
+
+                <div class="mobile-chat-title">
+                    <strong>{{ subtool.name || t("user.chat.workspaceTitle") }}</strong>
+                    <span>{{ isArabic ? "المحادثات" : "Conversations" }}</span>
+                </div>
+            </div>
+
             <div
                 class="messages-wrap"
                 ref="messagesContainer"
@@ -1037,6 +1053,7 @@ const SCRIPT_GENERATOR_TOOL_KEY = "ai_script_generator";
 const PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID = 8;
 const PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY = "ai_product_description_generator";
 const PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY = "product_description_generator";
+const MOBILE_SIDEBAR_BREAKPOINT = 900;
 
 const getInitialHeadlineState = () => ({
     content: null,
@@ -5442,16 +5459,16 @@ const syncRouteConversation = async () => {
 };
 
 const openConversation = async (conversation) => {
-    sidebarOpen.value = false;
-
     if (!conversation?.uuid) return;
 
     if (route.params.uuid === conversation.uuid) {
         await loadConversationDetails(conversation.uuid);
+        sidebarOpen.value = false;
         return;
     }
 
     await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
+    sidebarOpen.value = false;
 };
 
 const startNewChat = async () => {
@@ -5756,7 +5773,17 @@ onMounted(async () => {
 
 onUnmounted(() => {
     closeAssistantStream();
+    document.body.style.overflow = "";
     window.removeEventListener("lang-changed", handleLangChanged);
+});
+
+watch(sidebarOpen, (isOpen) => {
+    if (window.innerWidth > MOBILE_SIDEBAR_BREAKPOINT) {
+        document.body.style.overflow = "";
+        return;
+    }
+
+    document.body.style.overflow = isOpen ? "hidden" : "";
 });
 
 watch(
@@ -6022,6 +6049,10 @@ watch(
     flex-direction: column;
     overflow: hidden;
     background: transparent;
+}
+
+.mobile-chat-topbar {
+    display: none;
 }
 
 .topbar {
@@ -6448,27 +6479,33 @@ watch(
     align-items: center;
     gap: 8px;
     max-width: fit-content;
-    padding: 12px 16px;
-    border-radius: 18px;
-    background: rgba(21, 70, 119, 0.08);
-    color: #154677;
-    font-size: 13px;
-    font-weight: 800;
-    box-shadow: 0 10px 24px rgba(21, 70, 119, 0.08);
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: #ffffff;
+    color: #334155;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.typing-text {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
 }
 
 .typing-dots {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 4px;
+    height: 14px;
 }
 
 .typing-dots span {
     width: 6px;
     height: 6px;
     border-radius: 999px;
-    background: #2ba6de;
-    animation: typingPulse 1s infinite ease-in-out;
+    background: currentColor;
+    opacity: 0.55;
+    animation: typingWave 0.9s ease-in-out infinite;
 }
 
 .typing-dots span:nth-child(2) {
@@ -7005,42 +7042,149 @@ watch(
     }
 }
 
-@keyframes typingPulse {
+@keyframes typingWave {
     0%, 80%, 100% {
-        opacity: 0.35;
+        opacity: 0.45;
         transform: translateY(0);
     }
 
     40% {
         opacity: 1;
-        transform: translateY(-3px);
+        transform: translateY(-6px);
     }
 }
 
 @media (max-width: 900px) {
+    .chat-root {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mobile-chat-topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        background: #ffffff;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        position: sticky;
+        top: 0;
+        z-index: 20;
+    }
+
+    .mobile-sidebar-toggle {
+        width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f5f9;
+        color: #0f172a;
+        font-size: 20px;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .mobile-sidebar-toggle:active {
+        transform: scale(0.94);
+    }
+
+    .mobile-chat-title {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.2;
+        min-width: 0;
+    }
+
+    .mobile-chat-title strong {
+        font-size: 14px;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-chat-title span {
+        font-size: 12px;
+        color: #64748b;
+    }
+
     .sidebar {
         position: fixed;
         top: 0;
+        bottom: 0;
+        width: min(86vw, 340px);
+        max-width: 340px;
+        height: auto;
+        z-index: 100;
+        background: #ffffff;
+        transform: translateX(-110%);
+        transition: transform 0.28s ease, box-shadow 0.28s ease;
+        box-shadow: none;
+        will-change: transform;
+    }
+
+    [dir="rtl"] .sidebar {
         right: 0;
-        height: 100%;
-        transform: translateX(100%);
+        left: auto;
+        transform: translateX(110%);
+    }
+
+    [dir="ltr"] .sidebar {
+        left: 0;
+        right: auto;
+        transform: translateX(-110%);
     }
 
     .sidebar.sidebar-open {
         transform: translateX(0);
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
     }
 
     .sidebar-overlay {
         display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(3px);
+        animation: sidebarOverlayFade 0.22s ease both;
     }
 
     .mobile-only,
     .menu-btn {
-        display: flex !important;
+        display: inline-flex !important;
     }
 
     .model-desc {
         display: none;
+    }
+
+    .main-area {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .history-section {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .new-chat-btn {
+        width: calc(100% - 28px);
+        min-height: 44px;
+    }
+}
+
+@keyframes sidebarOverlayFade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
     }
 }
 
@@ -7085,9 +7229,18 @@ watch(
 
 @media (max-width: 640px) {
     .typing-bubble {
-        padding: 10px 13px;
-        font-size: 12px;
-        border-radius: 16px;
+        padding: 9px 12px;
+        border-radius: 14px;
+        max-width: 90%;
+    }
+
+    .typing-text {
+        font-size: 13px;
+    }
+
+    .typing-dots span {
+        width: 5px;
+        height: 5px;
     }
 }
 </style>
