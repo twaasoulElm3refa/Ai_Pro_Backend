@@ -765,8 +765,36 @@ const formatConversation = (conversation) => ({
     }),
 });
 
+const normalizeMessageMeta = (msg = {}) => {
+    const candidates = [
+        msg?.metadata,
+        msg?.meta,
+        msg?.toolMeta,
+    ];
+
+    for (const rawMeta of candidates) {
+        if (rawMeta && typeof rawMeta === "object" && !Array.isArray(rawMeta)) {
+            return rawMeta;
+        }
+
+        if (typeof rawMeta === "string" && rawMeta.trim()) {
+            try {
+                const parsed = JSON.parse(rawMeta);
+                if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                    return parsed;
+                }
+            } catch {
+                // Ignore invalid persisted metadata.
+            }
+        }
+    }
+
+    return {};
+};
+
 const mapMessage = (message, index = 0) => ({
     ...message,
+    metadata: normalizeMessageMeta(message),
     localKey: `${message.role || "message"}-${index}-${message.id || message.created_at || message.content}`,
     time: message.created_at
         ? new Intl.DateTimeFormat("en-US", {
@@ -2157,18 +2185,13 @@ const buildHeadlineResultMessage = (apiResponse) => {
     return [intro, "", ...lines].join("\n\n");
 };
 
-const isHeadlineGeneratorMessage = (message = {}) => {
-    const metadata = message?.metadata && typeof message.metadata === "object"
-        ? message.metadata
-        : {};
-    const toolMeta = message?.toolMeta && typeof message.toolMeta === "object"
-        ? message.toolMeta
-        : {};
+const isHeadlineGeneratorMessage = (msg = {}) => {
+    const meta = normalizeMessageMeta(msg);
     const explicitSubToolId = Number(
-        message?.sub_tool_id
-        || message?.subToolId
-        || metadata?.sub_tool_id
-        || toolMeta?.sub_tool_id
+        msg?.sub_tool_id
+        || msg?.subToolId
+        || meta?.sub_tool_id
+        || meta?.subToolId
         || 0
     );
 
@@ -2177,29 +2200,57 @@ const isHeadlineGeneratorMessage = (message = {}) => {
     }
 
     const toolKey = String(
-        metadata?.tool_key
-        || toolMeta?.tool_key
-        || metadata?.tool
-        || toolMeta?.tool
+        msg?.tool_key
+        || msg?.tool
+        || meta?.tool_key
+        || meta?.tool
+        || meta?.task_key
         || ""
     ).toLowerCase();
 
     if (toolKey) {
-        return toolKey === "headline_generator"
-            || toolKey === "ai_headline_generator";
+        return [
+            "headline_generator",
+            "ai_headline_generator",
+            "headline",
+            "headlines",
+        ].includes(toolKey);
     }
 
     return Number(subtool.value?.id || 0) === HEADLINE_GENERATOR_SUB_TOOL_ID;
 };
 
-const isHeadlineGeneratorResult = (msg = {}) =>
-    msg?.role === "assistant"
-    && !msg?.isTyping
-    && !msg?.streaming
-    && !msg?.is_error
-    && isHeadlineGeneratorMessage(msg)
-    && String(msg?.metadata?.type || msg?.toolMeta?.type || "result").toLowerCase() === "result"
-    && Boolean(displayMessageContent(msg));
+const isHeadlineGeneratorResult = (msg = {}) => {
+    if (!msg || msg.role !== "assistant") return false;
+    if (msg.isTyping || msg.streaming || msg.is_error) return false;
+
+    const isHeadline = isHeadlineGeneratorMessage(msg);
+    const meta = normalizeMessageMeta(msg);
+    const type = String(
+        msg?.type
+        || meta?.type
+        || meta?.response_type
+        || ""
+    ).toLowerCase();
+    const content = displayMessageContent(msg);
+    const result = isHeadline
+        && !["question", "user_input"].includes(type)
+        && Boolean(content);
+
+    if (import.meta.env.DEV) {
+        console.debug("headline visibility check", {
+            content,
+            sub_tool_id: msg?.sub_tool_id,
+            metadata: msg?.metadata,
+            normalizedMeta: meta,
+            isHeadline,
+            type,
+            isResult: result,
+        });
+    }
+
+    return result;
+};
 
 const isTextEditorResult = (msg = {}) => {
     return (
