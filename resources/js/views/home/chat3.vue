@@ -122,7 +122,6 @@
                                     @copy-keyword="copyKeyword"
                                     @copy-all="copyAllKeywords"
                                     @regenerate="regenerateKeywordResult"
-                                    @refine="startRefine"
                                 />
 
                                 <div
@@ -1210,69 +1209,68 @@ const KeywordGeneratorResult = defineComponent({
         labels: { type: Object, required: true },
         copiedKey: { type: String, default: "" },
     },
-    emits: ["copy-keyword", "copy-all", "regenerate", "refine"],
+    emits: ["copy-keyword", "copy-all", "regenerate"],
     setup(props, { emit }) {
         const tag = (value) => value ? h("span", { class: "keyword-chip" }, value) : null;
         const copyText = (item) => String(item?.text || "").trim();
 
-        return () => h("div", { class: "keyword-results-card" }, [
-            h("div", { class: "keyword-results-header" }, [
+        return () => h("div", { class: "keyword-results-card keyword-ai-response-card" }, [
+            h("div", { class: "keyword-result-topbar" }, [
                 h("div", { class: "keyword-results-title" }, [
                     h("strong", {}, props.labels.keywordResultsTitle || "Suggested keywords"),
                     h("small", {}, `${props.results.length} ${props.labels.resultsCount}`),
                 ]),
-                h("div", { class: "keyword-actions" }, [
-                    h("button", {
-                        type: "button",
-                        onClick: () => emit("copy-all", props.message),
-                    }, [
-                        h("i", { class: "bi bi-copy" }),
-                        props.copiedKey === `${props.message.localKey}:all` ? props.labels.copied : props.labels.copyAll,
-                    ]),
-                    h("button", {
-                        type: "button",
-                        onClick: () => emit("regenerate", props.message),
-                    }, [
-                        h("i", { class: "bi bi-arrow-clockwise" }),
-                        props.labels.regenerate,
-                    ]),
-                    h("button", {
-                        type: "button",
-                        onClick: () => emit("refine", props.message),
-                    }, [
-                        h("i", { class: "bi bi-pencil-square" }),
-                        props.labels.refine,
-                    ]),
+                h("button", {
+                    class: "keyword-copy-all-btn",
+                    type: "button",
+                    onClick: () => emit("copy-all", props.message),
+                }, [
+                    h("i", { class: props.copiedKey === `${props.message.localKey}:all` ? "bi bi-check2" : "bi bi-copy" }),
+                    props.copiedKey === `${props.message.localKey}:all` ? props.labels.copied : props.labels.copyAll,
                 ]),
             ]),
-            h("div", { class: "keyword-results-list" }, props.results.map((item, index) => {
-                const key = `${props.message.localKey}:${item.id || index}`;
-                const tags = [
-                    tag(item.type || item.meta?.type),
-                    tag(item.intent || item.meta?.intent),
-                    tag(item.cluster || item.meta?.cluster),
-                ].filter(Boolean);
 
-                return h("section", { class: "keyword-result-item", key }, [
-                    h("div", { class: "keyword-result-main" }, [
-                        h("span", { class: "keyword-index" }, String(item.id || index + 1)),
-                        h("div", { class: "keyword-result-copy" }, [
-                            h("strong", { class: "keyword-text" }, item.text || item.title),
-                            item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
+            h("div", { class: "keyword-results-frame" }, [
+                h("div", { class: "keyword-results-list" }, props.results.map((item, index) => {
+                    const key = `${props.message.localKey}:${item.id || index}`;
+                    const tags = [
+                        tag(item.type || item.meta?.type),
+                        tag(item.intent || item.meta?.intent),
+                        tag(item.cluster || item.meta?.cluster),
+                    ].filter(Boolean);
+
+                    return h("section", { class: "keyword-result-item", key }, [
+                        h("div", { class: "keyword-result-main" }, [
+                            h("span", { class: "keyword-index" }, String(item.id || index + 1)),
+                            h("div", { class: "keyword-result-copy" }, [
+                                h("strong", { class: "keyword-text" }, item.text || item.title),
+                                item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
+                            ]),
+                            h("button", {
+                                class: "keyword-copy-btn",
+                                type: "button",
+                                title: props.copiedKey === key ? props.labels.copied : props.labels.copy,
+                                "aria-label": props.copiedKey === key ? props.labels.copied : props.labels.copy,
+                                onClick: () => emit("copy-keyword", { text: copyText(item), key }),
+                            }, [
+                                h("i", { class: props.copiedKey === key ? "bi bi-check2" : "bi bi-copy" }),
+                            ]),
                         ]),
-                        h("button", {
-                            class: "keyword-copy-btn",
-                            type: "button",
-                            title: props.copiedKey === key ? props.labels.copied : props.labels.copy,
-                            "aria-label": props.copiedKey === key ? props.labels.copied : props.labels.copy,
-                            onClick: () => emit("copy-keyword", { text: copyText(item), key }),
-                        }, [
-                            h("i", { class: props.copiedKey === key ? "bi bi-check2" : "bi bi-copy" }),
-                        ]),
-                    ]),
-                    tags.length ? h("div", { class: "keyword-result-meta" }, tags) : null,
-                ]);
-            })),
+                        tags.length ? h("div", { class: "keyword-result-meta" }, tags) : null,
+                    ]);
+                })),
+            ]),
+
+            h("div", { class: "keyword-regenerate-wrap" }, [
+                h("button", {
+                    class: "keyword-regenerate-btn",
+                    type: "button",
+                    onClick: () => emit("regenerate", props.message),
+                }, [
+                    h("i", { class: "bi bi-arrow-clockwise" }),
+                    props.labels.regenerate,
+                ]),
+            ]),
         ]);
     },
 });
@@ -2162,4 +2160,190 @@ button:disabled {
         justify-content: center;
     }
 }
+
+/* Final keyword-generator AI response card layout */
+.keyword-ai-response-card {
+    width: min(760px, 100%);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.keyword-result-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.keyword-result-topbar .keyword-results-title {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.keyword-result-topbar .keyword-results-title strong {
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.keyword-result-topbar .keyword-results-title small {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.keyword-copy-all-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border: 1px solid #cfd6dd;
+    border-radius: 11px;
+    color: #111827;
+    background: #fff;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.keyword-copy-all-btn:hover {
+    border-color: #b8c2cc;
+    background: #f8fafc;
+}
+
+.keyword-results-frame {
+    padding: 14px;
+    border: 1.5px solid #c7cdd3;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.keyword-results-frame .keyword-results-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.keyword-results-frame .keyword-result-item {
+    overflow: hidden;
+    min-width: 0;
+    border: 1px solid #e1e5ea;
+    border-radius: 14px;
+    background: #f9fafb;
+}
+
+.keyword-results-frame .keyword-result-main {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 36px;
+    align-items: start;
+    gap: 12px;
+    min-width: 0;
+    padding: 13px 14px;
+}
+
+.keyword-results-frame .keyword-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 60px 13px;
+}
+
+.keyword-results-frame .keyword-chip {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    color: #374151;
+    background: #fff;
+    font-size: 11px;
+}
+
+.keyword-results-frame .keyword-copy-btn {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    color: #111827;
+    background: #fff;
+}
+
+.keyword-results-frame .keyword-copy-btn:hover {
+    background: #f3f4f6;
+}
+
+.keyword-regenerate-wrap {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.keyword-regenerate-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 11px;
+    color: #111827;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.keyword-regenerate-btn:hover {
+    background: #f3f4f6;
+}
+
+.keyword-regenerate-btn i {
+    font-size: 15px;
+}
+
+@media (max-width: 560px) {
+    .keyword-result-topbar {
+        display: grid;
+        gap: 10px;
+    }
+
+    .keyword-copy-all-btn,
+    .keyword-regenerate-btn {
+        width: 100%;
+    }
+
+    .keyword-regenerate-wrap {
+        justify-content: stretch;
+    }
+
+    .keyword-results-frame {
+        padding: 11px;
+        border-radius: 16px;
+    }
+
+    .keyword-results-frame .keyword-result-main {
+        grid-template-columns: 30px minmax(0, 1fr) 32px;
+        gap: 9px;
+        padding: 11px;
+    }
+
+    .keyword-results-frame .keyword-result-meta {
+        padding-inline: 50px 11px;
+    }
+}
+
 </style>
