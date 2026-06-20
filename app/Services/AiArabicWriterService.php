@@ -3,12 +3,19 @@
 namespace App\Services;
 
 use App\Exceptions\AiServiceException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class AiArabicWriterService
 {
+    private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
+
+    private const KEYWORD_GENERATOR_TOOL_KEY = 'ai_keyword_generator';
+
+    private const KEYWORD_GENERATOR_MODEL_KEY = 'keyword_generator';
+
     protected string $url;
 
     protected string $apiKey;
@@ -38,6 +45,8 @@ class AiArabicWriterService
         }
 
         $targetUrl = $this->buildTargetUrl($endpoint);
+        $isKeywordGenerator = $this->isKeywordGeneratorPayload($payload);
+        $timeout = $isKeywordGenerator ? 90 : 300;
 
         Log::debug('AI request started.', [
             'base_url' => $this->url,
@@ -84,18 +93,45 @@ class AiArabicWriterService
         }
 
         try {
-            $response = Http::timeout(300)
+            $response = Http::timeout($timeout)
                 ->withHeaders([
                     'x-internal-api-key' => $this->apiKey,
                     'Content-Type' => 'application/json',
                 ])
                 ->post($targetUrl, $payload);
+        } catch (ConnectionException $th) {
+            Log::error('AI request connection failure.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'sub_tool_id' => $payload['sub_tool_id'] ?? null,
+                'payload' => $isKeywordGenerator ? $this->summarizePayloadForLog($payload) : $payload,
+                'timeout' => $timeout,
+                'error_message' => $th->getMessage(),
+            ]);
+
+            if ($isKeywordGenerator) {
+                return $this->keywordGeneratorConnectionError($payload);
+            }
+
+            throw new AiServiceException(
+                'AI request transport failure: '.$th->getMessage(),
+                [
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
+                    'payload' => $payload,
+                    'error' => $th->getMessage(),
+                ],
+                0,
+                $th
+            );
         } catch (Throwable $th) {
             Log::error('AI request failed before receiving response.', [
                 'base_url' => $this->url,
                 'endpoint' => $endpoint,
                 'target_url' => $targetUrl,
-                'payload' => $payload,
+                'payload' => $isKeywordGenerator ? $this->summarizePayloadForLog($payload) : $payload,
                 'error_message' => $th->getMessage(),
                 'error_file' => $th->getFile(),
                 'error_line' => $th->getLine(),
@@ -594,5 +630,68 @@ class AiArabicWriterService
         $endpoint = '/'.ltrim($endpoint, '/');
 
         return $baseUrl.$endpoint;
+    }
+
+    protected function isKeywordGeneratorPayload(array $payload): bool
+    {
+        return (int) ($payload['sub_tool_id'] ?? 0) === self::KEYWORD_GENERATOR_SUB_TOOL_ID
+            || strtolower((string) ($payload['tool'] ?? $payload['tool_key'] ?? '')) === self::KEYWORD_GENERATOR_TOOL_KEY
+            || strtolower((string) ($payload['model_key'] ?? '')) === self::KEYWORD_GENERATOR_MODEL_KEY;
+    }
+
+    protected function keywordGeneratorConnectionError(array $payload): array
+    {
+        $message = 'تعذر الاتصال بخدمة توليد الكلمات المفتاحية. حاول مرة أخرى.';
+        $state = is_array($payload['state'] ?? null) ? $payload['state'] : null;
+
+        if (is_array($state)) {
+            $state['last_output'] = null;
+        }
+
+        return [
+            'reply' => $message,
+            'message' => $message,
+            'type' => 'error',
+            'success' => false,
+            'tool' => self::KEYWORD_GENERATOR_TOOL_KEY,
+            'model_key' => self::KEYWORD_GENERATOR_MODEL_KEY,
+            'sub_tool_id' => self::KEYWORD_GENERATOR_SUB_TOOL_ID,
+            'retryable' => true,
+            'state' => $state,
+            'results' => [],
+            'count' => 0,
+            'raw' => [
+                'success' => false,
+                'type' => 'error',
+                'tool' => self::KEYWORD_GENERATOR_TOOL_KEY,
+                'model_key' => self::KEYWORD_GENERATOR_MODEL_KEY,
+                'sub_tool_id' => self::KEYWORD_GENERATOR_SUB_TOOL_ID,
+                'retryable' => true,
+                'message' => $message,
+            ],
+        ];
+    }
+
+    protected function summarizePayloadForLog(array $payload): array
+    {
+        $summary = $payload;
+
+        foreach (['body', 'content', 'user_message', 'previous_output'] as $key) {
+            if (! is_scalar($summary[$key] ?? null)) {
+                continue;
+            }
+
+            $value = (string) $summary[$key];
+            $summary[$key] = [
+                'preview' => mb_substr($value, 0, 300),
+                'length' => mb_strlen($value),
+            ];
+        }
+
+        if (is_array($summary['state'] ?? null) && isset($summary['state']['last_output'])) {
+            $summary['state']['last_output'] = '[hidden]';
+        }
+
+        return $summary;
     }
 }

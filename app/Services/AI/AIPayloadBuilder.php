@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class AIPayloadBuilder
 {
+    private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
+
     protected const VALID_ROLES = ['user', 'assistant'];
 
     protected const ERROR_PATTERNS = [
@@ -22,6 +24,10 @@ class AIPayloadBuilder
     public function build(Conversation $conversation, Message $latestUserMessage): array
     {
         $conversation->loadMissing(['user', 'subTool']);
+
+        if ((int) $conversation->sub_tool_id === self::KEYWORD_GENERATOR_SUB_TOOL_ID) {
+            return $this->buildKeywordGeneratorPayload($conversation, $latestUserMessage);
+        }
 
         $messages = $conversation->messages()
             ->orderBy('created_at')
@@ -55,8 +61,39 @@ class AIPayloadBuilder
         return $payload;
     }
 
+    protected function buildKeywordGeneratorPayload(Conversation $conversation, Message $latestUserMessage): array
+    {
+        $userMessage = $this->cleanKeywordPrompt((string) $latestUserMessage->content);
+
+        $payload = [
+            'user_id' => $conversation->user_id,
+            'sub_tool_id' => $conversation->sub_tool_id,
+            'title' => 'Keyword Generator',
+            'conversation_uuid' => $conversation->uuid,
+            'body' => $userMessage,
+            'user_message' => $userMessage,
+        ];
+
+        $this->validate($payload);
+
+        Log::debug('Keyword generator payload prepared.', [
+            'user_id' => $payload['user_id'],
+            'sub_tool_id' => $payload['sub_tool_id'],
+            'conversation_uuid' => $payload['conversation_uuid'],
+            'body_length' => mb_strlen($payload['body']),
+            'latest_message_id' => $latestUserMessage->id,
+            'history_included' => false,
+        ]);
+
+        return $payload;
+    }
+
     public function withContext(array $payload, string $context): array
     {
+        if ((int) ($payload['sub_tool_id'] ?? 0) === self::KEYWORD_GENERATOR_SUB_TOOL_ID) {
+            return $payload;
+        }
+
         $context = $this->cleanContext($context);
 
         if ($context === '') {
@@ -83,7 +120,7 @@ class AIPayloadBuilder
             'search_mode' => $searchMode,
             'max_tokens' => isset($taskOptions['max_tokens'])
                 ? (int) $taskOptions['max_tokens']
-                : 4000,
+                : ((int) ($payload['sub_tool_id'] ?? 0) === self::KEYWORD_GENERATOR_SUB_TOOL_ID ? 1000 : 4000),
             'temperature' => isset($taskOptions['temperature'])
                 ? (float) $taskOptions['temperature']
                 : 0.45,
@@ -169,6 +206,14 @@ class AIPayloadBuilder
             })
             ->filter(static fn (string $line) => trim($line) !== '')
             ->implode("\n\n");
+    }
+
+    protected function cleanKeywordPrompt(string $content): string
+    {
+        $content = preg_replace('/`+/u', '', $content) ?? $content;
+        $content = preg_replace('/\s+/u', ' ', trim($content)) ?? $content;
+
+        return mb_substr(trim($content), 0, 2000);
     }
 
     protected function looksLikeFallbackError(string $content): bool

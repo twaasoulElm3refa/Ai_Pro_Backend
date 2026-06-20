@@ -571,6 +571,11 @@ const normalizeKeywordState = (state = {}) => {
     return normalized;
 };
 
+const keywordRequestState = (state = {}) => ({
+    ...normalizeKeywordState(state),
+    last_output: null,
+});
+
 const metadataFrom = (message = {}) => {
     if (isPlainObject(message.metadata)) return message.metadata;
     if (typeof message.metadata === "string") return safeJsonParse(message.metadata) || {};
@@ -629,6 +634,46 @@ const getAssistantOutput = (message = {}) => {
         || meta.results?.[0]?.text
         || ""
     ).trim();
+};
+
+const compactKeywordPreviousOutput = (message = {}) => {
+    const resultText = getKeywordResults(message)
+        .map((item) => String(item?.text || "").trim())
+        .filter(Boolean)
+        .join("\n");
+
+    if (resultText) {
+        return resultText.slice(0, 3000);
+    }
+
+    const output = getAssistantOutput(message);
+    if (!output) return "";
+
+    const parsed = safeJsonParse(
+        output
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/\s*```$/i, "")
+            .trim()
+    );
+    const parsedResults = parsed ? normalizeKeywordGeneratorResults(parsed) : [];
+
+    if (parsedResults.length) {
+        return parsedResults
+            .map((item) => String(item?.text || "").trim())
+            .filter(Boolean)
+            .join("\n")
+            .slice(0, 3000);
+    }
+
+    if (looksLikeJsonText(output)) {
+        return "";
+    }
+
+    return output
+        .replace(/`+/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 3000);
 };
 
 const mapMessage = (message = {}, index = 0) => {
@@ -891,7 +936,7 @@ const openAssistantStream = async (conversation, afterId) => {
 };
 
 const buildPayload = (conversation, text, options = {}) => {
-    const state = normalizeKeywordState(options.state || toolState.value);
+    const state = keywordRequestState(options.state || toolState.value);
     const payload = {
         user_id: Number(conversation.user_id) || null,
         sub_tool_id: activeTool.value.id,
@@ -908,7 +953,7 @@ const buildPayload = (conversation, text, options = {}) => {
 
     if (options.regenerate) {
         payload.regenerate = true;
-        payload.previous_output = String(options.previousOutput || "");
+        payload.previous_output = String(options.previousOutput || "").slice(0, 3000);
     }
 
     return payload;
@@ -926,7 +971,7 @@ const submitKeywordRequest = async (text, options = {}) => {
         if (!conversation?.uuid) return;
 
         const payload = buildPayload(conversation, cleanText, options);
-        const requestState = normalizeKeywordState(payload.state);
+        const requestState = keywordRequestState(payload.state);
 
         messages.value.push(mapMessage({
             localKey: createLocalKey(),
@@ -1089,7 +1134,7 @@ const regenerateKeywordResult = async (message) => {
 
     await submitKeywordRequest(text, {
         regenerate: true,
-        previousOutput: getAssistantOutput(message),
+        previousOutput: compactKeywordPreviousOutput(message),
         state: meta.state || message.responseState || toolState.value,
     });
 };

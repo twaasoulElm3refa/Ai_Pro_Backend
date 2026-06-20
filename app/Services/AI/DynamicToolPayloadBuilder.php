@@ -8,6 +8,12 @@ use Illuminate\Support\Arr;
 
 class DynamicToolPayloadBuilder
 {
+    private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
+
+    private const KEYWORD_GENERATOR_TOOL_KEY = 'ai_keyword_generator';
+
+    private const KEYWORD_GENERATOR_MODEL_KEY = 'keyword_generator';
+
     public function __construct(
         private readonly AIPayloadBuilder $basePayloadBuilder,
         private readonly DynamicToolConfigService $configService
@@ -23,6 +29,12 @@ class DynamicToolPayloadBuilder
         $subTool = $conversation->subTool;
         $config = $this->configService->configFor($subTool);
         $userMessage = trim((string) $latestUserMessage->content);
+        $isKeywordGenerator = $this->isKeywordGenerator($conversation, $config);
+
+        if ($isKeywordGenerator) {
+            $userMessage = $this->cleanKeywordText($userMessage, 2000);
+        }
+
         $messageMetadata = is_array($latestUserMessage->metadata ?? null)
             ? $latestUserMessage->metadata
             : [];
@@ -35,6 +47,10 @@ class DynamicToolPayloadBuilder
             'user_message' => $userMessage,
             'state' => $state,
         ]);
+
+        if ($isKeywordGenerator) {
+            $state['last_output'] = null;
+        }
 
         $payload = $this->basePayloadBuilder->build($conversation, $latestUserMessage);
         $payload['user_id'] = (int) $conversation->user_id;
@@ -49,7 +65,9 @@ class DynamicToolPayloadBuilder
         }
 
         if (is_string($messageMetadata['previous_output'] ?? null)) {
-            $previousOutput = trim($messageMetadata['previous_output']);
+            $previousOutput = $isKeywordGenerator
+                ? $this->compactKeywordPreviousOutput($messageMetadata['previous_output'])
+                : trim($messageMetadata['previous_output']);
             if ($previousOutput !== '') {
                 $payload['previous_output'] = $previousOutput;
             }
@@ -76,6 +94,15 @@ class DynamicToolPayloadBuilder
             $value = $this->mappedValue($source, $context);
             if ($value !== $this->missingValue()) {
                 Arr::set($payload, $target, $value);
+            }
+        }
+
+        if ($isKeywordGenerator) {
+            $payload['body'] = $this->cleanKeywordText((string) ($payload['user_message'] ?? $userMessage), 2000);
+            $payload['user_message'] = $payload['body'];
+
+            if (is_array($payload['state'] ?? null)) {
+                $payload['state']['last_output'] = null;
             }
         }
 
@@ -178,6 +205,98 @@ class DynamicToolPayloadBuilder
     private function isEmptyStateValue(mixed $value): bool
     {
         return $value === null || $value === '' || $value === [];
+    }
+
+    private function isKeywordGenerator(Conversation $conversation, array $config): bool
+    {
+        return (int) ($conversation->sub_tool_id ?? 0) === self::KEYWORD_GENERATOR_SUB_TOOL_ID
+            || strtolower((string) ($config['tool_key'] ?? '')) === self::KEYWORD_GENERATOR_TOOL_KEY
+            || strtolower((string) ($config['model_key'] ?? '')) === self::KEYWORD_GENERATOR_MODEL_KEY;
+    }
+
+    private function cleanKeywordText(string $value, int $limit): string
+    {
+        $value = preg_replace('/^```(?:json)?\s*/iu', '', trim($value)) ?? $value;
+        $value = preg_replace('/\s*```$/u', '', $value) ?? $value;
+        $value = preg_replace('/`+/u', '', $value) ?? $value;
+        $value = preg_replace('/\s+/u', ' ', trim($value)) ?? $value;
+
+        return mb_substr(trim($value), 0, $limit);
+    }
+
+    private function compactKeywordPreviousOutput(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $texts = $this->extractKeywordTexts($this->decodeJsonLike($value));
+
+        if ($texts === []) {
+            if ($this->looksLikeJson($value)) {
+                return '';
+            }
+
+            return $this->cleanKeywordText($value, 3000);
+        }
+
+        $texts = array_values(array_unique(array_filter(array_map(
+            fn (string $text): string => $this->cleanKeywordText($text, 300),
+            $texts
+        ))));
+
+        return mb_substr(implode("\n", $texts), 0, 3000);
+    }
+
+    private function decodeJsonLike(string $value): mixed
+    {
+        $value = preg_replace('/^```(?:json)?\s*/iu', '', trim($value)) ?? $value;
+        $value = preg_replace('/\s*```$/u', '', $value) ?? $value;
+        $decoded = json_decode(trim($value), true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function extractKeywordTexts(mixed $value): array
+    {
+        if (is_string($value)) {
+            return trim($value) === '' ? [] : [trim($value)];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $texts = [];
+
+        if (isset($value['text']) && is_scalar($value['text'])) {
+            $texts[] = trim((string) $value['text']);
+        }
+
+        foreach (['results', 'normalized_results', 'keywords', 'data'] as $key) {
+            if (is_array($value[$key] ?? null)) {
+                array_push($texts, ...$this->extractKeywordTexts($value[$key]));
+            }
+        }
+
+        if (array_is_list($value)) {
+            foreach ($value as $item) {
+                array_push($texts, ...$this->extractKeywordTexts($item));
+            }
+        }
+
+        return array_values(array_filter($texts));
+    }
+
+    private function looksLikeJson(string $value): bool
+    {
+        $trimmed = ltrim($value);
+
+        return str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[');
     }
 
     private function mappedValue(mixed $mapping, array $context): mixed

@@ -38,6 +38,7 @@ class MessageController extends Controller
     private const SOCIAL_POST_GENERATOR_TOOL_KEY = 'ai_social_post_generator';
     private const SOCIAL_POST_GENERATOR_MODEL_KEY = 'social_post_generator';
     private const SOCIAL_POST_GENERATOR_ENDPOINT = 'tasks/social-post-generator/chat';
+    private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
 
     private MessageInterface $message;
 
@@ -563,11 +564,16 @@ class MessageController extends Controller
         }
 
         $requestState = is_array($normalized['state'] ?? null) ? $normalized['state'] : null;
+        $subToolId = (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0);
+
+        if ($subToolId === self::KEYWORD_GENERATOR_SUB_TOOL_ID && is_array($requestState)) {
+            $requestState['last_output'] = null;
+        }
 
         if ($requestState !== null) {
             $requestPayload = [
                 'user_id' => $userId,
-                'sub_tool_id' => (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0),
+                'sub_tool_id' => $subToolId,
                 'conversation_uuid' => $conversation->uuid,
                 'user_message' => $content,
                 'state' => $requestState,
@@ -582,7 +588,7 @@ class MessageController extends Controller
 
             $normalized['metadata'] = [
                 'state' => $requestState,
-                'sub_tool_id' => (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0),
+                'sub_tool_id' => $subToolId,
                 'conversation_uuid' => $conversation->uuid,
                 'tool' => $data['tool'] ?? null,
                 'tool_key' => $data['tool_key'] ?? ($data['tool'] ?? null),
