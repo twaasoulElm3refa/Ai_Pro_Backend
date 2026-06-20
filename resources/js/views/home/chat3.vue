@@ -1217,7 +1217,7 @@ const KeywordGeneratorResult = defineComponent({
 
         return () => h("div", { class: "keyword-results-card" }, [
             h("div", { class: "keyword-results-header" }, [
-                h("div", {}, [
+                h("div", { class: "keyword-results-title" }, [
                     h("strong", {}, props.labels.keywordResultsTitle || "Suggested keywords"),
                     h("small", {}, `${props.results.length} ${props.labels.resultsCount}`),
                 ]),
@@ -1254,20 +1254,21 @@ const KeywordGeneratorResult = defineComponent({
                 ].filter(Boolean);
 
                 return h("section", { class: "keyword-result-item", key }, [
-                    h("div", { class: "keyword-card-head" }, [
+                    h("div", { class: "keyword-result-main" }, [
                         h("span", { class: "keyword-index" }, String(item.id || index + 1)),
+                        h("div", { class: "keyword-result-copy" }, [
+                            h("strong", { class: "keyword-text" }, item.text || item.title),
+                            item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
+                        ]),
                         h("button", {
                             class: "keyword-copy-btn",
                             type: "button",
+                            title: props.copiedKey === key ? props.labels.copied : props.labels.copy,
+                            "aria-label": props.copiedKey === key ? props.labels.copied : props.labels.copy,
                             onClick: () => emit("copy-keyword", { text: copyText(item), key }),
                         }, [
-                            h("i", { class: "bi bi-copy" }),
-                            props.copiedKey === key ? props.labels.copied : props.labels.copy,
+                            h("i", { class: props.copiedKey === key ? "bi bi-check2" : "bi bi-copy" }),
                         ]),
-                    ]),
-                    h("div", { class: "keyword-result-main" }, [
-                        h("strong", { class: "keyword-text" }, item.text || item.title),
-                        item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
                     ]),
                     tags.length ? h("div", { class: "keyword-result-meta" }, tags) : null,
                 ]);
@@ -1922,8 +1923,9 @@ button:disabled {
 
 .keyword-results-card {
     display: grid;
-    gap: 12px;
-    min-width: min(680px, 68vw);
+    gap: 14px;
+    width: min(720px, 100%);
+    min-width: 0;
 }
 
 .keyword-results-header {
@@ -1936,6 +1938,10 @@ button:disabled {
     border-radius: 14px;
     color: var(--navy);
     background: #f0f8fc;
+}
+
+.keyword-results-title {
+    min-width: 0;
 }
 
 .keyword-results-header strong,
@@ -1951,8 +1957,8 @@ button:disabled {
 
 .keyword-results-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
+    grid-template-columns: 1fr;
+    gap: 10px;
 }
 
 .keyword-result-item {
@@ -1965,16 +1971,18 @@ button:disabled {
 
 .keyword-result-main {
     display: grid;
-    gap: 7px;
-    padding: 14px 15px 4px;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: start;
+    gap: 12px;
     min-width: 0;
+    padding: 12px 13px;
 }
 
 .keyword-result-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    padding: 12px 15px 15px;
+    padding: 0 59px 13px;
 }
 
 .keyword-chip {
@@ -1989,7 +1997,16 @@ button:disabled {
 }
 
 .keyword-copy-btn {
-    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    padding: 0;
+    border: 1px solid #d6e9f4;
+    border-radius: 10px;
+    color: var(--blue);
+    background: #fff;
 }
 
 .keyword-result {
@@ -2008,10 +2025,10 @@ button:disabled {
     flex-wrap: wrap;
     gap: 7px;
     justify-content: flex-end;
+    min-width: 0;
 }
 
 .keyword-actions button,
-.keyword-card-head button,
 .refine-banner button {
     display: inline-flex;
     align-items: center;
@@ -2057,20 +2074,25 @@ button:disabled {
     font-weight: 800;
 }
 
+.keyword-result-copy {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
 .keyword-text {
     display: block;
-    padding: 14px 15px 4px;
     color: var(--ink);
-    line-height: 1.65;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .keyword-subject {
-    display: inline-block;
-    margin: 8px 15px 0;
-    padding: 4px 8px;
-    border-radius: 999px;
-    color: var(--blue);
-    background: #eaf6fc;
+    display: block;
+    color: var(--muted);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
 }
 
 .keyword-tags {
@@ -2107,7 +2129,7 @@ button:disabled {
 
 @media (max-width: 900px) {
     .keyword-results-card {
-        min-width: 0;
+        width: 100%;
     }
 
     .keyword-result {
@@ -2121,13 +2143,14 @@ button:disabled {
         gap: 10px;
     }
 
-    .keyword-results-list {
-        grid-template-columns: 1fr;
+    .keyword-result-main {
+        grid-template-columns: 30px minmax(0, 1fr) 32px;
+        gap: 9px;
+        padding: 11px;
     }
 
-    .keyword-toolbar {
-        display: grid;
-        gap: 10px;
+    .keyword-result-meta {
+        padding-inline: 50px 11px;
     }
 
     .keyword-actions {
