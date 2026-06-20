@@ -113,9 +113,10 @@
                             </div>
 
                             <template v-else>
-                                <KeywordResult
+                                <KeywordGeneratorResult
                                     v-if="isKeywordResultMessage(message)"
                                     :message="message"
+                                    :results="getKeywordResults(message)"
                                     :labels="labels"
                                     :copied-key="copiedKey"
                                     @copy-keyword="copyKeyword"
@@ -260,16 +261,19 @@ const unwrapResponse = (source = {}) => {
 const normalizeKeywordItem = (item, index = 0) => {
     const row = isPlainObject(item) ? item : { text: item };
     const meta = isPlainObject(row.meta) ? row.meta : {};
-    const text = String(row.text || row.title || row.keyword || row.name || "").trim();
-    const title = String(row.title || row.keyword || row.text || "").trim();
+    const text = String(row.text || row.title || row.subject || row.keyword || row.name || "").trim();
+    const title = String(row.title || row.keyword || "").trim();
 
-    if (!text && !title) return null;
+    if (!text) return null;
 
     return {
         id: row.id || index + 1,
-        title: title || text,
+        title,
         subject: String(row.subject || "").trim(),
-        text: text || title,
+        text,
+        type: String(meta.type || row.type || "").trim(),
+        intent: String(meta.intent || row.intent || "").trim(),
+        cluster: String(meta.cluster || row.cluster || "").trim(),
         meta: {
             type: meta.type || row.type || null,
             intent: meta.intent || row.intent || null,
@@ -283,48 +287,81 @@ const normalizeKeywordItems = (items = []) =>
         .map((item, index) => normalizeKeywordItem(item, index))
         .filter(Boolean);
 
+const pushKeywordCandidate = (candidates, value) => {
+    if (value === null || value === undefined || value === "") return;
+
+    candidates.push(value);
+
+    if (typeof value === "string") {
+        const parsed = safeJsonParse(value);
+        if (parsed) candidates.push(parsed);
+    }
+};
+
 const normalizeKeywordGeneratorResults = (source = {}) => {
     const response = unwrapResponse(source);
     const candidates = [];
+    const meta = metadataFrom(response);
 
-    if (typeof response?.state?.last_output === "string") {
-        candidates.push(safeJsonParse(response.state.last_output));
-    }
-
-    if (typeof response?.results?.[0]?.text === "string") {
-        candidates.push(safeJsonParse(response.results[0].text));
-    }
-
-    candidates.push(response);
+    pushKeywordCandidate(candidates, meta.normalized_results);
+    pushKeywordCandidate(candidates, response.normalized_results);
+    pushKeywordCandidate(candidates, meta.state?.last_output);
+    pushKeywordCandidate(candidates, response.state?.last_output);
+    pushKeywordCandidate(candidates, meta.results?.[0]?.text);
+    pushKeywordCandidate(candidates, response.results?.[0]?.text);
+    pushKeywordCandidate(candidates, meta.results);
+    pushKeywordCandidate(candidates, response.results);
+    pushKeywordCandidate(candidates, response.text);
+    pushKeywordCandidate(candidates, response.content);
+    pushKeywordCandidate(candidates, response.reply);
+    pushKeywordCandidate(candidates, meta.text);
+    pushKeywordCandidate(candidates, meta.content);
+    pushKeywordCandidate(candidates, meta.reply);
+    pushKeywordCandidate(candidates, response);
 
     for (const candidate of candidates) {
         if (!candidate) continue;
 
         if (Array.isArray(candidate)) {
+            const nestedJson = candidate.length === 1
+                ? safeJsonParse(
+                    typeof candidate[0] === "string"
+                        ? candidate[0]
+                        : (typeof candidate[0]?.text === "string" ? candidate[0].text : "")
+                )
+                : null;
+
+            if (Array.isArray(nestedJson?.results)) {
+                const normalized = normalizeKeywordItems(nestedJson.results);
+                if (normalized.length) return normalized;
+            }
+
             const normalized = normalizeKeywordItems(candidate);
             if (normalized.length) return normalized;
         }
 
-        if (Array.isArray(candidate.results)) {
-            const normalized = normalizeKeywordItems(candidate.results);
-            if (normalized.length) return normalized;
+        if (isPlainObject(candidate)) {
+            if (Array.isArray(candidate.normalized_results)) {
+                const normalized = normalizeKeywordItems(candidate.normalized_results);
+                if (normalized.length) return normalized;
+            }
+
+            if (Array.isArray(candidate.results)) {
+                const normalized = normalizeKeywordItems(candidate.results);
+                if (normalized.length) return normalized;
+            }
+
+            if (typeof candidate.text === "string") {
+                const parsedText = safeJsonParse(candidate.text);
+                if (Array.isArray(parsedText?.results)) {
+                    const normalized = normalizeKeywordItems(parsedText.results);
+                    if (normalized.length) return normalized;
+                }
+            }
         }
     }
 
-    if (Array.isArray(response.results)) {
-        const normalized = normalizeKeywordItems(response.results);
-        if (normalized.length) return normalized;
-    }
-
-    const fallbackText = String(
-        response?.state?.last_output
-        || response?.results?.[0]?.text
-        || response?.message
-        || response?.content
-        || ""
-    ).trim();
-
-    return fallbackText ? [normalizeKeywordItem({ id: 1, text: fallbackText }, 0)].filter(Boolean) : [];
+    return [];
 };
 
 const CHAT3_TOOLS = {
@@ -371,6 +408,7 @@ const labels = computed(() => isArabic.value ? {
     deleteChat: "حذف المحادثة",
     options: "خيارات الأداة",
     resultsCount: "عدد النتائج",
+    keywordResultsTitle: "الكلمات المفتاحية المقترحة",
     defaultValue: "افتراضي",
     yes: "نعم",
     no: "لا",
@@ -396,6 +434,7 @@ const labels = computed(() => isArabic.value ? {
     deleteChat: "Delete conversation",
     options: "Tool options",
     resultsCount: "Results count",
+    keywordResultsTitle: "Suggested keywords",
     defaultValue: "Default",
     yes: "Yes",
     no: "No",
@@ -539,20 +578,46 @@ const metadataFrom = (message = {}) => {
     return {};
 };
 
-const isKeywordMessage = (message = {}) => {
+const isKeywordGeneratorMessage = (message = {}) => {
     const meta = metadataFrom(message);
     const tool = String(meta.tool_key || meta.tool || message.tool_key || message.tool || "").toLowerCase();
+    const modelKey = String(meta.model_key || message.model_key || "").toLowerCase();
+    const subToolId = Number(
+        message.sub_tool_id
+        || message.subToolId
+        || meta.sub_tool_id
+        || meta.subToolId
+        || subtool.value.id
+        || 0
+    );
 
-    return Number(meta.sub_tool_id || message.sub_tool_id || 0) === KEYWORD_GENERATOR_SUB_TOOL_ID
-        || tool === KEYWORD_GENERATOR_TOOL_KEY;
+    return subToolId === KEYWORD_GENERATOR_SUB_TOOL_ID
+        || tool === KEYWORD_GENERATOR_TOOL_KEY
+        || modelKey === KEYWORD_GENERATOR_MODEL_KEY;
 };
+
+const isKeywordMessage = isKeywordGeneratorMessage;
 
 const isKeywordResultMessage = (message = {}) =>
     message.role === "assistant"
     && !message.typing
-    && isKeywordMessage(message)
-    && Array.isArray(message.keywordResults)
-    && message.keywordResults.length > 0;
+    && isKeywordGeneratorMessage(message)
+    && getKeywordResults(message).length > 0;
+
+const getKeywordResults = (message = {}) =>
+    Array.isArray(message.keywordResults) && message.keywordResults.length
+        ? message.keywordResults
+        : normalizeKeywordGeneratorResults(message);
+
+const looksLikeJsonText = (value = "") => {
+    const text = String(value || "").trim();
+    return text.startsWith("{") || text.startsWith("[");
+};
+
+const keywordFallbackContent = () =>
+    isArabic.value
+        ? "تم استلام نتيجة مولد الكلمات المفتاحية، لكن تعذر تنظيمها للعرض. حاول إعادة التوليد."
+        : "Keyword results were received, but could not be formatted. Please try regenerating.";
 
 const getAssistantOutput = (message = {}) => {
     const meta = metadataFrom(message);
@@ -568,24 +633,23 @@ const getAssistantOutput = (message = {}) => {
 
 const mapMessage = (message = {}, index = 0) => {
     const meta = metadataFrom(message);
-    const keyword = message.role === "assistant" && isKeywordMessage(message);
+    const keyword = message.role === "assistant" && isKeywordGeneratorMessage(message);
     const responsePayload = {
         ...message,
         ...meta,
         state: meta.state || message.state,
         results: meta.normalized_results || meta.results || message.results,
     };
-    const keywordResults = keyword
-        ? (Array.isArray(meta.normalized_results) && meta.normalized_results.length
-            ? meta.normalized_results
-            : activeTool.value.normalizeResults(responsePayload))
-        : [];
+    const keywordResults = keyword ? activeTool.value.normalizeResults(responsePayload) : [];
+    const rawContent = String(message.content || meta.message || "");
 
     return {
         ...message,
         localKey: message.localKey || `${message.role || "message"}-${message.id || index}-${message.created_at || createLocalKey()}`,
         role: message.role || "assistant",
-        content: keyword && keywordResults.length ? "" : String(message.content || meta.message || ""),
+        content: keyword
+            ? (keywordResults.length ? "" : (looksLikeJsonText(rawContent) ? keywordFallbackContent() : rawContent))
+            : rawContent,
         metadata: meta,
         responseState: isPlainObject(meta.state) ? normalizeKeywordState(meta.state) : null,
         keywordResults,
@@ -989,7 +1053,7 @@ const fillExample = () => {
     });
 };
 
-const keywordCopyText = (item) => String(item?.text || item?.title || "").trim();
+const keywordCopyText = (item) => String(item?.text || "").trim();
 
 const copyKeyword = async ({ text, key }) => {
     await navigator.clipboard.writeText(text);
@@ -1000,7 +1064,7 @@ const copyKeyword = async ({ text, key }) => {
 };
 
 const copyAllKeywords = async (message) => {
-    const text = (message.keywordResults || [])
+    const text = getKeywordResults(message)
         .map(keywordCopyText)
         .filter(Boolean)
         .join("\n");
@@ -1093,21 +1157,25 @@ watch(
     }
 );
 
-const KeywordResult = defineComponent({
-    name: "KeywordResult",
+const KeywordGeneratorResult = defineComponent({
+    name: "KeywordGeneratorResult",
     props: {
         message: { type: Object, required: true },
+        results: { type: Array, default: () => [] },
         labels: { type: Object, required: true },
         copiedKey: { type: String, default: "" },
     },
     emits: ["copy-keyword", "copy-all", "regenerate", "refine"],
     setup(props, { emit }) {
-        const tag = (value) => value ? h("span", { class: "keyword-tag" }, value) : null;
-        const copyText = (item) => String(item?.text || item?.title || "").trim();
+        const tag = (value) => value ? h("span", { class: "keyword-chip" }, value) : null;
+        const copyText = (item) => String(item?.text || "").trim();
 
-        return () => h("div", { class: "keyword-result" }, [
-            h("div", { class: "keyword-toolbar" }, [
-                h("strong", {}, props.labels.resultsCount),
+        return () => h("div", { class: "keyword-results-card" }, [
+            h("div", { class: "keyword-results-header" }, [
+                h("div", {}, [
+                    h("strong", {}, props.labels.keywordResultsTitle || "Suggested keywords"),
+                    h("small", {}, `${props.results.length} ${props.labels.resultsCount}`),
+                ]),
                 h("div", { class: "keyword-actions" }, [
                     h("button", {
                         type: "button",
@@ -1132,18 +1200,19 @@ const KeywordResult = defineComponent({
                     ]),
                 ]),
             ]),
-            h("div", { class: "keyword-grid" }, props.message.keywordResults.map((item, index) => {
+            h("div", { class: "keyword-results-list" }, props.results.map((item, index) => {
                 const key = `${props.message.localKey}:${item.id || index}`;
                 const tags = [
-                    tag(item.meta?.type),
-                    tag(item.meta?.intent),
-                    tag(item.meta?.cluster),
+                    tag(item.type || item.meta?.type),
+                    tag(item.intent || item.meta?.intent),
+                    tag(item.cluster || item.meta?.cluster),
                 ].filter(Boolean);
 
-                return h("section", { class: "keyword-card", key }, [
+                return h("section", { class: "keyword-result-item", key }, [
                     h("div", { class: "keyword-card-head" }, [
                         h("span", { class: "keyword-index" }, String(item.id || index + 1)),
                         h("button", {
+                            class: "keyword-copy-btn",
                             type: "button",
                             onClick: () => emit("copy-keyword", { text: copyText(item), key }),
                         }, [
@@ -1151,9 +1220,11 @@ const KeywordResult = defineComponent({
                             props.copiedKey === key ? props.labels.copied : props.labels.copy,
                         ]),
                     ]),
-                    h("strong", { class: "keyword-text" }, item.text || item.title),
-                    item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
-                    tags.length ? h("div", { class: "keyword-tags" }, tags) : null,
+                    h("div", { class: "keyword-result-main" }, [
+                        h("strong", { class: "keyword-text" }, item.text || item.title),
+                        item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
+                    ]),
+                    tags.length ? h("div", { class: "keyword-result-meta" }, tags) : null,
                 ]);
             })),
         ]);
@@ -1804,6 +1875,78 @@ button:disabled {
     background: #eef7fc;
 }
 
+.keyword-results-card {
+    display: grid;
+    gap: 12px;
+    min-width: min(680px, 68vw);
+}
+
+.keyword-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 13px;
+    border: 1px solid #d6e9f4;
+    border-radius: 14px;
+    color: var(--navy);
+    background: #f0f8fc;
+}
+
+.keyword-results-header strong,
+.keyword-results-header small {
+    display: block;
+}
+
+.keyword-results-header small {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.keyword-results-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.keyword-result-item {
+    overflow: hidden;
+    min-width: 0;
+    border: 1px solid #d6e9f4;
+    border-radius: 14px;
+    background: #fbfdff;
+}
+
+.keyword-result-main {
+    display: grid;
+    gap: 7px;
+    padding: 14px 15px 4px;
+    min-width: 0;
+}
+
+.keyword-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 15px 15px;
+}
+
+.keyword-chip {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    padding: 4px 8px;
+    border: 1px solid #d6e9f4;
+    border-radius: 999px;
+    color: #357192;
+    background: #f2faff;
+    font-size: 11px;
+}
+
+.keyword-copy-btn {
+    flex: 0 0 auto;
+}
+
 .keyword-result {
     min-width: min(680px, 68vw);
 }
@@ -1918,12 +2061,25 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
+    .keyword-results-card {
+        min-width: 0;
+    }
+
     .keyword-result {
         min-width: 0;
     }
 }
 
 @media (max-width: 560px) {
+    .keyword-results-header {
+        display: grid;
+        gap: 10px;
+    }
+
+    .keyword-results-list {
+        grid-template-columns: 1fr;
+    }
+
     .keyword-toolbar {
         display: grid;
         gap: 10px;
