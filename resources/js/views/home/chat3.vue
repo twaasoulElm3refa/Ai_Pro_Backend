@@ -1,11 +1,11 @@
 <template>
-    <main class="prompt-chat" :dir="isArabic ? 'rtl' : 'ltr'">
-        <aside class="sidebar" :class="{ open: sidebarOpen }">
+    <main class="chat3-root" :dir="isArabic ? 'rtl' : 'ltr'">
+        <aside class="chat3-sidebar" :class="{ open: sidebarOpen }">
             <div class="sidebar-brand">
-                <span class="brand-icon"><i class="bi bi-stars"></i></span>
+                <span class="brand-icon"><i class="bi bi-key-fill"></i></span>
                 <div>
                     <strong>{{ pageTitle }}</strong>
-                    <small>{{ copy.subtitle }}</small>
+                    <small>{{ isArabic ? "مجموعة أدوات المحتوى" : "Content toolset" }}</small>
                 </div>
                 <button class="icon-button mobile-only" type="button" @click="sidebarOpen = false">
                     <i class="bi bi-x-lg"></i>
@@ -14,13 +14,27 @@
 
             <button class="new-chat-button" type="button" :disabled="creatingConversation" @click="startNewChat">
                 <i class="bi bi-plus-lg"></i>
-                {{ creatingConversation ? copy.creating : copy.newChat }}
+                {{ creatingConversation ? labels.creating : labels.newChat }}
             </button>
 
-            <p class="section-label">{{ copy.recent }}</p>
+            <div class="tool-switcher">
+                <p class="section-label">{{ isArabic ? "الأدوات" : "Tools" }}</p>
+                <button
+                    v-for="tool in registryTools"
+                    :key="tool.id"
+                    class="tool-option"
+                    :class="{ active: tool.id === activeTool.id }"
+                    type="button"
+                >
+                    <i class="bi bi-key"></i>
+                    <span>{{ localizedToolTitle(tool) }}</span>
+                </button>
+            </div>
 
-            <div v-if="loadingConversations" class="sidebar-status">{{ copy.loading }}</div>
-            <div v-else-if="conversations.length === 0" class="sidebar-status">{{ copy.noChats }}</div>
+            <p class="section-label">{{ labels.recent }}</p>
+
+            <div v-if="loadingConversations" class="sidebar-status">{{ labels.loading }}</div>
+            <div v-else-if="conversations.length === 0" class="sidebar-status">{{ labels.noChats }}</div>
 
             <div v-else class="conversation-list">
                 <div
@@ -38,7 +52,7 @@
                         type="button"
                         class="conversation-delete"
                         :disabled="deletingUuid === conversation.uuid"
-                        :aria-label="copy.deleteChat"
+                        :aria-label="labels.deleteChat"
                         @click="deleteConversation(conversation)"
                     >
                         <i class="bi bi-trash3"></i>
@@ -56,34 +70,29 @@
                 </button>
 
                 <div>
-                    <p class="eyebrow">{{ toolEyebrow }}</p>
+                    <p class="eyebrow">{{ activeTool.toolKey }}</p>
                     <h1>{{ pageTitle }}</h1>
                 </div>
 
                 <div class="tool-badges">
-                    <span v-if="toolKeyBadge">{{ toolKeyBadge }}</span>
-                    <span v-if="modelKeyBadge">{{ modelKeyBadge }}</span>
+                    <span>{{ activeTool.modelKey }}</span>
+                    <span>#{{ activeTool.id }}</span>
                 </div>
             </header>
 
             <div ref="messagesContainer" class="messages" role="log" aria-live="polite">
                 <div v-if="loadingMessages" class="center-status">
                     <span class="spinner"></span>
-                    {{ copy.loadingConversation }}
+                    {{ labels.loadingConversation }}
                 </div>
 
                 <div v-else-if="messages.length === 0" class="welcome-card">
-                    <span class="welcome-icon"><i class="bi bi-magic"></i></span>
-                    <h2>{{ welcomeTitle }}</h2>
-                    <p>{{ subtool.description || welcomeText }}</p>
+                    <span class="welcome-icon"><i class="bi bi-key-fill"></i></span>
+                    <h2>{{ pageTitle }}</h2>
+                    <p>{{ welcomeText }}</p>
 
-                    <button
-                        v-if="subtool.promptPlaceholder"
-                        class="suggestion"
-                        type="button"
-                        @click="fillPlaceholder"
-                    >
-                        {{ subtool.promptPlaceholder }}
+                    <button class="suggestion" type="button" @click="fillExample">
+                        {{ examplePrompt }}
                     </button>
                 </div>
 
@@ -104,51 +113,22 @@
                             </div>
 
                             <template v-else>
+                                <KeywordResult
+                                    v-if="isKeywordResultMessage(message)"
+                                    :message="message"
+                                    :labels="labels"
+                                    :copied-key="copiedKey"
+                                    @copy-keyword="copyKeyword"
+                                    @copy-all="copyAllKeywords"
+                                    @regenerate="regenerateKeywordResult"
+                                    @refine="startRefine"
+                                />
+
                                 <div
-                                    v-if="message.content"
+                                    v-else-if="message.content"
                                     class="message-content"
                                     v-html="formatMessage(message.content)"
                                 ></div>
-
-                                <div v-if="message.results.length" class="result-list">
-                                    <section
-                                        v-for="(resultItem, index) in message.results"
-                                        :key="index"
-                                        class="result-card"
-                                    >
-                                        <div class="result-header">
-                                            <strong>
-                                                {{ resultCardTitle(message, resultItem, index) }}
-                                            </strong>
-
-                                            <button type="button" @click="copyResult(resultCopyText(resultItem), index)">
-                                                <i class="bi bi-copy"></i>
-                                                {{ copiedResult === index ? copy.copied : copy.copy }}
-                                            </button>
-                                        </div>
-
-                                        <small v-if="resultCardSubject(resultItem)" class="result-subject">
-                                            {{ resultCardSubject(resultItem) }}
-                                        </small>
-
-                                        <div
-                                            v-if="resultCardText(resultItem)"
-                                            class="result-text"
-                                            v-html="formatMessage(resultCardText(resultItem))"
-                                        ></div>
-                                    </section>
-                                </div>
-
-                                <!-- <div v-if="message.role === 'assistant' && message.metadata" class="response-meta">
-                                    <span v-if="message.metadata.provider">{{ message.metadata.provider }}</span>
-                                    <span v-if="message.metadata.model_key">{{ message.metadata.model_key }}</span>
-                                    <span v-if="message.usage?.total_tokens">
-                                        {{ message.usage.total_tokens }} {{ copy.tokens }}
-                                    </span>
-                                    <span v-if="message.cost?.total_cost">
-                                        ${{ Number(message.cost.total_cost).toFixed(6) }}
-                                    </span>
-                                </div> -->
                             </template>
                         </div>
                     </article>
@@ -163,67 +143,73 @@
 
                 <details class="options-panel">
                     <summary>
-                        <span><i class="bi bi-sliders"></i> {{ copy.options }}</span>
+                        <span><i class="bi bi-sliders"></i> {{ labels.options }}</span>
                         <span class="options-summary">{{ optionsSummary }}</span>
                     </summary>
 
                     <div class="options-grid">
-                        <label v-for="field in textFields" :key="field.key">
-                            <span>{{ field.label }}</span>
-                            <input v-model="promptState[field.key]" type="text" :placeholder="field.placeholder">
+                        <label v-for="field in activeTool.fields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <input v-model="toolState[field.key]" type="text" :placeholder="field.placeholder">
                         </label>
 
                         <label>
-                            <span>{{ copy.resultsCount }}</span>
-                            <input v-model.number="promptState.results_count" type="number" min="1" max="10">
+                            <span>{{ labels.resultsCount }}</span>
+                            <input v-model.number="toolState.results_count" type="number" min="1" max="100">
                         </label>
 
-                        <label v-for="field in booleanFields" :key="field.key">
-                            <span>{{ field.label }}</span>
-                            <select v-model="promptState[field.key]">
-                                <option :value="null">{{ copy.defaultValue }}</option>
-                                <option :value="true">{{ copy.yes }}</option>
-                                <option :value="false">{{ copy.no }}</option>
+                        <label v-for="field in activeTool.booleanFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="toolState[field.key]">
+                                <option :value="null">{{ labels.defaultValue }}</option>
+                                <option :value="true">{{ labels.yes }}</option>
+                                <option :value="false">{{ labels.no }}</option>
                             </select>
                         </label>
 
                         <label class="wide">
-                            <span>{{ copy.extraOptions }}</span>
-                            <input v-model="extraOptionsText" type="text" :placeholder="copy.extraOptionsPlaceholder">
+                            <span>{{ labels.extraOptions }}</span>
+                            <input v-model="extraOptionsText" type="text" :placeholder="labels.extraOptionsPlaceholder">
                         </label>
                     </div>
                 </details>
+
+                <div v-if="refineMode" class="refine-banner">
+                    <i class="bi bi-pencil-square"></i>
+                    {{ isArabic ? "اكتب التعديل المطلوب ثم أرسل الرسالة." : "Type your refinement and send it." }}
+                    <button type="button" @click="refineMode = false">{{ labels.cancel }}</button>
+                </div>
 
                 <div class="input-box">
                     <textarea
                         ref="textareaRef"
                         v-model="userMessage"
                         rows="1"
-                        :placeholder="subtool.promptPlaceholder || composerPlaceholder"
+                        :placeholder="composerPlaceholder"
                         :disabled="sendDisabled"
                         @input="autoResize"
-                        @keydown.enter.exact.prevent="sendMessage"
+                        @keydown.enter.exact.prevent="sendKeywordMessage"
                     ></textarea>
 
                     <button
                         type="button"
                         class="send-button"
                         :disabled="sendDisabled || !userMessage.trim()"
-                        :aria-label="copy.send"
-                        @click="sendMessage"
+                        :aria-label="labels.send"
+                        @click="sendKeywordMessage"
                     >
                         <i :class="sendingMessage ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
                 </div>
 
-                <p class="composer-hint">{{ copy.hint }}</p>
+                <p class="composer-hint">{{ labels.hint }}</p>
             </footer>
         </section>
     </main>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, defineComponent, h, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import MarkdownIt from "markdown-it";
@@ -231,106 +217,140 @@ import DOMPurify from "dompurify";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
-import { cleanPromptEnhancerText } from "@/utils/promptEnhancerResults";
-import {
-    createIdeaGeneratorState,
-    extractIdeaGeneratorResults,
-} from "@/utils/ideaGeneratorResults";
-import {
-    createHookGeneratorState,
-    extractHookGeneratorResults,
-} from "@/utils/hookGeneratorResults";
 
-const DEFAULT_SUB_TOOL_ID = 9;
+const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
+const KEYWORD_GENERATOR_TOOL_KEY = "ai_keyword_generator";
+const KEYWORD_GENERATOR_MODEL_KEY = "keyword_generator";
 
-const PROMPT_GENERATOR_SUB_TOOL_ID = 9;
-const PROMPT_GENERATOR_TOOL_KEY = "ai_prompt_generator";
-const PROMPT_GENERATOR_MODEL_KEY = "prompt_generator";
-
-const PROMPT_ENHANCER_SUB_TOOL_ID = 10;
-const PROMPT_ENHANCER_TOOL_KEY = "ai_prompt_enhancer";
-const PROMPT_ENHANCER_MODEL_KEY = "prompt_enhancer";
-
-const IDEA_GENERATOR_SUB_TOOL_ID = 11;
-const IDEA_GENERATOR_TOOL_KEY = "ai_idea_generator";
-const IDEA_GENERATOR_MODEL_KEY = "idea_generator";
-
-const HOOK_GENERATOR_SUB_TOOL_ID = 12;
-const HOOK_GENERATOR_TOOL_KEY = "ai_hook_generator";
-const HOOK_GENERATOR_MODEL_KEY = "hook_generator";
-
-const STATUS_TEXTS = [
-    "Prompt generated successfully.",
-    "Prompt generated successfully",
-    "تم توليد البرومبت بنجاح.",
-    "تم توليد البرومبت بنجاح",
-    "Prompt enhanced successfully.",
-    "Prompt enhanced successfully",
-    "تم تحسين البرومبت بنجاح.",
-    "تم تحسين البرومبت بنجاح",
-    "Generated successfully.",
-    "Generated successfully",
-    "Enhanced successfully.",
-    "Enhanced successfully",
-    "Idea generated successfully.",
-    "Idea generated successfully",
-    "Ideas generated successfully.",
-    "Ideas generated successfully",
-    "تم توليد الأفكار بنجاح.",
-    "تم توليد الأفكار بنجاح",
-    "Hook generated successfully.",
-    "Hook generated successfully",
-    "Hooks generated successfully.",
-    "Hooks generated successfully",
-    "تم توليد الهوكات بنجاح.",
-    "تم توليد الهوكات بنجاح",
-    "Success",
-    "success",
-];
-
-const createPromptGeneratorState = () => ({
-    task: null,
-    target_ai_tool: null,
-    output_type: null,
+const getInitialKeywordGeneratorState = () => ({
+    topic: null,
+    industry: null,
+    target_audience: null,
     language: null,
-    tone: null,
-    audience: null,
-    prompt_style: null,
-    detail_level: null,
-    include_constraints: null,
+    keyword_type: null,
+    search_intent: null,
+    location: null,
     results_count: null,
+    include_long_tail: null,
+    include_clusters: null,
     extra_options: [],
     last_output: null,
 });
 
-const createPromptEnhancerState = () => ({
-    original_prompt: null,
-    target_ai_tool: null,
-    language: null,
-    enhancement_goal: null,
-    tone: null,
-    output_format: null,
-    detail_level: null,
-    preserve_intent: null,
-    results_count: null,
-    extra_options: [],
-    last_output: null,
-});
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
-const createDefaultToolState = (subToolId = DEFAULT_SUB_TOOL_ID) => {
-    if (Number(subToolId) === HOOK_GENERATOR_SUB_TOOL_ID) {
-        return createHookGeneratorState();
+const safeJsonParse = (value) => {
+    if (typeof value !== "string") return null;
+
+    const text = value.trim();
+    if (!text || (!text.startsWith("{") && !text.startsWith("["))) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+};
+
+const unwrapResponse = (source = {}) => {
+    if (source?.data && typeof source.data === "object") return source.data;
+    return source || {};
+};
+
+const normalizeKeywordItem = (item, index = 0) => {
+    const row = isPlainObject(item) ? item : { text: item };
+    const meta = isPlainObject(row.meta) ? row.meta : {};
+    const text = String(row.text || row.title || row.keyword || row.name || "").trim();
+    const title = String(row.title || row.keyword || row.text || "").trim();
+
+    if (!text && !title) return null;
+
+    return {
+        id: row.id || index + 1,
+        title: title || text,
+        subject: String(row.subject || "").trim(),
+        text: text || title,
+        meta: {
+            type: meta.type || row.type || null,
+            intent: meta.intent || row.intent || null,
+            cluster: meta.cluster || row.cluster || null,
+        },
+    };
+};
+
+const normalizeKeywordItems = (items = []) =>
+    (Array.isArray(items) ? items : [])
+        .map((item, index) => normalizeKeywordItem(item, index))
+        .filter(Boolean);
+
+const normalizeKeywordGeneratorResults = (source = {}) => {
+    const response = unwrapResponse(source);
+    const candidates = [];
+
+    if (typeof response?.state?.last_output === "string") {
+        candidates.push(safeJsonParse(response.state.last_output));
     }
 
-    if (Number(subToolId) === IDEA_GENERATOR_SUB_TOOL_ID) {
-        return createIdeaGeneratorState();
+    if (typeof response?.results?.[0]?.text === "string") {
+        candidates.push(safeJsonParse(response.results[0].text));
     }
 
-    if (Number(subToolId) === PROMPT_ENHANCER_SUB_TOOL_ID) {
-        return createPromptEnhancerState();
+    candidates.push(response);
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+
+        if (Array.isArray(candidate)) {
+            const normalized = normalizeKeywordItems(candidate);
+            if (normalized.length) return normalized;
+        }
+
+        if (Array.isArray(candidate.results)) {
+            const normalized = normalizeKeywordItems(candidate.results);
+            if (normalized.length) return normalized;
+        }
     }
 
-    return createPromptGeneratorState();
+    if (Array.isArray(response.results)) {
+        const normalized = normalizeKeywordItems(response.results);
+        if (normalized.length) return normalized;
+    }
+
+    const fallbackText = String(
+        response?.state?.last_output
+        || response?.results?.[0]?.text
+        || response?.message
+        || response?.content
+        || ""
+    ).trim();
+
+    return fallbackText ? [normalizeKeywordItem({ id: 1, text: fallbackText }, 0)].filter(Boolean) : [];
+};
+
+const CHAT3_TOOLS = {
+    [KEYWORD_GENERATOR_SUB_TOOL_ID]: {
+        id: KEYWORD_GENERATOR_SUB_TOOL_ID,
+        slug: "keyword-generator",
+        toolKey: KEYWORD_GENERATOR_TOOL_KEY,
+        modelKey: KEYWORD_GENERATOR_MODEL_KEY,
+        title: "مولد الكلمات المفتاحية",
+        titleEn: "Keyword Generator",
+        getInitialState: getInitialKeywordGeneratorState,
+        normalizeResults: normalizeKeywordGeneratorResults,
+        fields: [
+            { key: "topic", labelAr: "الموضوع", labelEn: "Topic", placeholder: "AI tools for content creators" },
+            { key: "industry", labelAr: "المجال", labelEn: "Industry", placeholder: "Technology" },
+            { key: "target_audience", labelAr: "الجمهور المستهدف", labelEn: "Target audience", placeholder: "Content creators" },
+            { key: "language", labelAr: "اللغة", labelEn: "Language", placeholder: "Arabic" },
+            { key: "keyword_type", labelAr: "نوع الكلمات", labelEn: "Keyword type", placeholder: "SEO keywords" },
+            { key: "search_intent", labelAr: "نية البحث", labelEn: "Search intent", placeholder: "Mixed" },
+            { key: "location", labelAr: "الموقع", labelEn: "Location", placeholder: "Saudi Arabia" },
+        ],
+        booleanFields: [
+            { key: "include_long_tail", labelAr: "تضمين Long-tail", labelEn: "Include long-tail" },
+            { key: "include_clusters", labelAr: "تضمين المجموعات", labelEn: "Include clusters" },
+        ],
+    },
 };
 
 const route = useRoute();
@@ -338,287 +358,75 @@ const router = useRouter();
 const { locale } = useI18n();
 
 const isArabic = computed(() =>
-    String(locale.value || homeService.getLang() || "en").toLowerCase() === "ar"
+    String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
 );
 
-const copy = computed(() => isArabic.value ? {
-    title: "مولد البرومبت",
-    enhancerTitle: "محسن البرومبتات",
-    ideaGeneratorTitle: "مولد الأفكار",
-    hookGeneratorTitle: "مولد الهوكات",
-    subtitle: "مساحة عمل مخصصة",
-    promptGenerator: "Prompt Generator",
-    promptEnhancer: "محسن البرومبتات",
-    ideaGenerator: "مولد الأفكار",
-    hookGenerator: "مولد الهوكات",
+const labels = computed(() => isArabic.value ? {
     newChat: "محادثة جديدة",
-    creating: "جارٍ الإنشاء...",
+    creating: "جاري الإنشاء...",
     recent: "المحادثات الأخيرة",
-    loading: "جارٍ التحميل...",
+    loading: "جاري التحميل...",
     noChats: "لا توجد محادثات بعد",
+    loadingConversation: "جاري تحميل المحادثة...",
     deleteChat: "حذف المحادثة",
-    loadingConversation: "جارٍ تحميل المحادثة...",
-    welcomeTitle: "ابدأ محادثتك الآن",
-    generatorWelcome: "اكتب فكرتك وسنحولها إلى برومبت احترافي منظم.",
-    enhancerWelcome: "اكتب البرومبت الذي تريد تحسينه وسنطوره ليصبح أوضح وأقوى.",
-    ideaGeneratorWelcome: "اكتب موضوعك وسنولد لك أفكارًا متنوعة وعملية بعناوين وأوصاف واضحة.",
-    hookGeneratorWelcome: "اكتب موضوعك وسنولد لك هوكات قصيرة وقوية ومناسبة للمنصة.",
-    welcomeText: "اكتب طلبك وسنجهز لك الرد المناسب حسب الأداة المحددة.",
-    result: "Result",
-    prompt: "Prompt",
-    enhancedPrompt: "البرومبت المحسن",
-    idea: "فكرة",
-    hook: "هوك",
-    copy: "نسخ",
-    copied: "تم النسخ",
-    tokens: "توكن",
     options: "خيارات الأداة",
     resultsCount: "عدد النتائج",
-    constraints: "تضمين قيود",
-    preserveIntent: "الحفاظ على نفس الهدف",
-    includeTitles: "تضمين العناوين",
-    includeDescriptions: "تضمين الأوصاف",
     defaultValue: "افتراضي",
     yes: "نعم",
     no: "لا",
     extraOptions: "خيارات إضافية",
-    extraOptionsPlaceholder: "افصل الخيارات بفاصلة",
-    placeholder: "اكتب رسالتك هنا...",
-    generatorPlaceholder: "اكتب فكرة البرومبت الذي تريد توليده...",
-    enhancerPlaceholder: "اكتب البرومبت الذي تريد تحسينه...",
-    ideaGeneratorPlaceholder: "اكتب الموضوع أو نوع الأفكار التي تريد توليدها...",
-    hookGeneratorPlaceholder: "اكتب الموضوع أو المحتوى الذي تريد توليد هوكات له...",
+    extraOptionsPlaceholder: "افصل الخيارات بفواصل",
     send: "إرسال",
-    hint: "Enter للإرسال، وShift + Enter لسطر جديد",
-    authRequired: "يجب تسجيل الدخول أولًا.",
+    hint: "Enter للإرسال، و Shift + Enter لسطر جديد",
+    copy: "نسخ",
+    copied: "تم النسخ",
+    copyAll: "نسخ الكل",
+    regenerate: "إعادة التوليد",
+    refine: "تعديل/تحسين",
+    cancel: "إلغاء",
     genericError: "تعذر تنفيذ الطلب. حاول مرة أخرى.",
+    authRequired: "يرجى تسجيل الدخول أولًا.",
 } : {
-    title: "Prompt Generator",
-    enhancerTitle: "Prompt Enhancer",
-    ideaGeneratorTitle: "Idea Generator",
-    hookGeneratorTitle: "AI Hook Generator",
-    subtitle: "Dedicated workspace",
-    promptGenerator: "Prompt Generator",
-    promptEnhancer: "Prompt Enhancer",
-    ideaGenerator: "Idea Generator",
-    hookGenerator: "Hook Generator",
     newChat: "New chat",
     creating: "Creating...",
-    recent: "Recent conversations",
+    recent: "Recent chats",
     loading: "Loading...",
     noChats: "No conversations yet",
-    deleteChat: "Delete conversation",
     loadingConversation: "Loading conversation...",
-    welcomeTitle: "Start your conversation",
-    generatorWelcome: "Write your idea and generate a clear professional prompt.",
-    enhancerWelcome: "Paste your prompt and enhance it into a clearer, stronger version.",
-    ideaGeneratorWelcome: "Describe your topic and generate distinct ideas with clear titles and descriptions.",
-    hookGeneratorWelcome: "Describe your topic and generate short, distinct, scroll-stopping hooks.",
-    welcomeText: "Write your request and the selected tool will generate the response.",
-    result: "Result",
-    prompt: "Prompt",
-    enhancedPrompt: "Enhanced Prompt",
-    idea: "Idea",
-    hook: "Hook",
-    copy: "Copy",
-    copied: "Copied",
-    tokens: "tokens",
+    deleteChat: "Delete conversation",
     options: "Tool options",
     resultsCount: "Results count",
-    constraints: "Include constraints",
-    preserveIntent: "Preserve intent",
-    includeTitles: "Include titles",
-    includeDescriptions: "Include descriptions",
     defaultValue: "Default",
     yes: "Yes",
     no: "No",
     extraOptions: "Extra options",
     extraOptionsPlaceholder: "Separate options with commas",
-    placeholder: "Write your message here...",
-    generatorPlaceholder: "Describe the prompt you want to generate...",
-    enhancerPlaceholder: "Paste the prompt you want to improve...",
-    ideaGeneratorPlaceholder: "Describe the ideas you want to generate...",
-    hookGeneratorPlaceholder: "Describe the hooks you want to generate...",
     send: "Send",
     hint: "Press Enter to send, Shift + Enter for a new line",
-    authRequired: "Please sign in first.",
+    copy: "Copy",
+    copied: "Copied",
+    copyAll: "Copy all",
+    regenerate: "Regenerate",
+    refine: "Edit/Refine",
+    cancel: "Cancel",
     genericError: "The request could not be completed. Please try again.",
+    authRequired: "Please sign in first.",
 });
 
+const activeTool = computed(() => CHAT3_TOOLS[KEYWORD_GENERATOR_SUB_TOOL_ID]);
+const registryTools = computed(() => Object.values(CHAT3_TOOLS));
+const toolState = ref(activeTool.value.getInitialState());
 const subtool = ref({
-    id: DEFAULT_SUB_TOOL_ID,
+    id: KEYWORD_GENERATOR_SUB_TOOL_ID,
     name: "",
     description: "",
     promptPlaceholder: "",
-    toolKey: "",
-    modelKey: "",
-    config: {},
+    toolKey: KEYWORD_GENERATOR_TOOL_KEY,
+    modelKey: KEYWORD_GENERATOR_MODEL_KEY,
 });
-
-const activeSubToolId = computed(() => Number(subtool.value.id || DEFAULT_SUB_TOOL_ID));
-
-const toolKeyBadge = computed(() =>
-    subtool.value.toolKey
-    || subtool.value.config?.tool_key
-    || subtool.value.config?.tool
-    || ""
-);
-
-const modelKeyBadge = computed(() =>
-    subtool.value.modelKey
-    || subtool.value.config?.model_key
-    || ""
-);
-
-const isActivePromptGenerator = computed(() =>
-    activeSubToolId.value === PROMPT_GENERATOR_SUB_TOOL_ID
-    || toolKeyBadge.value === PROMPT_GENERATOR_TOOL_KEY
-    || modelKeyBadge.value === PROMPT_GENERATOR_MODEL_KEY
-);
-
-const isActivePromptEnhancer = computed(() =>
-    activeSubToolId.value === PROMPT_ENHANCER_SUB_TOOL_ID
-    || toolKeyBadge.value === PROMPT_ENHANCER_TOOL_KEY
-    || modelKeyBadge.value === PROMPT_ENHANCER_MODEL_KEY
-);
-
-const isActiveIdeaGenerator = computed(() =>
-    activeSubToolId.value === IDEA_GENERATOR_SUB_TOOL_ID
-    || toolKeyBadge.value === IDEA_GENERATOR_TOOL_KEY
-    || modelKeyBadge.value === IDEA_GENERATOR_MODEL_KEY
-);
-
-const isActiveHookGenerator = computed(() =>
-    activeSubToolId.value === HOOK_GENERATOR_SUB_TOOL_ID
-    || toolKeyBadge.value === HOOK_GENERATOR_TOOL_KEY
-    || modelKeyBadge.value === HOOK_GENERATOR_MODEL_KEY
-);
-
-const isActiveStructuredTool = computed(() =>
-    isActivePromptGenerator.value
-    || isActivePromptEnhancer.value
-    || isActiveIdeaGenerator.value
-    || isActiveHookGenerator.value
-);
-
-const isActivePromptTool = isActiveStructuredTool;
-
-const pageTitle = computed(() =>
-    subtool.value.name
-    || (
-        isActiveHookGenerator.value
-            ? copy.value.hookGeneratorTitle
-            : (
-                isActiveIdeaGenerator.value
-                    ? copy.value.ideaGeneratorTitle
-                    : (isActivePromptEnhancer.value ? copy.value.enhancerTitle : copy.value.title)
-            )
-    )
-);
-
-const toolEyebrow = computed(() => {
-    if (isActiveHookGenerator.value) return "Hook Generator";
-    if (isActiveIdeaGenerator.value) return "Idea Generator";
-    if (isActivePromptEnhancer.value) return "Prompt Enhancer";
-    if (isActivePromptGenerator.value) return "Prompt Generator";
-    return toolKeyBadge.value || "AI Tool";
-});
-
-const welcomeTitle = computed(() => {
-    if (isActiveHookGenerator.value) return copy.value.hookGeneratorTitle;
-    if (isActiveIdeaGenerator.value) return copy.value.ideaGeneratorTitle;
-    if (isActivePromptEnhancer.value) return copy.value.enhancerTitle;
-    if (isActivePromptGenerator.value) return copy.value.title;
-    return copy.value.welcomeTitle;
-});
-
-const welcomeText = computed(() => {
-    if (isActiveHookGenerator.value) return copy.value.hookGeneratorWelcome;
-    if (isActiveIdeaGenerator.value) return copy.value.ideaGeneratorWelcome;
-    if (isActivePromptEnhancer.value) return copy.value.enhancerWelcome;
-    if (isActivePromptGenerator.value) return copy.value.generatorWelcome;
-    return copy.value.welcomeText;
-});
-
-const composerPlaceholder = computed(() => {
-    if (isActiveHookGenerator.value) return copy.value.hookGeneratorPlaceholder;
-    if (isActiveIdeaGenerator.value) return copy.value.ideaGeneratorPlaceholder;
-    if (isActivePromptEnhancer.value) return copy.value.enhancerPlaceholder;
-    if (isActivePromptGenerator.value) return copy.value.generatorPlaceholder;
-    return copy.value.placeholder;
-});
-
-const booleanFields = computed(() => {
-    if (isActiveHookGenerator.value) {
-        return [];
-    }
-
-    if (isActiveIdeaGenerator.value) {
-        return [
-            { key: "include_titles", label: copy.value.includeTitles },
-            { key: "include_descriptions", label: copy.value.includeDescriptions },
-        ];
-    }
-
-    return [isActivePromptEnhancer.value
-        ? { key: "preserve_intent", label: copy.value.preserveIntent }
-        : { key: "include_constraints", label: copy.value.constraints }];
-});
-
-const textFields = computed(() => {
-    if (isActiveHookGenerator.value) {
-        return [
-            { key: "topic", label: isArabic.value ? "الموضوع" : "Topic", placeholder: "AI content marketing" },
-            { key: "platform", label: isArabic.value ? "المنصة" : "Platform", placeholder: "LinkedIn" },
-            { key: "content_type", label: isArabic.value ? "نوع المحتوى" : "Content type", placeholder: "Social post or video" },
-            { key: "language", label: isArabic.value ? "اللغة" : "Language", placeholder: "Arabic" },
-            { key: "tone", label: isArabic.value ? "النبرة" : "Tone", placeholder: "Engaging" },
-            { key: "audience", label: isArabic.value ? "الجمهور" : "Audience", placeholder: "General Audience" },
-            { key: "hook_style", label: isArabic.value ? "أسلوب الهوك" : "Hook style", placeholder: "Scroll-stopping" },
-            { key: "length", label: isArabic.value ? "الطول" : "Length", placeholder: "Short" },
-        ];
-    }
-
-    if (isActiveIdeaGenerator.value) {
-        return [
-            { key: "topic", label: isArabic.value ? "الموضوع" : "Topic", placeholder: "AI tools" },
-            { key: "idea_type", label: isArabic.value ? "نوع الأفكار" : "Idea type", placeholder: "Content ideas" },
-            { key: "industry", label: isArabic.value ? "المجال" : "Industry", placeholder: "Tech" },
-            { key: "audience", label: isArabic.value ? "الجمهور" : "Audience", placeholder: "" },
-            { key: "language", label: isArabic.value ? "اللغة" : "Language", placeholder: "" },
-            { key: "tone", label: isArabic.value ? "النبرة" : "Tone", placeholder: "" },
-            { key: "creativity_level", label: isArabic.value ? "مستوى الإبداع" : "Creativity level", placeholder: "" },
-        ];
-    }
-
-    if (isActivePromptEnhancer.value) {
-        return [
-            { key: "original_prompt", label: isArabic.value ? "البرومبت الأصلي" : "Original prompt", placeholder: "" },
-            { key: "target_ai_tool", label: isArabic.value ? "أداة الذكاء الاصطناعي" : "Target AI tool", placeholder: "ChatGPT" },
-            { key: "language", label: isArabic.value ? "اللغة" : "Language", placeholder: "" },
-            { key: "enhancement_goal", label: isArabic.value ? "هدف التحسين" : "Enhancement goal", placeholder: "" },
-            { key: "tone", label: isArabic.value ? "النبرة" : "Tone", placeholder: "" },
-            { key: "output_format", label: isArabic.value ? "صيغة المخرج" : "Output format", placeholder: "" },
-            { key: "detail_level", label: isArabic.value ? "مستوى التفاصيل" : "Detail level", placeholder: "" },
-        ];
-    }
-
-    return [
-        { key: "task", label: isArabic.value ? "المهمة" : "Task", placeholder: "" },
-        { key: "target_ai_tool", label: isArabic.value ? "أداة الذكاء الاصطناعي" : "Target AI tool", placeholder: "ChatGPT" },
-        { key: "output_type", label: isArabic.value ? "نوع المخرج" : "Output type", placeholder: "" },
-        { key: "language", label: isArabic.value ? "اللغة" : "Language", placeholder: "" },
-        { key: "tone", label: isArabic.value ? "النبرة" : "Tone", placeholder: "" },
-        { key: "audience", label: isArabic.value ? "الجمهور" : "Audience", placeholder: "" },
-        { key: "prompt_style", label: isArabic.value ? "أسلوب البرومبت" : "Prompt style", placeholder: "" },
-        { key: "detail_level", label: isArabic.value ? "مستوى التفاصيل" : "Detail level", placeholder: "" },
-    ];
-});
-
 const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
-const promptState = ref(createDefaultToolState(DEFAULT_SUB_TOOL_ID));
 const userMessage = ref("");
 const errorMessage = ref("");
 const loadingConversations = ref(false);
@@ -631,7 +439,8 @@ const sidebarOpen = ref(false);
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const eventSource = ref(null);
-const copiedResult = ref(null);
+const copiedKey = ref("");
+const refineMode = ref(false);
 
 const markdown = new MarkdownIt({
     html: false,
@@ -639,542 +448,158 @@ const markdown = new MarkdownIt({
     linkify: true,
 });
 
+const localizedToolTitle = (tool) => isArabic.value ? tool.title : tool.titleEn;
+const pageTitle = computed(() => subtool.value.name || localizedToolTitle(activeTool.value));
+const welcomeText = computed(() =>
+    subtool.value.description
+    || (isArabic.value
+        ? "ولّد كلمات مفتاحية منظمة مع النوع، نية البحث، والمجموعات عندما تكون متاحة."
+        : "Generate organized keyword ideas with type, search intent, and clusters when available.")
+);
+const examplePrompt = "Generate 20 SEO keywords for an article about AI tools for content creators in arabic";
+const composerPlaceholder = computed(() =>
+    refineMode.value
+        ? (isArabic.value ? "مثال: زوّد long-tail وركز على السعودية" : "Example: add more long-tail keywords and focus on Saudi Arabia")
+        : (subtool.value.promptPlaceholder || examplePrompt)
+);
 const sendDisabled = computed(() => sendingMessage.value || streamingAssistant.value);
+const optionsSummary = computed(() => {
+    const state = normalizeKeywordState(toolState.value);
+    const count = Object.entries(state)
+        .filter(([key, value]) => key !== "last_output" && key !== "extra_options" && value !== null && value !== "")
+        .length + (Array.isArray(state.extra_options) ? state.extra_options.length : 0);
 
+    return count ? String(count) : labels.value.defaultValue;
+});
 const extraOptionsText = computed({
-    get: () => Array.isArray(promptState.value.extra_options) ? promptState.value.extra_options.join(", ") : "",
+    get: () => Array.isArray(toolState.value.extra_options) ? toolState.value.extra_options.join(", ") : "",
     set: (value) => {
-        promptState.value.extra_options = String(value || "")
+        toolState.value.extra_options = String(value || "")
             .split(",")
             .map((item) => item.trim())
             .filter(Boolean);
     },
 });
 
-const optionsSummary = computed(() => {
-    const count = Object.entries(promptState.value)
-        .filter(([key, value]) => key !== "last_output" && key !== "extra_options" && value !== null && value !== "")
-        .length + (Array.isArray(promptState.value.extra_options) ? promptState.value.extra_options.length : 0);
-
-    return count ? `${count}` : copy.value.defaultValue;
-});
-
 useSeoMeta({
     title: computed(() => `${pageTitle.value} | Ai Pro`),
-    description: computed(() =>
-        subtool.value.description
-        || (isArabic.value
-            ? "مساحة محادثة مخصصة لاستخدام أدوات الذكاء الاصطناعي."
-            : "Dedicated workspace for AI tools.")
-    ),
+    description: computed(() => welcomeText.value),
 });
 
-const formatMessage = (value = "") => {
-    const rendered = markdown.render(String(value || ""));
-    return DOMPurify.sanitize(rendered, { USE_PROFILES: { html: true } });
-};
+const formatMessage = (value = "") =>
+    DOMPurify.sanitize(markdown.render(String(value || "")), { USE_PROFILES: { html: true } });
 
-const resultCardText = (result) =>
-    isPlainObject(result) ? String(result.text || "") : String(result || "");
-
-const resultCardSubject = (result) =>
-    isPlainObject(result) ? String(result.subject || "") : "";
-
-const resultCardTitle = (message, result, index) => {
-    if (isPlainObject(result) && result.title) {
-        return String(result.title);
-    }
-
-    const baseTitle = message.resultTitle || copy.value.result;
-    return message.results.length > 1 ? `${baseTitle} ${index + 1}` : baseTitle;
-};
-
-const resultCopyText = (result) => {
-    if (!isPlainObject(result)) return String(result || "");
-
-    return [result.title, result.text]
-        .map((value) => String(value || "").trim())
-        .filter(Boolean)
-        .join("\n\n");
-};
-
-const now = () => new Date().toISOString();
 const createLocalKey = () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const createIdempotencyKey = () => {
+    if (window?.crypto?.randomUUID) return window.crypto.randomUUID();
 
-const debugClone = (value) => {
-    try {
-        return JSON.parse(JSON.stringify(value));
-    } catch {
-        return value;
-    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+        const random = Math.floor(Math.random() * 16);
+        const value = char === "x" ? random : (random & 0x3) | 0x8;
+        return value.toString(16);
+    });
 };
 
-const debugCurrentTool = () => ({
-    activeSubToolId: activeSubToolId.value,
-    isPromptGenerator: isActivePromptGenerator.value,
-    isPromptEnhancer: isActivePromptEnhancer.value,
-    isIdeaGenerator: isActiveIdeaGenerator.value,
-    isHookGenerator: isActiveHookGenerator.value,
-    toolKeyBadge: toolKeyBadge.value,
-    modelKeyBadge: modelKeyBadge.value,
-    subtool: debugClone(subtool.value),
-});
-
-const promptStateKey = (uuid) => `tool-state:${activeSubToolId.value}:${uuid || "new"}`;
-
-const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-
-const safeJsonParse = (value) => {
-    if (typeof value !== "string") return null;
-
-    const text = value.trim();
-
-    if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(text);
-    } catch {
-        return null;
-    }
-};
-
-const parseMaybeJson = (value) => {
-    if (isPlainObject(value)) return value;
-
-    if (typeof value === "string") {
-        const parsed = safeJsonParse(value);
-        return isPlainObject(parsed) ? parsed : {};
-    }
-
-    return {};
-};
-
-const unwrapPayload = (source) => {
-    if (!source || typeof source !== "object") return {};
-
-    let payload = source.data && typeof source.data === "object"
-        ? source.data
-        : source;
-
-    if (payload.response && typeof payload.response === "object") {
-        payload = payload.response;
-    }
-
-    return payload;
-};
-
-const isStatusText = (value) => {
-    const text = String(value || "").trim();
-
-    if (!text) return true;
-
-    return STATUS_TEXTS.some((status) => text.toLowerCase() === status.toLowerCase());
-};
-
-const isPromptToolPayload = (payload = {}, fallbackText = "") => {
-    const raw = unwrapPayload(payload);
-    const metadata = isPlainObject(raw.metadata) ? raw.metadata : {};
-    const data = { ...raw, ...metadata };
-
-    return Number(data.sub_tool_id) === PROMPT_GENERATOR_SUB_TOOL_ID
-        || Number(data.sub_tool_id) === PROMPT_ENHANCER_SUB_TOOL_ID
-        || Number(data.sub_tool_id) === IDEA_GENERATOR_SUB_TOOL_ID
-        || Number(data.sub_tool_id) === HOOK_GENERATOR_SUB_TOOL_ID
-        || data.tool === PROMPT_GENERATOR_TOOL_KEY
-        || data.tool === PROMPT_ENHANCER_TOOL_KEY
-        || data.tool === IDEA_GENERATOR_TOOL_KEY
-        || data.tool === HOOK_GENERATOR_TOOL_KEY
-        || data.model_key === PROMPT_GENERATOR_MODEL_KEY
-        || data.model_key === PROMPT_ENHANCER_MODEL_KEY
-        || data.model_key === IDEA_GENERATOR_MODEL_KEY
-        || data.model_key === HOOK_GENERATOR_MODEL_KEY
-        || isActivePromptTool.value
-        || String(fallbackText || "").includes(PROMPT_GENERATOR_TOOL_KEY)
-        || String(fallbackText || "").includes(PROMPT_ENHANCER_TOOL_KEY)
-        || String(fallbackText || "").includes(IDEA_GENERATOR_TOOL_KEY)
-        || String(fallbackText || "").includes(HOOK_GENERATOR_TOOL_KEY);
-};
-
-const isPromptEnhancerPayload = (payload = {}) => {
-    const raw = unwrapPayload(payload);
-    const metadata = isPlainObject(raw.metadata) ? raw.metadata : {};
-    const data = { ...raw, ...metadata };
-
-    return Number(data.sub_tool_id) === PROMPT_ENHANCER_SUB_TOOL_ID
-        || data.tool === PROMPT_ENHANCER_TOOL_KEY
-        || data.model_key === PROMPT_ENHANCER_MODEL_KEY
-        || isActivePromptEnhancer.value;
-};
-
-const isIdeaGeneratorPayload = (payload = {}) => {
-    const raw = unwrapPayload(payload);
-    const metadata = isPlainObject(raw.metadata) ? raw.metadata : {};
-    const data = { ...raw, ...metadata };
-
-    return Number(data.sub_tool_id) === IDEA_GENERATOR_SUB_TOOL_ID
-        || data.tool === IDEA_GENERATOR_TOOL_KEY
-        || data.model_key === IDEA_GENERATOR_MODEL_KEY
-        || isActiveIdeaGenerator.value;
-};
-
-const isHookGeneratorPayload = (payload = {}) => {
-    const raw = unwrapPayload(payload);
-    const metadata = isPlainObject(raw.metadata) ? raw.metadata : {};
-    const data = { ...raw, ...metadata };
-
-    return Number(data.sub_tool_id) === HOOK_GENERATOR_SUB_TOOL_ID
-        || data.tool === HOOK_GENERATOR_TOOL_KEY
-        || data.model_key === HOOK_GENERATOR_MODEL_KEY
-        || isActiveHookGenerator.value;
-};
-
-const extractTextFromResultItem = (item, depth = 0) => {
-    if (depth > 4 || item === null || item === undefined) return [];
-
-    if (typeof item === "string") {
-        if (isStatusText(item)) return [];
-
-        const parsed = safeJsonParse(item);
-
-        if (parsed) {
-            return extractPromptToolTextsFromAny(parsed, depth + 1);
-        }
-
-        return [item];
-    }
-
-    if (Array.isArray(item)) {
-        return item.flatMap((entry) => extractTextFromResultItem(entry, depth + 1));
-    }
-
-    if (isPlainObject(item)) {
-        if (typeof item.text === "string") {
-            return extractTextFromResultItem(item.text, depth + 1);
-        }
-
-        if (Array.isArray(item.results)) {
-            return item.results.flatMap((entry) => extractTextFromResultItem(entry, depth + 1));
-        }
-
-        if (typeof item.last_output === "string") {
-            return extractTextFromResultItem(item.last_output, depth + 1);
-        }
-    }
-
-    return [];
-};
-
-const extractPromptToolTextsFromAny = (payload, depth = 0) => {
-    if (depth > 4 || payload === null || payload === undefined) return [];
-
-    if (typeof payload === "string") {
-        return extractTextFromResultItem(payload, depth + 1);
-    }
-
-    if (Array.isArray(payload)) {
-        return payload.flatMap((item) => extractTextFromResultItem(item, depth + 1));
-    }
-
-    if (!isPlainObject(payload)) return [];
-
-    if (Array.isArray(payload.results) && payload.results.length) {
-        return payload.results.flatMap((item) => extractTextFromResultItem(item, depth + 1));
-    }
-
-    if (isPlainObject(payload.data)) {
-        const fromData = extractPromptToolTextsFromAny(payload.data, depth + 1);
-        if (fromData.length) return fromData;
-    }
-
-    if (isPlainObject(payload.metadata)) {
-        const fromMetadata = extractPromptToolTextsFromAny(payload.metadata, depth + 1);
-        if (fromMetadata.length) return fromMetadata;
-    }
-
-    if (isPlainObject(payload.state) && payload.state.last_output) {
-        return extractTextFromResultItem(payload.state.last_output, depth + 1);
-    }
-
-    if (payload.last_output) {
-        return extractTextFromResultItem(payload.last_output, depth + 1);
-    }
-
-    if (typeof payload.text === "string") {
-        return extractTextFromResultItem(payload.text, depth + 1);
-    }
-
-    return [];
-};
-
-const uniqueCleanTexts = (items = []) => {
-    const seen = new Set();
-
-    return items
-        .map((item) => cleanPromptEnhancerText(item))
-        .filter((item) => item && !isStatusText(item))
-        .filter((item) => {
-            if (seen.has(item)) return false;
-            seen.add(item);
-            return true;
-        });
-};
-
-const extractPromptToolDisplayItems = (source = {}, fallbackText = "") => {
-    const payload = unwrapPayload(source);
-    const metadata = isPlainObject(payload.metadata) ? payload.metadata : {};
-    const merged = { ...payload, ...metadata };
-    const type = String(merged.type || "").trim().toLowerCase();
-
-    if (type === "question") {
-        const question = String(merged.message || fallbackText || "").trim();
-        return question && !isStatusText(question) ? [question] : [];
-    }
-
-    const fromPayload = extractPromptToolTextsFromAny(merged);
-
-    if (fromPayload.length) {
-        return uniqueCleanTexts(fromPayload);
-    }
-
-    const fromFallback = extractPromptToolTextsFromAny(fallbackText);
-
-    return uniqueCleanTexts(fromFallback);
-};
-
-const extractGenericResults = (payload = {}) => {
-    const items = [];
-
-    if (Array.isArray(payload.results)) {
-        payload.results.forEach((item) => {
-            if (typeof item === "string") {
-                items.push(item);
-            } else if (isPlainObject(item) && typeof item.text === "string") {
-                items.push(item.text);
-            }
-        });
-    }
-
-    return uniqueCleanTexts(items);
-};
-
-const normalizeToolState = (state = {}) => {
-    const base = createDefaultToolState(activeSubToolId.value);
+const normalizeKeywordState = (state = {}) => {
+    const base = activeTool.value.getInitialState();
     const source = isPlainObject(state) ? state : {};
     const normalized = { ...base };
 
     Object.keys(base).forEach((key) => {
         if (key === "extra_options") {
-            normalized.extra_options = Array.isArray(source.extra_options) ? source.extra_options : [];
+            normalized.extra_options = Array.isArray(source.extra_options)
+                ? source.extra_options.map((item) => String(item || "").trim()).filter(Boolean)
+                : [];
             return;
         }
 
-        normalized[key] = source[key] !== undefined ? source[key] : base[key];
+        if (["include_long_tail", "include_clusters"].includes(key)) {
+            normalized[key] = typeof source[key] === "boolean" ? source[key] : null;
+            return;
+        }
+
+        if (key === "results_count") {
+            const count = Number(source[key]);
+            normalized[key] = Number.isFinite(count) && count > 0 ? Math.floor(count) : null;
+            return;
+        }
+
+        normalized[key] = source[key] === undefined || source[key] === ""
+            ? null
+            : source[key];
     });
 
     return normalized;
 };
 
-const persistPromptState = (uuid = activeConversation.value?.uuid) => {
-    if (!uuid) return;
-
-    try {
-        sessionStorage.setItem(promptStateKey(uuid), JSON.stringify(normalizeToolState(promptState.value)));
-    } catch {
-        // Session storage is optional.
-    }
+const metadataFrom = (message = {}) => {
+    if (isPlainObject(message.metadata)) return message.metadata;
+    if (typeof message.metadata === "string") return safeJsonParse(message.metadata) || {};
+    if (isPlainObject(message.toolMeta)) return message.toolMeta;
+    return {};
 };
 
-const restorePromptState = (uuid) => {
-    if (!uuid) {
-        promptState.value = createDefaultToolState(activeSubToolId.value);
-        return;
-    }
+const isKeywordMessage = (message = {}) => {
+    const meta = metadataFrom(message);
+    const tool = String(meta.tool_key || meta.tool || message.tool_key || message.tool || "").toLowerCase();
 
-    try {
-        const stored = JSON.parse(sessionStorage.getItem(promptStateKey(uuid)) || "null");
-        promptState.value = normalizeToolState(stored || {});
-    } catch {
-        promptState.value = createDefaultToolState(activeSubToolId.value);
-    }
+    return Number(meta.sub_tool_id || message.sub_tool_id || 0) === KEYWORD_GENERATOR_SUB_TOOL_ID
+        || tool === KEYWORD_GENERATOR_TOOL_KEY;
 };
 
-const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
-    const rawPayload = unwrapPayload(source);
-    const metadata = isPlainObject(rawPayload.metadata) ? rawPayload.metadata : {};
-    const payload = { ...rawPayload, ...metadata };
-    const type = String(payload.type || metadata.type || "").trim().toLowerCase();
-    const isPromptTool = isPromptToolPayload(payload, fallbackText);
-    const isEnhancer = isPromptEnhancerPayload(payload);
-    const isIdeaGenerator = isIdeaGeneratorPayload(payload);
-    const isHookGenerator = isHookGeneratorPayload(payload);
+const isKeywordResultMessage = (message = {}) =>
+    message.role === "assistant"
+    && !message.typing
+    && isKeywordMessage(message)
+    && Array.isArray(message.keywordResults)
+    && message.keywordResults.length > 0;
 
-    const state = isPlainObject(payload.state)
-        ? normalizeToolState(payload.state)
-        : null;
+const getAssistantOutput = (message = {}) => {
+    const meta = metadataFrom(message);
 
-    if (isPromptTool) {
-        const isQuestion = type === "question";
-        const displayItems = isQuestion
-            ? extractPromptToolDisplayItems(source, fallbackText)
-            : (
-                isHookGenerator
-                    ? extractHookGeneratorResults(source, fallbackText)
-                    : (
-                        isIdeaGenerator
-                            ? extractIdeaGeneratorResults(source, fallbackText)
-                            : extractPromptToolDisplayItems(source, fallbackText)
-                    )
-            );
-
-        return {
-            success: payload.success !== false,
-            type,
-            tool: payload.tool
-                || toolKeyBadge.value
-                || (
-                    isHookGenerator
-                        ? HOOK_GENERATOR_TOOL_KEY
-                        : (
-                            isIdeaGenerator
-                                ? IDEA_GENERATOR_TOOL_KEY
-                                : (isEnhancer ? PROMPT_ENHANCER_TOOL_KEY : PROMPT_GENERATOR_TOOL_KEY)
-                        )
-                ),
-            provider: payload.provider || null,
-            model_key: payload.model_key
-                || modelKeyBadge.value
-                || (
-                    isHookGenerator
-                        ? HOOK_GENERATOR_MODEL_KEY
-                        : (
-                            isIdeaGenerator
-                                ? IDEA_GENERATOR_MODEL_KEY
-                                : (isEnhancer ? PROMPT_ENHANCER_MODEL_KEY : PROMPT_GENERATOR_MODEL_KEY)
-                        )
-                ),
-            state,
-            content: isQuestion ? (displayItems[0] || "") : "",
-            results: isQuestion ? [] : displayItems,
-            resultTitle: isHookGenerator
-                ? copy.value.hook
-                : (
-                    isIdeaGenerator
-                        ? copy.value.idea
-                        : (
-                            isEnhancer
-                                ? (
-                                    displayItems.length > 1
-                                        ? (isArabic.value ? "النسخة" : "Version")
-                                        : copy.value.enhancedPrompt
-                                )
-                                : copy.value.prompt
-                        )
-                ),
-            usage: isPlainObject(payload.usage) ? payload.usage : null,
-            cost: isPlainObject(payload.cost) ? payload.cost : null,
-            isPromptTool: true,
-            isQuestion,
-        };
-    }
-
-    const genericResults = extractGenericResults(payload);
-    const content = String(
-        payload.content
-        || payload.message
-        || fallbackText
+    return String(
+        meta.state?.last_output
+        || message.responseState?.last_output
+        || message.content
+        || meta.results?.[0]?.text
         || ""
     ).trim();
-
-    return {
-        success: payload.success !== false,
-        type,
-        tool: payload.tool || toolKeyBadge.value || "",
-        provider: payload.provider || null,
-        model_key: payload.model_key || modelKeyBadge.value || "",
-        state,
-        content: genericResults.length ? "" : content,
-        results: genericResults,
-        resultTitle: copy.value.result,
-        usage: isPlainObject(payload.usage) ? payload.usage : null,
-        cost: isPlainObject(payload.cost) ? payload.cost : null,
-        isPromptTool: false,
-        isQuestion: type === "question",
-    };
-};
-
-const shouldHideDuplicateContent = (content, results, isPromptTool) => {
-    if (isPromptTool && isStatusText(content)) return true;
-    if (isPromptTool && results.length) return true;
-    if (isPromptTool && safeJsonParse(content)) return true;
-    if (!content || !results.length) return false;
-
-    const normalizedContent = String(content).trim();
-    const combinedResults = results
-        .map((item) => isPlainObject(item) ? String(item.text || "") : String(item || ""))
-        .join("\n\n")
-        .trim();
-
-    return normalizedContent === combinedResults;
 };
 
 const mapMessage = (message = {}, index = 0) => {
-    const normalized = message.role === "assistant"
-        ? normalizeAssistantResponse(message, message.content)
-        : {
-            results: [],
-            state: null,
-            usage: null,
-            cost: null,
-            isQuestion: false,
-            isPromptTool: false,
-            resultTitle: copy.value.result,
-        };
-
-    const results = normalized.results || [];
+    const meta = metadataFrom(message);
+    const keyword = message.role === "assistant" && isKeywordMessage(message);
+    const responsePayload = {
+        ...message,
+        ...meta,
+        state: meta.state || message.state,
+        results: meta.normalized_results || meta.results || message.results,
+    };
+    const keywordResults = keyword
+        ? (Array.isArray(meta.normalized_results) && meta.normalized_results.length
+            ? meta.normalized_results
+            : activeTool.value.normalizeResults(responsePayload))
+        : [];
 
     return {
         ...message,
-        localKey: message.localKey || `${message.role || "message"}-${message.id || index}-${message.created_at || now()}`,
-        content: normalized.isQuestion
-            ? normalized.content
-            : (
-                shouldHideDuplicateContent(
-                    message.content,
-                    results,
-                    normalized.isPromptTool
-                ) ? "" : String(message.content || normalized.content || "")
-            ),
+        localKey: message.localKey || `${message.role || "message"}-${message.id || index}-${message.created_at || createLocalKey()}`,
         role: message.role || "assistant",
-        results,
-        resultTitle: normalized.resultTitle || copy.value.result,
-        responseState: normalized.state,
-        usage: normalized.usage,
-        cost: normalized.cost,
-        metadata: message.role === "assistant" ? {
-            type: normalized.type,
-            tool: normalized.tool,
-            provider: normalized.provider,
-            model_key: normalized.model_key,
-        } : null,
-        is_error: Boolean(message.is_error) || normalized.success === false,
+        content: keyword && keywordResults.length ? "" : String(message.content || meta.message || ""),
+        metadata: meta,
+        responseState: isPlainObject(meta.state) ? normalizeKeywordState(meta.state) : null,
+        keywordResults,
+        is_error: Boolean(message.is_error || meta.success === false || meta.type === "error"),
         typing: Boolean(message.typing),
     };
 };
 
 const conversationTitle = (conversation = {}) => {
-    const firstMessage = conversation.first_user_message_content
+    const first = conversation.first_user_message_content
         || conversation.first_message_content
-        || conversation.message?.find?.((message) => message.role === "user")?.content
+        || conversation.message?.find?.((item) => item.role === "user")?.content
         || "";
-
-    const title = String(firstMessage)
-        .replace(/<[^>]*>/g, " ")
-        .trim()
-        .split(/\s+/)
-        .slice(0, 4)
-        .join(" ");
+    const title = String(first).replace(/<[^>]*>/g, " ").trim().split(/\s+/).slice(0, 4).join(" ");
 
     return title || `${pageTitle.value} ${String(conversation.uuid || "").slice(-5)}`;
 };
@@ -1186,7 +611,6 @@ const formatConversation = (conversation = {}) => ({
 
 const scrollToBottom = async () => {
     await nextTick();
-
     if (messagesContainer.value) {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
     }
@@ -1200,17 +624,41 @@ const autoResize = () => {
 };
 
 const resetTextarea = () => {
-    if (textareaRef.value) {
-        textareaRef.value.style.height = "auto";
+    if (textareaRef.value) textareaRef.value.style.height = "auto";
+};
+
+const stateStorageKey = (uuid = activeConversation.value?.uuid || "new") =>
+    `chat3-tool-state:${activeTool.value.id}:${uuid}`;
+
+const persistState = (uuid = activeConversation.value?.uuid) => {
+    if (!uuid) return;
+
+    try {
+        sessionStorage.setItem(stateStorageKey(uuid), JSON.stringify(normalizeKeywordState(toolState.value)));
+    } catch {
+        // Session storage is optional.
+    }
+};
+
+const restoreState = (uuid) => {
+    if (!uuid) {
+        toolState.value = activeTool.value.getInitialState();
+        return;
+    }
+
+    try {
+        const stored = safeJsonParse(sessionStorage.getItem(stateStorageKey(uuid)) || "");
+        toolState.value = normalizeKeywordState(stored || {});
+    } catch {
+        toolState.value = activeTool.value.getInitialState();
     }
 };
 
 const requireAuth = async () => {
     if (localStorage.getItem("auth_token")) return true;
 
-    errorMessage.value = copy.value.authRequired;
+    errorMessage.value = labels.value.authRequired;
     await router.push(`/${homeService.getLang()}/auth`);
-
     return false;
 };
 
@@ -1218,31 +666,25 @@ const loadSubtool = async () => {
     try {
         const response = await homeService.showSubtool(route.params.slug);
         const data = response?.data || {};
-        const config = parseMaybeJson(data.config || data.settings);
+        const config = isPlainObject(data.config) ? data.config : safeJsonParse(data.config) || {};
 
         subtool.value = {
-            id: Number(data.id || config.sub_tool_id || DEFAULT_SUB_TOOL_ID),
-            name: data.translation?.name || data.name || config.name || copy.value.title,
-            description: data.translation?.description || data.description || config.description || "",
-            promptPlaceholder: data.translation?.prompt_placeholder || data.prompt_placeholder || config.prompt_placeholder || "",
-            toolKey: data.tool_key || data.tool || config.tool_key || config.tool || "",
-            modelKey: data.model_key || config.model_key || "",
-            config,
+            id: Number(data.id || config.sub_tool_id || KEYWORD_GENERATOR_SUB_TOOL_ID),
+            name: data.translation?.name || data.name || localizedToolTitle(activeTool.value),
+            description: data.translation?.description || data.description || "",
+            promptPlaceholder: data.translation?.prompt_placeholder || data.prompt_placeholder || "",
+            toolKey: data.tool_key || config.tool_key || KEYWORD_GENERATOR_TOOL_KEY,
+            modelKey: data.model_key || config.model_key || KEYWORD_GENERATOR_MODEL_KEY,
         };
-
-        promptState.value = normalizeToolState(promptState.value);
     } catch {
         subtool.value = {
-            id: DEFAULT_SUB_TOOL_ID,
-            name: copy.value.title,
-            description: copy.value.welcomeText,
-            promptPlaceholder: copy.value.placeholder,
-            toolKey: PROMPT_GENERATOR_TOOL_KEY,
-            modelKey: PROMPT_GENERATOR_MODEL_KEY,
-            config: {},
+            id: KEYWORD_GENERATOR_SUB_TOOL_ID,
+            name: localizedToolTitle(activeTool.value),
+            description: "",
+            promptPlaceholder: examplePrompt,
+            toolKey: KEYWORD_GENERATOR_TOOL_KEY,
+            modelKey: KEYWORD_GENERATOR_MODEL_KEY,
         };
-
-        promptState.value = createDefaultToolState(DEFAULT_SUB_TOOL_ID);
     }
 };
 
@@ -1257,24 +699,23 @@ const loadConversations = async () => {
     try {
         const response = await chatServices.getConversations();
         const rows = Array.isArray(response?.data) ? response.data : [];
-
         conversations.value = rows
-            .filter((conversation) => Number(conversation.sub_tool_id) === activeSubToolId.value)
+            .filter((conversation) => Number(conversation.sub_tool_id) === activeTool.value.id)
             .map(formatConversation);
     } finally {
         loadingConversations.value = false;
     }
 };
 
-const hydrateStateFromMessages = (rows) => {
-    const latestState = [...rows]
+const hydrateStateFromMessages = (rows = []) => {
+    const latest = [...rows]
         .reverse()
-        .map((message) => mapMessage(message))
-        .find((message) => message.role === "assistant" && message.responseState)?.responseState;
+        .map((row, index) => mapMessage(row, index))
+        .find((message) => message.role === "assistant" && message.responseState);
 
-    if (latestState) {
-        promptState.value = normalizeToolState(latestState);
-        persistPromptState();
+    if (latest?.responseState) {
+        toolState.value = normalizeKeywordState(latest.responseState);
+        persistState();
     }
 };
 
@@ -1294,12 +735,8 @@ const loadConversationDetails = async (uuid) => {
 
         if (conversation) {
             activeConversation.value = formatConversation(conversation);
-
             const existingIndex = conversations.value.findIndex((item) => item.uuid === uuid);
-
-            if (existingIndex >= 0) {
-                conversations.value[existingIndex] = activeConversation.value;
-            }
+            if (existingIndex >= 0) conversations.value[existingIndex] = activeConversation.value;
         }
 
         messages.value = rows.map(mapMessage);
@@ -1323,9 +760,8 @@ const ensureConversation = async () => {
         ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
     ];
 
-    restorePromptState(conversation.uuid);
-
-    await router.replace(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2/${conversation.uuid}`);
+    restoreState(conversation.uuid);
+    await router.replace(`/${homeService.getLang()}/subtool/${route.params.slug}/chat3/${conversation.uuid}`);
 
     return conversation;
 };
@@ -1340,23 +776,18 @@ const closeStream = () => {
 };
 
 const openAssistantStream = async (conversation, afterId) => {
+    if (!conversation?.uuid) return;
+
     closeStream();
     streamingAssistant.value = true;
-
-    console.groupCollapsed("AI STREAM DEBUG");
-    console.log("Conversation:", debugClone(conversation));
-    console.log("After message id:", afterId);
-    console.log("Stream URL:", `/api/v1/conversation/${conversation.uuid}/stream?after_id=${String(afterId || 0)}`);
 
     const typingMessage = mapMessage({
         localKey: createLocalKey(),
         role: "assistant",
         content: "",
         typing: true,
-        created_at: now(),
+        created_at: new Date().toISOString(),
     });
-
-    console.log("Typing assistant message pushed before stream:", debugClone(typingMessage));
 
     messages.value.push(typingMessage);
     await scrollToBottom();
@@ -1365,304 +796,128 @@ const openAssistantStream = async (conversation, afterId) => {
         after_id: String(afterId || 0),
         token: localStorage.getItem("auth_token") || "",
     });
-
     const source = new EventSource(`/api/v1/conversation/${conversation.uuid}/stream?${params.toString()}`);
     eventSource.value = source;
 
     source.onmessage = async (event) => {
-        console.groupCollapsed("AI STREAM EVENT");
-        console.log("Raw stream event:", event);
-        console.log("Raw event.data:", event.data);
-
         const payload = JSON.parse(event.data || "{}");
         const index = messages.value.findIndex((message) => message.localKey === typingMessage.localKey);
 
-        if (
-            Number(payload?.response?.sub_tool_id) === IDEA_GENERATOR_SUB_TOOL_ID
-            || payload?.response?.tool === IDEA_GENERATOR_TOOL_KEY
-        ) {
-            console.group("IDEA GENERATOR STREAM DEBUG");
-            console.log("RAW STREAM EVENT:", event);
-            console.log("RAW STREAM DATA:", event.data);
-            console.log("PARSED STREAM PAYLOAD:", payload);
-            console.log("STREAM RESPONSE:", payload.response);
-            console.log("STREAM RESULTS:", payload.response?.results);
-            console.log("STREAM STATE:", payload.response?.state);
-            console.groupEnd();
-        }
-
-        console.log("Parsed stream payload:", debugClone(payload));
-        console.log("Typing message index:", index);
-
         if (payload.type === "token" && index >= 0) {
-            messages.value[index].typing = false;
-            messages.value[index].content += payload.content || "";
-
-            console.log("AI token content:", payload.content || "");
-            console.log("Assistant content after token:", messages.value[index].content);
-            console.log("Message printed in frontend from stream:", debugClone(messages.value[index]));
-
             await scrollToBottom();
         }
 
         if (payload.type === "error" && index >= 0) {
             messages.value[index].typing = false;
             messages.value[index].is_error = true;
-            messages.value[index].content = payload.content || copy.value.genericError;
-
-            console.error("AI stream error payload:", debugClone(payload));
-            console.log("Error message printed in frontend:", debugClone(messages.value[index]));
-
+            messages.value[index].content = payload.content || labels.value.genericError;
             closeStream();
         }
 
         if (payload.type === "done") {
-            console.log("AI stream done payload:", debugClone(payload));
             closeStream();
             await loadConversationDetails(conversation.uuid);
         }
-
-        console.groupEnd();
     };
 
-    source.onerror = async (error) => {
-        console.error("AI stream EventSource error:", error);
+    source.onerror = async () => {
         closeStream();
         await loadConversationDetails(conversation.uuid);
     };
 };
 
-const sendMessage = async () => {
-    const text = userMessage.value.trim();
+const buildPayload = (conversation, text, options = {}) => {
+    const state = normalizeKeywordState(options.state || toolState.value);
+    const payload = {
+        user_id: Number(conversation.user_id) || null,
+        sub_tool_id: activeTool.value.id,
+        conversation_uuid: conversation.uuid,
+        user_message: text,
+        content: text,
+        tool: activeTool.value.toolKey,
+        tool_key: activeTool.value.toolKey,
+        model_key: activeTool.value.modelKey,
+        state,
+        debug: false,
+        idempotency_key: createIdempotencyKey(),
+    };
 
-    if (!text || sendDisabled.value || !activeSubToolId.value) return;
+    if (options.regenerate) {
+        payload.regenerate = true;
+        payload.previous_output = String(options.previousOutput || "");
+    }
+
+    return payload;
+};
+
+const submitKeywordRequest = async (text, options = {}) => {
+    const cleanText = String(text || "").trim();
+    if (!cleanText || sendDisabled.value) return;
 
     errorMessage.value = "";
     sendingMessage.value = true;
 
-    let debugGroupOpen = false;
-
-    const closeSendDebugGroup = () => {
-        if (debugGroupOpen) {
-            console.groupEnd();
-            debugGroupOpen = false;
-        }
-    };
-
     try {
-        console.groupCollapsed("SEND MESSAGE FULL DEBUG");
-        debugGroupOpen = true;
-
-        console.log("1) USER TEXT FROM COMPOSER:", text);
-        console.log("2) TOOL INFO BEFORE SEND:", debugCurrentTool());
-        console.log("3) ACTIVE CONVERSATION BEFORE ensureConversation:", debugClone(activeConversation.value));
-        console.log("4) CURRENT promptState BEFORE normalize:", debugClone(promptState.value));
-
         const conversation = await ensureConversation();
+        if (!conversation?.uuid) return;
 
-        console.log("5) CONVERSATION AFTER ensureConversation:", debugClone(conversation));
+        const payload = buildPayload(conversation, cleanText, options);
+        const requestState = normalizeKeywordState(payload.state);
 
-        if (!conversation?.uuid) {
-            console.warn("No conversation UUID. Request stopped before sending.");
-            closeSendDebugGroup();
-            return;
-        }
-
-        const requestState = normalizeToolState(promptState.value);
-
-        console.log("6) NORMALIZED REQUEST STATE:", debugClone(requestState));
-
-        const payload = {
-            user_id: Number(conversation.user_id) || null,
-            sub_tool_id: activeSubToolId.value,
-            conversation_uuid: conversation.uuid,
-            user_message: text,
-            state: requestState,
-            debug: false,
-        };
-
-        console.log("7) PAYLOAD SENT TO BACKEND:", debugClone(payload));
-        console.log("7.1) PAYLOAD JSON:", JSON.stringify(payload, null, 2));
-
-        const userMessageObject = mapMessage({
+        messages.value.push(mapMessage({
             localKey: createLocalKey(),
             role: "user",
-            content: text,
-            created_at: now(),
-        });
-
-        console.log("8) USER MESSAGE OBJECT PUSHED TO FRONTEND:", debugClone(userMessageObject));
-        console.log("8.1) USER TEXT PRINTED IN FRONTEND:", userMessageObject.content);
-
-        messages.value.push(userMessageObject);
+            content: cleanText,
+            created_at: new Date().toISOString(),
+        }));
 
         userMessage.value = "";
+        refineMode.value = false;
         resetTextarea();
-        promptState.value = requestState;
-        persistPromptState(conversation.uuid);
+        toolState.value = requestState;
+        persistState(conversation.uuid);
         await scrollToBottom();
 
-        console.time("9) chatServices.sendMessage duration");
         const response = await chatServices.sendMessage(payload);
-        console.timeEnd("9) chatServices.sendMessage duration");
+        const directPayload = unwrapResponse(response);
+        const directResults = activeTool.value.normalizeResults(directPayload);
 
-        if (Number(payload.sub_tool_id) === IDEA_GENERATOR_SUB_TOOL_ID) {
-            const ideaDirectResponse = normalizeAssistantResponse(response);
+        if (directResults.length && (directPayload.tool || directPayload.sub_tool_id || directPayload.state)) {
+            const metadata = {
+                type: directPayload.type || "result",
+                tool: activeTool.value.toolKey,
+                tool_key: activeTool.value.toolKey,
+                model_key: activeTool.value.modelKey,
+                sub_tool_id: activeTool.value.id,
+                state: normalizeKeywordState(directPayload.state || requestState),
+                request_payload: payload,
+                request_id: directPayload.request_id || null,
+                usage: directPayload.usage || null,
+                cost: directPayload.cost || null,
+                normalized_results: directResults,
+            };
 
-            console.group("IDEA GENERATOR DEBUG");
-            console.log("USER MESSAGE:", text);
-            console.log("PAYLOAD SENT:", payload);
-            console.log("RAW BACKEND RESPONSE:", response);
-            console.log("response.data:", response?.data);
-            console.log("response.data.results:", response?.data?.results);
-            console.log("response.data.state:", response?.data?.state);
-            console.log("NORMALIZED RESPONSE:", ideaDirectResponse);
-            console.log("FRONTEND PRINTED RESULTS:", ideaDirectResponse.results);
-            console.groupEnd();
-        }
-
-        console.groupCollapsed("10) RAW BACKEND RESPONSE");
-        console.log("RAW response:", response);
-        console.log("response.data:", response?.data);
-        console.log("response.data.success:", response?.data?.success);
-        console.log("response.data.type:", response?.data?.type);
-        console.log("response.data.tool:", response?.data?.tool);
-        console.log("response.data.provider:", response?.data?.provider);
-        console.log("response.data.model_key:", response?.data?.model_key);
-        console.log("response.data.message:", response?.data?.message);
-        console.log("response.data.content:", response?.data?.content);
-        console.log("response.data.results:", response?.data?.results);
-        console.log("response.data.results[0]:", response?.data?.results?.[0]);
-        console.log("response.data.results[0].text:", response?.data?.results?.[0]?.text);
-        console.log("response.data.state:", response?.data?.state);
-        console.log("response.data.state.last_output:", response?.data?.state?.last_output);
-        console.log("response.data.last_output:", response?.data?.last_output);
-        console.log("response.data.text:", response?.data?.text);
-        console.log("response.data.usage:", response?.data?.usage);
-        console.log("response.data.cost:", response?.data?.cost);
-        console.log("response.data.count:", response?.data?.count);
-        console.log("response.data.request_id:", response?.data?.request_id);
-        console.log("RAW response JSON:", JSON.stringify(debugClone(response?.data || response), null, 2));
-        console.groupEnd();
-
-        const directResponse = normalizeAssistantResponse(response);
-
-        console.groupCollapsed("11) NORMALIZED DIRECT RESPONSE USED BY FRONTEND");
-        console.log("directResponse:", debugClone(directResponse));
-        console.log("directResponse.content:", directResponse.content);
-        console.log("directResponse.results:", debugClone(directResponse.results));
-        console.log("directResponse.results[0]:", directResponse.results?.[0]);
-        console.log("directResponse.resultTitle:", directResponse.resultTitle);
-        console.log("directResponse.state:", debugClone(directResponse.state));
-        console.log("directResponse.usage:", debugClone(directResponse.usage));
-        console.log("directResponse.cost:", debugClone(directResponse.cost));
-        console.groupEnd();
-
-        if (directResponse.isQuestion && directResponse.content) {
-            const assistantMessage = mapMessage({
-                localKey: createLocalKey(),
-                role: "assistant",
-                content: directResponse.content,
-                metadata: directResponse,
-                created_at: now(),
-            });
-
-            console.groupCollapsed("12) ASSISTANT QUESTION MESSAGE PRINTED IN FRONTEND");
-            console.log("assistantMessage:", debugClone(assistantMessage));
-            console.log("assistantMessage.content:", assistantMessage.content);
-            console.log("THIS IS PRINTED IN FRONTEND:", assistantMessage.content);
-            console.groupEnd();
-
-            messages.value.push(assistantMessage);
-
-            if (directResponse.state) {
-                promptState.value = directResponse.state;
-                persistPromptState(conversation.uuid);
-            }
-
-            console.log("13) ALL MESSAGES AFTER ASSISTANT QUESTION PUSH:", debugClone(messages.value));
-            await scrollToBottom();
-            closeSendDebugGroup();
-            return;
-        }
-
-        if (directResponse.results.length) {
-            const assistantMessage = mapMessage({
+            messages.value.push(mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: "",
-                metadata: directResponse,
-                created_at: now(),
-            });
-
-            console.groupCollapsed("12) ASSISTANT RESULT MESSAGE PRINTED IN FRONTEND");
-            console.log("assistantMessage:", debugClone(assistantMessage));
-            console.log("assistantMessage.results:", debugClone(assistantMessage.results));
-            console.log("assistantMessage.results[0]:", assistantMessage.results?.[0]);
-            console.log("THIS IS PRINTED IN FRONTEND:", assistantMessage.results?.[0]);
-            console.log("Template variable resultText equals each item in assistantMessage.results");
-            console.groupEnd();
-
-            messages.value.push(assistantMessage);
-
-            if (directResponse.state) {
-                promptState.value = directResponse.state;
-                persistPromptState(conversation.uuid);
-            }
-
-            console.log("13) ALL MESSAGES AFTER ASSISTANT RESULT PUSH:", debugClone(messages.value));
+                metadata,
+                created_at: new Date().toISOString(),
+            }));
             await scrollToBottom();
-            closeSendDebugGroup();
             return;
         }
 
-        if (directResponse.content) {
-            const assistantMessage = mapMessage({
-                localKey: createLocalKey(),
-                role: "assistant",
-                content: directResponse.content,
-                metadata: directResponse,
-                created_at: now(),
-            });
-
-            console.groupCollapsed("12) ASSISTANT CONTENT MESSAGE PRINTED IN FRONTEND");
-            console.log("assistantMessage:", debugClone(assistantMessage));
-            console.log("assistantMessage.content:", assistantMessage.content);
-            console.log("THIS IS PRINTED IN FRONTEND:", assistantMessage.content);
-            console.groupEnd();
-
-            messages.value.push(assistantMessage);
-
-            if (directResponse.state) {
-                promptState.value = directResponse.state;
-                persistPromptState(conversation.uuid);
-            }
-
-            console.log("13) ALL MESSAGES AFTER ASSISTANT CONTENT PUSH:", debugClone(messages.value));
-            await scrollToBottom();
-            closeSendDebugGroup();
-            return;
-        }
-
-        console.warn("12) No direct question, no direct results, no direct content. Opening stream...");
-        console.log("Stream after_id:", response?.data?.message_id);
-        console.log("This usually means frontend did not receive printable AI text in direct response.");
-
-        await openAssistantStream(conversation, response?.data?.message_id);
-        closeSendDebugGroup();
+        await openAssistantStream(conversation, response?.data?.message_id || directPayload.message_id);
     } catch (error) {
-        console.groupCollapsed("SEND MESSAGE ERROR DEBUG");
-        console.error("Caught error:", error);
-        console.error("error.response:", error?.response);
-        console.error("error.response.data:", error?.response?.data);
-        console.error("error.message:", error?.message);
-        console.groupEnd();
-
-        errorMessage.value = error?.response?.data?.message || copy.value.genericError;
-        closeSendDebugGroup();
+        errorMessage.value = error?.response?.data?.message || labels.value.genericError;
     } finally {
         sendingMessage.value = false;
     }
+};
+
+const sendKeywordMessage = async () => {
+    await submitKeywordRequest(userMessage.value);
 };
 
 const startNewChat = async () => {
@@ -1680,12 +935,11 @@ const startNewChat = async () => {
             conversation,
             ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
         ];
-
         messages.value = [];
-        promptState.value = createDefaultToolState(activeSubToolId.value);
+        toolState.value = activeTool.value.getInitialState();
         sidebarOpen.value = false;
 
-        await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2/${conversation.uuid}`);
+        await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat3/${conversation.uuid}`);
     } finally {
         creatingConversation.value = false;
     }
@@ -1694,15 +948,16 @@ const startNewChat = async () => {
 const openConversation = async (conversation) => {
     if (!conversation?.uuid) return;
 
-    sidebarOpen.value = false;
-    restorePromptState(conversation.uuid);
+    restoreState(conversation.uuid);
 
     if (route.params.uuid === conversation.uuid) {
         await loadConversationDetails(conversation.uuid);
+        sidebarOpen.value = false;
         return;
     }
 
-    await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2/${conversation.uuid}`);
+    await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat3/${conversation.uuid}`);
+    sidebarOpen.value = false;
 };
 
 const deleteConversation = async (conversation) => {
@@ -1718,38 +973,80 @@ const deleteConversation = async (conversation) => {
             closeStream();
             activeConversation.value = null;
             messages.value = [];
-            promptState.value = createDefaultToolState(activeSubToolId.value);
-            await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2`);
+            toolState.value = activeTool.value.getInitialState();
+            await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat3`);
         }
     } finally {
         deletingUuid.value = "";
     }
 };
 
-const fillPlaceholder = () => {
-    userMessage.value = subtool.value.promptPlaceholder;
-
+const fillExample = () => {
+    userMessage.value = examplePrompt;
     nextTick(() => {
         textareaRef.value?.focus();
         autoResize();
     });
 };
 
-const copyResult = async (text, resultId) => {
+const keywordCopyText = (item) => String(item?.text || item?.title || "").trim();
+
+const copyKeyword = async ({ text, key }) => {
     await navigator.clipboard.writeText(text);
-
-    copiedResult.value = resultId;
-
+    copiedKey.value = key;
     window.setTimeout(() => {
-        copiedResult.value = null;
+        if (copiedKey.value === key) copiedKey.value = "";
     }, 1200);
+};
+
+const copyAllKeywords = async (message) => {
+    const text = (message.keywordResults || [])
+        .map(keywordCopyText)
+        .filter(Boolean)
+        .join("\n");
+
+    if (!text) return;
+
+    await copyKeyword({ text, key: `${message.localKey}:all` });
+};
+
+const findUserInputBeforeMessage = (message) => {
+    const index = messages.value.findIndex((item) => item.localKey === message.localKey);
+    const rows = index >= 0 ? messages.value.slice(0, index) : messages.value;
+
+    return [...rows].reverse().find((item) => item.role === "user")?.content || "";
+};
+
+const regenerateKeywordResult = async (message) => {
+    const meta = metadataFrom(message);
+    const oldPayload = isPlainObject(meta.request_payload) ? meta.request_payload : {};
+    const text = String(oldPayload.user_message || findUserInputBeforeMessage(message) || "").trim();
+    if (!text) return;
+
+    await submitKeywordRequest(text, {
+        regenerate: true,
+        previousOutput: getAssistantOutput(message),
+        state: meta.state || message.responseState || toolState.value,
+    });
+};
+
+const startRefine = async (message) => {
+    if (message?.responseState) {
+        toolState.value = normalizeKeywordState(message.responseState);
+        persistState();
+    }
+
+    refineMode.value = true;
+    userMessage.value = "";
+    await nextTick();
+    textareaRef.value?.focus();
 };
 
 const initialize = async () => {
     locale.value = homeService.getLang();
 
     await loadSubtool();
-    restorePromptState(route.params.uuid);
+    restoreState(route.params.uuid);
     await loadConversations();
 
     if (route.params.uuid) {
@@ -1774,161 +1071,262 @@ onUnmounted(() => {
 
 watch(
     () => route.params.uuid,
-    async (uuid, previousUuid) => {
-        if (uuid === previousUuid) return;
-
+    async (uuid) => {
         closeStream();
-        restorePromptState(uuid);
+        restoreState(uuid);
 
-        if (uuid && activeConversation.value?.uuid === uuid && messages.value.length === 0) {
-            return;
+        if (uuid) {
+            await loadConversationDetails(uuid);
+        } else {
+            activeConversation.value = null;
+            messages.value = [];
         }
-
-        await loadConversationDetails(uuid);
     }
 );
 
 watch(
     () => route.params.slug,
-    async (slug, previousSlug) => {
-        if (slug === previousSlug) return;
-
+    async () => {
         closeStream();
-        activeConversation.value = null;
-        messages.value = [];
-        promptState.value = createDefaultToolState(activeSubToolId.value);
-
-        await initialize();
+        await loadSubtool();
+        await loadConversations();
     }
 );
+
+const KeywordResult = defineComponent({
+    name: "KeywordResult",
+    props: {
+        message: { type: Object, required: true },
+        labels: { type: Object, required: true },
+        copiedKey: { type: String, default: "" },
+    },
+    emits: ["copy-keyword", "copy-all", "regenerate", "refine"],
+    setup(props, { emit }) {
+        const tag = (value) => value ? h("span", { class: "keyword-tag" }, value) : null;
+        const copyText = (item) => String(item?.text || item?.title || "").trim();
+
+        return () => h("div", { class: "keyword-result" }, [
+            h("div", { class: "keyword-toolbar" }, [
+                h("strong", {}, props.labels.resultsCount),
+                h("div", { class: "keyword-actions" }, [
+                    h("button", {
+                        type: "button",
+                        onClick: () => emit("copy-all", props.message),
+                    }, [
+                        h("i", { class: "bi bi-copy" }),
+                        props.copiedKey === `${props.message.localKey}:all` ? props.labels.copied : props.labels.copyAll,
+                    ]),
+                    h("button", {
+                        type: "button",
+                        onClick: () => emit("regenerate", props.message),
+                    }, [
+                        h("i", { class: "bi bi-arrow-clockwise" }),
+                        props.labels.regenerate,
+                    ]),
+                    h("button", {
+                        type: "button",
+                        onClick: () => emit("refine", props.message),
+                    }, [
+                        h("i", { class: "bi bi-pencil-square" }),
+                        props.labels.refine,
+                    ]),
+                ]),
+            ]),
+            h("div", { class: "keyword-grid" }, props.message.keywordResults.map((item, index) => {
+                const key = `${props.message.localKey}:${item.id || index}`;
+                const tags = [
+                    tag(item.meta?.type),
+                    tag(item.meta?.intent),
+                    tag(item.meta?.cluster),
+                ].filter(Boolean);
+
+                return h("section", { class: "keyword-card", key }, [
+                    h("div", { class: "keyword-card-head" }, [
+                        h("span", { class: "keyword-index" }, String(item.id || index + 1)),
+                        h("button", {
+                            type: "button",
+                            onClick: () => emit("copy-keyword", { text: copyText(item), key }),
+                        }, [
+                            h("i", { class: "bi bi-copy" }),
+                            props.copiedKey === key ? props.labels.copied : props.labels.copy,
+                        ]),
+                    ]),
+                    h("strong", { class: "keyword-text" }, item.text || item.title),
+                    item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
+                    tags.length ? h("div", { class: "keyword-tags" }, tags) : null,
+                ]);
+            })),
+        ]);
+    },
+});
 </script>
 
 <style scoped>
-.prompt-chat {
-    --navy: #123f6d;
-    --blue: #1f87c9;
-    --cyan: #39bce8;
-    --ink: #15324b;
-    --muted: #687b8e;
-    --line: #dce8f1;
-    min-height: calc(100vh - 70px);
+.chat3-root {
+    min-height: 100vh;
     display: grid;
-    grid-template-columns: 290px minmax(0, 1fr);
-    background: #f4f8fb;
-    color: var(--ink);
+    grid-template-columns: 320px 1fr;
+    background: #f6f8fb;
+    color: #111827;
 }
 
-button,
-input,
-select,
-textarea {
-    font: inherit;
-}
-
-button {
-    cursor: pointer;
-}
-
-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.58;
-}
-
-.sidebar {
-    position: relative;
-    z-index: 20;
+.chat3-sidebar {
+    background: #ffffff;
+    border-inline-end: 1px solid #e5e7eb;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    padding: 24px 18px;
-    border-inline-end: 1px solid var(--line);
-    background: #fff;
+    gap: 18px;
+    min-height: 100vh;
+}
+
+.sidebar-brand,
+.workspace-header,
+.result-header,
+.keyword-toolbar,
+.keyword-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .sidebar-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 22px;
+    align-items: flex-start;
 }
 
 .sidebar-brand strong,
-.sidebar-brand small {
-    display: block;
+.workspace-header h1 {
+    color: #0f172a;
 }
 
-.sidebar-brand small {
-    margin-top: 2px;
-    color: var(--muted);
-    font-size: 12px;
+.sidebar-brand small,
+.eyebrow,
+.section-label,
+.composer-hint,
+.keyword-subject {
+    color: #64748b;
 }
 
 .brand-icon,
-.welcome-icon {
-    display: grid;
-    place-items: center;
-    color: #fff;
-    background: linear-gradient(145deg, var(--navy), var(--cyan));
-    box-shadow: 0 10px 25px rgba(31, 135, 201, 0.2);
-}
-
-.brand-icon {
+.welcome-icon,
+.avatar {
     width: 42px;
     height: 42px;
-    flex: 0 0 42px;
-    border-radius: 13px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ecfdf5;
+    color: #047857;
+    flex: 0 0 auto;
 }
 
-.new-chat-button {
-    display: flex;
+.icon-button,
+.conversation-delete,
+.send-button,
+.keyword-actions button,
+.keyword-card-head button {
+    border: 0;
+    cursor: pointer;
+}
+
+.icon-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.mobile-only {
+    display: none;
+}
+
+.new-chat-button,
+.tool-option,
+.suggestion {
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #ffffff;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    width: 100%;
-    padding: 11px 14px;
-    border: 0;
-    border-radius: 12px;
-    color: #fff;
-    background: var(--navy);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.new-chat-button:disabled,
+.send-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.tool-switcher {
+    display: grid;
+    gap: 8px;
+}
+
+.tool-option {
+    justify-content: flex-start;
+    background: #f8fafc;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+}
+
+.tool-option.active {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #bbf7d0;
 }
 
 .section-label {
-    margin: 24px 8px 10px;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 800;
     text-transform: uppercase;
+}
+
+.sidebar-status {
+    padding: 14px;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #64748b;
 }
 
 .conversation-list {
     display: grid;
-    gap: 6px;
+    gap: 8px;
     overflow-y: auto;
 }
 
 .conversation-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 38px;
     align-items: center;
-    border-radius: 11px;
+    gap: 6px;
+    border-radius: 10px;
+    padding: 6px;
+    background: #f8fafc;
 }
 
-.conversation-item:hover,
 .conversation-item.active {
-    background: #eef7fc;
+    background: #e0f2fe;
 }
 
 .conversation-open {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    flex: 1;
-    padding: 10px;
     border: 0;
-    color: var(--ink);
     background: transparent;
-    text-align: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: #334155;
+    cursor: pointer;
 }
 
 .conversation-open span {
@@ -1937,448 +1335,398 @@ button:disabled {
     white-space: nowrap;
 }
 
-.conversation-delete,
-.icon-button {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    border: 0;
-    border-radius: 10px;
-    color: var(--muted);
-    background: transparent;
-}
-
-.conversation-delete:hover,
-.icon-button:hover {
-    color: var(--navy);
-    background: #edf5fa;
-}
-
-.sidebar-status,
-.center-status {
-    padding: 22px 8px;
-    color: var(--muted);
-    text-align: center;
+.conversation-delete {
+    height: 34px;
+    border-radius: 9px;
+    background: #fee2e2;
+    color: #b91c1c;
 }
 
 .workspace {
     min-width: 0;
-    min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    height: calc(100vh - 70px);
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
 }
 
 .workspace-header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 18px 28px;
-    border-bottom: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(12px);
+    padding: 18px 24px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-.workspace-header h1 {
-    margin: 2px 0 0;
-    font-size: 19px;
+.workspace-header h1,
+.eyebrow {
+    margin: 0;
 }
 
 .eyebrow {
-    margin: 0;
-    color: var(--blue);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
 }
 
 .tool-badges {
-    display: flex;
-    gap: 7px;
-    margin-inline-start: auto;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .tool-badges span,
-.response-meta span {
-    padding: 5px 9px;
-    border: 1px solid #d6e9f4;
+.keyword-tag {
     border-radius: 999px;
-    color: #357192;
-    background: #f2faff;
-    font-size: 11px;
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .messages {
     overflow-y: auto;
-    padding: 34px max(24px, calc((100% - 900px) / 2));
+    padding: 24px;
 }
 
+.center-status,
 .welcome-card {
-    max-width: 620px;
-    margin: 10vh auto 0;
-    padding: 38px;
-    border: 1px solid var(--line);
-    border-radius: 24px;
-    background: #fff;
-    box-shadow: 0 18px 55px rgba(18, 63, 109, 0.08);
+    max-width: 720px;
+    margin: 40px auto;
     text-align: center;
 }
 
-.welcome-icon {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 18px;
-    border-radius: 20px;
-    font-size: 24px;
+.center-status {
+    color: #64748b;
 }
 
-.welcome-card h2 {
-    margin: 0 0 10px;
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #cbd5e1;
+    border-top-color: #047857;
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 0.8s linear infinite;
 }
 
-.welcome-card p {
-    margin: 0;
-    color: var(--muted);
-    line-height: 1.7;
+.welcome-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 16px 50px rgba(15, 23, 42, 0.08);
 }
 
 .suggestion {
-    margin-top: 20px;
-    padding: 9px 14px;
-    border: 1px solid #cfe7f4;
-    border-radius: 999px;
-    color: var(--navy);
-    background: #f3faff;
+    margin-top: 12px;
+    background: #ecfdf5;
+    color: #047857;
 }
 
 .message-list {
     display: grid;
-    gap: 24px;
+    gap: 18px;
 }
 
 .message-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
     align-items: flex-start;
-    gap: 11px;
 }
 
 .message-row.user {
-    flex-direction: row-reverse;
+    grid-template-columns: minmax(0, 1fr) 42px;
 }
 
-.avatar {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-    border-radius: 11px;
-    color: #fff;
-    background: var(--navy);
+.message-row.user .avatar {
+    grid-column: 2;
+    background: #eff6ff;
+    color: #2563eb;
 }
 
-.user .avatar {
-    background: #718397;
+.message-row.user .message-body {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    background: #0f172a;
+    color: #ffffff;
 }
 
 .message-body {
-    max-width: min(780px, 85%);
-    padding: 14px 16px;
-    border: 1px solid var(--line);
-    border-radius: 6px 18px 18px 18px;
-    background: #fff;
-    box-shadow: 0 5px 18px rgba(18, 63, 109, 0.05);
-}
-
-.user .message-body {
-    border: 0;
-    border-radius: 18px 6px 18px 18px;
-    color: #fff;
-    background: var(--navy);
+    max-width: min(860px, 100%);
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 12px 36px rgba(15, 23, 42, 0.07);
 }
 
 .message-body.error {
-    border-color: #f2b7b7;
-    color: #8b2525;
-    background: #fff5f5;
+    border-color: #fecaca;
+    background: #fff1f2;
 }
 
-.message-content :deep(p),
-.result-text :deep(p) {
-    margin: 0 0 0.75em;
-    line-height: 1.75;
-}
-
-.message-content :deep(p:last-child),
-.result-text :deep(p:last-child) {
-    margin-bottom: 0;
-}
-
-.result-list {
-    display: grid;
-    gap: 12px;
-    min-width: min(680px, 68vw);
-}
-
-.message-content + .result-list {
-    margin-top: 14px;
-}
-
-.result-card {
-    overflow: hidden;
-    border: 1px solid #d6e9f4;
-    border-radius: 14px;
-    background: #fbfdff;
-}
-
-.result-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 13px;
-    border-bottom: 1px solid #e2eef5;
-    color: var(--navy);
-    background: #f0f8fc;
-}
-
-.result-header button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 9px;
-    border: 0;
-    border-radius: 8px;
-    color: var(--blue);
-    background: #fff;
-}
-
-.result-text {
-    padding: 15px;
-    color: var(--ink);
-}
-
-.result-subject {
-    display: inline-block;
-    margin: 12px 15px 0;
-    padding: 4px 8px;
-    border-radius: 999px;
-    color: var(--blue);
-    background: #eaf6fc;
-}
-
-.response-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 12px;
+.message-content :deep(p) {
+    margin: 0 0 10px;
 }
 
 .typing {
-    display: flex;
+    display: inline-flex;
+    align-items: center;
     gap: 5px;
-    padding: 5px;
+    padding: 8px;
 }
 
 .typing span {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--blue);
-    animation: pulse 1s infinite alternate;
+    background: #047857;
+    animation: typing 0.9s infinite ease-in-out;
 }
 
 .typing span:nth-child(2) {
-    animation-delay: 0.2s;
+    animation-delay: 0.15s;
 }
 
 .typing span:nth-child(3) {
-    animation-delay: 0.4s;
+    animation-delay: 0.3s;
+}
+
+.keyword-result {
+    display: grid;
+    gap: 14px;
+}
+
+.keyword-toolbar {
+    align-items: flex-start;
+}
+
+.keyword-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.keyword-actions button,
+.keyword-card-head button,
+.refine-banner button {
+    min-height: 34px;
+    border-radius: 9px;
+    background: #f1f5f9;
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    font-weight: 700;
+}
+
+.keyword-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+}
+
+.keyword-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    background: #f8fafc;
+    display: grid;
+    gap: 10px;
+}
+
+.keyword-index {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #047857;
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.keyword-text {
+    color: #0f172a;
+    line-height: 1.5;
+}
+
+.keyword-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .composer {
-    padding: 14px max(24px, calc((100% - 900px) / 2)) 18px;
-    border-top: 1px solid var(--line);
-    background: #fff;
+    padding: 18px 24px;
+    background: #ffffff;
+    border-top: 1px solid #e5e7eb;
+}
+
+.error-banner,
+.refine-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.error-banner {
+    background: #fff1f2;
+    color: #b91c1c;
+}
+
+.refine-banner {
+    background: #ecfdf5;
+    color: #047857;
 }
 
 .options-panel {
-    margin-bottom: 10px;
-    border: 1px solid var(--line);
-    border-radius: 13px;
-    background: #f9fcfe;
+    margin-bottom: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f8fafc;
 }
 
 .options-panel summary {
+    cursor: pointer;
     display: flex;
-    align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 13px;
-    color: var(--navy);
-    cursor: pointer;
-    list-style: none;
-}
-
-.options-panel summary::-webkit-details-marker {
-    display: none;
+    padding: 12px 14px;
+    font-weight: 800;
 }
 
 .options-summary {
-    color: var(--muted);
-    font-size: 12px;
+    color: #64748b;
 }
 
 .options-grid {
+    padding: 0 14px 14px;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
-    padding: 4px 13px 14px;
 }
 
 .options-grid label {
     display: grid;
-    gap: 5px;
-    color: var(--muted);
-    font-size: 12px;
+    gap: 6px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .options-grid input,
-.options-grid select {
+.options-grid select,
+.input-box textarea {
     width: 100%;
-    min-width: 0;
-    padding: 8px 9px;
-    border: 1px solid #d5e3ec;
-    border-radius: 9px;
-    color: var(--ink);
-    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
     outline: none;
-}
-
-.options-grid input:focus,
-.options-grid select:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(31, 135, 201, 0.1);
+    background: #ffffff;
+    color: #0f172a;
 }
 
 .options-grid .wide {
-    grid-column: span 2;
+    grid-column: 1 / -1;
 }
 
 .input-box {
-    display: flex;
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: 1fr 48px;
     gap: 10px;
-    padding: 9px;
-    border: 1px solid #cadce7;
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 8px 28px rgba(18, 63, 109, 0.08);
-}
-
-.input-box:focus-within {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(31, 135, 201, 0.1);
+    align-items: end;
 }
 
 .input-box textarea {
-    min-height: 42px;
-    max-height: 180px;
-    flex: 1;
     resize: none;
-    padding: 10px;
-    border: 0;
-    color: var(--ink);
-    background: transparent;
-    outline: 0;
+    min-height: 48px;
+    max-height: 180px;
 }
 
 .send-button {
-    display: grid;
-    place-items: center;
-    width: 43px;
-    height: 43px;
-    flex: 0 0 43px;
-    border: 0;
-    border-radius: 13px;
-    color: #fff;
-    background: linear-gradient(145deg, var(--navy), var(--blue));
+    height: 48px;
+    border-radius: 12px;
+    background: #047857;
+    color: #ffffff;
+    font-size: 18px;
 }
 
 .composer-hint {
-    margin: 7px 4px 0;
-    color: var(--muted);
-    font-size: 11px;
-    text-align: center;
+    margin: 8px 0 0;
+    font-size: 12px;
 }
 
-.error-banner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 9px;
-    padding: 9px 12px;
-    border: 1px solid #f1b9b9;
-    border-radius: 10px;
-    color: #8b2525;
-    background: #fff4f4;
-}
-
-.mobile-only,
-.sidebar-overlay {
-    display: none;
-}
-
-@keyframes pulse {
+@keyframes spin {
     to {
-        opacity: 0.25;
-        transform: translateY(-3px);
+        transform: rotate(360deg);
     }
 }
 
-@media (max-width: 900px) {
-    .prompt-chat {
+@keyframes typing {
+    0%, 80%, 100% {
+        transform: translateY(0);
+        opacity: 0.45;
+    }
+
+    40% {
+        transform: translateY(-5px);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 960px) {
+    .chat3-root {
         grid-template-columns: 1fr;
     }
 
-    .workspace {
-        height: calc(100vh - 64px);
-    }
-
-    .sidebar {
+    .chat3-sidebar {
         position: fixed;
         inset-block: 0;
-        inset-inline-start: 0;
-        width: min(310px, 86vw);
+        width: min(86vw, 340px);
+        z-index: 50;
         transform: translateX(-110%);
-        transition: transform 0.2s ease;
+        transition: transform 0.24s ease;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
     }
 
-    [dir="rtl"] .sidebar {
+    [dir="rtl"] .chat3-sidebar {
+        right: 0;
+        left: auto;
         transform: translateX(110%);
     }
 
-    .sidebar.open {
+    [dir="ltr"] .chat3-sidebar {
+        left: 0;
+        right: auto;
+    }
+
+    .chat3-sidebar.open {
         transform: translateX(0);
     }
 
     .sidebar-overlay {
         position: fixed;
-        z-index: 15;
         inset: 0;
-        display: block;
+        z-index: 40;
+        background: rgba(15, 23, 42, 0.45);
         border: 0;
-        background: rgba(9, 31, 51, 0.38);
     }
 
     .mobile-only {
-        display: grid;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    .sidebar-brand .mobile-only {
-        margin-inline-start: auto;
+    .workspace {
+        height: 100vh;
     }
 
     .tool-badges {
@@ -2386,38 +1734,45 @@ button:disabled {
     }
 
     .options-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .result-list {
-        min-width: 0;
+        grid-template-columns: 1fr;
     }
 }
 
-@media (max-width: 560px) {
-    .workspace-header {
-        padding: 14px 16px;
-    }
-
+@media (max-width: 640px) {
+    .workspace-header,
     .messages,
     .composer {
-        padding-inline: 13px;
+        padding-inline: 14px;
     }
 
-    .message-body {
-        max-width: calc(100% - 45px);
+    .workspace-header h1 {
+        font-size: 20px;
     }
 
-    .options-grid {
+    .message-row,
+    .message-row.user {
         grid-template-columns: 1fr;
     }
 
-    .options-grid .wide {
+    .message-row .avatar {
+        display: none;
+    }
+
+    .message-row.user .message-body {
         grid-column: auto;
     }
 
-    .welcome-card {
-        padding: 28px 20px;
+    .keyword-toolbar {
+        display: grid;
+    }
+
+    .keyword-actions {
+        justify-content: stretch;
+    }
+
+    .keyword-actions button {
+        flex: 1 1 auto;
+        justify-content: center;
     }
 }
 </style>

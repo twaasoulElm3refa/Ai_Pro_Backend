@@ -278,7 +278,9 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                             'conversation_uuid' => (string) $conversation->uuid,
                             'state' => $mergedResponseState,
                             'results' => $results,
+                            'normalized_results' => $results,
                             'count' => (int) ($response['count'] ?? count($results)),
+                            'request_payload' => $payload,
                             'message' => is_string($raw['message'] ?? ($rawData['message'] ?? null))
                                 ? ($raw['message'] ?? $rawData['message'])
                                 : null,

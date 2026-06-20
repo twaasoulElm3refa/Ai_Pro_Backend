@@ -23,6 +23,9 @@ class DynamicToolPayloadBuilder
         $subTool = $conversation->subTool;
         $config = $this->configService->configFor($subTool);
         $userMessage = trim((string) $latestUserMessage->content);
+        $messageMetadata = is_array($latestUserMessage->metadata ?? null)
+            ? $latestUserMessage->metadata
+            : [];
         $state = $this->mergeState(
             $this->configService->defaultState($config),
             is_array($requestState) ? $requestState : [],
@@ -40,6 +43,17 @@ class DynamicToolPayloadBuilder
         $payload['user_message'] = $userMessage;
         $payload['state'] = $state;
         $payload['debug'] = $debug;
+
+        if (($messageMetadata['regenerate'] ?? false) === true) {
+            $payload['regenerate'] = true;
+        }
+
+        if (is_string($messageMetadata['previous_output'] ?? null)) {
+            $previousOutput = trim($messageMetadata['previous_output']);
+            if ($previousOutput !== '') {
+                $payload['previous_output'] = $previousOutput;
+            }
+        }
 
         $optionalFields = [
             'tool_key' => 'tool',

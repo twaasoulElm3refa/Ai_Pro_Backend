@@ -565,10 +565,31 @@ class MessageController extends Controller
         $requestState = is_array($normalized['state'] ?? null) ? $normalized['state'] : null;
 
         if ($requestState !== null) {
+            $requestPayload = [
+                'user_id' => $userId,
+                'sub_tool_id' => (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0),
+                'conversation_uuid' => $conversation->uuid,
+                'user_message' => $content,
+                'state' => $requestState,
+                'debug' => (bool) ($data['debug'] ?? false),
+            ];
+
+            foreach (['tool', 'tool_key', 'model_key', 'regenerate', 'previous_output'] as $key) {
+                if (array_key_exists($key, $data)) {
+                    $requestPayload[$key] = $data[$key];
+                }
+            }
+
             $normalized['metadata'] = [
                 'state' => $requestState,
                 'sub_tool_id' => (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0),
                 'conversation_uuid' => $conversation->uuid,
+                'tool' => $data['tool'] ?? null,
+                'tool_key' => $data['tool_key'] ?? ($data['tool'] ?? null),
+                'model_key' => $data['model_key'] ?? null,
+                'regenerate' => (bool) ($data['regenerate'] ?? false),
+                'previous_output' => trim((string) ($data['previous_output'] ?? '')),
+                'request_payload' => $requestPayload,
             ];
         }
 
@@ -609,12 +630,16 @@ class MessageController extends Controller
                     return [$existingByKey, false];
                 }
 
-                $existingRecentDuplicate = Message::where('conversation_id', $normalized['conversation_id'])
-                    ->where('role', 'user')
-                    ->where('content', $normalized['content'])
-                    ->where('created_at', '>=', now()->subSeconds(20))
-                    ->orderByDesc('id')
-                    ->first();
+                $existingRecentDuplicate = null;
+
+                if (! (bool) ($normalized['regenerate'] ?? false)) {
+                    $existingRecentDuplicate = Message::where('conversation_id', $normalized['conversation_id'])
+                        ->where('role', 'user')
+                        ->where('content', $normalized['content'])
+                        ->where('created_at', '>=', now()->subSeconds(20))
+                        ->orderByDesc('id')
+                        ->first();
+                }
 
                 if ($existingRecentDuplicate) {
                     if (empty($existingRecentDuplicate->idempotency_key)) {

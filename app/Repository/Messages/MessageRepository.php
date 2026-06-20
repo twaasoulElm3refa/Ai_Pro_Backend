@@ -52,12 +52,16 @@ class MessageRepository implements MessageInterface
                  * لو نفس الرسالة اتخزنت قبلها بثواني، رجّع الموجودة بدل create جديد.
                  * ده يقفل مشكلة النسخة اللي داخلة NULL.
                  */
-                $existingRecentDuplicate = Message::where('conversation_id', $conversationId)
-                    ->where('role', 'user')
-                    ->where('content', $content)
-                    ->where('created_at', '>=', now()->subSeconds(30))
-                    ->orderByDesc('id')
-                    ->first();
+                $existingRecentDuplicate = null;
+
+                if (! (bool) ($data['regenerate'] ?? false)) {
+                    $existingRecentDuplicate = Message::where('conversation_id', $conversationId)
+                        ->where('role', 'user')
+                        ->where('content', $content)
+                        ->where('created_at', '>=', now()->subSeconds(30))
+                        ->orderByDesc('id')
+                        ->first();
+                }
 
                 if ($existingRecentDuplicate) {
                     if (empty($existingRecentDuplicate->idempotency_key)) {

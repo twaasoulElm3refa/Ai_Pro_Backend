@@ -122,6 +122,7 @@ class MessageRequest extends FormRequest
             'idempotency_key' => ['nullable', 'uuid'],
             'debug' => ['nullable', 'boolean'],
             'tool' => ['nullable', 'string', 'max:100'],
+            'tool_key' => ['nullable', 'string', 'max:100'],
             'model_key' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'array'],
             'task_options' => ['nullable', 'array'],
