@@ -1213,24 +1213,28 @@ const KeywordGeneratorResult = defineComponent({
     setup(props, { emit }) {
         const tag = (value) => value ? h("span", { class: "keyword-chip" }, value) : null;
         const copyText = (item) => String(item?.text || "").trim();
+        const allCopyKey = `${props.message.localKey}:all`;
 
-        return () => h("div", { class: "keyword-results-card keyword-ai-response-card" }, [
-            h("div", { class: "keyword-result-topbar" }, [
-                h("div", { class: "keyword-results-title" }, [
-                    h("strong", {}, props.labels.keywordResultsTitle || "Suggested keywords"),
-                    h("small", {}, `${props.results.length} ${props.labels.resultsCount}`),
-                ]),
+        return () => h("div", { class: "keyword-response-shell" }, [
+            h("div", { class: "keyword-copy-top" }, [
                 h("button", {
                     class: "keyword-copy-all-btn",
                     type: "button",
                     onClick: () => emit("copy-all", props.message),
                 }, [
-                    h("i", { class: props.copiedKey === `${props.message.localKey}:all` ? "bi bi-check2" : "bi bi-copy" }),
-                    props.copiedKey === `${props.message.localKey}:all` ? props.labels.copied : props.labels.copyAll,
+                    h("i", { class: props.copiedKey === allCopyKey ? "bi bi-check2" : "bi bi-copy" }),
+                    h("span", {}, props.copiedKey === allCopyKey ? props.labels.copied : props.labels.copyAll),
                 ]),
             ]),
 
             h("div", { class: "keyword-results-frame" }, [
+                h("div", { class: "keyword-frame-header" }, [
+                    h("div", { class: "keyword-results-title" }, [
+                        h("strong", {}, "النتيجة"),
+                        h("small", {}, `${props.results.length} ${props.labels.resultsCount}`),
+                    ]),
+                ]),
+
                 h("div", { class: "keyword-results-list" }, props.results.map((item, index) => {
                     const key = `${props.message.localKey}:${item.id || index}`;
                     const tags = [
@@ -1268,7 +1272,7 @@ const KeywordGeneratorResult = defineComponent({
                     onClick: () => emit("regenerate", props.message),
                 }, [
                     h("i", { class: "bi bi-arrow-clockwise" }),
-                    props.labels.regenerate,
+                    h("span", {}, props.labels.regenerate),
                 ]),
             ]),
         ]);
@@ -1919,52 +1923,100 @@ button:disabled {
     background: #eef7fc;
 }
 
-.keyword-results-card {
+.keyword-response-shell {
     display: grid;
-    gap: 14px;
+    gap: 10px;
     width: min(720px, 100%);
     min-width: 0;
 }
 
-.keyword-results-header {
+.keyword-copy-top {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+}
+
+[dir="rtl"] .keyword-copy-top {
+    justify-content: flex-start;
+}
+
+.keyword-copy-all-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border: 1px solid #d6dde6;
+    border-radius: 11px;
+    color: var(--navy);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(18, 63, 109, 0.05);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.keyword-copy-all-btn:hover {
+    border-color: #b9cad7;
+    background: #f8fbfd;
+}
+
+.keyword-results-frame {
+    overflow: hidden;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid #cfd6de;
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: 0 6px 20px rgba(18, 63, 109, 0.04);
+}
+
+.keyword-frame-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 13px;
-    border: 1px solid #d6e9f4;
-    border-radius: 14px;
+    padding: 11px 14px;
+    border-bottom: 1px solid #e1e6eb;
     color: var(--navy);
-    background: #f0f8fc;
+    background: #eef7fc;
 }
 
 .keyword-results-title {
     min-width: 0;
 }
 
-.keyword-results-header strong,
-.keyword-results-header small {
+.keyword-frame-header strong,
+.keyword-frame-header small {
     display: block;
 }
 
-.keyword-results-header small {
+.keyword-frame-header strong {
+    color: var(--navy);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.keyword-frame-header small {
     margin-top: 2px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .keyword-results-list {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 0;
+    padding: 0;
 }
 
 .keyword-result-item {
-    overflow: hidden;
     min-width: 0;
-    border: 1px solid #d6e9f4;
-    border-radius: 14px;
-    background: #fbfdff;
+    border-bottom: 1px solid #e5e9ee;
+    background: #fff;
+}
+
+.keyword-result-item:last-child {
+    border-bottom: 0;
 }
 
 .keyword-result-main {
@@ -1973,24 +2025,24 @@ button:disabled {
     align-items: start;
     gap: 12px;
     min-width: 0;
-    padding: 12px 13px;
+    padding: 12px 14px 8px;
 }
 
 .keyword-result-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    padding: 0 59px 13px;
+    padding: 0 60px 12px;
 }
 
 .keyword-chip {
     max-width: 100%;
     overflow-wrap: anywhere;
     padding: 4px 8px;
-    border: 1px solid #d6e9f4;
+    border: 1px solid #d6dde6;
     border-radius: 999px;
-    color: #357192;
-    background: #f2faff;
+    color: #455566;
+    background: #f6f7f8;
     font-size: 11px;
 }
 
@@ -2001,10 +2053,47 @@ button:disabled {
     height: 34px;
     flex: 0 0 34px;
     padding: 0;
-    border: 1px solid #d6e9f4;
+    border: 1px solid #d6dde6;
     border-radius: 10px;
-    color: var(--blue);
+    color: var(--navy);
     background: #fff;
+}
+
+.keyword-copy-btn:hover {
+    border-color: #b9cad7;
+    background: #f7f9fb;
+}
+
+.keyword-regenerate-wrap {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    width: 100%;
+    margin-top: 3px;
+}
+
+[dir="rtl"] .keyword-regenerate-wrap {
+    justify-content: flex-start;
+}
+
+.keyword-regenerate-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border: 1px solid #d6dde6;
+    border-radius: 12px;
+    color: #111827;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(18, 63, 109, 0.05);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.keyword-regenerate-btn:hover {
+    border-color: #b9cad7;
+    background: #f8f8f8;
 }
 
 .keyword-result {
@@ -2012,21 +2101,98 @@ button:disabled {
 }
 
 .keyword-toolbar {
-    border: 1px solid #d6e9f4;
+    border: 1px solid #d6dde6;
     border-radius: 14px;
     color: var(--navy);
-    background: #f0f8fc;
+    background: #f8fbfd;
 }
 
 .keyword-actions {
+    display: none !important;
+}
+
+.refine-banner button {
     display: inline-flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 8px;
+    color: var(--blue);
+    background: #fff;
+}
+
+.keyword-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.keyword-card {
+    overflow: hidden;
+    border: 1px solid #d6dde6;
+    border-radius: 14px;
+    background: #fbfdff;
+}
+
+.keyword-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 13px;
+    border-bottom: 1px solid #e2eef5;
+    background: #f0f8fc;
+}
+
+.keyword-index {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    color: #fff;
+    background: linear-gradient(145deg, var(--navy), var(--blue));
+    font-weight: 800;
+}
+
+.keyword-result-copy {
+    display: grid;
+    gap: 4px;
     min-width: 0;
 }
 
-.keyword-actions button,
+.keyword-text {
+    display: block;
+    color: var(--ink);
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.keyword-subject {
+    display: block;
+    color: var(--muted);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.keyword-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 15px 15px;
+}
+
+.keyword-tag {
+    padding: 4px 8px;
+    border: 1px solid #d6dde6;
+    border-radius: 999px;
+    color: #455566;
+    background: #f6f7f8;
+    font-size: 11px;
+}
+
 .refine-banner button {
     display: inline-flex;
     align-items: center;
@@ -2126,7 +2292,7 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
-    .keyword-results-card {
+    .keyword-response-shell {
         width: 100%;
     }
 
@@ -2136,7 +2302,7 @@ button:disabled {
 }
 
 @media (max-width: 560px) {
-    .keyword-results-header {
+    .keyword-frame-header {
         display: grid;
         gap: 10px;
     }
@@ -2151,199 +2317,14 @@ button:disabled {
         padding-inline: 50px 11px;
     }
 
-    .keyword-actions {
+    .keyword-copy-top,
+    .keyword-regenerate-wrap {
         justify-content: stretch;
-    }
-
-    .keyword-actions button {
-        flex: 1 1 auto;
-        justify-content: center;
-    }
-}
-
-/* Final keyword-generator AI response card layout */
-.keyword-ai-response-card {
-    width: min(760px, 100%);
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-.keyword-result-topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-}
-
-.keyword-result-topbar .keyword-results-title {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-}
-
-.keyword-result-topbar .keyword-results-title strong {
-    color: var(--ink);
-    font-size: 15px;
-    line-height: 1.5;
-}
-
-.keyword-result-topbar .keyword-results-title small {
-    color: var(--muted);
-    font-size: 12px;
-}
-
-.keyword-copy-all-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    flex: 0 0 auto;
-    padding: 8px 12px;
-    border: 1px solid #cfd6dd;
-    border-radius: 11px;
-    color: #111827;
-    background: #fff;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.keyword-copy-all-btn:hover {
-    border-color: #b8c2cc;
-    background: #f8fafc;
-}
-
-.keyword-results-frame {
-    padding: 14px;
-    border: 1.5px solid #c7cdd3;
-    border-radius: 18px;
-    background: #fff;
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
-}
-
-.keyword-results-frame .keyword-results-list {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-}
-
-.keyword-results-frame .keyword-result-item {
-    overflow: hidden;
-    min-width: 0;
-    border: 1px solid #e1e5ea;
-    border-radius: 14px;
-    background: #f9fafb;
-}
-
-.keyword-results-frame .keyword-result-main {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 36px;
-    align-items: start;
-    gap: 12px;
-    min-width: 0;
-    padding: 13px 14px;
-}
-
-.keyword-results-frame .keyword-result-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 0 60px 13px;
-}
-
-.keyword-results-frame .keyword-chip {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    padding: 4px 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 999px;
-    color: #374151;
-    background: #fff;
-    font-size: 11px;
-}
-
-.keyword-results-frame .keyword-copy-btn {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    color: #111827;
-    background: #fff;
-}
-
-.keyword-results-frame .keyword-copy-btn:hover {
-    background: #f3f4f6;
-}
-
-.keyword-regenerate-wrap {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 12px;
-    padding: 10px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    background: #fff;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
-}
-
-.keyword-regenerate-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 9px 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 11px;
-    color: #111827;
-    background: #fff;
-    font-size: 13px;
-    font-weight: 800;
-}
-
-.keyword-regenerate-btn:hover {
-    background: #f3f4f6;
-}
-
-.keyword-regenerate-btn i {
-    font-size: 15px;
-}
-
-@media (max-width: 560px) {
-    .keyword-result-topbar {
-        display: grid;
-        gap: 10px;
     }
 
     .keyword-copy-all-btn,
     .keyword-regenerate-btn {
         width: 100%;
     }
-
-    .keyword-regenerate-wrap {
-        justify-content: stretch;
-    }
-
-    .keyword-results-frame {
-        padding: 11px;
-        border-radius: 16px;
-    }
-
-    .keyword-results-frame .keyword-result-main {
-        grid-template-columns: 30px minmax(0, 1fr) 32px;
-        gap: 9px;
-        padding: 11px;
-    }
-
-    .keyword-results-frame .keyword-result-meta {
-        padding-inline: 50px 11px;
-    }
 }
-
 </style>
