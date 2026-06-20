@@ -64,22 +64,6 @@
         <button v-if="sidebarOpen" class="sidebar-overlay" type="button" @click="sidebarOpen = false"></button>
 
         <section class="workspace">
-            <header class="workspace-header">
-                <button class="icon-button mobile-only" type="button" @click="sidebarOpen = true">
-                    <i class="bi bi-list"></i>
-                </button>
-
-                <div>
-                    <p class="eyebrow">{{ activeTool.toolKey }}</p>
-                    <h1>{{ pageTitle }}</h1>
-                </div>
-
-                <div class="tool-badges">
-                    <span>{{ activeTool.modelKey }}</span>
-                    <span>#{{ activeTool.id }}</span>
-                </div>
-            </header>
-
             <div ref="messagesContainer" class="messages" role="log" aria-live="polite">
                 <div v-if="loadingMessages" class="center-status">
                     <span class="spinner"></span>
