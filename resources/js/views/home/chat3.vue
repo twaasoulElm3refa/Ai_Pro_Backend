@@ -1181,31 +1181,61 @@ const KeywordGeneratorResult = defineComponent({
     },
     emits: ["copy-keyword", "copy-all", "regenerate"],
     setup(props, { emit }) {
-        const tag = (value) => value ? h("span", { class: "keyword-chip" }, value) : null;
+        const tw = {
+            shell: "grid w-full max-w-[720px] min-w-0 gap-0 max-[900px]:max-w-full",
+            copyBar: "box-border flex w-full items-center justify-start border border-[#d1d5db] border-b-0 rounded-t-[14px] bg-[#f3f4f6] px-3 py-2 max-sm:px-[11px] max-sm:py-[9px]",
+            copyAllButton: "inline-flex items-center gap-1.5 border-0 bg-transparent p-0 text-xs font-semibold leading-snug text-[#111827] transition-colors hover:text-[#123f6d] disabled:cursor-not-allowed disabled:opacity-60",
+            frame: "w-full min-w-0 overflow-hidden rounded-b-[14px] border border-[#d1d5db] bg-white shadow-[0_6px_18px_rgba(18,63,109,0.04)]",
+            frameHeader: "flex items-center justify-between gap-3 border-b border-[#e5e7eb] bg-white px-3.5 py-[11px] text-[#123f6d]",
+            titleWrap: "min-w-0",
+            title: "block text-[13px] font-extrabold text-[#123f6d]",
+            count: "mt-0.5 block text-[11px] text-[#687b8e]",
+            list: "grid grid-cols-1 gap-0 p-0",
+            item: "min-w-0 border-b border-[#e5e7eb] bg-white last:border-b-0",
+            row: "grid min-w-0 grid-cols-[34px_minmax(0,1fr)_34px] items-start gap-3 px-3.5 pb-2 pt-3 max-sm:grid-cols-[30px_minmax(0,1fr)_32px] max-sm:gap-[9px] max-sm:p-[11px]",
+            index: "grid h-7 w-7 place-items-center rounded-[9px] bg-gradient-to-br from-[#123f6d] to-[#1f87c9] font-extrabold text-white",
+            textWrap: "grid min-w-0 gap-1",
+            keywordText: "block break-words text-[#15324b] leading-7 [overflow-wrap:anywhere]",
+            subject: "block text-[#687b8e] leading-6 [overflow-wrap:anywhere]",
+            copyButton: "grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border border-[#d1d5db] bg-white p-0 text-[#111827] transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60",
+            meta: "flex flex-wrap gap-1.5 px-[60px] pb-3 max-sm:ps-[50px] max-sm:pe-[11px]",
+            chip: "max-w-full rounded-full border border-[#d1d5db] bg-[#f9fafb] px-2 py-1 text-[11px] text-[#374151] [overflow-wrap:anywhere]",
+            regenerateBar: "mt-2.5 box-border flex w-full items-center justify-start rounded-[14px] border border-[#d1d5db] bg-[#f3f4f6] px-3 py-[9px] max-sm:px-[11px] max-sm:py-[9px]",
+            regenerateButton: "inline-flex items-center justify-center gap-[7px] border-0 bg-transparent p-0 text-[13px] font-bold leading-snug text-[#111827] transition-colors hover:text-[#123f6d] disabled:cursor-not-allowed disabled:opacity-60",
+        };
+
+        const tag = (value) => value
+            ? h("span", { class: tw.chip }, value)
+            : null;
+
         const copyText = (item) => String(item?.text || "").trim();
         const allCopyKey = `${props.message.localKey}:all`;
 
-        return () => h("div", { class: "keyword-response-shell" }, [
-            h("div", { class: "keyword-copy-bar" }, [
+        return () => h("div", { class: tw.shell }, [
+            h("div", { class: tw.copyBar }, [
                 h("button", {
-                    class: "keyword-copy-all-btn",
+                    class: tw.copyAllButton,
                     type: "button",
                     onClick: () => emit("copy-all", props.message),
                 }, [
-                    h("i", { class: props.copiedKey === allCopyKey ? "bi bi-check2" : "bi bi-copy" }),
+                    h("i", {
+                        class: props.copiedKey === allCopyKey
+                            ? "bi bi-check2 text-[#1f87c9]"
+                            : "bi bi-copy text-[#1f87c9]",
+                    }),
                     h("span", {}, props.copiedKey === allCopyKey ? props.labels.copied : props.labels.copyAll),
                 ]),
             ]),
 
-            h("div", { class: "keyword-results-frame" }, [
-                h("div", { class: "keyword-frame-header" }, [
-                    h("div", { class: "keyword-results-title" }, [
-                        h("strong", {}, "النتيجة"),
-                        h("small", {}, `${props.results.length} ${props.labels.resultsCount}`),
+            h("div", { class: tw.frame }, [
+                h("div", { class: tw.frameHeader }, [
+                    h("div", { class: tw.titleWrap }, [
+                        h("strong", { class: tw.title }, "النتيجة"),
+                        h("small", { class: tw.count }, `${props.results.length} ${props.labels.resultsCount}`),
                     ]),
                 ]),
 
-                h("div", { class: "keyword-results-list" }, props.results.map((item, index) => {
+                h("div", { class: tw.list }, props.results.map((item, index) => {
                     const key = `${props.message.localKey}:${item.id || index}`;
                     const tags = [
                         tag(item.type || item.meta?.type),
@@ -1213,35 +1243,39 @@ const KeywordGeneratorResult = defineComponent({
                         tag(item.cluster || item.meta?.cluster),
                     ].filter(Boolean);
 
-                    return h("section", { class: "keyword-result-item", key }, [
-                        h("div", { class: "keyword-result-main" }, [
-                            h("span", { class: "keyword-index" }, String(item.id || index + 1)),
-                            h("div", { class: "keyword-result-copy" }, [
-                                h("strong", { class: "keyword-text" }, item.text || item.title),
-                                item.subject ? h("small", { class: "keyword-subject" }, item.subject) : null,
+                    return h("section", { class: tw.item, key }, [
+                        h("div", { class: tw.row }, [
+                            h("span", { class: tw.index }, String(item.id || index + 1)),
+                            h("div", { class: tw.textWrap }, [
+                                h("strong", { class: tw.keywordText }, item.text || item.title),
+                                item.subject ? h("small", { class: tw.subject }, item.subject) : null,
                             ]),
                             h("button", {
-                                class: "keyword-copy-btn",
+                                class: tw.copyButton,
                                 type: "button",
                                 title: props.copiedKey === key ? props.labels.copied : props.labels.copy,
                                 "aria-label": props.copiedKey === key ? props.labels.copied : props.labels.copy,
                                 onClick: () => emit("copy-keyword", { text: copyText(item), key }),
                             }, [
-                                h("i", { class: props.copiedKey === key ? "bi bi-check2" : "bi bi-copy" }),
+                                h("i", {
+                                    class: props.copiedKey === key
+                                        ? "bi bi-check2 text-[#1f87c9]"
+                                        : "bi bi-copy text-[#111827]",
+                                }),
                             ]),
                         ]),
-                        tags.length ? h("div", { class: "keyword-result-meta" }, tags) : null,
+                        tags.length ? h("div", { class: tw.meta }, tags) : null,
                     ]);
                 })),
             ]),
 
-            h("div", { class: "keyword-regenerate-bar" }, [
+            h("div", { class: tw.regenerateBar }, [
                 h("button", {
-                    class: "keyword-regenerate-btn",
+                    class: tw.regenerateButton,
                     type: "button",
                     onClick: () => emit("regenerate", props.message),
                 }, [
-                    h("i", { class: "bi bi-arrow-clockwise" }),
+                    h("i", { class: "bi bi-arrow-clockwise text-[#1f87c9]" }),
                     h("span", {}, props.labels.regenerate),
                 ]),
             ]),
@@ -1881,246 +1915,6 @@ button:disabled {
     }
 }
 
-/* Chat3 keyword-generator additions, layered on top of chat2 visual system. */
-.tool-switcher {
-    display: grid;
-    gap: 6px;
-}
-
-.tool-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 10px;
-    border: 0;
-    border-radius: 11px;
-    color: var(--ink);
-    background: transparent;
-    text-align: start;
-}
-
-.tool-option:hover,
-.tool-option.active {
-    color: var(--navy);
-    background: #eef7fc;
-}
-
-.keyword-response-shell {
-    display: grid;
-    gap: 0;
-    width: min(720px, 100%);
-    min-width: 0;
-}
-
-.keyword-copy-bar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
-    border-bottom: 0;
-    border-radius: 14px 14px 0 0;
-    background: #f3f4f6;
-    box-sizing: border-box;
-}
-
-[dir="rtl"] .keyword-copy-bar {
-    justify-content: flex-start;
-}
-
-.keyword-copy-all-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0;
-    border: 0;
-    color: #111827;
-    background: transparent;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.4;
-}
-
-.keyword-copy-all-btn:hover {
-    color: var(--navy);
-}
-
-.keyword-results-frame {
-    overflow: hidden;
-    width: 100%;
-    min-width: 0;
-    border: 1px solid #d1d5db;
-    border-radius: 0 0 14px 14px;
-    background: #fff;
-    box-shadow: 0 6px 18px rgba(18, 63, 109, 0.04);
-}
-
-.keyword-frame-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 11px 14px;
-    border-bottom: 1px solid #e5e7eb;
-    color: var(--navy);
-    background: #fff;
-}
-
-.keyword-results-title {
-    min-width: 0;
-}
-
-.keyword-frame-header strong,
-.keyword-frame-header small {
-    display: block;
-}
-
-.keyword-frame-header strong {
-    color: var(--navy);
-    font-size: 13px;
-    font-weight: 800;
-}
-
-.keyword-frame-header small {
-    margin-top: 2px;
-    color: var(--muted);
-    font-size: 11px;
-}
-
-.keyword-results-list {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0;
-    padding: 0;
-}
-
-.keyword-result-item {
-    min-width: 0;
-    border-bottom: 1px solid #e5e7eb;
-    background: #fff;
-}
-
-.keyword-result-item:last-child {
-    border-bottom: 0;
-}
-
-.keyword-result-main {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 34px;
-    align-items: start;
-    gap: 12px;
-    min-width: 0;
-    padding: 12px 14px 8px;
-}
-
-.keyword-result-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 0 60px 12px;
-}
-
-.keyword-chip {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    padding: 4px 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 999px;
-    color: #374151;
-    background: #f9fafb;
-    font-size: 11px;
-}
-
-.keyword-copy-btn {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-    padding: 0;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    color: #111827;
-    background: #fff;
-}
-
-.keyword-copy-btn:hover {
-    background: #f9fafb;
-}
-
-.keyword-regenerate-bar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    margin-top: 10px;
-    padding: 9px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 14px;
-    background: #f3f4f6;
-    box-sizing: border-box;
-}
-
-[dir="rtl"] .keyword-regenerate-bar {
-    justify-content: flex-start;
-}
-
-.keyword-regenerate-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 0;
-    border: 0;
-    color: #111827;
-    background: transparent;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.4;
-}
-
-.keyword-regenerate-btn:hover {
-    color: var(--navy);
-}
-
-.keyword-actions {
-    display: none !important;
-}
-
-.keyword-index {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
-    color: #fff;
-    background: linear-gradient(145deg, var(--navy), var(--blue));
-    font-weight: 800;
-}
-
-.keyword-result-copy {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-}
-
-.keyword-text {
-    display: block;
-    color: var(--ink);
-    line-height: 1.7;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-}
-
-.keyword-subject {
-    display: block;
-    color: var(--muted);
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-}
-
 .refine-banner button {
     display: inline-flex;
     align-items: center;
@@ -2148,26 +1942,4 @@ button:disabled {
     margin-inline-start: auto;
 }
 
-@media (max-width: 900px) {
-    .keyword-response-shell {
-        width: 100%;
-    }
-}
-
-@media (max-width: 560px) {
-    .keyword-copy-bar,
-    .keyword-regenerate-bar {
-        padding: 9px 11px;
-    }
-
-    .keyword-result-main {
-        grid-template-columns: 30px minmax(0, 1fr) 32px;
-        gap: 9px;
-        padding: 11px;
-    }
-
-    .keyword-result-meta {
-        padding-inline: 50px 11px;
-    }
-}
 </style>
