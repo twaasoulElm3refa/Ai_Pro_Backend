@@ -22,24 +22,15 @@
             <div v-else-if="conversations.length === 0" class="sidebar-status">{{ labels.noChats }}</div>
 
             <div v-else class="conversation-list">
-                <div
-                    v-for="conversation in conversations"
-                    :key="conversation.uuid"
-                    class="conversation-item"
-                    :class="{ active: conversation.uuid === activeConversation?.uuid }"
-                >
+                <div v-for="conversation in conversations" :key="conversation.uuid" class="conversation-item"
+                    :class="{ active: conversation.uuid === activeConversation?.uuid }">
                     <button type="button" class="conversation-open" @click="openConversation(conversation)">
                         <i class="bi bi-chat-left-text"></i>
                         <span>{{ conversation.title }}</span>
                     </button>
 
-                    <button
-                        type="button"
-                        class="conversation-delete"
-                        :disabled="deletingUuid === conversation.uuid"
-                        :aria-label="labels.deleteChat"
-                        @click="deleteConversation(conversation)"
-                    >
+                    <button type="button" class="conversation-delete" :disabled="deletingUuid === conversation.uuid"
+                        :aria-label="labels.deleteChat" @click="deleteConversation(conversation)">
                         <i class="bi bi-trash3"></i>
                     </button>
                 </div>
@@ -67,12 +58,8 @@
                 </div>
 
                 <div v-else class="message-list">
-                    <article
-                        v-for="message in messages"
-                        :key="message.localKey"
-                        class="message-row"
-                        :class="message.role"
-                    >
+                    <article v-for="message in messages" :key="message.localKey" class="message-row"
+                        :class="message.role">
                         <div class="avatar">
                             <i :class="message.role === 'assistant' ? 'bi bi-stars' : 'bi bi-person-fill'"></i>
                         </div>
@@ -83,22 +70,13 @@
                             </div>
 
                             <template v-else>
-                                <KeywordGeneratorResult
-                                    v-if="isKeywordResultMessage(message)"
-                                    :message="message"
-                                    :results="getKeywordResults(message)"
-                                    :labels="labels"
-                                    :copied-key="copiedKey"
-                                    @copy-keyword="copyKeyword"
-                                    @copy-all="copyAllKeywords"
-                                    @regenerate="regenerateKeywordResult"
-                                />
+                                <KeywordGeneratorResult v-if="isKeywordResultMessage(message)" :message="message"
+                                    :results="getKeywordResults(message)" :labels="labels" :copied-key="copiedKey"
+                                    @copy-keyword="copyKeyword" @copy-all="copyAllKeywords"
+                                    @regenerate="regenerateKeywordResult" />
 
-                                <div
-                                    v-else-if="message.content"
-                                    class="message-content"
-                                    v-html="formatMessage(message.content)"
-                                ></div>
+                                <div v-else-if="message.content" class="message-content"
+                                    v-html="formatMessage(message.content)"></div>
                             </template>
                         </div>
                     </article>
@@ -151,23 +129,12 @@
                 </div>
 
                 <div class="input-box">
-                    <textarea
-                        ref="textareaRef"
-                        v-model="userMessage"
-                        rows="1"
-                        :placeholder="composerPlaceholder"
-                        :disabled="sendDisabled"
-                        @input="autoResize"
-                        @keydown.enter.exact.prevent="sendKeywordMessage"
-                    ></textarea>
+                    <textarea ref="textareaRef" v-model="userMessage" rows="1" :placeholder="composerPlaceholder"
+                        :disabled="sendDisabled" @input="autoResize"
+                        @keydown.enter.exact.prevent="sendKeywordMessage"></textarea>
 
-                    <button
-                        type="button"
-                        class="send-button"
-                        :disabled="sendDisabled || !userMessage.trim()"
-                        :aria-label="labels.send"
-                        @click="sendKeywordMessage"
-                    >
+                    <button type="button" class="send-button" :disabled="sendDisabled || !userMessage.trim()"
+                        :aria-label="labels.send" @click="sendKeywordMessage">
                         <i :class="sendingMessage ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
                 </div>
@@ -1183,7 +1150,7 @@ const KeywordGeneratorResult = defineComponent({
     setup(props, { emit }) {
         const tw = {
             shell: "grid w-full max-w-[720px] min-w-0 gap-0 max-[900px]:max-w-full",
-            copyBar: "box-border flex w-full items-center justify-start border border-[#d1d5db] border-b-0 rounded-t-[14px] bg-[#f3f4f6] px-3 py-2 max-sm:px-[11px] max-sm:py-[9px]",
+            copyBar: "box-border flex w-full items-center justify-start border border-[#d1d5db] border-b-0 rounded-t-[14px] bg-[#eaf6fc] px-3 py-2 max-sm:px-[11px] max-sm:py-[9px]",
             copyAllButton: "inline-flex items-center gap-1.5 border-0 bg-transparent p-0 text-xs font-semibold leading-snug text-[#111827] transition-colors hover:text-[#123f6d] disabled:cursor-not-allowed disabled:opacity-60",
             frame: "w-full min-w-0 overflow-hidden rounded-b-[14px] border border-[#d1d5db] bg-white shadow-[0_6px_18px_rgba(18,63,109,0.04)]",
             frameHeader: "flex items-center justify-between gap-3 border-b border-[#e5e7eb] bg-white px-3.5 py-[11px] text-[#123f6d]",
@@ -1200,8 +1167,6 @@ const KeywordGeneratorResult = defineComponent({
             copyButton: "grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border border-[#d1d5db] bg-white p-0 text-[#111827] transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60",
             meta: "flex flex-wrap gap-1.5 px-[60px] pb-3 max-sm:ps-[50px] max-sm:pe-[11px]",
             chip: "max-w-full rounded-full border border-[#d1d5db] bg-[#f9fafb] px-2 py-1 text-[11px] text-[#374151] [overflow-wrap:anywhere]",
-            regenerateBar: "mt-2.5 box-border flex w-full items-center justify-start rounded-[14px] border border-[#d1d5db] bg-[#f3f4f6] px-3 py-[9px] max-sm:px-[11px] max-sm:py-[9px]",
-            regenerateButton: "inline-flex items-center justify-center gap-[7px] border-0 bg-transparent p-0 text-[13px] font-bold leading-snug text-[#111827] transition-colors hover:text-[#123f6d] disabled:cursor-not-allowed disabled:opacity-60",
         };
 
         const tag = (value) => value
@@ -1608,7 +1573,7 @@ button:disabled {
     min-width: min(680px, 68vw);
 }
 
-.message-content + .result-list {
+.message-content+.result-list {
     margin-top: 14px;
 }
 
@@ -1941,5 +1906,4 @@ button:disabled {
 .refine-banner button {
     margin-inline-start: auto;
 }
-
 </style>
