@@ -1,23 +1,33 @@
 ﻿<template>
-    <main class="chat-root" :dir="locale === 'ar' ? 'rtl' : 'ltr'" :aria-label="t('user.chat.workspaceAria')">
+    <main class="chat-root" :class="{ 'sidebar-collapsed': desktopSidebarCollapsed }"
+        :dir="locale === 'ar' ? 'rtl' : 'ltr'" :aria-label="t('user.chat.workspaceAria')">
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-header">
                 <div class="brand">
-                    <div class="brand-icon"><i class="bi bi-chat-square-text-fill"></i></div>
+                    <div class="brand-icon">
+                        <i class="bi bi-chat-square-text-fill"></i>
+                    </div>
+
                     <div>
                         <span class="brand-name">{{ t("user.chat.conversations") }}</span>
-                        <p class="brand-subtitle">{{ subtool.name || t("user.chat.workspaceTitle") }}</p>
+                        <p class="brand-subtitle">
+                            {{ subtool.name || t("user.chat.workspaceTitle") }}
+                        </p>
                     </div>
                 </div>
-                <button type="button" class="icon-btn mobile-only" :aria-label="t('user.chat.closeSidebarAria')"
-                    @click="sidebarOpen = false">
-                    <i class="bi bi-x-lg"></i>
+
+                <button type="button" class="icon-btn sidebar-close-toggle"
+                    :aria-label="isArabic ? 'قفل قائمة المحادثات' : 'Close conversations sidebar'"
+                    @click="closeSidebar">
+                    <i class="bi bi-layout-sidebar-inset-reverse"></i>
                 </button>
             </div>
 
             <button type="button" class="new-chat-btn" :disabled="creatingConversation" @click="startNewChat">
                 <i class="bi bi-plus-lg"></i>
-                <span>{{ creatingConversation ? t("user.chat.creating") : t("user.chat.newChat") }}</span>
+                <span>
+                    {{ creatingConversation ? t("user.chat.creating") : t("user.chat.newChat") }}
+                </span>
             </button>
 
             <div class="history-section">
@@ -37,6 +47,7 @@
                         :class="{ active: activeConversation?.uuid === conversation.uuid }">
                         <button type="button" class="history-item-main" @click="openConversation(conversation)">
                             <i class="bi bi-chat-left-text"></i>
+
                             <div class="history-item-info">
                                 <span class="history-item-title">{{ conversation.title }}</span>
                             </div>
@@ -52,16 +63,18 @@
             </div>
         </aside>
 
+        <button v-if="desktopSidebarCollapsed" type="button" class="desktop-sidebar-open-toggle"
+            :aria-label="isArabic ? 'فتح قائمة المحادثات' : 'Open conversations sidebar'" @click="openSidebar">
+            <i class="bi bi-layout-sidebar-inset"></i>
+        </button>
+
         <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
 
         <div class="main-area">
             <div class="mobile-chat-topbar">
-                <button
-                    type="button"
-                    class="mobile-sidebar-toggle"
+                <button type="button" class="mobile-sidebar-toggle"
                     :aria-label="isArabic ? 'فتح قائمة المحادثات' : 'Open conversations sidebar'"
-                    @click="sidebarOpen = true"
-                >
+                    @click="sidebarOpen = true">
                     <i class="bi bi-layout-sidebar-inset"></i>
                 </button>
 
@@ -71,13 +84,8 @@
                 </div>
             </div>
 
-            <div
-                class="messages-wrap"
-                ref="messagesContainer"
-                role="log"
-                aria-live="polite"
-                aria-relevant="additions text"
-            >
+            <div class="messages-wrap" ref="messagesContainer" role="log" aria-live="polite"
+                aria-relevant="additions text">
                 <div v-if="loadingMessages" class="messages-skeleton">
                     <div v-for="item in 4" :key="item" class="message-skeleton"
                         :class="item % 2 === 0 ? 'assistant' : 'user'"></div>
@@ -109,13 +117,8 @@
                         </div>
 
                         <div class="msg-bubble">
-                            <div
-                                v-if="msg.isTyping"
-                                class="typing-bubble"
-                                role="status"
-                                aria-live="polite"
-                                :aria-label="typingAriaLabel"
-                            >
+                            <div v-if="msg.isTyping" class="typing-bubble" role="status" aria-live="polite"
+                                :aria-label="typingAriaLabel">
                                 <span class="typing-text">{{ typingText }}</span>
                                 <span class="typing-dots" aria-hidden="true">
                                     <span></span>
@@ -123,21 +126,14 @@
                                     <span></span>
                                 </span>
                             </div>
-                            <div
-                                v-else-if="msg.role === 'assistant'"
-                                class="ai-result-card"
-                                :class="{ 'error-message': msg.is_error }"
-                            >
+                            <div v-else-if="msg.role === 'assistant'" class="ai-result-card"
+                                :class="{ 'error-message': msg.is_error }">
                                 <div class="ai-result-header">
                                     <strong class="ai-result-title">
                                         {{ isArabic ? "النتيجة" : "Result" }}
                                     </strong>
 
-                                    <button
-                                        type="button"
-                                        class="ai-copy-btn"
-                                        @click="copyAssistantMessage(msg)"
-                                    >
+                                    <button type="button" class="ai-copy-btn" @click="copyAssistantMessage(msg)">
                                         <i class="bi bi-copy"></i>
                                         {{
                                             copiedMessageKey === msg.localKey
@@ -151,16 +147,20 @@
                                     <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                         <span></span><span></span><span></span>
                                     </span>
-                                    <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{ displayMessageContent(msg) }}</div>
-                                    <div v-else class="markdown-body" v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
+                                    <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{
+                                        displayMessageContent(msg) }}</div>
+                                    <div v-else class="markdown-body"
+                                        v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                                 </div>
                             </div>
                             <div v-else class="msg-content" :class="{ 'error-message': msg.is_error }">
                                 <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                     <span></span><span></span><span></span>
                                 </span>
-                                <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{ displayMessageContent(msg) }}</div>
-                                <div v-else class="markdown-body" v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
+                                <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{
+                                    displayMessageContent(msg) }}</div>
+                                <div v-else class="markdown-body"
+                                    v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                             </div>
                             <span v-if="!msg.isTyping" class="msg-time">{{ msg.time }}</span>
                             <div v-if="isTextEditorResult(msg)" class="result-actions">
@@ -218,7 +218,8 @@
                 </div>
 
                 <div v-if="isSocialPostGeneratorTool" class="advanced-options">
-                    <button type="button" class="advanced-options-toggle" @click="socialPostOptionsOpen = !socialPostOptionsOpen">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="socialPostOptionsOpen = !socialPostOptionsOpen">
                         <span>
                             <i class="bi bi-sliders"></i>
                             {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
@@ -272,7 +273,8 @@
                 </div>
 
                 <div v-if="isEmailWriterTool" class="advanced-options">
-                    <button type="button" class="advanced-options-toggle" @click="emailWriterOptionsOpen = !emailWriterOptionsOpen">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="emailWriterOptionsOpen = !emailWriterOptionsOpen">
                         <span>
                             <i class="bi bi-sliders"></i>
                             {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
@@ -336,7 +338,8 @@
                 </div>
 
                 <div v-if="isScriptGeneratorTool" class="advanced-options">
-                    <button type="button" class="advanced-options-toggle" @click="scriptGeneratorOptionsOpen = !scriptGeneratorOptionsOpen">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="scriptGeneratorOptionsOpen = !scriptGeneratorOptionsOpen">
                         <span>
                             <i class="bi bi-sliders"></i>
                             {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
@@ -385,7 +388,8 @@
                 </div>
 
                 <div v-if="isProductDescriptionGeneratorTool" class="advanced-options">
-                    <button type="button" class="advanced-options-toggle" @click="productOptionsOpen = !productOptionsOpen">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="productOptionsOpen = !productOptionsOpen">
                         <span>
                             <i class="bi bi-sliders"></i>
                             {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
@@ -446,9 +450,9 @@
                 </div>
 
                 <div class="input-box" :class="{ focused: inputFocused }">
-                    <textarea ref="textareaRef" v-model="userInput" class="chat-input"
-                        :aria-label="inputAriaLabel" :placeholder="chatPlaceholder" rows="1"
-                        :disabled="chatSendDisabled" @focus="inputFocused = true" @blur="inputFocused = false"
+                    <textarea ref="textareaRef" v-model="userInput" class="chat-input" :aria-label="inputAriaLabel"
+                        :placeholder="chatPlaceholder" rows="1" :disabled="chatSendDisabled"
+                        @focus="inputFocused = true" @blur="inputFocused = false"
                         @keydown.enter.exact.prevent="onSubmitMessage" @keydown.shift.enter.exact="newLine"
                         @input="autoResize"></textarea>
 
@@ -536,6 +540,28 @@ const userInput = ref("");
 const searchEnabled = ref(false);
 const inputFocused = ref(false);
 const sidebarOpen = ref(false);
+const desktopSidebarCollapsed = ref(false);
+
+const isMobileSidebar = () => window.innerWidth <= MOBILE_SIDEBAR_BREAKPOINT;
+
+const closeSidebar = () => {
+    if (isMobileSidebar()) {
+        sidebarOpen.value = false;
+        return;
+    }
+
+    desktopSidebarCollapsed.value = true;
+};
+
+const openSidebar = () => {
+    if (isMobileSidebar()) {
+        sidebarOpen.value = true;
+        return;
+    }
+
+    desktopSidebarCollapsed.value = false;
+};
+
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const activeEventSource = ref(null);
@@ -6594,7 +6620,7 @@ watch(
     padding: 0 14px 14px;
 }
 
-.advanced-options-grid > label {
+.advanced-options-grid>label {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -7009,7 +7035,10 @@ watch(
 }
 
 @keyframes typingWave {
-    0%, 80%, 100% {
+
+    0%,
+    80%,
+    100% {
         opacity: 0.45;
         transform: translateY(0);
     }

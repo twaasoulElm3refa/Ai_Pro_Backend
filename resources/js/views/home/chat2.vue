@@ -138,17 +138,6 @@
                                         ></div>
                                     </section>
                                 </div>
-
-                                <!-- <div v-if="message.role === 'assistant' && message.metadata" class="response-meta">
-                                    <span v-if="message.metadata.provider">{{ message.metadata.provider }}</span>
-                                    <span v-if="message.metadata.model_key">{{ message.metadata.model_key }}</span>
-                                    <span v-if="message.usage?.total_tokens">
-                                        {{ message.usage.total_tokens }} {{ copy.tokens }}
-                                    </span>
-                                    <span v-if="message.cost?.total_cost">
-                                        ${{ Number(message.cost.total_cost).toFixed(6) }}
-                                    </span>
-                                </div> -->
                             </template>
                         </div>
                     </article>
