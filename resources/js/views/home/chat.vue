@@ -164,26 +164,17 @@
                             </div>
                             <span v-if="!msg.isTyping" class="msg-time">{{ msg.time }}</span>
                             <div v-if="isTextEditorResult(msg)" class="result-actions">
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateTextEditorResult(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
+
                             </div>
                             <div v-if="isTextSummarizerResult(msg)" class="result-actions">
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateTextSummarizerResult(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
+
                             </div>
                             <div v-if="isProductDescriptionResult(msg)" class="result-actions">
                                 <button type="button" @click="copyProductDescription(msg)">
                                     <i class="bi bi-copy"></i>
                                     {{ isArabic ? "نسخ" : "Copy" }}
                                 </button>
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateProductDescription(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
+
                                 <button type="button" @click="editProductDescriptionInputs">
                                     <i class="bi bi-sliders"></i>
                                     {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
@@ -192,48 +183,6 @@
                             <!-- <div v-if="productDescriptionUsage(msg)" class="result-usage">
                                 {{ productDescriptionUsage(msg) }}
                             </div> -->
-                            <div v-if="isHeadlineGeneratorResult(msg)" class="result-actions">
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateHeadlineResult(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
-                            </div>
-                            <div v-if="isParaphraserResult(msg)" class="result-actions">
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateParaphraserResult(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
-                            </div>
-                            <div v-if="isSocialPostResult(msg)" class="result-actions">
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateSocialPostResult(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
-                                <button type="button" @click="editSocialPostInputs">
-                                    <i class="bi bi-sliders"></i>
-                                    {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
-                                </button>
-                            </div>
-                            <div v-if="isEmailWriterResult(msg)" class="result-actions">
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateEmailWriterResult(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
-                                <button type="button" @click="editEmailWriterInputs">
-                                    <i class="bi bi-sliders"></i>
-                                    {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
-                                </button>
-                            </div>
-                            <div v-if="isScriptGeneratorResult(msg)" class="result-actions">
-                                <button type="button" :disabled="chatSendDisabled" @click="regenerateScriptGeneratorResult(msg)">
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    {{ isArabic ? "إعادة التوليد" : "Regenerate" }}
-                                </button>
-                                <button type="button" @click="editScriptGeneratorInputs">
-                                    <i class="bi bi-sliders"></i>
-                                    {{ isArabic ? "تعديل المدخلات" : "Edit inputs" }}
-                                </button>
-                            </div>
                         </div>
 
                         <div class="msg-avatar user-avatar" v-if="msg.role === 'user'">
