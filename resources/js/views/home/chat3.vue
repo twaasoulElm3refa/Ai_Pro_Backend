@@ -16,21 +16,6 @@
                 <i class="bi bi-plus-lg"></i>
                 {{ creatingConversation ? labels.creating : labels.newChat }}
             </button>
-
-            <div class="tool-switcher">
-                <p class="section-label">{{ isArabic ? "الأدوات" : "Tools" }}</p>
-                <button
-                    v-for="tool in registryTools"
-                    :key="tool.id"
-                    class="tool-option"
-                    :class="{ active: tool.id === activeTool.id }"
-                    type="button"
-                >
-                    <i class="bi bi-key"></i>
-                    <span>{{ localizedToolTitle(tool) }}</span>
-                </button>
-            </div>
-
             <p class="section-label">{{ labels.recent }}</p>
 
             <div v-if="loadingConversations" class="sidebar-status">{{ labels.loading }}</div>
