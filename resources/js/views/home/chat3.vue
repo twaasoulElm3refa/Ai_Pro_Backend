@@ -49,7 +49,7 @@
         <button v-if="sidebarOpen" class="sidebar-overlay" type="button" @click="sidebarOpen = false"></button>
 
         <section class="workspace">
-            <header class="workspace-header">
+            <!-- <header class="workspace-header">
                 <button class="icon-button mobile-only" type="button" @click="sidebarOpen = true">
                     <i class="bi bi-list"></i>
                 </button>
@@ -63,7 +63,7 @@
                     <span>{{ activeTool.toolKey }}</span>
                     <span>{{ activeTool.modelKey }}</span>
                 </div>
-            </header>
+            </header> -->
 
             <div ref="messagesContainer" class="messages" role="log" aria-live="polite">
                 <div v-if="loadingMessages" class="center-status">
