@@ -49,21 +49,6 @@
         <button v-if="sidebarOpen" class="sidebar-overlay" type="button" @click="sidebarOpen = false"></button>
 
         <section class="workspace">
-            <!-- <header class="workspace-header">
-                <button class="icon-button mobile-only" type="button" @click="sidebarOpen = true">
-                    <i class="bi bi-list"></i>
-                </button>
-
-                <div>
-                    <p class="eyebrow">{{ activeTool.toolKey }}</p>
-                    <h1>{{ pageTitle }}</h1>
-                </div>
-
-                <div class="tool-badges">
-                    <span>{{ activeTool.toolKey }}</span>
-                    <span>{{ activeTool.modelKey }}</span>
-                </div>
-            </header> -->
 
             <div ref="messagesContainer" class="messages" role="log" aria-live="polite">
                 <div v-if="loadingMessages" class="center-status">
@@ -1273,9 +1258,11 @@ const KeywordGeneratorResult = defineComponent({
     --ink: #15324b;
     --muted: #687b8e;
     --line: #dce8f1;
-    min-height: calc(100vh - 70px);
+    height: calc(100vh - 70px);
+    min-height: 0;
     display: grid;
     grid-template-columns: 290px minmax(0, 1fr);
+    overflow: hidden;
     background: #f4f8fb;
     color: var(--ink);
 }
@@ -1428,8 +1415,9 @@ button:disabled {
     min-width: 0;
     min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    height: calc(100vh - 70px);
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100%;
+    overflow: hidden;
 }
 
 .workspace-header {
@@ -1473,8 +1461,10 @@ button:disabled {
 }
 
 .messages {
+    min-height: 0;
     overflow-y: auto;
     padding: 34px max(24px, calc((100% - 900px) / 2));
+    padding-bottom: 22px;
 }
 
 .welcome-card {
@@ -1661,7 +1651,11 @@ button:disabled {
 }
 
 .composer {
-    padding: 14px max(24px, calc((100% - 900px) / 2)) 18px;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    align-self: end;
+    padding: 14px max(24px, calc((100% - 900px) / 2)) max(12px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
     background: #fff;
 }
@@ -1805,8 +1799,12 @@ button:disabled {
         grid-template-columns: 1fr;
     }
 
-    .workspace {
+    .prompt-chat {
         height: calc(100vh - 64px);
+    }
+
+    .workspace {
+        height: 100%;
     }
 
     .sidebar {
