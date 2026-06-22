@@ -169,6 +169,12 @@
                                     {{ isArabic ? "تعديل خيارات الأداة" : "Edit tool options" }}
                                 </button>
                             </div>
+                            <div v-if="isHeadlineGeneratorResult(msg)" class="result-actions">
+                                <button type="button" @click="editHeadlineOptions(msg)">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل خيارات الأداة" : "Edit tool options" }}
+                                </button>
+                            </div>
                             <div v-if="isProductDescriptionResult(msg)" class="result-actions">
                                 <button type="button" @click="copyProductDescription(msg)">
                                     <i class="bi bi-copy"></i>
@@ -303,6 +309,12 @@
                                 <span>{{ option }}</span>
                             </label>
                         </fieldset>
+
+                        <button v-if="pendingHeadlineEdit" type="button" class="apply-edited-options-btn"
+                            :disabled="sendingMessage || streamingAssistant" @click="submitHeadlineEditedOptions">
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ isArabic ? "تطبيق التعديلات وإعادة التوليد" : "Apply changes and regenerate" }}
+                        </button>
                     </div>
                 </div>
 
@@ -1229,6 +1241,7 @@ const getInitialHeadlineState = () => ({
 
 const headlineState = ref(getInitialHeadlineState());
 const headlineOptionsOpen = ref(false);
+const pendingHeadlineEdit = ref(null);
 
 const headlineSelectFields = [
     {
@@ -3633,7 +3646,132 @@ const clearHeadlineStateFromSession = (conversationUuid) => {
 const resetHeadlineState = (conversationUuid = "") => {
     headlineState.value = getInitialHeadlineState();
     headlineOptionsOpen.value = false;
+    pendingHeadlineEdit.value = null;
     clearHeadlineStateFromSession(conversationUuid);
+};
+
+const resolveHeadlineStateFromMessage = (msg = {}) => {
+    const metadata = normalizeMessageMeta(msg);
+
+    return normalizePlainObject(metadata?.state)
+        || normalizePlainObject(metadata?.tool_state)
+        || normalizePlainObject(msg?.tool_state)
+        || headlineState.value;
+};
+
+const editHeadlineOptions = async (msg) => {
+    if (!isHeadlineGeneratorResult(msg)) return;
+
+    const messageState = resolveHeadlineStateFromMessage(msg);
+    const originalUserMessage = resolvePreviousUserMessage(msg);
+    const nextState = mergeHeadlineState(
+        headlineState.value,
+        {
+            ...(messageState || {}),
+            content: messageState?.content || originalUserMessage || headlineState.value.content,
+        }
+    );
+
+    headlineState.value = nextState;
+    pendingHeadlineEdit.value = {
+        sourceMessage: msg,
+        originalUserMessage,
+        conversationUuid: activeConversation.value?.uuid || route.params.uuid || "",
+        assistantMessageId: msg?.id || null,
+        previousOutput: displayMessageContent(msg) || msg?.content || null,
+    };
+
+    saveHeadlineStateToSession(pendingHeadlineEdit.value.conversationUuid, nextState);
+    headlineOptionsOpen.value = true;
+
+    await nextTick();
+    await focusChatInput();
+};
+
+const submitHeadlineEditedOptions = async () => {
+    if (
+        !isHeadlineGeneratorTool.value
+        || sendingMessage.value
+        || streamingAssistant.value
+        || conversationLimitExceeded.value
+    ) {
+        return;
+    }
+
+    const pendingEdit = pendingHeadlineEdit.value;
+    if (!pendingEdit) return;
+
+    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    if (
+        pendingEdit.conversationUuid
+        && currentConversationUuid
+        && pendingEdit.conversationUuid !== currentConversationUuid
+    ) {
+        pendingHeadlineEdit.value = null;
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "تم تغيير المحادثة. افتح نتيجة العنوان المطلوبة واضغط تعديل خيارات الأداة مرة أخرى."
+                : "The conversation changed. Open the target headline result and edit its options again.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: "ai_headline_generator",
+                    sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                },
+            }
+        );
+        return;
+    }
+
+    const originalMessage = String(
+        pendingEdit.originalUserMessage
+        || headlineState.value.content
+        || userInput.value
+        || ""
+    ).trim();
+
+    if (!originalMessage) {
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "لا يوجد طلب أصلي لإعادة توليد العنوان. اكتب موضوع العنوان أولًا."
+                : "No original prompt found. Please write a headline topic first.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: "ai_headline_generator",
+                    sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                },
+            }
+        );
+        return;
+    }
+
+    const editedState = normalizeHeadlineState({
+        ...headlineState.value,
+        content: headlineState.value.content || originalMessage,
+    });
+
+    headlineState.value = editedState;
+    saveHeadlineStateToSession(pendingEdit.conversationUuid || currentConversationUuid, editedState);
+
+    const sent = await handleHeadlineGeneratorSubmit(originalMessage, {
+        stateOverride: editedState,
+        conversationUuid: pendingEdit.conversationUuid || currentConversationUuid,
+        forceNewIdempotency: true,
+        forceNewIdempotencyKey: true,
+        fromEditedOptions: true,
+    });
+
+    if (sent) {
+        pendingHeadlineEdit.value = null;
+        headlineOptionsOpen.value = false;
+    }
 };
 
 const paraphraserStateStorageKey = (conversationUuid = "") =>
@@ -4685,17 +4823,21 @@ const resolveCurrentUserId = () => {
 const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
     const submitOptions = {
         forceNewIdempotency: false,
+        forceNewIdempotencyKey: false,
+        stateOverride: null,
+        conversationUuid: "",
+        fromEditedOptions: false,
         ...options,
     };
     const inputText = String(text || "").trim();
-    const requestState = normalizeHeadlineState(headlineState.value);
+    const requestState = normalizeHeadlineState(submitOptions.stateOverride || headlineState.value);
 
     if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
-        return;
+        return false;
     }
 
     if (!(await requireAuth())) {
-        return;
+        return false;
     }
 
     await addUserLocalMessage(inputText, {
@@ -4715,7 +4857,31 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
 
     if (!conversation) {
         sendingMessage.value = false;
-        return;
+        return false;
+    }
+
+    if (
+        submitOptions.conversationUuid
+        && conversation.uuid
+        && submitOptions.conversationUuid !== conversation.uuid
+    ) {
+        sendingMessage.value = false;
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "تعذر تطبيق التعديلات على محادثة مختلفة. افتح المحادثة الصحيحة وحاول مرة أخرى."
+                : "Could not apply edits to a different conversation. Open the correct conversation and try again.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: "ai_headline_generator",
+                    sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
+                },
+            }
+        );
+        return false;
     }
 
     const idempotencyKey = resolveIdempotencyKey(
@@ -4725,14 +4891,14 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
             state: requestState,
         }),
         {
-            forceNew: submitOptions.forceNewIdempotency,
+            forceNew: submitOptions.forceNewIdempotency || submitOptions.forceNewIdempotencyKey,
         }
     );
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
         sendingMessage.value = false;
-        return;
+        return false;
     }
 
     inFlightSignatures.add(requestSignature);
@@ -4756,7 +4922,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
 
         if (!apiResponse) {
             await addAssistantLocalMessage("تعذر قراءة الاستجابة. حاول مرة أخرى.", { is_error: true });
-            return;
+            return false;
         }
 
         if (apiResponse.state && apiResponse.type !== "result" && !apiResponse.should_reset_state) {
@@ -4836,9 +5002,11 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
         }
 
         clearPendingSend(conversation.uuid);
+        return true;
     } catch {
         removeAssistantTypingMessage(typingId);
         await addAssistantLocalMessage("حصل خطأ أثناء الإرسال. جرّب مرة أخرى.", { is_error: true });
+        return false;
     } finally {
         removeAssistantTypingMessage(typingId);
         inFlightSignatures.delete(requestSignature);
