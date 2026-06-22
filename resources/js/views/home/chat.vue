@@ -265,6 +265,47 @@
                     </div>
                 </div>
 
+                <div v-if="isHeadlineGeneratorTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="headlineOptionsOpen = !headlineOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات مولد العناوين" : "Headline options" }}
+                        </span>
+                        <i class="bi" :class="headlineOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="headlineOptionsOpen" class="advanced-options-grid">
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "موضوع العنوان" : "Headline topic" }}</span>
+                            <textarea v-model="headlineState.content" rows="2"></textarea>
+                        </label>
+
+                        <label v-for="field in headlineSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="headlineState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "عدد العناوين" : "Number of headlines" }}</span>
+                            <input v-model.number="headlineState.number_of_headlines" type="number" min="1" max="20">
+                        </label>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+                            <label v-for="option in headlineExtraOptions" :key="option" class="check-option">
+                                <input v-model="headlineState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+                    </div>
+                </div>
+
                 <div v-if="isSocialPostGeneratorTool" class="advanced-options">
                     <button type="button" class="advanced-options-toggle"
                         @click="socialPostOptionsOpen = !socialPostOptionsOpen">
@@ -1187,6 +1228,52 @@ const getInitialHeadlineState = () => ({
 });
 
 const headlineState = ref(getInitialHeadlineState());
+const headlineOptionsOpen = ref(false);
+
+const headlineSelectFields = [
+    {
+        key: "content_type",
+        labelAr: "نوع المحتوى",
+        labelEn: "Content type",
+        options: ["Article", "News", "Blog Post", "Social Post", "Video", "YouTube", "Product", "Ad", "General"],
+    },
+    {
+        key: "goal",
+        labelAr: "الهدف",
+        labelEn: "Goal",
+        options: ["Attract Attention", "Improve SEO", "Increase Clicks", "Make it Newsworthy", "Make it Professional", "Make it Short", "Make it Powerful"],
+    },
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Powerful", "Professional", "Formal", "Journalistic", "Creative", "Simple", "Emotional", "Curious"],
+    },
+    {
+        key: "headline_length",
+        labelAr: "طول العنوان",
+        labelEn: "Headline length",
+        options: ["Short", "Medium", "Long"],
+    },
+];
+
+const headlineExtraOptions = [
+    "Include SEO-friendly headlines",
+    "Make it catchy",
+    "Make it news style",
+    "Make it emotional",
+    "Make it professional",
+    "Avoid clickbait",
+    "Use simple words",
+    "One headline only",
+    "Generate alternatives",
+];
 
 const createEmptyParaphraserState = () => ({
     content: null,
@@ -1494,6 +1581,10 @@ const canSubmitCurrentTool = computed(() =>
             && String(textEditorState.value.content || "").trim()
         )
         || (
+            isHeadlineGeneratorTool.value
+            && String(headlineState.value.content || "").trim()
+        )
+        || (
             isSocialPostGeneratorTool.value
             && String(socialPostState.value.content || "").trim()
         )
@@ -1523,6 +1614,12 @@ const chatPlaceholder = computed(() => {
             : "Write the text or editing request here";
     }
 
+    if (isHeadlineGeneratorTool.value) {
+        return isArabic.value
+            ? "اكتب موضوع العنوان أو افتح خيارات مولد العناوين"
+            : "Write the headline topic or open headline options";
+    }
+
     if (isProductDescriptionGeneratorTool.value) {
         return isArabic.value
             ? "اكتب وصف المنتج أو فكرته هنا"
@@ -1540,7 +1637,11 @@ const chatPlaceholder = computed(() => {
 
 const inputAriaLabel = computed(() => {
     if (isTextEditorTool.value) return isArabic.value ? "اكتب طلب محرر النصوص" : "Write your text editor request";
-    if (isHeadlineGeneratorTool.value) return "اكتب رسالتك الخاصة بتوليد العناوين";
+    if (isHeadlineGeneratorTool.value) {
+        return isArabic.value
+            ? "اكتب طلبك لتوليد العناوين"
+            : "Write your headline generation request";
+    }
     if (isSocialPostGeneratorTool.value) return "اكتب طلبك لتوليد منشور السوشيال";
     if (isEmailWriterTool.value) return "اكتب طلبك لكتابة الإيميل";
     if (isScriptGeneratorTool.value) return "اكتب طلبك لتوليد السكريبت";
@@ -1737,34 +1838,66 @@ const humanizeHeadlineValue = (value) => {
     return HEADLINE_VALUE_LABELS[value] || String(value);
 };
 
+const normalizeHeadlineState = (state = {}) => {
+    const candidate = state && typeof state === "object" && !Array.isArray(state)
+        ? state
+        : {};
+    const merged = { ...getInitialHeadlineState(), ...candidate };
+
+    [
+        "content",
+        "content_type",
+        "goal",
+        "language",
+        "tone",
+        "headline_length",
+    ].forEach((key) => {
+        merged[key] = merged[key] === null || merged[key] === undefined
+            ? null
+            : String(merged[key]).trim() || null;
+    });
+
+    const count = Number(merged.number_of_headlines);
+    merged.number_of_headlines = Number.isFinite(count) && count > 0
+        ? Math.floor(count)
+        : null;
+
+    merged.extra_options = Array.isArray(merged.extra_options)
+        ? merged.extra_options.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+
+    return merged;
+};
+
 const isEmptyHeadlineValue = (value) => {
-    if (Array.isArray(value)) return false;
+    if (Array.isArray(value)) return value.length === 0;
     return value === null || value === undefined || value === "";
 };
 
 const getMissingHeadlineFields = (state = {}) => {
-    return Object.entries(state)
+    return Object.entries(normalizeHeadlineState(state))
         .filter(([key, value]) => key !== "extra_options" && isEmptyHeadlineValue(value))
         .map(([key]) => key);
 };
 
 const mergeHeadlineState = (oldState = {}, newState = {}) => {
-    const merged = { ...getInitialHeadlineState(), ...oldState };
+    const merged = normalizeHeadlineState(oldState);
+    const incoming = normalizeHeadlineState(newState);
 
-    Object.entries(newState || {}).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-            merged[key] = value;
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (key === "extra_options") {
+            if (Array.isArray(value) && value.length > 0) {
+                merged[key] = value;
+            }
             return;
         }
 
         if (value !== null && value !== undefined && value !== "") {
             merged[key] = value;
-        } else if (!(key in merged)) {
-            merged[key] = value;
         }
     });
 
-    return merged;
+    return normalizeHeadlineState(merged);
 };
 
 const normalizeTextEditorArray = (value) => {
@@ -3465,7 +3598,7 @@ const saveHeadlineStateToSession = (conversationUuid, state) => {
     const key = headlineStateStorageKey(conversationUuid);
 
     try {
-        sessionStorage.setItem(key, JSON.stringify(state || getInitialHeadlineState()));
+        sessionStorage.setItem(key, JSON.stringify(normalizeHeadlineState(state || getInitialHeadlineState())));
     } catch {
         // Ignore storage edge cases.
     }
@@ -3499,6 +3632,7 @@ const clearHeadlineStateFromSession = (conversationUuid) => {
 
 const resetHeadlineState = (conversationUuid = "") => {
     headlineState.value = getInitialHeadlineState();
+    headlineOptionsOpen.value = false;
     clearHeadlineStateFromSession(conversationUuid);
 };
 
@@ -4554,6 +4688,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
         ...options,
     };
     const inputText = String(text || "").trim();
+    const requestState = normalizeHeadlineState(headlineState.value);
 
     if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
         return;
@@ -4567,7 +4702,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
         sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
         metadata: {
             type: "user_input",
-            state: headlineState.value,
+            state: requestState,
             sub_tool_id: HEADLINE_GENERATOR_SUB_TOOL_ID,
         },
     });
@@ -4583,9 +4718,16 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
         return;
     }
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
-        forceNew: submitOptions.forceNewIdempotency,
-    });
+    const idempotencyKey = resolveIdempotencyKey(
+        conversation.uuid,
+        JSON.stringify({
+            user_message: inputText,
+            state: requestState,
+        }),
+        {
+            forceNew: submitOptions.forceNewIdempotency,
+        }
+    );
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
@@ -4605,7 +4747,7 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
             user_message: inputText,
             debug: HEADLINE_DEBUG_MODE,
             idempotency_key: idempotencyKey,
-            state: headlineState.value,
+            state: requestState,
         };
 
         const response = await chatServices.sendMessage(payload);
@@ -4618,7 +4760,9 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
         }
 
         if (apiResponse.state && apiResponse.type !== "result" && !apiResponse.should_reset_state) {
-            headlineState.value = mergeHeadlineState(headlineState.value, apiResponse.state);
+            headlineState.value = mergeHeadlineState(requestState, apiResponse.state);
+        } else {
+            headlineState.value = requestState;
         }
 
         const metadata = {
@@ -6058,7 +6202,11 @@ const onSubmitMessage = async () => {
     }
 
     if (isHeadlineGeneratorTool.value) {
-        await handleHeadlineGeneratorSubmit(userInput.value);
+        const headlineInput = String(
+            userInput.value || headlineState.value.content || ""
+        ).trim();
+
+        await handleHeadlineGeneratorSubmit(headlineInput);
         return;
     }
 
