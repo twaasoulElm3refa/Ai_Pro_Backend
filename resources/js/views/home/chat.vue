@@ -163,6 +163,12 @@
                                     v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                             </div>
                             <span v-if="!msg.isTyping" class="msg-time">{{ msg.time }}</span>
+                            <div v-if="isTextEditorResult(msg)" class="result-actions">
+                                <button type="button" @click="editTextEditorOptions(msg)">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل خيارات الأداة" : "Edit tool options" }}
+                                </button>
+                            </div>
                             <div v-if="isProductDescriptionResult(msg)" class="result-actions">
                                 <button type="button" @click="copyProductDescription(msg)">
                                     <i class="bi bi-copy"></i>
@@ -250,6 +256,12 @@
                                 <span>{{ option }}</span>
                             </label>
                         </fieldset>
+
+                        <button v-if="pendingTextEditorEdit" type="button" class="apply-edited-options-btn"
+                            :disabled="sendingMessage || streamingAssistant" @click="submitTextEditorEditedOptions">
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ isArabic ? "تطبيق التعديلات وإعادة التوليد" : "Apply changes and regenerate" }}
+                        </button>
                     </div>
                 </div>
 
@@ -819,6 +831,25 @@ const normalizeMessageMeta = (msg = {}) => {
     return {};
 };
 
+const normalizePlainObject = (value) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+        return value;
+    }
+
+    if (typeof value === "string" && value.trim()) {
+        try {
+            const parsed = JSON.parse(value);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                return parsed;
+            }
+        } catch {
+            // Ignore invalid JSON-like values.
+        }
+    }
+
+    return null;
+};
+
 const mapMessage = (message, index = 0) => ({
     ...message,
     metadata: normalizeMessageMeta(message),
@@ -1085,6 +1116,7 @@ const createEmptyTextEditorState = () => ({
 const textEditorState = ref(createEmptyTextEditorState());
 const textEditorOptionsOpen = ref(false);
 const textEditorKeywordsInput = ref("");
+const pendingTextEditorEdit = ref(null);
 
 const textEditorSelectFields = [
     {
@@ -3180,6 +3212,7 @@ const resetTextEditorState = (conversationUuid = "") => {
     textEditorState.value = createEmptyTextEditorState();
     textEditorOptionsOpen.value = false;
     textEditorKeywordsInput.value = "";
+    pendingTextEditorEdit.value = null;
     clearTextEditorStateFromSession(conversationUuid);
 };
 
@@ -3201,6 +3234,14 @@ const isTextEditorMessage = (message = {}) => {
 
     return subToolId === TEXT_EDITOR_SUB_TOOL_ID || toolKey === TEXT_EDITOR_TOOL_KEY;
 };
+
+const isTextEditorResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
+    && !msg?.isTyping
+    && !msg?.streaming
+    && !msg?.is_error
+    && (isTextEditorMessage(msg) || Boolean(displayMessageContent(msg)));
 
 const extractTextEditorStateFromMessages = (rows = [], conversationUuid = "") => {
     if (Array.isArray(rows) && rows.length > 0) {
@@ -3267,6 +3308,154 @@ const resolveTextEditorStateForSubmit = (conversationUuid = "") => {
     }
 
     return resolved;
+};
+
+const resolveLastUserMessage = () =>
+    [...messages.value]
+        .reverse()
+        .find((item) => item?.role === "user" && String(item?.content || "").trim())
+        ?.content || "";
+
+const resolvePreviousUserMessage = (msg = {}) => {
+    const targetIndex = messages.value.findIndex((item) =>
+        item?.localKey === msg?.localKey
+        || (msg?.id && item?.id === msg.id)
+        || (msg?.uuid && item?.uuid === msg.uuid)
+    );
+    const rows = targetIndex >= 0 ? messages.value.slice(0, targetIndex) : messages.value;
+
+    return [...rows]
+        .reverse()
+        .find((item) => item?.role === "user" && String(item?.content || "").trim())
+        ?.content || "";
+};
+
+const resolveTextEditorStateFromMessage = (msg = {}) => {
+    const metadata = normalizeMessageMeta(msg);
+
+    return normalizePlainObject(metadata?.state)
+        || normalizePlainObject(metadata?.tool_state)
+        || normalizePlainObject(msg?.tool_state)
+        || textEditorState.value;
+};
+
+const editTextEditorOptions = async (msg) => {
+    if (!isTextEditorResult(msg)) return;
+
+    const oldOutput = displayMessageContent(msg);
+    const originalUserMessage = resolvePreviousUserMessage(msg);
+    const stateCandidate = resolveTextEditorStateFromMessage(msg);
+    const nextState = normalizeTextEditorState({
+        ...(stateCandidate || {}),
+        content: stateCandidate?.content || originalUserMessage || textEditorState.value.content,
+        last_output: oldOutput || stateCandidate?.last_output || textEditorState.value.last_output,
+    });
+
+    textEditorState.value = nextState;
+    textEditorKeywordsInput.value = nextState.keywords.join(", ");
+    pendingTextEditorEdit.value = {
+        sourceMessage: msg,
+        originalUserMessage,
+        conversationUuid: activeConversation.value?.uuid || route.params.uuid || "",
+        assistantMessageId: msg?.id || null,
+    };
+
+    saveTextEditorStateToSession(pendingTextEditorEdit.value.conversationUuid, nextState);
+    textEditorOptionsOpen.value = true;
+
+    await scrollToBottom();
+    await focusChatInput();
+};
+
+const submitTextEditorEditedOptions = async () => {
+    if (
+        !isTextEditorTool.value
+        || sendingMessage.value
+        || streamingAssistant.value
+        || conversationLimitExceeded.value
+    ) {
+        return;
+    }
+
+    const pendingEdit = pendingTextEditorEdit.value;
+    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+
+    if (
+        pendingEdit?.conversationUuid
+        && currentConversationUuid
+        && pendingEdit.conversationUuid !== currentConversationUuid
+    ) {
+        pendingTextEditorEdit.value = null;
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "تم تغيير المحادثة. افتح النتيجة المطلوبة واضغط تعديل خيارات الأداة مرة أخرى."
+                : "The conversation changed. Open the target result and edit its options again.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: TEXT_EDITOR_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: TEXT_EDITOR_TOOL_KEY,
+                    sub_tool_id: TEXT_EDITOR_SUB_TOOL_ID,
+                },
+            }
+        );
+        return;
+    }
+
+    const oldOutput = displayMessageContent(pendingEdit?.sourceMessage || {});
+    let state = normalizeTextEditorState({
+        ...textEditorState.value,
+        keywords: textEditorKeywordsInput.value || textEditorState.value.keywords,
+        last_output: oldOutput || textEditorState.value.last_output,
+    });
+    let originalUserMessage = String(
+        pendingEdit?.originalUserMessage
+        || state.content
+        || resolveLastUserMessage()
+        || ""
+    ).trim();
+
+    if (!state.content && originalUserMessage) {
+        state = normalizeTextEditorState({
+            ...state,
+            content: originalUserMessage,
+        });
+    }
+
+    if (!originalUserMessage) {
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "لا توجد رسالة أصلية لإعادة التوليد. اكتب النص أولًا ثم حاول مرة أخرى."
+                : "No original message was found. Add text first, then try again.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: TEXT_EDITOR_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: TEXT_EDITOR_TOOL_KEY,
+                    sub_tool_id: TEXT_EDITOR_SUB_TOOL_ID,
+                },
+            }
+        );
+        return;
+    }
+
+    textEditorState.value = state;
+    textEditorKeywordsInput.value = state.keywords.join(", ");
+    saveTextEditorStateToSession(pendingEdit?.conversationUuid || currentConversationUuid, state);
+
+    const sent = await submitMessage(originalUserMessage, {
+        forceNewIdempotency: true,
+        textEditorExactContent: true,
+    });
+
+    if (sent) {
+        pendingTextEditorEdit.value = null;
+        textEditorOptionsOpen.value = false;
+    }
 };
 
 const headlineStateStorageKey = (conversationUuid = "") =>
@@ -5705,11 +5894,16 @@ const handleTextEditorSubmit = async (text) => {
 const submitMessage = async (text = userInput.value, options = {}) => {
     const submitOptions = {
         forceNewIdempotency: false,
+        textEditorExactContent: false,
         ...options,
     };
     const isTextEditorSubmission = isTextEditorTool.value;
     const rawContent = isTextEditorSubmission
-        ? buildTextEditorInput(text)
+        ? (
+            submitOptions.textEditorExactContent
+                ? String(text || "").trim()
+                : buildTextEditorInput(text)
+        )
         : String(text || "").trim();
 
     /**
@@ -5719,15 +5913,15 @@ const submitMessage = async (text = userInput.value, options = {}) => {
      * Ø§Ù„Ù‚ÙÙ„ ÙÙ‚Ø· Ø¹Ù†Ø¯ limit exceeded.
      */
     if (conversationLimitExceeded.value) {
-        return;
+        return false;
     }
 
     if (!rawContent || sendingMessage.value || streamingAssistant.value) {
-        return;
+        return false;
     }
 
     if (!(await requireAuth())) {
-        return;
+        return false;
     }
 
     let content = rawContent;
@@ -5738,7 +5932,7 @@ const submitMessage = async (text = userInput.value, options = {}) => {
 
     if (!conversation) {
         sendingMessage.value = false;
-        return;
+        return false;
     }
 
     const textEditorRequestState = isTextEditorSubmission
@@ -5759,7 +5953,7 @@ const submitMessage = async (text = userInput.value, options = {}) => {
 
     if (inFlightSignatures.has(requestSignature)) {
         sendingMessage.value = false;
-        return;
+        return false;
     }
 
     inFlightSignatures.add(requestSignature);
@@ -5839,9 +6033,11 @@ const submitMessage = async (text = userInput.value, options = {}) => {
         removeAssistantTypingMessage(typingId);
 
         await openAssistantStream(conversation, response?.data?.message_id);
+        return true;
     } catch {
         removeAssistantTypingMessage(typingId);
         messages.value = messages.value.filter((item) => item.localKey !== optimisticMessage.localKey);
+        return false;
     } finally {
         removeAssistantTypingMessage(typingId);
         inFlightSignatures.delete(requestSignature);
@@ -6899,6 +7095,33 @@ watch(
 .check-option input {
     width: auto;
     padding: 0;
+}
+
+.apply-edited-options-btn {
+    grid-column: 1 / -1;
+    justify-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--blue);
+    color: #ffffff;
+    padding: 10px 14px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 12px 22px rgba(31, 135, 201, 0.18);
+}
+
+.apply-edited-options-btn:hover:not(:disabled) {
+    background: #166da4;
+}
+
+.apply-edited-options-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .limit-warning {
