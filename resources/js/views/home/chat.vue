@@ -163,12 +163,6 @@
                                     v-html="formatMessage(displayMessageContent(msg), msg.role)"></div>
                             </div>
                             <span v-if="!msg.isTyping" class="msg-time">{{ msg.time }}</span>
-                            <div v-if="isTextEditorResult(msg)" class="result-actions">
-
-                            </div>
-                            <div v-if="isTextSummarizerResult(msg)" class="result-actions">
-
-                            </div>
                             <div v-if="isProductDescriptionResult(msg)" class="result-actions">
                                 <button type="button" @click="copyProductDescription(msg)">
                                     <i class="bi bi-copy"></i>
@@ -215,6 +209,48 @@
                     <button type="button" class="points-warning-action" @click="goToWallet">
                         Recharge wallet
                     </button>
+                </div>
+
+                <div v-if="isTextEditorTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="textEditorOptionsOpen = !textEditorOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات متقدمة" : "Advanced options" }}
+                        </span>
+                        <i class="bi" :class="textEditorOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="textEditorOptionsOpen" class="advanced-options-grid">
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "المحتوى" : "Content" }}</span>
+                            <textarea v-model="textEditorState.content" rows="2"></textarea>
+                        </label>
+
+                        <label v-for="field in textEditorSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="textEditorState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "الكلمات المفتاحية" : "Keywords" }}</span>
+                            <input v-model="textEditorKeywordsInput" type="text"
+                                :placeholder="isArabic ? 'افصل الكلمات بفواصل' : 'Separate keywords with commas'">
+                        </label>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+                            <label v-for="option in textEditorExtraOptions" :key="option" class="check-option">
+                                <input v-model="textEditorState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+                    </div>
                 </div>
 
                 <div v-if="isSocialPostGeneratorTool" class="advanced-options">
@@ -981,6 +1017,10 @@ const openAssistantStream = async (conversation, afterId) => {
                 index
             );
 
+            if (isTextEditorTool.value && payload.message) {
+                hydrateTextEditorStateFromMessages([payload.message]);
+            }
+
             if (
                 payload.message?.is_error === true &&
                 hasInsufficientPointsContent(payload.message?.content || "")
@@ -1006,9 +1046,7 @@ const openAssistantStream = async (conversation, afterId) => {
     };
 };
 
-const hideSearchToggle = computed(() =>
-    Number(subtool.value?.id) === 1
-);
+const hideSearchToggle = computed(() => false);
 
 const TEXT_EDITOR_SUB_TOOL_ID = 1;
 const TEXT_EDITOR_TOOL_KEY = "ai_text_editor";
@@ -1029,6 +1067,81 @@ const PRODUCT_DESCRIPTION_GENERATOR_SUB_TOOL_ID = 8;
 const PRODUCT_DESCRIPTION_GENERATOR_TOOL_KEY = "ai_product_description_generator";
 const PRODUCT_DESCRIPTION_GENERATOR_MODEL_KEY = "product_description_generator";
 const MOBILE_SIDEBAR_BREAKPOINT = 900;
+
+const createEmptyTextEditorState = () => ({
+    content: null,
+    content_type: null,
+    language: null,
+    tone: null,
+    audience: null,
+    goal: null,
+    length: null,
+    output_format: null,
+    keywords: [],
+    extra_options: [],
+    last_output: null,
+});
+
+const textEditorState = ref(createEmptyTextEditorState());
+const textEditorOptionsOpen = ref(false);
+const textEditorKeywordsInput = ref("");
+
+const textEditorSelectFields = [
+    {
+        key: "content_type",
+        labelAr: "نوع المحتوى",
+        labelEn: "Content type",
+        options: ["General Text", "Article", "News", "Social Post", "Email", "Ad Copy", "Product Text", "Script"],
+    },
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Professional", "Formal", "Friendly", "Simple", "Persuasive", "Creative", "Journalistic"],
+    },
+    {
+        key: "audience",
+        labelAr: "الجمهور المستهدف",
+        labelEn: "Audience",
+        options: ["General Audience", "Customers", "Business Owners", "Students", "Professionals", "Content Creators"],
+    },
+    {
+        key: "goal",
+        labelAr: "الهدف",
+        labelEn: "Goal",
+        options: ["Improve Writing", "Make it Clearer", "Make it Shorter", "Make it Stronger", "Fix Grammar", "Professional Rewrite", "SEO Improvement"],
+    },
+    {
+        key: "length",
+        labelAr: "الطول",
+        labelEn: "Length",
+        options: ["Short", "Medium", "Long"],
+    },
+    {
+        key: "output_format",
+        labelAr: "صيغة الإخراج",
+        labelEn: "Output format",
+        options: ["Plain Text", "Paragraphs", "Bullet Points", "Title + Body", "Before / After", "SEO Format"],
+    },
+];
+
+const textEditorExtraOptions = [
+    "Fix grammar",
+    "Improve clarity",
+    "Make it professional",
+    "Make it simple",
+    "Make it shorter",
+    "Make it stronger",
+    "SEO-friendly",
+    "Keep same meaning",
+    "Ready to publish",
+];
 
 const getInitialHeadlineState = () => ({
     content: null,
@@ -1272,7 +1385,6 @@ const createEmptyProductDescriptionState = () => ({
 
 const productDescriptionState = ref(createEmptyProductDescriptionState());
 const productOptionsOpen = ref(false);
-const textSummarizerLastRequest = ref(null);
 
 const productDescriptionSelectFields = [
     {
@@ -1314,6 +1426,10 @@ const isHeadlineGeneratorTool = computed(() =>
     Number(subtool.value?.id) === HEADLINE_GENERATOR_SUB_TOOL_ID
 );
 
+const isTextEditorTool = computed(() =>
+    Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
+);
+
 const isParaphraserTool = computed(() =>
     Number(subtool.value?.id) === PARAPHRASER_SUB_TOOL_ID
 );
@@ -1342,6 +1458,10 @@ const canSubmitCurrentTool = computed(() =>
     Boolean(
         userInput.value.trim()
         || (
+            isTextEditorTool.value
+            && String(textEditorState.value.content || "").trim()
+        )
+        || (
             isSocialPostGeneratorTool.value
             && String(socialPostState.value.content || "").trim()
         )
@@ -1365,6 +1485,12 @@ const chatPlaceholder = computed(() => {
         return "This conversation has reached the maximum limit. Start a new chat to continue.";
     }
 
+    if (isTextEditorTool.value) {
+        return isArabic.value
+            ? "اكتب النص أو طلب التعديل هنا"
+            : "Write the text or editing request here";
+    }
+
     if (isProductDescriptionGeneratorTool.value) {
         return isArabic.value
             ? "اكتب وصف المنتج أو فكرته هنا"
@@ -1381,6 +1507,7 @@ const chatPlaceholder = computed(() => {
 });
 
 const inputAriaLabel = computed(() => {
+    if (isTextEditorTool.value) return isArabic.value ? "اكتب طلب محرر النصوص" : "Write your text editor request";
     if (isHeadlineGeneratorTool.value) return "اكتب رسالتك الخاصة بتوليد العناوين";
     if (isSocialPostGeneratorTool.value) return "اكتب طلبك لتوليد منشور السوشيال";
     if (isEmailWriterTool.value) return "اكتب طلبك لكتابة الإيميل";
@@ -1400,6 +1527,58 @@ const typingAriaLabel = computed(() =>
 const typingText = computed(() =>
     isArabic.value ? "جاري الكتابة" : "Assistant is typing"
 );
+
+const TEXT_EDITOR_FIELD_LABELS = {
+    content: "المحتوى",
+    content_type: "نوع المحتوى",
+    language: "اللغة",
+    tone: "النبرة",
+    audience: "الجمهور المستهدف",
+    goal: "الهدف",
+    length: "الطول",
+    output_format: "صيغة الإخراج",
+    keywords: "الكلمات المفتاحية",
+    extra_options: "خيارات إضافية",
+};
+
+const TEXT_EDITOR_VALUE_LABELS = {
+    Arabic: "العربية",
+    English: "الإنجليزية",
+    French: "الفرنسية",
+    Chinese: "الصينية",
+    Russian: "الروسية",
+    Professional: "احترافية",
+    Formal: "رسمية",
+    Friendly: "ودية",
+    Simple: "بسيطة",
+    Persuasive: "إقناعية",
+    Creative: "إبداعية",
+    Journalistic: "صحفية",
+    Short: "قصير",
+    Medium: "متوسط",
+    Long: "طويل",
+    "General Text": "نص عام",
+    Article: "مقال",
+    News: "خبر",
+    "Social Post": "منشور اجتماعي",
+    Email: "إيميل",
+    "Ad Copy": "نص إعلاني",
+    "Product Text": "نص منتج",
+    Script: "سكريبت",
+    "Improve Writing": "تحسين الكتابة",
+    "Make it Clearer": "جعله أوضح",
+    "Make it Shorter": "جعله أقصر",
+    "Make it Stronger": "جعله أقوى",
+    "Fix Grammar": "تصحيح القواعد",
+    "Professional Rewrite": "إعادة صياغة احترافية",
+    "SEO Improvement": "تحسين SEO",
+    "Plain Text": "نص عادي",
+    Paragraphs: "فقرات",
+    "Bullet Points": "نقاط",
+    "Title + Body": "عنوان + متن",
+    "Before / After": "قبل / بعد",
+    "SEO Format": "تنسيق SEO",
+};
 
 const HEADLINE_FIELD_LABELS = {
     content: "الموضوع",
@@ -1554,6 +1733,145 @@ const mergeHeadlineState = (oldState = {}, newState = {}) => {
     });
 
     return merged;
+};
+
+const normalizeTextEditorArray = (value) => {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => String(item || "").trim())
+            .filter(Boolean);
+    }
+
+    if (typeof value === "string") {
+        return value
+            .split(/[,،\n]/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+
+    return [];
+};
+
+const normalizeTextEditorState = (state = {}) => {
+    const base = createEmptyTextEditorState();
+    const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
+    const merged = { ...base, ...candidate };
+
+    [
+        "content",
+        "content_type",
+        "language",
+        "tone",
+        "audience",
+        "goal",
+        "length",
+        "output_format",
+        "last_output",
+    ].forEach((key) => {
+        merged[key] = merged[key] === null || merged[key] === undefined
+            ? null
+            : String(merged[key]).trim() || null;
+    });
+
+    merged.keywords = normalizeTextEditorArray(merged.keywords);
+    merged.extra_options = normalizeTextEditorArray(merged.extra_options);
+
+    return merged;
+};
+
+const isEmptyTextEditorValue = (value) => {
+    if (Array.isArray(value)) return value.length === 0;
+    return value === null || value === undefined || value === "";
+};
+
+const getMissingTextEditorFields = (state = {}) => {
+    const normalized = normalizeTextEditorState(state);
+
+    return Object.entries(normalized)
+        .filter(([key, value]) =>
+            !["keywords", "extra_options", "last_output"].includes(key)
+            && isEmptyTextEditorValue(value)
+        )
+        .map(([key]) => key);
+};
+
+const hasTextEditorStateValue = (state = {}) => {
+    const normalized = normalizeTextEditorState(state);
+
+    return Boolean(
+        normalized.content
+        || normalized.content_type
+        || normalized.language
+        || normalized.tone
+        || normalized.audience
+        || normalized.goal
+        || normalized.length
+        || normalized.output_format
+        || normalized.keywords.length
+        || normalized.extra_options.length
+        || normalized.last_output
+    );
+};
+
+const mergeTextEditorState = (oldState = {}, newState = {}) => {
+    const merged = normalizeTextEditorState(oldState);
+    const incoming = normalizeTextEditorState(newState);
+
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (["keywords", "extra_options"].includes(key)) {
+            if (Array.isArray(value) && value.length > 0) {
+                merged[key] = [...new Set(value)];
+            }
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== "") {
+            merged[key] = value;
+        }
+    });
+
+    return normalizeTextEditorState(merged);
+};
+
+const humanizeTextEditorValue = (value) => {
+    if (value === null || value === undefined || value === "") return "غير محدد";
+
+    if (Array.isArray(value)) {
+        return value.length
+            ? value.map((item) => TEXT_EDITOR_VALUE_LABELS[item] || String(item)).join("، ")
+            : "لا";
+    }
+
+    return TEXT_EDITOR_VALUE_LABELS[value] || String(value);
+};
+
+const buildTextEditorStateSummary = (state = {}) => {
+    const normalized = normalizeTextEditorState(state);
+
+    return Object.entries(normalized)
+        .filter(([key, value]) => key !== "last_output" && !isEmptyTextEditorValue(value))
+        .map(([key, value]) =>
+            `${TEXT_EDITOR_FIELD_LABELS[key] || key}: ${humanizeTextEditorValue(value)}`
+        )
+        .join("\n");
+};
+
+const buildTextEditorQuestionMessage = (apiResponse = {}) => {
+    const message = apiResponse?.message || "من فضلك أكمل البيانات المطلوبة لتحرير النص.";
+    const nextState = apiResponse?.state || textEditorState.value;
+    const summary = buildTextEditorStateSummary(nextState);
+    const missing = getMissingTextEditorFields(nextState);
+    const missingText = missing.length
+        ? `المطلوب لاستكمال تحرير النص: ${missing
+            .map((field) => TEXT_EDITOR_FIELD_LABELS[field] || field)
+            .join("، ")}`
+        : "";
+
+    return [
+        message,
+        summary ? `\nالبيانات الحالية:\n${summary}` : "",
+        missingText ? `\n${missingText}` : "",
+    ].filter(Boolean).join("\n");
 };
 
 const normalizeParaphraserState = (state = {}) => {
@@ -2244,16 +2562,6 @@ const isHeadlineGeneratorResult = (msg = {}) => {
     return result;
 };
 
-const isTextEditorResult = (msg = {}) => {
-    return (
-        msg?.role === "assistant"
-        && Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
-        && !msg?.isTyping
-        && !msg?.streaming
-        && !msg?.is_error
-    );
-};
-
 const getTextSummarizerMeta = (msg = {}) => {
     if (msg?.toolMeta && typeof msg.toolMeta === "object") {
         return msg.toolMeta;
@@ -2274,24 +2582,6 @@ const isTextSummarizerMessage = (msg = {}) => {
         || String(msg?.task_key || "").toLowerCase() === TEXT_SUMMARIZER_TASK_KEY
         || String(meta?.task_key || "").toLowerCase() === TEXT_SUMMARIZER_TASK_KEY
         || String(meta?.tool || "").toLowerCase() === TEXT_SUMMARIZER_TOOL_KEY;
-};
-
-const isTextSummarizerResult = (msg = {}) => {
-    if (!msg || msg.role !== "assistant") return false;
-    if (msg.isTyping || msg.streaming || msg.is_error) return false;
-
-    return (
-        isTextSummarizerMessage(msg)
-        || (
-            Number(subtool.value?.id) === TEXT_SUMMARIZER_SUB_TOOL_ID
-            && !isProductDescriptionResult(msg)
-            && !isSocialPostResult(msg)
-            && !isEmailWriterResult(msg)
-            && !isScriptGeneratorResult(msg)
-            && !isHeadlineGeneratorResult(msg)
-            && !isParaphraserResult(msg)
-        )
-    );
 };
 
 const getTextSummarizerOutput = (msg = {}) => {
@@ -2608,13 +2898,6 @@ const copyProductDescription = async (msg) => {
     await navigator.clipboard.writeText(output);
 };
 
-const findUserInputBeforeMessage = (msg) => {
-    const targetIndex = messages.value.findIndex((item) => item.localKey === msg?.localKey);
-    const rows = targetIndex >= 0 ? messages.value.slice(0, targetIndex) : messages.value;
-
-    return [...rows].reverse().find((item) => item?.role === "user")?.content || "";
-};
-
 const buildTextSummarizerTitle = (body = "") => {
     const cleaned = String(body || "")
         .replace(/<[^>]*>/g, " ")
@@ -2637,40 +2920,6 @@ const createTextSummarizerPayload = (body, conversation = {}) => {
         task_key: TEXT_SUMMARIZER_TASK_KEY,
         tool: TEXT_SUMMARIZER_TOOL_KEY,
     };
-};
-
-const getTextSummarizerRequestPayload = (msg = {}) => {
-    const meta = getTextSummarizerMeta(msg);
-
-    if (meta?.request_payload && typeof meta.request_payload === "object") {
-        return meta.request_payload;
-    }
-
-    if (msg?.request_payload && typeof msg.request_payload === "object") {
-        return msg.request_payload;
-    }
-
-    const previousUserMessage = findUserInputBeforeMessage(msg);
-    if (previousUserMessage) {
-        const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
-
-        return {
-            user_id: resolveCurrentUserId(),
-            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-            title: buildTextSummarizerTitle(previousUserMessage),
-            conversation_uuid: conversationUuid,
-            body: previousUserMessage,
-            user_message: "Summarize the provided text.",
-            task_key: TEXT_SUMMARIZER_TASK_KEY,
-            tool: TEXT_SUMMARIZER_TOOL_KEY,
-        };
-    }
-
-    if (textSummarizerLastRequest.value) {
-        return textSummarizerLastRequest.value;
-    }
-
-    return null;
 };
 
 const sendTextSummarizerRequest = async (payload, options = {}) => {
@@ -2732,15 +2981,11 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
         tool: TEXT_SUMMARIZER_TOOL_KEY,
     };
 
-    textSummarizerLastRequest.value = { ...requestPayload };
-
     const idempotencyKey = resolveIdempotencyKey(
         conversation.uuid,
         JSON.stringify({
             body: requestPayload.body,
             user_message: requestPayload.user_message,
-            regenerate: Boolean(requestPayload.regenerate),
-            previous_output: requestPayload.previous_output || "",
         }),
         { forceNew: submitOptions.forceNewIdempotency }
     );
@@ -2867,175 +3112,6 @@ const handleTextSummarizerSubmit = async (text) => {
     await sendTextSummarizerRequest(createTextSummarizerPayload(body));
 };
 
-const regenerateTextSummarizerResult = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const oldPayload = getTextSummarizerRequestPayload(msg);
-
-    if (!oldPayload) {
-        console.warn("Missing summarizer request payload for regeneration.");
-        return;
-    }
-
-    await sendTextSummarizerRequest(
-        {
-            ...oldPayload,
-            sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-            task_key: TEXT_SUMMARIZER_TASK_KEY,
-            tool: TEXT_SUMMARIZER_TOOL_KEY,
-            regenerate: true,
-            previous_output: oldOutput,
-        },
-        {
-            forceNewIdempotency: true,
-        }
-    );
-};
-
-const regenerateTextEditorResult = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const content = findUserInputBeforeMessage(msg)
-        || String(userInput.value || "").trim();
-
-    await submitMessage(content, {
-        regenerate: true,
-        previousOutput: oldOutput,
-        forceNewIdempotency: true,
-    });
-};
-
-const regenerateHeadlineResult = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const metadataState = msg?.metadata?.state || msg?.toolMeta?.state;
-
-    if (metadataState && typeof metadataState === "object") {
-        headlineState.value = mergeHeadlineState(getInitialHeadlineState(), metadataState);
-    }
-
-    const source = String(headlineState.value.content || "").trim()
-        || findUserInputBeforeMessage(msg)
-        || userInput.value;
-
-    await handleHeadlineGeneratorSubmit(source, {
-        regenerate: true,
-        previousOutput: oldOutput,
-        forceNewIdempotency: true,
-    });
-};
-
-const regenerateParaphraserResult = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const metadataState = msg?.metadata?.state;
-
-    if (metadataState && typeof metadataState === "object") {
-        paraphraserState.value = normalizeParaphraserState(metadataState);
-    }
-
-    const source = String(paraphraserState.value.content || "").trim()
-        || findUserInputBeforeMessage(msg)
-        || userInput.value;
-
-    await handleParaphraserSubmit(source, {
-        regenerate: true,
-        previousOutput: oldOutput,
-        forceNewIdempotency: true,
-    });
-};
-
-const regenerateSocialPostResult = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const metadataState = msg?.metadata?.state;
-
-    if (metadataState && typeof metadataState === "object") {
-        socialPostState.value = normalizeSocialPostState(metadataState);
-    }
-
-    const source = String(socialPostState.value.content || "").trim()
-        || findUserInputBeforeMessage(msg)
-        || userInput.value;
-
-    await handleSocialPostGeneratorSubmit(source, {
-        regenerate: true,
-        previousOutput: oldOutput,
-        forceNewIdempotency: true,
-    });
-};
-
-const regenerateEmailWriterResult = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const metadataState = msg?.metadata?.state;
-
-    if (metadataState && typeof metadataState === "object") {
-        emailWriterState.value = normalizeEmailWriterState(metadataState);
-    }
-
-    const source = String(emailWriterState.value.purpose || "").trim()
-        || findUserInputBeforeMessage(msg)
-        || userInput.value;
-
-    await handleEmailWriterSubmit(source, {
-        regenerate: true,
-        previousOutput: oldOutput,
-        forceNewIdempotency: true,
-    });
-};
-
-const regenerateScriptGeneratorResult = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const metadataState = msg?.metadata?.state;
-
-    if (metadataState && typeof metadataState === "object") {
-        scriptGeneratorState.value = normalizeScriptGeneratorState(metadataState);
-    }
-
-    const source = String(scriptGeneratorState.value.topic || "").trim()
-        || findUserInputBeforeMessage(msg)
-        || userInput.value;
-
-    await handleScriptGeneratorSubmit(source, {
-        regenerate: true,
-        previousOutput: oldOutput,
-        forceNewIdempotency: true,
-    });
-};
-
-const regenerateProductDescription = async (msg) => {
-    if (chatSendDisabled.value) return;
-
-    const oldOutput = displayMessageContent(msg);
-    const metadataState = msg?.metadata?.state;
-
-    if (metadataState && typeof metadataState === "object") {
-        productDescriptionState.value = mergeProductDescriptionState(
-            productDescriptionState.value,
-            metadataState
-        );
-    }
-
-    const source = findUserInputBeforeMessage(msg)
-        || productDescriptionState.value.product
-        || "";
-
-    await handleProductDescriptionSubmit(source, {
-        regenerate: true,
-        previousOutput: oldOutput,
-        forceNewIdempotency: true,
-    });
-};
-
 const editProductDescriptionInputs = async () => {
     productOptionsOpen.value = true;
     await focusChatInput();
@@ -3059,6 +3135,138 @@ const editScriptGeneratorInputs = async () => {
 const focusChatInput = async () => {
     await nextTick();
     textareaRef.value?.focus();
+};
+
+const textEditorStateStorageKey = (conversationUuid = "") =>
+    `tool_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}_${TEXT_EDITOR_SUB_TOOL_ID}`;
+
+const saveTextEditorStateToSession = (conversationUuid, state) => {
+    const key = textEditorStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.setItem(key, JSON.stringify(normalizeTextEditorState(state)));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const readTextEditorStateFromSession = (conversationUuid) => {
+    const key = textEditorStateStorageKey(conversationUuid);
+
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+        return normalizeTextEditorState(parsed);
+    } catch {
+        return null;
+    }
+};
+
+const clearTextEditorStateFromSession = (conversationUuid) => {
+    const key = textEditorStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.removeItem(key);
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetTextEditorState = (conversationUuid = "") => {
+    textEditorState.value = createEmptyTextEditorState();
+    textEditorOptionsOpen.value = false;
+    textEditorKeywordsInput.value = "";
+    clearTextEditorStateFromSession(conversationUuid);
+};
+
+const isTextEditorMessage = (message = {}) => {
+    const metadata = normalizeMessageMeta(message);
+    const subToolId = Number(
+        metadata?.sub_tool_id
+        || message?.sub_tool_id
+        || message?.subToolId
+        || 0
+    );
+    const toolKey = String(
+        metadata?.tool_key
+        || metadata?.tool
+        || message?.tool_key
+        || message?.tool
+        || ""
+    ).toLowerCase();
+
+    return subToolId === TEXT_EDITOR_SUB_TOOL_ID || toolKey === TEXT_EDITOR_TOOL_KEY;
+};
+
+const extractTextEditorStateFromMessages = (rows = [], conversationUuid = "") => {
+    if (Array.isArray(rows) && rows.length > 0) {
+        for (const message of [...rows].reverse()) {
+            const metadata = normalizeMessageMeta(message);
+            const stateCandidate = metadata?.state && typeof metadata.state === "object"
+                ? metadata.state
+                : null;
+
+            if (isTextEditorMessage(message)) {
+                const output = String(
+                    metadata?.state?.last_output
+                    || metadata?.last_output
+                    || message?.content
+                    || message?.message
+                    || ""
+                ).trim();
+                const resolved = mergeTextEditorState(
+                    readTextEditorStateFromSession(conversationUuid) || textEditorState.value,
+                    {
+                        ...(stateCandidate || {}),
+                        last_output: output || stateCandidate?.last_output || null,
+                    }
+                );
+
+                saveTextEditorStateToSession(conversationUuid, resolved);
+                return resolved;
+            }
+        }
+    }
+
+    return readTextEditorStateFromSession(conversationUuid) || createEmptyTextEditorState();
+};
+
+const hydrateTextEditorStateFromMessages = (rows = []) => {
+    if (!isTextEditorTool.value) {
+        resetTextEditorState();
+        return;
+    }
+
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    textEditorState.value = extractTextEditorStateFromMessages(rows, conversationUuid);
+    textEditorKeywordsInput.value = textEditorState.value.keywords.join(", ");
+};
+
+const resolveTextEditorStateForSubmit = (conversationUuid = "") => {
+    let resolved = normalizeTextEditorState({
+        ...textEditorState.value,
+        keywords: textEditorKeywordsInput.value || textEditorState.value.keywords,
+    });
+
+    if (!hasTextEditorStateValue(resolved)) {
+        const latestKnown = extractTextEditorStateFromMessages(messages.value, conversationUuid);
+        resolved = hasTextEditorStateValue(latestKnown)
+            ? normalizeTextEditorState(latestKnown)
+            : createEmptyTextEditorState();
+    }
+
+    textEditorState.value = resolved;
+    textEditorKeywordsInput.value = resolved.keywords.join(", ");
+
+    if (conversationUuid) {
+        saveTextEditorStateToSession(conversationUuid, resolved);
+    }
+
+    return resolved;
 };
 
 const headlineStateStorageKey = (conversationUuid = "") =>
@@ -4153,8 +4361,6 @@ const resolveCurrentUserId = () => {
 
 const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
     const submitOptions = {
-        regenerate: false,
-        previousOutput: "",
         forceNewIdempotency: false,
         ...options,
     };
@@ -4211,12 +4417,6 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
             debug: HEADLINE_DEBUG_MODE,
             idempotency_key: idempotencyKey,
             state: headlineState.value,
-            ...(submitOptions.regenerate
-                ? {
-                    regenerate: true,
-                    previous_output: submitOptions.previousOutput,
-                }
-                : {}),
         };
 
         const response = await chatServices.sendMessage(payload);
@@ -4316,8 +4516,6 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
 
 const handleParaphraserSubmit = async (text, options = {}) => {
     const submitOptions = {
-        regenerate: false,
-        previousOutput: "",
         forceNewIdempotency: false,
         ...options,
     };
@@ -4382,12 +4580,6 @@ const handleParaphraserSubmit = async (text, options = {}) => {
             tool: PARAPHRASER_TOOL_KEY,
             state: resolvedParaphraserState,
             debug: false,
-            ...(submitOptions.regenerate
-                ? {
-                    regenerate: true,
-                    previous_output: submitOptions.previousOutput,
-                }
-                : {}),
         };
 
         if (Number(payload.sub_tool_id) === PARAPHRASER_SUB_TOOL_ID && import.meta.env.DEV) {
@@ -4490,8 +4682,6 @@ const handleParaphraserSubmit = async (text, options = {}) => {
 
 const handleSocialPostGeneratorSubmit = async (text, options = {}) => {
     const submitOptions = {
-        regenerate: false,
-        previousOutput: "",
         forceNewIdempotency: false,
         ...options,
     };
@@ -4560,12 +4750,6 @@ const handleSocialPostGeneratorSubmit = async (text, options = {}) => {
             user_message: inputText,
             state: requestState,
             debug: false,
-            ...(submitOptions.regenerate
-                ? {
-                    regenerate: true,
-                    previous_output: submitOptions.previousOutput,
-                }
-                : {}),
         };
 
         console.log("[SocialPostGenerator] payload before send:", JSON.stringify(payload, null, 2));
@@ -4738,8 +4922,6 @@ const loadSubtool = async () => {
 
 const handleEmailWriterSubmit = async (text, options = {}) => {
     const submitOptions = {
-        regenerate: false,
-        previousOutput: "",
         forceNewIdempotency: false,
         ...options,
     };
@@ -4795,12 +4977,6 @@ const handleEmailWriterSubmit = async (text, options = {}) => {
             state: requestState,
             idempotency_key: idempotencyKey,
             debug: false,
-            ...(submitOptions.regenerate
-                ? {
-                    regenerate: true,
-                    previous_output: submitOptions.previousOutput,
-                }
-                : {}),
         };
 
         console.log("[EmailWriter] payload before send:", JSON.stringify(payload, null, 2));
@@ -4922,8 +5098,6 @@ const handleEmailWriterSubmit = async (text, options = {}) => {
 
 const handleScriptGeneratorSubmit = async (text, options = {}) => {
     const submitOptions = {
-        regenerate: false,
-        previousOutput: "",
         forceNewIdempotency: false,
         ...options,
     };
@@ -4978,12 +5152,6 @@ const handleScriptGeneratorSubmit = async (text, options = {}) => {
                 ? localScriptState
                 : createEmptyScriptGeneratorState(),
             debug: false,
-            ...(submitOptions.regenerate
-                ? {
-                    regenerate: true,
-                    previous_output: submitOptions.previousOutput,
-                }
-                : {}),
         };
 
         console.log("[ScriptGenerator] payload before send:", JSON.stringify(payload, null, 2));
@@ -5112,8 +5280,6 @@ const handleScriptGeneratorSubmit = async (text, options = {}) => {
 
 const handleProductDescriptionSubmit = async (text, options = {}) => {
     const submitOptions = {
-        regenerate: false,
-        previousOutput: "",
         forceNewIdempotency: false,
         ...options,
     };
@@ -5186,12 +5352,6 @@ const handleProductDescriptionSubmit = async (text, options = {}) => {
             state: requestState,
             idempotency_key: idempotencyKey,
             debug: false,
-            ...(submitOptions.regenerate
-                ? {
-                    regenerate: true,
-                    previous_output: submitOptions.previousOutput,
-                }
-                : {}),
         });
         removeAssistantTypingMessage(typingId);
 
@@ -5327,6 +5487,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
+        resetTextEditorState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -5341,6 +5502,7 @@ const loadConversationDetails = async (uuid) => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
+        resetTextEditorState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -5394,6 +5556,7 @@ const loadConversationDetails = async (uuid) => {
 
         clearLocalTypingMessages();
         messages.value = rows.map((message, index) => mapMessage(message, index));
+        hydrateTextEditorStateFromMessages(rows);
         hydrateHeadlineStateFromMessages(rows);
         hydrateParaphraserStateFromMessages(rows);
         hydrateSocialPostStateFromMessages(rows);
@@ -5415,6 +5578,7 @@ const syncRouteConversation = async () => {
         messages.value = [];
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
+        resetTextEditorState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -5467,6 +5631,7 @@ const startNewChat = async () => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         sidebarOpen.value = false;
+        resetTextEditorState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -5497,6 +5662,11 @@ const ensureConversation = async () => {
 
     activeConversation.value = conversation;
     insufficientPoints.value = false;
+    if (isTextEditorTool.value) {
+        saveTextEditorStateToSession(conversation.uuid, textEditorState.value);
+    } else {
+        resetTextEditorState();
+    }
     resetHeadlineState();
     resetParaphraserState();
     resetSocialPostState();
@@ -5517,14 +5687,30 @@ const ensureConversation = async () => {
     return conversation;
 };
 
+const buildTextEditorInput = (text = "") => {
+    const typedText = String(text || "").trim();
+    const stateContent = String(textEditorState.value.content || "").trim();
+
+    if (typedText && stateContent && typedText !== stateContent) {
+        return `${stateContent}\n\n${typedText}`;
+    }
+
+    return typedText || stateContent;
+};
+
+const handleTextEditorSubmit = async (text) => {
+    await submitMessage(text);
+};
+
 const submitMessage = async (text = userInput.value, options = {}) => {
     const submitOptions = {
-        regenerate: false,
-        previousOutput: "",
         forceNewIdempotency: false,
         ...options,
     };
-    const rawContent = String(text || "").trim();
+    const isTextEditorSubmission = isTextEditorTool.value;
+    const rawContent = isTextEditorSubmission
+        ? buildTextEditorInput(text)
+        : String(text || "").trim();
 
     /**
      * Ù…Ù‡Ù…:
@@ -5544,7 +5730,7 @@ const submitMessage = async (text = userInput.value, options = {}) => {
         return;
     }
 
-    const content = rawContent;
+    let content = rawContent;
 
     sendingMessage.value = true;
 
@@ -5555,7 +5741,18 @@ const submitMessage = async (text = userInput.value, options = {}) => {
         return;
     }
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, content, {
+    const textEditorRequestState = isTextEditorSubmission
+        ? resolveTextEditorStateForSubmit(conversation.uuid)
+        : null;
+
+    const idempotencyContent = isTextEditorSubmission
+        ? JSON.stringify({
+            content,
+            state: textEditorRequestState,
+        })
+        : content;
+
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, idempotencyContent, {
         forceNew: submitOptions.forceNewIdempotency,
     });
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
@@ -5585,6 +5782,7 @@ const submitMessage = async (text = userInput.value, options = {}) => {
 
     try {
         const payload = {
+            user_id: resolveCurrentUserId(),
             content,
             user_message: content,
             sub_tool_id: Number(subtool.value?.id || 0),
@@ -5593,10 +5791,19 @@ const submitMessage = async (text = userInput.value, options = {}) => {
             role: "user",
             idempotency_key: idempotencyKey,
             ...(Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
-                ? { tool: TEXT_EDITOR_TOOL_KEY }
-                : {}),
-            task_options: searchEnabled.value
                 ? {
+                    tool: TEXT_EDITOR_TOOL_KEY,
+                    tool_key: TEXT_EDITOR_TOOL_KEY,
+                    state: textEditorRequestState,
+                    debug: true,
+                }
+                : {}),
+            task_options: isTextEditorSubmission
+                ? {
+                    search_mode: "off",
+                }
+                : searchEnabled.value
+                    ? {
                     search_mode: "on",
                     web_search_max_results: 3,
                     web_search_total_results: 5,
@@ -5608,12 +5815,6 @@ const submitMessage = async (text = userInput.value, options = {}) => {
                     max_tokens: 2500,
                     temperature: 0.45,
                 },
-            ...(submitOptions.regenerate
-                ? {
-                    regenerate: true,
-                    previous_output: submitOptions.previousOutput,
-                }
-                : {}),
         };
 
         console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
@@ -5650,6 +5851,11 @@ const submitMessage = async (text = userInput.value, options = {}) => {
 };
 
 const onSubmitMessage = async () => {
+    if (isTextEditorTool.value) {
+        await handleTextEditorSubmit(userInput.value);
+        return;
+    }
+
     if (isTextSummarizerTool.value) {
         await handleTextSummarizerSubmit(userInput.value);
         return;
@@ -5706,6 +5912,7 @@ const removeConversation = async (conversation) => {
             activeConversation.value = null;
             messages.value = [];
             insufficientPoints.value = false;
+            resetTextEditorState();
             resetHeadlineState();
             resetParaphraserState();
             resetSocialPostState();
@@ -5759,6 +5966,10 @@ watch(sidebarOpen, (isOpen) => {
     }
 
     document.body.style.overflow = isOpen ? "hidden" : "";
+});
+
+watch(textEditorKeywordsInput, (value) => {
+    textEditorState.value.keywords = normalizeTextEditorArray(value);
 });
 
 watch(
