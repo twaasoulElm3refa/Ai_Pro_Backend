@@ -271,6 +271,64 @@
                     </div>
                 </div>
 
+                <div v-if="isTextSummarizerTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="textSummarizerOptionsOpen = !textSummarizerOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات أداة التلخيص" : "Summarizer options" }}
+                        </span>
+
+                        <i class="bi"
+                            :class="textSummarizerOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="textSummarizerOptionsOpen" class="advanced-options-grid">
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "المحتوى" : "Content" }}</span>
+                            <textarea v-model="textSummarizerState.content" rows="3"
+                                :placeholder="isArabic ? 'اكتب النص أو المحتوى هنا' : 'Write the content here'"></textarea>
+                        </label>
+
+                        <label v-for="field in textSummarizerSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="textSummarizerState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "تضمين نقاط" : "Include bullets" }}</span>
+                            <select v-model="textSummarizerState.include_bullets">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option :value="true">{{ isArabic ? "نعم" : "Yes" }}</option>
+                                <option :value="false">{{ isArabic ? "لا" : "No" }}</option>
+                            </select>
+                        </label>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "نقاط التركيز" : "Focus points" }}</legend>
+
+                            <label v-for="point in textSummarizerFocusPoints" :key="point" class="check-option">
+                                <input v-model="textSummarizerState.focus_points" type="checkbox" :value="point">
+                                <span>{{ point }}</span>
+                            </label>
+                        </fieldset>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+
+                            <label v-for="option in textSummarizerExtraOptions" :key="option" class="check-option">
+                                <input v-model="textSummarizerState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+                    </div>
+                </div>
+
                 <div v-if="isHeadlineGeneratorTool" class="advanced-options">
                     <button type="button" class="advanced-options-toggle"
                         @click="headlineOptionsOpen = !headlineOptionsOpen">
@@ -1105,6 +1163,10 @@ const openAssistantStream = async (conversation, afterId) => {
                 hydrateTextEditorStateFromMessages([payload.message]);
             }
 
+            if (isTextSummarizerTool.value && payload.message) {
+                hydrateTextSummarizerStateFromMessages([payload.message]);
+            }
+
             if (
                 payload.message?.is_error === true &&
                 hasInsufficientPointsContent(payload.message?.content || "")
@@ -1226,6 +1288,104 @@ const textEditorExtraOptions = [
     "SEO-friendly",
     "Keep same meaning",
     "Ready to publish",
+];
+
+const createEmptyTextSummarizerState = () => ({
+    content: null,
+    language: null,
+    summary_type: null,
+    length: null,
+    audience: null,
+    focus_points: [],
+    output_format: null,
+    include_bullets: null,
+    extra_options: [],
+    last_output: null,
+});
+
+const textSummarizerState = ref(createEmptyTextSummarizerState());
+const textSummarizerOptionsOpen = ref(false);
+
+const textSummarizerSelectFields = [
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "summary_type",
+        labelAr: "نوع التلخيص",
+        labelEn: "Summary type",
+        options: [
+            "General Summary",
+            "Short Summary",
+            "Detailed Summary",
+            "Executive Summary",
+            "News Summary",
+            "Academic Summary",
+            "Social Media Summary",
+            "Story Summary",
+        ],
+    },
+    {
+        key: "length",
+        labelAr: "الطول",
+        labelEn: "Length",
+        options: ["Short", "Medium", "Long", "Very Long"],
+    },
+    {
+        key: "audience",
+        labelAr: "الجمهور المستهدف",
+        labelEn: "Audience",
+        options: [
+            "General Audience",
+            "Students",
+            "Professionals",
+            "Researchers",
+            "Content Creators",
+            "Business Owners",
+            "Children",
+            "Sports Fans",
+        ],
+    },
+    {
+        key: "output_format",
+        labelAr: "صيغة الإخراج",
+        labelEn: "Output format",
+        options: [
+            "Paragraph",
+            "Bullet Points",
+            "Key Points",
+            "Title + Summary",
+            "Structured Summary",
+            "Article Style",
+            "Simple Format",
+        ],
+    },
+];
+
+const textSummarizerFocusPoints = [
+    "Main idea",
+    "Important details",
+    "Names and numbers",
+    "Timeline",
+    "Causes and results",
+    "Key events",
+    "SEO angle",
+    "Reader friendly",
+];
+
+const textSummarizerExtraOptions = [
+    "Keep original meaning",
+    "Remove repetition",
+    "Make it clear",
+    "Make it concise",
+    "Use simple words",
+    "Ready to publish",
+    "Professional style",
+    "Journalistic style",
+    "SEO-friendly",
 ];
 
 const getInitialHeadlineState = () => ({
@@ -1594,6 +1754,10 @@ const canSubmitCurrentTool = computed(() =>
             && String(textEditorState.value.content || "").trim()
         )
         || (
+            isTextSummarizerTool.value
+            && String(textSummarizerState.value.content || "").trim()
+        )
+        || (
             isHeadlineGeneratorTool.value
             && String(headlineState.value.content || "").trim()
         )
@@ -1633,6 +1797,12 @@ const chatPlaceholder = computed(() => {
             : "Write the headline topic or open headline options";
     }
 
+    if (isTextSummarizerTool.value) {
+        return isArabic.value
+            ? "اكتب المحتوى أو افتح خيارات أداة التلخيص"
+            : "Write the content or open summarizer options";
+    }
+
     if (isProductDescriptionGeneratorTool.value) {
         return isArabic.value
             ? "اكتب وصف المنتج أو فكرته هنا"
@@ -1650,6 +1820,11 @@ const chatPlaceholder = computed(() => {
 
 const inputAriaLabel = computed(() => {
     if (isTextEditorTool.value) return isArabic.value ? "اكتب طلب محرر النصوص" : "Write your text editor request";
+    if (isTextSummarizerTool.value) {
+        return isArabic.value
+            ? "اكتب طلبك الخاص بأداة التلخيص"
+            : "Write your summarizer request";
+    }
     if (isHeadlineGeneratorTool.value) {
         return isArabic.value
             ? "اكتب طلبك لتوليد العناوين"
@@ -2050,6 +2225,83 @@ const buildTextEditorQuestionMessage = (apiResponse = {}) => {
         summary ? `\nالبيانات الحالية:\n${summary}` : "",
         missingText ? `\n${missingText}` : "",
     ].filter(Boolean).join("\n");
+};
+
+const normalizeTextSummarizerState = (state = {}) => {
+    const candidate =
+        state && typeof state === "object" && !Array.isArray(state)
+            ? state
+            : {};
+
+    const merged = {
+        ...createEmptyTextSummarizerState(),
+        ...candidate,
+    };
+
+    [
+        "content",
+        "language",
+        "summary_type",
+        "length",
+        "audience",
+        "output_format",
+        "last_output",
+    ].forEach((key) => {
+        merged[key] =
+            merged[key] === null || merged[key] === undefined
+                ? null
+                : String(merged[key]).trim() || null;
+    });
+
+    if (typeof merged.include_bullets === "boolean") {
+        merged.include_bullets = merged.include_bullets;
+    } else if (
+        merged.include_bullets === true
+        || merged.include_bullets === 1
+        || merged.include_bullets === "1"
+        || merged.include_bullets === "true"
+    ) {
+        merged.include_bullets = true;
+    } else if (
+        merged.include_bullets === false
+        || merged.include_bullets === 0
+        || merged.include_bullets === "0"
+        || merged.include_bullets === "false"
+    ) {
+        merged.include_bullets = false;
+    } else {
+        merged.include_bullets = null;
+    }
+
+    merged.focus_points = Array.isArray(merged.focus_points)
+        ? merged.focus_points.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+
+    merged.extra_options = Array.isArray(merged.extra_options)
+        ? merged.extra_options.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+
+    return merged;
+};
+
+const mergeTextSummarizerState = (oldState = {}, newState = {}) => {
+    const merged = normalizeTextSummarizerState(oldState);
+    const incoming = normalizeTextSummarizerState(newState);
+
+    Object.entries(incoming).forEach(([key, value]) => {
+        if (key === "focus_points" || key === "extra_options") {
+            if (Array.isArray(value) && value.length > 0) {
+                merged[key] = value;
+            }
+            return;
+        }
+
+        if (value !== null && value !== undefined && value !== "") {
+            merged[key] = value;
+        }
+    });
+
+    return normalizeTextSummarizerState(merged);
 };
 
 const normalizeParaphraserState = (state = {}) => {
@@ -3087,16 +3339,21 @@ const buildTextSummarizerTitle = (body = "") => {
 
 const createTextSummarizerPayload = (body, conversation = {}) => {
     const cleanBody = String(body || "").trim();
+    const state = normalizeTextSummarizerState(textSummarizerState.value);
 
     return {
         user_id: resolveCurrentUserId(),
         sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
         title: buildTextSummarizerTitle(cleanBody),
         conversation_uuid: conversation.uuid || activeConversation.value?.uuid || route.params.uuid || "",
-        body: cleanBody,
-        user_message: "Summarize the provided text.",
-        task_key: TEXT_SUMMARIZER_TASK_KEY,
-        tool: TEXT_SUMMARIZER_TOOL_KEY,
+        user_message: cleanBody,
+        state,
+        debug: true,
+        task_options: {
+            search_mode: "off",
+            max_tokens: 700,
+            temperature: 0.25,
+        },
     };
 };
 
@@ -3106,7 +3363,11 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
         addUserMessage: true,
         ...options,
     };
-    const body = String(payload?.body || "").trim();
+    const body = String(
+        payload?.user_message
+        || payload?.state?.content
+        || ""
+    ).trim();
 
     if (conversationLimitExceeded.value || sendingMessage.value || streamingAssistant.value) {
         return;
@@ -3153,17 +3414,23 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
         title: payload?.title || buildTextSummarizerTitle(body),
         conversation_uuid: conversation.uuid,
         conversation_id: conversation.id,
-        body,
-        user_message: String(payload?.user_message || "Summarize the provided text.").trim(),
-        task_key: TEXT_SUMMARIZER_TASK_KEY,
-        tool: TEXT_SUMMARIZER_TOOL_KEY,
+        user_message: body,
+        state: normalizeTextSummarizerState(payload?.state || textSummarizerState.value),
+        debug: true,
+        task_options: {
+            search_mode: "off",
+            max_tokens: 700,
+            temperature: 0.25,
+            ...(payload?.task_options && typeof payload.task_options === "object" ? payload.task_options : {}),
+        },
     };
 
     const idempotencyKey = resolveIdempotencyKey(
         conversation.uuid,
         JSON.stringify({
-            body: requestPayload.body,
             user_message: requestPayload.user_message,
+            state: requestPayload.state,
+            task_options: requestPayload.task_options,
         }),
         { forceNew: submitOptions.forceNewIdempotency }
     );
@@ -3184,6 +3451,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
                 tool: TEXT_SUMMARIZER_TOOL_KEY,
                 task_key: TEXT_SUMMARIZER_TASK_KEY,
                 sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                state: requestPayload.state,
                 request_payload: requestPayload,
             },
         });
@@ -3221,6 +3489,15 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
             return;
         }
 
+        textSummarizerState.value = mergeTextSummarizerState(
+            textSummarizerState.value,
+            {
+                ...(apiResponse.state || requestPayload.state),
+                last_output: apiResponse.reply || apiResponse.message || apiResponse.content || null,
+            }
+        );
+        saveTextSummarizerStateToSession(conversation.uuid, textSummarizerState.value);
+
         const metadata = {
             type: "result",
             tool: apiResponse.tool || TEXT_SUMMARIZER_TOOL_KEY,
@@ -3229,6 +3506,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
             request_id: apiResponse.request_id,
             request_payload: apiResponse.request_payload || requestPayload,
             reply: apiResponse.reply,
+            state: textSummarizerState.value,
             usage: apiResponse.usage,
             cost: apiResponse.cost,
             sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
@@ -3273,7 +3551,11 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
 };
 
 const handleTextSummarizerSubmit = async (text) => {
-    const body = String(text || "").trim();
+    const body = String(
+        text
+        || textSummarizerState.value.content
+        || ""
+    ).trim();
 
     if (!body) {
         await addAssistantLocalMessage(
@@ -3288,6 +3570,99 @@ const handleTextSummarizerSubmit = async (text) => {
     }
 
     await sendTextSummarizerRequest(createTextSummarizerPayload(body));
+};
+
+const textSummarizerStateStorageKey = (conversationUuid = "") =>
+    `tool_state_${conversationUuid || activeConversation.value?.uuid || route.params.uuid || ""}_${TEXT_SUMMARIZER_SUB_TOOL_ID}`;
+
+const saveTextSummarizerStateToSession = (conversationUuid, state) => {
+    const key = textSummarizerStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.setItem(key, JSON.stringify(normalizeTextSummarizerState(state)));
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const readTextSummarizerStateFromSession = (conversationUuid) => {
+    const key = textSummarizerStateStorageKey(conversationUuid);
+
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+        return normalizeTextSummarizerState(parsed);
+    } catch {
+        return null;
+    }
+};
+
+const clearTextSummarizerStateFromSession = (conversationUuid) => {
+    const key = textSummarizerStateStorageKey(conversationUuid);
+
+    try {
+        sessionStorage.removeItem(key);
+    } catch {
+        // Ignore storage edge cases.
+    }
+};
+
+const resetTextSummarizerState = (conversationUuid = "") => {
+    textSummarizerState.value = createEmptyTextSummarizerState();
+    textSummarizerOptionsOpen.value = false;
+    clearTextSummarizerStateFromSession(conversationUuid);
+};
+
+const extractTextSummarizerStateFromMessages = (rows = [], conversationUuid = "") => {
+    if (Array.isArray(rows) && rows.length > 0) {
+        for (const message of [...rows].reverse()) {
+            const metadata = normalizeMessageMeta(message);
+            const requestPayload = metadata?.request_payload && typeof metadata.request_payload === "object"
+                ? metadata.request_payload
+                : null;
+            const stateCandidate = metadata?.state && typeof metadata.state === "object"
+                ? metadata.state
+                : requestPayload?.state && typeof requestPayload.state === "object"
+                    ? requestPayload.state
+                    : null;
+
+            if (stateCandidate && isTextSummarizerMessage(message)) {
+                const output = String(
+                    metadata?.reply
+                    || metadata?.state?.last_output
+                    || message?.content
+                    || message?.message
+                    || ""
+                ).trim();
+                const resolved = mergeTextSummarizerState(
+                    readTextSummarizerStateFromSession(conversationUuid) || textSummarizerState.value,
+                    {
+                        ...stateCandidate,
+                        last_output: output || stateCandidate?.last_output || null,
+                    }
+                );
+
+                saveTextSummarizerStateToSession(conversationUuid, resolved);
+                return resolved;
+            }
+        }
+    }
+
+    return readTextSummarizerStateFromSession(conversationUuid) || createEmptyTextSummarizerState();
+};
+
+const hydrateTextSummarizerStateFromMessages = (rows = []) => {
+    if (!isTextSummarizerTool.value) {
+        resetTextSummarizerState();
+        return;
+    }
+
+    const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    textSummarizerState.value = extractTextSummarizerStateFromMessages(rows, conversationUuid);
 };
 
 const editProductDescriptionInputs = async () => {
@@ -4347,10 +4722,13 @@ const normalizeTextSummarizerApiResponse = (response = {}) => {
         return {
             success: false,
             reply: String(response?.message || "حدث خطأ أثناء تلخيص النص."),
+            message: String(response?.message || ""),
+            content: null,
             task_key: TEXT_SUMMARIZER_TASK_KEY,
             tool: TEXT_SUMMARIZER_TOOL_KEY,
             model_key: null,
             request_id: null,
+            state: null,
             usage: null,
             cost: null,
         };
@@ -4375,7 +4753,9 @@ const normalizeTextSummarizerApiResponse = (response = {}) => {
 
     return {
         success: payload?.success !== false,
-        reply: String(payload?.reply || payload?.message || "").trim(),
+        reply: String(payload?.reply || payload?.message || payload?.content || "").trim(),
+        message: String(payload?.message || "").trim(),
+        content: String(payload?.content || "").trim(),
         task_key: normalizedTaskKey || TEXT_SUMMARIZER_TASK_KEY,
         tool: normalizedTool || TEXT_SUMMARIZER_TOOL_KEY,
         model_key: payload?.model_key || null,
@@ -4383,6 +4763,9 @@ const normalizeTextSummarizerApiResponse = (response = {}) => {
         sub_tool_id: normalizedSubToolId || TEXT_SUMMARIZER_SUB_TOOL_ID,
         conversation_uuid: payload?.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
         request_id: payload?.request_id || null,
+        state: payload?.state && typeof payload.state === "object"
+            ? normalizeTextSummarizerState(payload.state)
+            : null,
         debug: payload?.debug ?? null,
         usage: payload?.usage && typeof payload.usage === "object" ? payload.usage : null,
         cost: payload?.cost && typeof payload.cost === "object" ? payload.cost : null,
@@ -5989,6 +6372,7 @@ const loadConversationDetails = async (uuid) => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         resetTextEditorState();
+        resetTextSummarizerState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -6004,6 +6388,7 @@ const loadConversationDetails = async (uuid) => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         resetTextEditorState();
+        resetTextSummarizerState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -6058,6 +6443,7 @@ const loadConversationDetails = async (uuid) => {
         clearLocalTypingMessages();
         messages.value = rows.map((message, index) => mapMessage(message, index));
         hydrateTextEditorStateFromMessages(rows);
+        hydrateTextSummarizerStateFromMessages(rows);
         hydrateHeadlineStateFromMessages(rows);
         hydrateParaphraserStateFromMessages(rows);
         hydrateSocialPostStateFromMessages(rows);
@@ -6080,6 +6466,7 @@ const syncRouteConversation = async () => {
         conversationLimitExceeded.value = false;
         insufficientPoints.value = false;
         resetTextEditorState();
+        resetTextSummarizerState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -6133,6 +6520,7 @@ const startNewChat = async () => {
         insufficientPoints.value = false;
         sidebarOpen.value = false;
         resetTextEditorState();
+        resetTextSummarizerState();
         resetHeadlineState();
         resetParaphraserState();
         resetSocialPostState();
@@ -6167,6 +6555,11 @@ const ensureConversation = async () => {
         saveTextEditorStateToSession(conversation.uuid, textEditorState.value);
     } else {
         resetTextEditorState();
+    }
+    if (isTextSummarizerTool.value) {
+        saveTextSummarizerStateToSession(conversation.uuid, textSummarizerState.value);
+    } else {
+        resetTextSummarizerState();
     }
     resetHeadlineState();
     resetParaphraserState();
@@ -6425,6 +6818,7 @@ const removeConversation = async (conversation) => {
             messages.value = [];
             insufficientPoints.value = false;
             resetTextEditorState();
+            resetTextSummarizerState();
             resetHeadlineState();
             resetParaphraserState();
             resetSocialPostState();
