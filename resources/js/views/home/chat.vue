@@ -334,7 +334,7 @@
                         </fieldset>
 
                         <button v-if="pendingTextSummarizerEdit" type="button" class="apply-edited-options-btn"
-                            :disabled="sendingMessage || streamingAssistant"
+                            :disabled="sendingMessage || streamingAssistant || applyingTextSummarizerEdit"
                             @click="submitTextSummarizerEditedOptions">
                             <i class="bi bi-arrow-repeat"></i>
                             {{ isArabic ? "تطبيق التعديلات وإعادة التوليد" : "Apply changes and regenerate" }}
@@ -1319,6 +1319,7 @@ const createEmptyTextSummarizerState = () => ({
 const textSummarizerState = ref(createEmptyTextSummarizerState());
 const textSummarizerOptionsOpen = ref(false);
 const pendingTextSummarizerEdit = ref(null);
+const applyingTextSummarizerEdit = ref(false);
 const textSummarizerLastRequest = ref(null);
 
 const textSummarizerSelectFields = [
@@ -3689,6 +3690,7 @@ const resetTextSummarizerState = (conversationUuid = "") => {
     textSummarizerState.value = createEmptyTextSummarizerState();
     textSummarizerOptionsOpen.value = false;
     pendingTextSummarizerEdit.value = null;
+    applyingTextSummarizerEdit.value = false;
     clearTextSummarizerStateFromSession(conversationUuid);
 };
 
@@ -3787,86 +3789,93 @@ const submitTextSummarizerEditedOptions = async () => {
         || sendingMessage.value
         || streamingAssistant.value
         || conversationLimitExceeded.value
+        || applyingTextSummarizerEdit.value
     ) {
         return;
     }
 
-    const pendingEdit = pendingTextSummarizerEdit.value;
-    if (!pendingEdit) return;
+    applyingTextSummarizerEdit.value = true;
 
-    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+    try {
+        const pendingEdit = pendingTextSummarizerEdit.value;
+        if (!pendingEdit) return;
 
-    if (
-        pendingEdit?.conversationUuid
-        && currentConversationUuid
-        && pendingEdit.conversationUuid !== currentConversationUuid
-    ) {
-        pendingTextSummarizerEdit.value = null;
-        await addAssistantLocalMessage(
-            isArabic.value
-                ? "تم تغيير المحادثة. افتح النتيجة المطلوبة واضغط تعديل خيارات الأداة مرة أخرى."
-                : "The conversation changed. Open the target result and edit its options again.",
-            {
-                plainText: true,
-                is_error: true,
-                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-                metadata: {
-                    type: "error",
-                    tool: TEXT_SUMMARIZER_TOOL_KEY,
+        const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+
+        if (
+            pendingEdit?.conversationUuid
+            && currentConversationUuid
+            && pendingEdit.conversationUuid !== currentConversationUuid
+        ) {
+            pendingTextSummarizerEdit.value = null;
+            await addAssistantLocalMessage(
+                isArabic.value
+                    ? "تم تغيير المحادثة. افتح النتيجة المطلوبة واضغط تعديل خيارات الأداة مرة أخرى."
+                    : "The conversation changed. Open the target result and edit its options again.",
+                {
+                    plainText: true,
+                    is_error: true,
                     sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-                },
-            }
-        );
-        return;
-    }
+                    metadata: {
+                        type: "error",
+                        tool: TEXT_SUMMARIZER_TOOL_KEY,
+                        sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                    },
+                }
+            );
+            return;
+        }
 
-    const originalMessage = String(
-        pendingEdit.originalUserMessage
-        || textSummarizerState.value.content
-        || resolveLastUserMessage()
-        || userInput.value
-        || ""
-    ).trim();
+        const originalMessage = String(
+            pendingEdit.originalUserMessage
+            || textSummarizerState.value.content
+            || resolveLastUserMessage()
+            || userInput.value
+            || ""
+        ).trim();
 
-    if (!originalMessage) {
-        await addAssistantLocalMessage(
-            isArabic.value
-                ? "لا يوجد طلب أصلي لإعادة التوليد. اكتب المحتوى أولًا."
-                : "No original prompt found. Please write the content first.",
-            {
-                plainText: true,
-                is_error: true,
-                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-                metadata: {
-                    type: "error",
-                    tool: TEXT_SUMMARIZER_TOOL_KEY,
+        if (!originalMessage) {
+            await addAssistantLocalMessage(
+                isArabic.value
+                    ? "لا يوجد طلب أصلي لإعادة التوليد. اكتب المحتوى أولًا."
+                    : "No original prompt found. Please write the content first.",
+                {
+                    plainText: true,
+                    is_error: true,
                     sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-                },
-            }
-        );
-        return;
-    }
+                    metadata: {
+                        type: "error",
+                        tool: TEXT_SUMMARIZER_TOOL_KEY,
+                        sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                    },
+                }
+            );
+            return;
+        }
 
-    const editedState = normalizeTextSummarizerState({
-        ...textSummarizerState.value,
-        content: textSummarizerState.value.content || originalMessage,
-        last_output: pendingEdit.previousOutput || textSummarizerState.value.last_output || null,
-    });
+        const editedState = normalizeTextSummarizerState({
+            ...textSummarizerState.value,
+            content: textSummarizerState.value.content || originalMessage,
+            last_output: pendingEdit.previousOutput || textSummarizerState.value.last_output || null,
+        });
 
-    textSummarizerState.value = editedState;
-    saveTextSummarizerStateToSession(pendingEdit.conversationUuid || currentConversationUuid, editedState);
-    userInput.value = originalMessage;
+        textSummarizerState.value = editedState;
+        saveTextSummarizerStateToSession(pendingEdit.conversationUuid || currentConversationUuid, editedState);
+        userInput.value = originalMessage;
 
-    const sent = await handleTextSummarizerSubmit(originalMessage, {
-        stateOverride: editedState,
-        conversationUuid: pendingEdit.conversationUuid || currentConversationUuid,
-        forceNewIdempotencyKey: true,
-        fromEditedOptions: true,
-    });
+        const sent = await handleTextSummarizerSubmit(originalMessage, {
+            stateOverride: editedState,
+            conversationUuid: pendingEdit.conversationUuid || currentConversationUuid,
+            forceNewIdempotencyKey: true,
+            fromEditedOptions: true,
+        });
 
-    if (sent !== false) {
-        pendingTextSummarizerEdit.value = null;
-        textSummarizerOptionsOpen.value = false;
+        if (sent !== false) {
+            pendingTextSummarizerEdit.value = null;
+            textSummarizerOptionsOpen.value = false;
+        }
+    } finally {
+        applyingTextSummarizerEdit.value = false;
     }
 };
 

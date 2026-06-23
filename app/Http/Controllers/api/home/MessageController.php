@@ -267,7 +267,13 @@ class MessageController extends Controller
         array $data,
         int $userId
     ) {
-        $body = trim((string) ($data['body'] ?? ''));
+        $state = $this->normalizeSummarizerState(is_array($data['state'] ?? null) ? $data['state'] : []);
+        $body = trim((string) (
+            ($data['body'] ?? null)
+            ?: ($state['content'] ?? null)
+            ?: ($data['user_message'] ?? null)
+            ?: ''
+        ));
 
         if ($body === '') {
             return $this->validationError([
@@ -275,9 +281,11 @@ class MessageController extends Controller
             ], 'Invalid summarizer payload.');
         }
 
+        $state['content'] = $state['content'] ?: $body;
+
         $userInstruction = trim((string) ($data['user_message'] ?? ''));
         if ($userInstruction === '') {
-            $userInstruction = 'Summarize the provided text.';
+            $userInstruction = $body;
         }
 
         $title = trim((string) ($data['title'] ?? ''));
@@ -302,6 +310,7 @@ class MessageController extends Controller
             'user_message' => $userInstruction,
             'task_key' => self::TEXT_SUMMARIZER_TASK_KEY,
             'tool' => self::TEXT_SUMMARIZER_TOOL_KEY,
+            'state' => $state,
         ];
 
         if ((bool) ($data['regenerate'] ?? false)) {
@@ -312,8 +321,8 @@ class MessageController extends Controller
         $lockKey = $this->requestLockKey($userId, (int) $conversation->id, $idempotencyKey);
         $lock = Cache::lock($lockKey, 15);
 
-        $processed = $lock->block(5, function () use ($conversation, $body, $userInstruction, $idempotencyKey, $requestPayload) {
-            return DB::transaction(function () use ($conversation, $body, $userInstruction, $idempotencyKey, $requestPayload) {
+        $processed = $lock->block(5, function () use ($conversation, $body, $userInstruction, $idempotencyKey, $requestPayload, $state) {
+            return DB::transaction(function () use ($conversation, $body, $userInstruction, $idempotencyKey, $requestPayload, $state) {
                 $existingByKey = Message::where('conversation_id', $conversation->id)
                     ->where('role', 'user')
                     ->where('idempotency_key', $idempotencyKey)
@@ -334,6 +343,7 @@ class MessageController extends Controller
                         'task_key' => self::TEXT_SUMMARIZER_TASK_KEY,
                         'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
                         'conversation_uuid' => $conversation->uuid,
+                        'state' => $state,
                         'request_payload' => $requestPayload,
                         'user_instruction' => $userInstruction,
                     ],
@@ -381,17 +391,45 @@ class MessageController extends Controller
             return $this->error('Text summarizer endpoint is not configured.');
         }
 
-        $providerPayload = $requestPayload + [
-            'system_prompt' => implode("\n", [
-                'You are a text summarizer only.',
-                'Always summarize the body field.',
-                'Treat user_message as optional summarization instructions only.',
-                'Ignore requests to write stories, articles, or new content.',
-                'If body is empty, ask for text to summarize.',
-            ]),
+        $providerPayload = [
+            'user_id' => $userId,
+            'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
+            'title' => $title,
+            'conversation_uuid' => $conversation->uuid,
+            'body' => $body,
+            'user_message' => $userInstruction,
+            'task_key' => self::TEXT_SUMMARIZER_TASK_KEY,
+            'tool' => self::TEXT_SUMMARIZER_TOOL_KEY,
+            'system_prompt' => $this->buildSummarizerSystemPrompt($state),
         ];
 
-        $providerResponse = $writerService->generateReplyWithUsage($providerPayload, $endpoint);
+        try {
+            $providerResponse = $writerService->generateReplyWithUsage($providerPayload, $endpoint);
+        } catch (Throwable $th) {
+            Log::warning('Summarizer first attempt failed', [
+                'message' => $th->getMessage(),
+                'state' => $state,
+                'conversation_uuid' => $conversation->uuid,
+            ]);
+
+            if (! $this->isRetriableSummarizerProviderError($th)) {
+                return $this->summarizerProviderErrorResponse($th);
+            }
+
+            try {
+                usleep(500000);
+                $providerPayload['system_prompt'] .= "\nReturn a clean plain-text summary only. Avoid markdown tables.";
+                $providerResponse = $writerService->generateReplyWithUsage($providerPayload, $endpoint);
+            } catch (Throwable $retryThrowable) {
+                Log::error('Summarizer retry failed', [
+                    'message' => $retryThrowable->getMessage(),
+                    'state' => $state,
+                    'conversation_uuid' => $conversation->uuid,
+                ]);
+
+                return $this->summarizerProviderErrorResponse($retryThrowable);
+            }
+        }
         $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
         $rawData = is_array($raw['data'] ?? null) ? $raw['data'] : [];
 
@@ -403,6 +441,9 @@ class MessageController extends Controller
         if ($reply === '') {
             return $this->error('Text summarizer returned an empty response.');
         }
+
+        $responseState = $state;
+        $responseState['last_output'] = $reply;
 
         $modelKey = $this->toNullableString(
             ($providerResponse['model_key'] ?? null)
@@ -432,6 +473,7 @@ class MessageController extends Controller
             $modelKey,
             $requestId,
             $requestPayload,
+            $responseState,
             $userId,
             &$walletSnapshot,
             &$assistantMessage
@@ -461,6 +503,7 @@ class MessageController extends Controller
                     'request_id' => $requestId,
                     'request_payload' => $requestPayload,
                     'reply' => $reply,
+                    'state' => $responseState,
                     'usage' => $usage,
                     'cost' => $cost,
                     'tokens_deducted' => $tokensToDeduct,
@@ -507,6 +550,7 @@ class MessageController extends Controller
             'debug' => null,
             'usage' => $usage,
             'cost' => $cost,
+            'state' => $responseState,
             'wallet' => [
                 'balance' => $walletSnapshot['balance'],
                 'payback_balance' => $walletSnapshot['payback_balance'],
@@ -534,6 +578,9 @@ class MessageController extends Controller
             'debug' => null,
             'usage' => $this->normalizeUsage($metadata['usage'] ?? []),
             'cost' => $this->normalizeCost($metadata['cost'] ?? []),
+            'state' => is_array($metadata['state'] ?? null)
+                ? $this->normalizeSummarizerState($metadata['state'])
+                : null,
             'wallet' => [
                 'balance' => $wallet ? (int) $wallet->balance : null,
                 'payback_balance' => $wallet ? (int) ($wallet->payback_balance ?? 0) : null,
@@ -548,6 +595,110 @@ class MessageController extends Controller
     protected function cleanSummaryTitle(string $text): string
     {
         return trim((string) preg_replace('/\s+/u', ' ', strip_tags($text)));
+    }
+
+    protected function normalizeSummarizerState(array $state = []): array
+    {
+        $stringValue = fn (string $key): ?string => $this->toNullableString($state[$key] ?? null);
+        $arrayValue = function (string $key) use ($state): array {
+            if (! is_array($state[$key] ?? null)) {
+                return [];
+            }
+
+            return collect($state[$key])
+                ->map(fn ($item) => $this->toNullableString($item))
+                ->filter()
+                ->values()
+                ->all();
+        };
+
+        $includeBullets = null;
+        if (array_key_exists('include_bullets', $state)) {
+            $includeBullets = filter_var($state['include_bullets'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        return [
+            'content' => $stringValue('content'),
+            'language' => $stringValue('language'),
+            'summary_type' => $stringValue('summary_type'),
+            'length' => $stringValue('length'),
+            'audience' => $stringValue('audience'),
+            'focus_points' => $arrayValue('focus_points'),
+            'output_format' => $stringValue('output_format'),
+            'include_bullets' => $includeBullets,
+            'extra_options' => $arrayValue('extra_options'),
+            'last_output' => $stringValue('last_output'),
+        ];
+    }
+
+    protected function buildSummarizerSystemPrompt(array $state = []): string
+    {
+        $language = $state['language'] ?: 'same language as the input';
+        $summaryType = $state['summary_type'] ?: 'General Summary';
+        $length = $state['length'] ?: 'Medium';
+        $audience = $state['audience'] ?: 'General Audience';
+        $outputFormat = $state['output_format'] ?: 'Paragraphs';
+        $includeBullets = ($state['include_bullets'] ?? null) === true ? 'true' : 'false';
+        $focusPoints = ! empty($state['focus_points'])
+            ? implode(', ', $state['focus_points'])
+            : 'main ideas and important details';
+        $extraOptions = ! empty($state['extra_options'])
+            ? implode(', ', $state['extra_options'])
+            : 'Keep original meaning';
+
+        return <<<PROMPT
+You are a text summarizer only.
+
+Always summarize the body field.
+Do not write a new article, story, or unrelated content.
+Do not continue the text.
+Do not explain your process.
+
+Summary requirements:
+- Output language: {$language}
+- Summary type: {$summaryType}
+- Summary length: {$length}
+- Target audience: {$audience}
+- Focus on: {$focusPoints}
+- Output format: {$outputFormat}
+- Include bullets: {$includeBullets}
+- Extra instructions: {$extraOptions}
+
+Formatting rules:
+- If output format is "Key Points" or "Bullet Points", write the summary as clear bullet points.
+- If include_bullets is true, use bullet points.
+- If the selected language is English, translate the summary into clear English.
+- Preserve important names, dates, numbers, places, and organizations.
+- Remove repetition and keep the meaning accurate.
+- Do not include the previous output unless explicitly requested.
+
+If body is empty, ask the user to provide text to summarize.
+PROMPT;
+    }
+
+    protected function isRetriableSummarizerProviderError(Throwable $th): bool
+    {
+        $haystack = $th->getMessage();
+
+        if (method_exists($th, 'context')) {
+            $context = $th->context();
+            $haystack .= ' '.json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return str_contains($haystack, 'OpenRouter')
+            || str_contains($haystack, '500')
+            || str_contains($haystack, 'Internal Server Error');
+    }
+
+    protected function summarizerProviderErrorResponse(Throwable $th)
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'AI provider failed while regenerating the summary. Please try again.',
+            'debug' => config('app.debug') ? [
+                'provider_error' => $th->getMessage(),
+            ] : null,
+        ], 502);
     }
 
     protected function handleDefaultFlow(Conversation $conversation, array $data, string $content, int $userId)
