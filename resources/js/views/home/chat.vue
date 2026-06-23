@@ -1319,6 +1319,7 @@ const createEmptyTextSummarizerState = () => ({
 const textSummarizerState = ref(createEmptyTextSummarizerState());
 const textSummarizerOptionsOpen = ref(false);
 const pendingTextSummarizerEdit = ref(null);
+const textSummarizerLastRequest = ref(null);
 
 const textSummarizerSelectFields = [
     {
@@ -3359,17 +3360,29 @@ const buildTextSummarizerTitle = (body = "") => {
     return cleaned.slice(0, 120) || "Text summary";
 };
 
-const createTextSummarizerPayload = (body, conversation = {}) => {
-    const cleanBody = String(body || "").trim();
-    const state = normalizeTextSummarizerState(textSummarizerState.value);
+const createTextSummarizerPayload = (content, stateOverride = null) => {
+    const cleanContent = String(
+        content
+        || stateOverride?.content
+        || textSummarizerState.value.content
+        || ""
+    ).trim();
+
+    const normalizedState = normalizeTextSummarizerState({
+        ...(stateOverride || textSummarizerState.value),
+        content: stateOverride?.content || cleanContent || textSummarizerState.value.content,
+    });
 
     return {
         user_id: resolveCurrentUserId(),
         sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-        title: buildTextSummarizerTitle(cleanBody),
-        conversation_uuid: conversation.uuid || activeConversation.value?.uuid || route.params.uuid || "",
-        user_message: cleanBody,
-        state,
+        title: buildTextSummarizerTitle(cleanContent),
+        body: cleanContent,
+        task_key: TEXT_SUMMARIZER_TASK_KEY,
+        tool: TEXT_SUMMARIZER_TOOL_KEY,
+        conversation_uuid: activeConversation.value?.uuid || route.params.uuid || "",
+        user_message: cleanContent,
+        state: normalizedState,
         debug: true,
         task_options: {
             search_mode: "off",
@@ -3386,7 +3399,8 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
         ...options,
     };
     const body = String(
-        payload?.user_message
+        payload?.body
+        || payload?.user_message
         || payload?.state?.content
         || ""
     ).trim();
@@ -3429,15 +3443,23 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
         return false;
     }
 
+    const normalizedState = normalizeTextSummarizerState({
+        ...(payload?.state || textSummarizerState.value),
+        content: payload?.state?.content || body,
+    });
+
     const requestPayload = {
         ...payload,
         user_id: payload?.user_id || resolveCurrentUserId(),
         sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
-        title: payload?.title || buildTextSummarizerTitle(body),
         conversation_uuid: conversation.uuid,
         conversation_id: conversation.id,
         user_message: body,
-        state: normalizeTextSummarizerState(payload?.state || textSummarizerState.value),
+        body,
+        title: payload?.title || buildTextSummarizerTitle(body),
+        task_key: TEXT_SUMMARIZER_TASK_KEY,
+        tool: TEXT_SUMMARIZER_TOOL_KEY,
+        state: normalizedState,
         debug: true,
         task_options: {
             search_mode: "off",
@@ -3453,6 +3475,9 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
             user_message: requestPayload.user_message,
             state: requestPayload.state,
             task_options: requestPayload.task_options,
+            body: requestPayload.body,
+            previous_output: requestPayload.previous_output || "",
+            regenerate: Boolean(requestPayload.regenerate),
         }),
         { forceNew: submitOptions.forceNewIdempotency }
     );
@@ -3464,6 +3489,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
     }
 
     inFlightSignatures.add(requestSignature);
+    textSummarizerLastRequest.value = { ...requestPayload };
 
     if (submitOptions.addUserMessage) {
         await addUserLocalMessage(body, {
@@ -3484,6 +3510,8 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
     const typingId = addAssistantTypingMessage();
 
     try {
+        console.log("[TextSummarizer] final requestPayload:", requestPayload);
+
         const response = await chatServices.sendMessage({
             ...requestPayload,
             idempotency_key: idempotencyKey,
@@ -3552,8 +3580,9 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
         return true;
     } catch (error) {
         console.error("[TextSummarizer] send failed:", error);
+        console.error("[TextSummarizer] validation response:", error?.response?.data);
         removeAssistantTypingMessage(typingId);
-        await addAssistantLocalMessage("حدث خطأ أثناء تلخيص النص. حاول مرة أخرى.", {
+        await addAssistantLocalMessage(error?.response?.data?.message || "حدث خطأ أثناء إرسال طلب الأداة. راجع البيانات المطلوبة.", {
             plainText: true,
             is_error: true,
             sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
@@ -3563,6 +3592,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
                 task_key: TEXT_SUMMARIZER_TASK_KEY,
                 sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
                 request_payload: requestPayload,
+                validation: error?.response?.data || null,
             },
         });
         return false;
@@ -3577,6 +3607,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
 const handleTextSummarizerSubmit = async (text, options = {}) => {
     const body = String(
         text
+        || options.stateOverride?.content
         || textSummarizerState.value.content
         || ""
     ).trim();
@@ -3595,7 +3626,7 @@ const handleTextSummarizerSubmit = async (text, options = {}) => {
 
     const normalizedState = normalizeTextSummarizerState({
         ...(options.stateOverride || textSummarizerState.value),
-        content: options.stateOverride?.content || textSummarizerState.value.content || null,
+        content: options.stateOverride?.content || body || textSummarizerState.value.content,
     });
 
     if (options.stateOverride) {
@@ -3604,7 +3635,7 @@ const handleTextSummarizerSubmit = async (text, options = {}) => {
 
     return await sendTextSummarizerRequest(
         {
-            ...createTextSummarizerPayload(body),
+            ...createTextSummarizerPayload(body, normalizedState),
             conversation_uuid: options.conversationUuid || activeConversation.value?.uuid || route.params.uuid || "",
             state: normalizedState,
         },
@@ -6932,7 +6963,13 @@ const onSubmitMessage = async () => {
     }
 
     if (isTextSummarizerTool.value) {
-        await handleTextSummarizerSubmit(userInput.value);
+        const summarizerInput = String(
+            userInput.value
+            || textSummarizerState.value.content
+            || ""
+        ).trim();
+
+        await handleTextSummarizerSubmit(summarizerInput);
         return;
     }
 
