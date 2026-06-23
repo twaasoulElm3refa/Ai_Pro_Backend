@@ -175,6 +175,12 @@
                                     {{ isArabic ? "تعديل خيارات الأداة" : "Edit tool options" }}
                                 </button>
                             </div>
+                            <div v-if="isParaphraserResult(msg)" class="result-actions">
+                                <button type="button" @click="editParaphraserOptions(msg)">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل خيارات الأداة" : "Edit tool options" }}
+                                </button>
+                            </div>
                             <div v-if="isHeadlineGeneratorResult(msg)" class="result-actions">
                                 <button type="button" @click="editHeadlineOptions(msg)">
                                     <i class="bi bi-sliders"></i>
@@ -336,6 +342,57 @@
                         <button v-if="pendingTextSummarizerEdit" type="button" class="apply-edited-options-btn"
                             :disabled="sendingMessage || streamingAssistant || applyingTextSummarizerEdit"
                             @click="submitTextSummarizerEditedOptions">
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ isArabic ? "تطبيق التعديلات وإعادة التوليد" : "Apply changes and regenerate" }}
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="isParaphraserTool" class="advanced-options">
+                    <button type="button" class="advanced-options-toggle"
+                        @click="paraphraserOptionsOpen = !paraphraserOptionsOpen">
+                        <span>
+                            <i class="bi bi-sliders"></i>
+                            {{ isArabic ? "خيارات إعادة الصياغة" : "Paraphraser options" }}
+                        </span>
+
+                        <i class="bi" :class="paraphraserOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+
+                    <div v-if="paraphraserOptionsOpen" class="advanced-options-grid">
+                        <label class="wide-field">
+                            <span>{{ isArabic ? "النص المراد إعادة صياغته" : "Text to paraphrase" }}</span>
+                            <textarea v-model="paraphraserState.content" rows="3"
+                                :placeholder="isArabic ? 'اكتب النص هنا' : 'Write the text here'"></textarea>
+                        </label>
+
+                        <label v-for="field in paraphraserSelectFields" :key="field.key">
+                            <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
+                            <select v-model="paraphraserState[field.key]">
+                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
+                                <option v-for="option in field.options" :key="option" :value="option">
+                                    {{ option }}
+                                </option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ isArabic ? "عدد النتائج" : "Results count" }}</span>
+                            <input v-model.number="paraphraserState.results_count" type="number" min="1" max="10">
+                        </label>
+
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
+
+                            <label v-for="option in paraphraserExtraOptions" :key="option" class="check-option">
+                                <input v-model="paraphraserState.extra_options" type="checkbox" :value="option">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+
+                        <button v-if="pendingParaphraserEdit" type="button" class="apply-edited-options-btn"
+                            :disabled="sendingMessage || streamingAssistant || applyingParaphraserEdit"
+                            @click="submitParaphraserEditedOptions">
                             <i class="bi bi-arrow-repeat"></i>
                             {{ isArabic ? "تطبيق التعديلات وإعادة التوليد" : "Apply changes and regenerate" }}
                         </button>
@@ -1470,11 +1527,55 @@ const createEmptyParaphraserState = () => ({
     tone: null,
     rewrite_mode: null,
     change_level: null,
-    results_count: null,
+    results_count: 2,
     extra_options: [],
+    last_output: null,
 });
 
 const paraphraserState = ref(createEmptyParaphraserState());
+const paraphraserOptionsOpen = ref(false);
+const pendingParaphraserEdit = ref(null);
+const applyingParaphraserEdit = ref(false);
+
+const paraphraserSelectFields = [
+    {
+        key: "language",
+        labelAr: "اللغة",
+        labelEn: "Language",
+        options: ["Arabic", "English", "French", "Chinese", "Russian"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Professional", "Formal", "Friendly", "Simple", "Creative", "Journalistic", "Academic", "Persuasive"],
+    },
+    {
+        key: "rewrite_mode",
+        labelAr: "طريقة إعادة الصياغة",
+        labelEn: "Rewrite mode",
+        options: ["Standard Rewrite", "Professional Rewrite", "Creative Rewrite", "Simplify Text", "Improve Clarity", "Journalistic Rewrite", "Academic Rewrite", "SEO Rewrite"],
+    },
+    {
+        key: "change_level",
+        labelAr: "مستوى التغيير",
+        labelEn: "Change level",
+        options: ["Light", "Medium", "Strong", "Full Rewrite"],
+    },
+];
+
+const paraphraserExtraOptions = [
+    "Keep original meaning",
+    "Fix grammar",
+    "Improve clarity",
+    "Make it professional",
+    "Make it simpler",
+    "Make it stronger",
+    "Remove repetition",
+    "SEO-friendly",
+    "Ready to publish",
+    "Preserve names and numbers",
+];
 
 const createEmptySocialPostState = () => ({
     content: null,
@@ -1774,6 +1875,10 @@ const canSubmitCurrentTool = computed(() =>
             && String(textSummarizerState.value.content || "").trim()
         )
         || (
+            isParaphraserTool.value
+            && String(paraphraserState.value.content || "").trim()
+        )
+        || (
             isHeadlineGeneratorTool.value
             && String(headlineState.value.content || "").trim()
         )
@@ -1819,6 +1924,12 @@ const chatPlaceholder = computed(() => {
             : "Write the content or open summarizer options";
     }
 
+    if (isParaphraserTool.value) {
+        return isArabic.value
+            ? "اكتب النص المراد إعادة صياغته أو افتح خيارات الأداة"
+            : "Write the text to paraphrase or open paraphraser options";
+    }
+
     if (isProductDescriptionGeneratorTool.value) {
         return isArabic.value
             ? "اكتب وصف المنتج أو فكرته هنا"
@@ -1840,6 +1951,11 @@ const inputAriaLabel = computed(() => {
         return isArabic.value
             ? "اكتب طلبك الخاص بأداة التلخيص"
             : "Write your summarizer request";
+    }
+    if (isParaphraserTool.value) {
+        return isArabic.value
+            ? "اكتب طلبك لإعادة صياغة النص"
+            : "Write your paraphrasing request";
     }
     if (isHeadlineGeneratorTool.value) {
         return isArabic.value
@@ -2325,24 +2441,23 @@ const normalizeParaphraserState = (state = {}) => {
     const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
     const merged = { ...base, ...candidate };
 
-    merged.content = merged.content === null || merged.content === undefined
-        ? null
-        : String(merged.content).trim() || null;
-    merged.language = merged.language === null || merged.language === undefined
-        ? null
-        : String(merged.language).trim() || null;
-    merged.tone = merged.tone === null || merged.tone === undefined
-        ? null
-        : String(merged.tone).trim() || null;
-    merged.rewrite_mode = merged.rewrite_mode === null || merged.rewrite_mode === undefined
-        ? null
-        : String(merged.rewrite_mode).trim() || null;
-    merged.change_level = merged.change_level === null || merged.change_level === undefined
-        ? null
-        : String(merged.change_level).trim() || null;
+    [
+        "content",
+        "language",
+        "tone",
+        "rewrite_mode",
+        "change_level",
+        "last_output",
+    ].forEach((key) => {
+        merged[key] = merged[key] === null || merged[key] === undefined
+            ? null
+            : String(merged[key]).trim() || null;
+    });
 
     const count = Number(merged.results_count);
-    merged.results_count = Number.isFinite(count) && count > 0 ? Math.floor(count) : null;
+    merged.results_count = Number.isFinite(count) && count > 0
+        ? Math.min(Math.floor(count), 10)
+        : 2;
 
     const options = Array.isArray(merged.extra_options) ? merged.extra_options : [];
     merged.extra_options = options
@@ -2363,6 +2478,7 @@ const hasParaphraserStateValue = (state = {}) => {
         || normalized.change_level
         || normalized.results_count
         || (Array.isArray(normalized.extra_options) && normalized.extra_options.length > 0)
+        || normalized.last_output
     );
 };
 
@@ -2380,7 +2496,7 @@ const mergeParaphraserState = (oldState = {}, newState = {}) => {
 
         if (key === "results_count") {
             if (Number.isFinite(Number(value)) && Number(value) > 0) {
-                merged[key] = Number(value);
+                merged[key] = Math.min(Math.floor(Number(value)), 10);
             }
             return;
         }
@@ -4404,6 +4520,9 @@ const clearParaphraserStateFromSession = (conversationUuid) => {
 
 const resetParaphraserState = (conversationUuid = "") => {
     paraphraserState.value = createEmptyParaphraserState();
+    paraphraserOptionsOpen.value = false;
+    pendingParaphraserEdit.value = null;
+    applyingParaphraserEdit.value = false;
     clearParaphraserStateFromSession(conversationUuid);
 };
 
@@ -4473,6 +4592,108 @@ const resolveParaphraserStateForSubmit = (conversationUuid = "") => {
     }
 
     return resolved;
+};
+
+const resolveParaphraserStateFromMessage = (msg = {}) => {
+    const metadata = normalizeMessageMeta(msg);
+
+    return normalizePlainObject(metadata?.state)
+        || normalizePlainObject(metadata?.tool_state)
+        || normalizePlainObject(metadata?.request_payload?.state)
+        || normalizePlainObject(msg?.tool_state)
+        || paraphraserState.value;
+};
+
+const editParaphraserOptions = async (msg) => {
+    if (!isParaphraserResult(msg)) return;
+
+    const previousOutput = displayMessageContent(msg) || msg?.content || null;
+    const originalUserMessage = resolvePreviousUserMessage(msg);
+    const messageState = resolveParaphraserStateFromMessage(msg);
+    const nextState = mergeParaphraserState(
+        paraphraserState.value,
+        {
+            ...(messageState || {}),
+            content: messageState?.content || originalUserMessage || paraphraserState.value.content,
+            last_output: previousOutput || messageState?.last_output || paraphraserState.value.last_output,
+        }
+    );
+
+    paraphraserState.value = nextState;
+    pendingParaphraserEdit.value = {
+        sourceMessage: msg,
+        originalUserMessage,
+        conversationUuid: activeConversation.value?.uuid || route.params.uuid || "",
+        assistantMessageId: msg?.id || null,
+        previousOutput,
+    };
+
+    saveParaphraserStateToSession(pendingParaphraserEdit.value.conversationUuid, nextState);
+    paraphraserOptionsOpen.value = true;
+
+    await nextTick();
+    await focusChatInput();
+};
+
+const submitParaphraserEditedOptions = async () => {
+    if (
+        !pendingParaphraserEdit.value
+        || applyingParaphraserEdit.value
+        || sendingMessage.value
+        || streamingAssistant.value
+        || conversationLimitExceeded.value
+    ) {
+        return;
+    }
+
+    applyingParaphraserEdit.value = true;
+
+    try {
+        const pendingEdit = pendingParaphraserEdit.value;
+        const originalMessage = String(
+            pendingEdit.originalUserMessage
+            || paraphraserState.value.content
+            || userInput.value
+            || ""
+        ).trim();
+
+        if (!originalMessage) {
+            await addAssistantLocalMessage(
+                "لا يوجد طلب أصلي لإعادة الصياغة. اكتب النص أولًا.",
+                {
+                    plainText: true,
+                    is_error: true,
+                    sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+                }
+            );
+            return;
+        }
+
+        const editedState = normalizeParaphraserState({
+            ...paraphraserState.value,
+            content: paraphraserState.value.content || originalMessage,
+            last_output: pendingEdit.previousOutput || paraphraserState.value.last_output || null,
+        });
+
+        paraphraserState.value = editedState;
+        saveParaphraserStateToSession(pendingEdit.conversationUuid, editedState);
+        userInput.value = originalMessage;
+
+        const sent = await handleParaphraserSubmit(originalMessage, {
+            stateOverride: editedState,
+            conversationUuid: pendingEdit.conversationUuid,
+            forceNewIdempotencyKey: true,
+            forceNewIdempotency: true,
+            fromEditedOptions: true,
+        });
+
+        if (sent !== false) {
+            pendingParaphraserEdit.value = null;
+            paraphraserOptionsOpen.value = false;
+        }
+    } finally {
+        applyingParaphraserEdit.value = false;
+    }
 };
 
 const socialPostStateStorageKey = (conversationUuid = "") =>
@@ -5047,29 +5268,51 @@ const normalizeParaphraserApiResponse = (response = {}) => {
         return null;
     }
 
-    const results = Array.isArray(payload?.results)
+    const rawResults = Array.isArray(payload?.results)
         ? payload.results
+        : Array.isArray(payload?.data?.results)
+            ? payload.data.results
+            : [];
+
+    const results = rawResults.length
+        ? rawResults
             .map((item, index) => ({
                 id: Number(item?.id || index + 1),
-                text: String(item?.text || "").trim(),
+                text: String(item?.text || item || "").trim(),
             }))
             .filter((item) => item.text)
         : [];
 
+    const replyText = String(
+        payload?.reply
+        || payload?.content
+        || payload?.message?.content
+        || payload?.data?.reply
+        || payload?.data?.content
+        || payload?.data?.message?.content
+        || payload?.data?.message
+        || payload?.message
+        || ""
+    ).trim();
+
     const outputText = results.length
         ? results.map((r) => r.text).join("\n\n")
-        : String(payload?.message || "");
+        : replyText;
 
     return {
         success: payload?.success !== false,
         sub_tool_id: normalizedSubToolId,
         tool: normalizedTool || PARAPHRASER_TOOL_KEY,
-        message: String(payload?.message || ""),
+        message: replyText,
+        reply: replyText,
         results,
         outputText,
-        state: payload?.state && typeof payload.state === "object"
-            ? normalizeParaphraserState(payload.state)
+        state: (payload?.state || payload?.data?.state) && typeof (payload?.state || payload?.data?.state) === "object"
+            ? normalizeParaphraserState(payload?.state || payload?.data?.state)
             : null,
+        request_id: payload?.request_id || payload?.data?.request_id || null,
+        usage: payload?.usage || payload?.data?.usage || null,
+        cost: payload?.cost || payload?.data?.cost || null,
     };
 };
 
@@ -5612,23 +5855,66 @@ const handleHeadlineGeneratorSubmit = async (text, options = {}) => {
     }
 };
 
+const createParaphraserPayload = (content, stateOverride = null) => {
+    const cleanContent = String(
+        content
+        || stateOverride?.content
+        || paraphraserState.value.content
+        || ""
+    ).trim();
+
+    const normalizedState = normalizeParaphraserState({
+        ...(stateOverride || paraphraserState.value),
+        content: stateOverride?.content || paraphraserState.value.content || cleanContent,
+    });
+
+    return {
+        user_id: resolveCurrentUserId(),
+        sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+        conversation_uuid: activeConversation.value?.uuid || route.params.uuid || "",
+        user_message: cleanContent,
+        state: normalizedState,
+        debug: false,
+    };
+};
+
 const handleParaphraserSubmit = async (text, options = {}) => {
     const submitOptions = {
         forceNewIdempotency: false,
         ...options,
     };
-    const inputText = String(text || "").trim();
+    const inputText = String(
+        text
+        || options.stateOverride?.content
+        || paraphraserState.value.content
+        || ""
+    ).trim();
 
-    if (!inputText || sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
-        return;
+    if (!inputText) {
+        await addAssistantLocalMessage(
+            "من فضلك أدخل النص المراد إعادة صياغته.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+            }
+        );
+        return false;
+    }
+
+    if (sendingMessage.value || streamingAssistant.value || conversationLimitExceeded.value) {
+        return false;
     }
 
     if (!(await requireAuth())) {
-        return;
+        return false;
     }
 
-    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
-    const localParaphraserState = resolveParaphraserStateForSubmit(currentConversationUuid);
+    const localParaphraserState = normalizeParaphraserState({
+        ...(options.stateOverride || paraphraserState.value),
+        content: options.stateOverride?.content || paraphraserState.value.content || inputText,
+    });
+    paraphraserState.value = localParaphraserState;
 
     await addUserLocalMessage(inputText, {
         sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
@@ -5648,36 +5934,34 @@ const handleParaphraserSubmit = async (text, options = {}) => {
 
     if (!conversation) {
         sendingMessage.value = false;
-        return;
+        return false;
     }
 
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
+    const idempotencySeed = JSON.stringify({
+        user_message: inputText,
+        state: localParaphraserState,
+        previous_output: localParaphraserState.last_output || "",
+    });
+    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, idempotencySeed, {
         forceNew: submitOptions.forceNewIdempotency,
     });
     const requestSignature = `${conversation.id}:${idempotencyKey}`;
 
     if (inFlightSignatures.has(requestSignature)) {
         sendingMessage.value = false;
-        return;
+        return false;
     }
 
     inFlightSignatures.add(requestSignature);
     const typingId = addAssistantTypingMessage();
 
     try {
-        const resolvedParaphraserState = resolveParaphraserStateForSubmit(conversation.uuid);
         const payload = {
-            user_id: resolveCurrentUserId(),
-            content: inputText,
-            user_message: inputText,
-            sub_tool_id: PARAPHRASER_SUB_TOOL_ID,
+            ...createParaphraserPayload(inputText, localParaphraserState),
             conversation_uuid: conversation.uuid,
             conversation_id: conversation.id,
-            role: "user",
             idempotency_key: idempotencyKey,
             tool: PARAPHRASER_TOOL_KEY,
-            state: resolvedParaphraserState,
-            debug: false,
         };
 
         if (Number(payload.sub_tool_id) === PARAPHRASER_SUB_TOOL_ID && import.meta.env.DEV) {
@@ -5707,12 +5991,14 @@ const handleParaphraserSubmit = async (text, options = {}) => {
         }
 
         const results = apiResponse?.results || [];
-        const outputText = results.length ? results.map((r) => r.text).join("\n\n") : apiResponse?.message || "";
+        const outputText = apiResponse?.outputText
+            || (results.length ? results.map((r) => r.text).join("\n\n") : apiResponse?.message || "");
 
-        if (apiResponse.state) {
-            paraphraserState.value = normalizeParaphraserState(apiResponse.state);
-            saveParaphraserStateToSession(conversation.uuid, paraphraserState.value);
-        }
+        paraphraserState.value = mergeParaphraserState(paraphraserState.value, {
+            ...(apiResponse.state || payload.state),
+            last_output: apiResponse.outputText || apiResponse.reply || apiResponse.message || null,
+        });
+        saveParaphraserStateToSession(conversation.uuid, paraphraserState.value);
 
         if (apiResponse.success === false) {
             await addAssistantLocalMessage(
@@ -5767,9 +6053,11 @@ const handleParaphraserSubmit = async (text, options = {}) => {
         }
 
         clearPendingSend(conversation.uuid);
+        return true;
     } catch {
         removeAssistantTypingMessage(typingId);
         await addAssistantLocalMessage("حصل خطأ أثناء إعادة الصياغة. جرّب مرة أخرى.", { is_error: true });
+        return false;
     } finally {
         removeAssistantTypingMessage(typingId);
         inFlightSignatures.delete(requestSignature);
@@ -6992,7 +7280,13 @@ const onSubmitMessage = async () => {
     }
 
     if (isParaphraserTool.value) {
-        await handleParaphraserSubmit(userInput.value);
+        const paraphraserInput = String(
+            userInput.value
+            || paraphraserState.value.content
+            || ""
+        ).trim();
+
+        await handleParaphraserSubmit(paraphraserInput);
         return;
     }
 

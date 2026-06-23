@@ -2012,18 +2012,16 @@ PROMPT;
         ]);
 
         $providerResponse = $writerService->generateReplyWithUsage($payload, $endpoint);
-        $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
+        $providerResponseArray = is_array($providerResponse) ? $providerResponse : ['reply' => (string) $providerResponse];
+        $raw = is_array($providerResponseArray['raw'] ?? null) ? $providerResponseArray['raw'] : $providerResponseArray;
 
         $results = $this->normalizeParaphraserResults(
             $raw['results']
-                ?? ($raw['data']['results'] ?? ($providerResponse['results'] ?? []))
+                ?? ($raw['data']['results'] ?? ($providerResponseArray['results'] ?? []))
         );
 
         if (count($results) === 0) {
-            $fallbackText = trim((string) (
-                $providerResponse['reply']
-                ?? ($raw['text'] ?? ($raw['data']['text'] ?? ''))
-            ));
+            $fallbackText = $this->extractParaphraserReplyText($providerResponseArray, $raw);
 
             if ($fallbackText !== '') {
                 $results = [
@@ -2043,10 +2041,10 @@ PROMPT;
         }
 
         $providerSuccess = ! array_key_exists('success', $raw) || (bool) $raw['success'] === true;
-        $provider = $this->toNullableString(($providerResponse['provider'] ?? null) ?? ($raw['provider'] ?? null));
-        $modelKey = $this->toNullableString(($providerResponse['model_key'] ?? null) ?? ($raw['model_key'] ?? null));
-        $requestId = $this->toNullableString(($providerResponse['request_id'] ?? null) ?? ($raw['request_id'] ?? null));
-        $tool = $this->toNullableString(($providerResponse['tool'] ?? null) ?? ($raw['tool'] ?? self::PARAPHRASER_TOOL_KEY)) ?? self::PARAPHRASER_TOOL_KEY;
+        $provider = $this->toNullableString(($providerResponseArray['provider'] ?? null) ?? ($raw['provider'] ?? null));
+        $modelKey = $this->toNullableString(($providerResponseArray['model_key'] ?? null) ?? ($raw['model_key'] ?? null));
+        $requestId = $this->toNullableString(($providerResponseArray['request_id'] ?? null) ?? ($raw['request_id'] ?? null));
+        $tool = $this->toNullableString(($providerResponseArray['tool'] ?? null) ?? ($raw['tool'] ?? self::PARAPHRASER_TOOL_KEY)) ?? self::PARAPHRASER_TOOL_KEY;
 
         if (! $providerSuccess) {
             return $this->success([
@@ -2066,13 +2064,14 @@ PROMPT;
             ], 'Paraphraser Response Error.');
         }
 
-        $usage = $this->normalizeUsage($raw['usage'] ?? ($providerResponse['usage'] ?? []));
-        $cost = $this->normalizeCost($raw['cost'] ?? ($providerResponse['cost'] ?? []));
+        $usage = $this->normalizeUsage($raw['usage'] ?? ($providerResponseArray['usage'] ?? []));
+        $cost = $this->normalizeCost($raw['cost'] ?? ($providerResponseArray['cost'] ?? []));
         $tokensToDeduct = $this->getTokensToDeduct([
             'usage' => $usage,
         ]);
 
         $assistantContent = $this->buildParaphraserOutputFromResults($results);
+        $mergedState['last_output'] = $assistantContent !== '' ? $assistantContent : null;
         $walletSnapshot = [
             'balance' => null,
             'payback_balance' => null,
@@ -2272,8 +2271,9 @@ PROMPT;
             'tone' => null,
             'rewrite_mode' => null,
             'change_level' => null,
-            'results_count' => null,
+            'results_count' => 2,
             'extra_options' => [],
+            'last_output' => null,
         ];
 
         $merged = array_merge($base, $state);
@@ -2282,11 +2282,12 @@ PROMPT;
         $merged['tone'] = $this->toNullableString($merged['tone'] ?? null);
         $merged['rewrite_mode'] = $this->toNullableString($merged['rewrite_mode'] ?? null);
         $merged['change_level'] = $this->toNullableString($merged['change_level'] ?? null);
+        $merged['last_output'] = $this->toNullableString($merged['last_output'] ?? null);
 
         $resultsCount = $merged['results_count'] ?? null;
         $merged['results_count'] = is_numeric($resultsCount)
-            ? max(1, min(20, (int) $resultsCount))
-            : null;
+            ? max(1, min(10, (int) $resultsCount))
+            : 2;
 
         $extraOptions = $merged['extra_options'] ?? [];
         if (! is_array($extraOptions)) {
@@ -2375,6 +2376,37 @@ PROMPT;
         }
 
         return implode("\n", $sections);
+    }
+
+    protected function extractParaphraserReplyText(mixed $response, mixed $raw = null): string
+    {
+        $candidates = [
+            data_get($response, 'reply'),
+            data_get($response, 'content'),
+            data_get($response, 'message.content'),
+            data_get($response, 'choices.0.message.content'),
+            data_get($response, 'data.reply'),
+            data_get($response, 'data.content'),
+            data_get($raw, 'reply'),
+            data_get($raw, 'content'),
+            data_get($raw, 'text'),
+            data_get($raw, 'message.content'),
+            data_get($raw, 'choices.0.message.content'),
+            data_get($raw, 'data.reply'),
+            data_get($raw, 'data.content'),
+            data_get($raw, 'data.text'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_scalar($candidate)) {
+                $text = trim((string) $candidate);
+                if ($text !== '') {
+                    return $text;
+                }
+            }
+        }
+
+        return '';
     }
 
     protected function normalizeParaphraserResults(mixed $results): array
