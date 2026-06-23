@@ -169,6 +169,12 @@
                                     {{ isArabic ? "تعديل خيارات الأداة" : "Edit tool options" }}
                                 </button>
                             </div>
+                            <div v-if="isTextSummarizerResult(msg)" class="result-actions">
+                                <button type="button" @click="editTextSummarizerOptions(msg)">
+                                    <i class="bi bi-sliders"></i>
+                                    {{ isArabic ? "تعديل خيارات الأداة" : "Edit tool options" }}
+                                </button>
+                            </div>
                             <div v-if="isHeadlineGeneratorResult(msg)" class="result-actions">
                                 <button type="button" @click="editHeadlineOptions(msg)">
                                     <i class="bi bi-sliders"></i>
@@ -326,6 +332,13 @@
                                 <span>{{ option }}</span>
                             </label>
                         </fieldset>
+
+                        <button v-if="pendingTextSummarizerEdit" type="button" class="apply-edited-options-btn"
+                            :disabled="sendingMessage || streamingAssistant"
+                            @click="submitTextSummarizerEditedOptions">
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ isArabic ? "تطبيق التعديلات وإعادة التوليد" : "Apply changes and regenerate" }}
+                        </button>
                     </div>
                 </div>
 
@@ -1305,6 +1318,7 @@ const createEmptyTextSummarizerState = () => ({
 
 const textSummarizerState = ref(createEmptyTextSummarizerState());
 const textSummarizerOptionsOpen = ref(false);
+const pendingTextSummarizerEdit = ref(null);
 
 const textSummarizerSelectFields = [
     {
@@ -3014,6 +3028,14 @@ const isTextSummarizerMessage = (msg = {}) => {
         || String(meta?.tool || "").toLowerCase() === TEXT_SUMMARIZER_TOOL_KEY;
 };
 
+const isTextSummarizerResult = (msg = {}) =>
+    msg?.role === "assistant"
+    && Number(subtool.value?.id) === TEXT_SUMMARIZER_SUB_TOOL_ID
+    && !msg?.isTyping
+    && !msg?.streaming
+    && !msg?.is_error
+    && (isTextSummarizerMessage(msg) || Boolean(displayMessageContent(msg)));
+
 const getTextSummarizerOutput = (msg = {}) => {
     const meta = getTextSummarizerMeta(msg);
 
@@ -3370,7 +3392,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
     ).trim();
 
     if (conversationLimitExceeded.value || sendingMessage.value || streamingAssistant.value) {
-        return;
+        return false;
     }
 
     if (!body) {
@@ -3388,11 +3410,11 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
                 },
             }
         );
-        return;
+        return false;
     }
 
     if (!(await requireAuth())) {
-        return;
+        return false;
     }
 
     sendingMessage.value = true;
@@ -3404,7 +3426,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
             is_error: true,
             sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
         });
-        return;
+        return false;
     }
 
     const requestPayload = {
@@ -3438,7 +3460,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
 
     if (inFlightSignatures.has(requestSignature)) {
         sendingMessage.value = false;
-        return;
+        return false;
     }
 
     inFlightSignatures.add(requestSignature);
@@ -3486,7 +3508,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
                     },
                 }
             );
-            return;
+            return false;
         }
 
         textSummarizerState.value = mergeTextSummarizerState(
@@ -3527,6 +3549,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
 
         clearPendingSend(conversation.uuid);
         await focusChatInput();
+        return true;
     } catch (error) {
         console.error("[TextSummarizer] send failed:", error);
         removeAssistantTypingMessage(typingId);
@@ -3542,6 +3565,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
                 request_payload: requestPayload,
             },
         });
+        return false;
     } finally {
         removeAssistantTypingMessage(typingId);
         inFlightSignatures.delete(requestSignature);
@@ -3550,7 +3574,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
     }
 };
 
-const handleTextSummarizerSubmit = async (text) => {
+const handleTextSummarizerSubmit = async (text, options = {}) => {
     const body = String(
         text
         || textSummarizerState.value.content
@@ -3566,10 +3590,29 @@ const handleTextSummarizerSubmit = async (text) => {
                 sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
             }
         );
-        return;
+        return false;
     }
 
-    await sendTextSummarizerRequest(createTextSummarizerPayload(body));
+    const normalizedState = normalizeTextSummarizerState({
+        ...(options.stateOverride || textSummarizerState.value),
+        content: options.stateOverride?.content || textSummarizerState.value.content || null,
+    });
+
+    if (options.stateOverride) {
+        textSummarizerState.value = normalizedState;
+    }
+
+    return await sendTextSummarizerRequest(
+        {
+            ...createTextSummarizerPayload(body),
+            conversation_uuid: options.conversationUuid || activeConversation.value?.uuid || route.params.uuid || "",
+            state: normalizedState,
+        },
+        {
+            forceNewIdempotency: Boolean(options.forceNewIdempotencyKey || options.forceNewIdempotency),
+            fromEditedOptions: Boolean(options.fromEditedOptions),
+        }
+    );
 };
 
 const textSummarizerStateStorageKey = (conversationUuid = "") =>
@@ -3614,6 +3657,7 @@ const clearTextSummarizerStateFromSession = (conversationUuid) => {
 const resetTextSummarizerState = (conversationUuid = "") => {
     textSummarizerState.value = createEmptyTextSummarizerState();
     textSummarizerOptionsOpen.value = false;
+    pendingTextSummarizerEdit.value = null;
     clearTextSummarizerStateFromSession(conversationUuid);
 };
 
@@ -3663,6 +3707,136 @@ const hydrateTextSummarizerStateFromMessages = (rows = []) => {
 
     const conversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
     textSummarizerState.value = extractTextSummarizerStateFromMessages(rows, conversationUuid);
+};
+
+const resolveTextSummarizerStateFromMessage = (msg = {}) => {
+    const metadata = normalizeMessageMeta(msg);
+
+    return normalizePlainObject(metadata?.state)
+        || normalizePlainObject(metadata?.tool_state)
+        || normalizePlainObject(metadata?.request_payload?.state)
+        || normalizePlainObject(msg?.tool_state)
+        || textSummarizerState.value;
+};
+
+const editTextSummarizerOptions = async (msg) => {
+    if (!isTextSummarizerResult(msg)) return;
+
+    const previousOutput = displayMessageContent(msg) || msg?.content || null;
+    const originalUserMessage = resolvePreviousUserMessage(msg);
+    const messageState = resolveTextSummarizerStateFromMessage(msg);
+    const nextState = mergeTextSummarizerState(
+        textSummarizerState.value,
+        {
+            ...(messageState || {}),
+            content: messageState?.content || originalUserMessage || textSummarizerState.value.content,
+            last_output: previousOutput || messageState?.last_output || textSummarizerState.value.last_output,
+        }
+    );
+
+    textSummarizerState.value = nextState;
+    pendingTextSummarizerEdit.value = {
+        sourceMessage: msg,
+        originalUserMessage,
+        conversationUuid: activeConversation.value?.uuid || route.params.uuid || "",
+        assistantMessageId: msg?.id || null,
+        previousOutput,
+    };
+
+    saveTextSummarizerStateToSession(pendingTextSummarizerEdit.value.conversationUuid, nextState);
+    textSummarizerOptionsOpen.value = true;
+
+    await nextTick();
+    await focusChatInput();
+};
+
+const submitTextSummarizerEditedOptions = async () => {
+    if (
+        !isTextSummarizerTool.value
+        || sendingMessage.value
+        || streamingAssistant.value
+        || conversationLimitExceeded.value
+    ) {
+        return;
+    }
+
+    const pendingEdit = pendingTextSummarizerEdit.value;
+    if (!pendingEdit) return;
+
+    const currentConversationUuid = activeConversation.value?.uuid || route.params.uuid || "";
+
+    if (
+        pendingEdit?.conversationUuid
+        && currentConversationUuid
+        && pendingEdit.conversationUuid !== currentConversationUuid
+    ) {
+        pendingTextSummarizerEdit.value = null;
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "تم تغيير المحادثة. افتح النتيجة المطلوبة واضغط تعديل خيارات الأداة مرة أخرى."
+                : "The conversation changed. Open the target result and edit its options again.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: TEXT_SUMMARIZER_TOOL_KEY,
+                    sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                },
+            }
+        );
+        return;
+    }
+
+    const originalMessage = String(
+        pendingEdit.originalUserMessage
+        || textSummarizerState.value.content
+        || resolveLastUserMessage()
+        || userInput.value
+        || ""
+    ).trim();
+
+    if (!originalMessage) {
+        await addAssistantLocalMessage(
+            isArabic.value
+                ? "لا يوجد طلب أصلي لإعادة التوليد. اكتب المحتوى أولًا."
+                : "No original prompt found. Please write the content first.",
+            {
+                plainText: true,
+                is_error: true,
+                sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                metadata: {
+                    type: "error",
+                    tool: TEXT_SUMMARIZER_TOOL_KEY,
+                    sub_tool_id: TEXT_SUMMARIZER_SUB_TOOL_ID,
+                },
+            }
+        );
+        return;
+    }
+
+    const editedState = normalizeTextSummarizerState({
+        ...textSummarizerState.value,
+        content: textSummarizerState.value.content || originalMessage,
+        last_output: pendingEdit.previousOutput || textSummarizerState.value.last_output || null,
+    });
+
+    textSummarizerState.value = editedState;
+    saveTextSummarizerStateToSession(pendingEdit.conversationUuid || currentConversationUuid, editedState);
+    userInput.value = originalMessage;
+
+    const sent = await handleTextSummarizerSubmit(originalMessage, {
+        stateOverride: editedState,
+        conversationUuid: pendingEdit.conversationUuid || currentConversationUuid,
+        forceNewIdempotencyKey: true,
+        fromEditedOptions: true,
+    });
+
+    if (sent !== false) {
+        pendingTextSummarizerEdit.value = null;
+        textSummarizerOptionsOpen.value = false;
+    }
 };
 
 const editProductDescriptionInputs = async () => {
