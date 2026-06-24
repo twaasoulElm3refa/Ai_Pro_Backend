@@ -138,6 +138,16 @@
                                         ></div>
                                     </section>
                                 </div>
+
+                                <div
+                                    v-if="message.role === 'assistant' && message.can_edit_options && !message.is_error"
+                                    class="response-actions"
+                                >
+                                    <button type="button" @click="openToolOptionsForResponse(message)">
+                                        <i class="bi bi-sliders"></i>
+                                        {{ toolEditCopy.editOptions }}
+                                    </button>
+                                </div>
                             </template>
                         </div>
                     </article>
@@ -150,11 +160,32 @@
                     {{ errorMessage }}
                 </div>
 
-                <details class="options-panel">
+                <details ref="optionsPanel" class="options-panel">
                     <summary>
                         <span><i class="bi bi-sliders"></i> {{ copy.options }}</span>
                         <span class="options-summary">{{ optionsSummary }}</span>
                     </summary>
+
+                    <div v-if="editingToolResponse" class="options-editing">
+                        <span>
+                            <i class="bi bi-arrow-repeat"></i>
+                            {{ toolEditCopy.editingOptions }}
+                        </span>
+
+                        <div>
+                            <button type="button" class="secondary" @click="cancelToolOptionsEdit">
+                                {{ toolEditCopy.cancel }}
+                            </button>
+                            <button
+                                type="button"
+                                :disabled="sendDisabled"
+                                @click="regenerateToolResponse(editingToolResponse, promptState)"
+                            >
+                                <i :class="sendDisabled ? 'bi bi-hourglass-split' : 'bi bi-arrow-repeat'"></i>
+                                {{ toolEditCopy.regenerate }}
+                            </button>
+                        </div>
+                    </div>
 
                     <div class="options-grid">
                         <label v-for="field in textFields" :key="field.key">
@@ -434,6 +465,18 @@ const copy = computed(() => isArabic.value ? {
     genericError: "The request could not be completed. Please try again.",
 });
 
+const toolEditCopy = computed(() => isArabic.value ? {
+    editOptions: "تعديل الخيارات",
+    editingOptions: "تعديل خيارات هذه الاستجابة",
+    regenerate: "إعادة التوليد",
+    cancel: "إلغاء",
+} : {
+    editOptions: "Edit options",
+    editingOptions: "Editing options for this response",
+    regenerate: "Regenerate",
+    cancel: "Cancel",
+});
+
 const subtool = ref({
     id: DEFAULT_SUB_TOOL_ID,
     name: "",
@@ -619,8 +662,11 @@ const deletingUuid = ref("");
 const sidebarOpen = ref(false);
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
+const optionsPanel = ref(null);
 const eventSource = ref(null);
 const copiedResult = ref(null);
+const editingToolResponse = ref(null);
+const composerDraftBeforeEdit = ref("");
 
 const markdown = new MarkdownIt({
     html: false,
@@ -948,8 +994,8 @@ const extractGenericResults = (payload = {}) => {
     return uniqueCleanTexts(items);
 };
 
-const normalizeToolState = (state = {}) => {
-    const base = createDefaultToolState(activeSubToolId.value);
+const normalizeToolState = (state = {}, subToolId = activeSubToolId.value) => {
+    const base = createDefaultToolState(subToolId);
     const source = isPlainObject(state) ? state : {};
     const normalized = { ...base };
 
@@ -963,6 +1009,32 @@ const normalizeToolState = (state = {}) => {
     });
 
     return normalized;
+};
+
+const cloneToolOptions = (options = {}, subToolId = activeSubToolId.value) =>
+    debugClone(normalizeToolState(options, subToolId));
+
+const buildToolPayload = (
+    tool = subtool.value,
+    options = promptState.value,
+    text = userMessage.value,
+    conversation = activeConversation.value
+) => {
+    const subToolId = Number(
+        tool?.sub_tool_id
+        || tool?.tool_id
+        || tool?.id
+        || activeSubToolId.value
+    );
+
+    return {
+        user_id: Number(conversation?.user_id) || null,
+        sub_tool_id: subToolId,
+        conversation_uuid: conversation?.uuid || "",
+        user_message: String(text || "").trim(),
+        state: cloneToolOptions(options, subToolId),
+        debug: false,
+    };
 };
 
 const persistPromptState = (uuid = activeConversation.value?.uuid) => {
@@ -998,9 +1070,29 @@ const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
     const isEnhancer = isPromptEnhancerPayload(payload);
     const isIdeaGenerator = isIdeaGeneratorPayload(payload);
     const isHookGenerator = isHookGeneratorPayload(payload);
+    const subToolId = Number(
+        payload.sub_tool_id
+        || payload.tool_id
+        || payload.tool_payload?.sub_tool_id
+        || activeSubToolId.value
+    );
 
     const state = isPlainObject(payload.state)
-        ? normalizeToolState(payload.state)
+        ? normalizeToolState(payload.state, subToolId)
+        : null;
+    const hasToolOptionsSnapshot = isPlainObject(payload.tool_options)
+        || isPlainObject(payload.options)
+        || isPlainObject(payload.tool_payload?.state);
+    const toolOptionsSource = isPlainObject(payload.tool_options)
+        ? payload.tool_options
+        : (
+            isPlainObject(payload.options)
+                ? payload.options
+                : (isPlainObject(payload.tool_payload?.state) ? payload.tool_payload.state : state)
+        );
+    const toolOptions = cloneToolOptions(toolOptionsSource || {}, subToolId);
+    const toolPayload = isPlainObject(payload.tool_payload)
+        ? debugClone(payload.tool_payload)
         : null;
 
     if (isPromptTool) {
@@ -1064,7 +1156,14 @@ const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
             usage: isPlainObject(payload.usage) ? payload.usage : null,
             cost: isPlainObject(payload.cost) ? payload.cost : null,
             isPromptTool: true,
+            isToolResponse: true,
             isQuestion,
+            subToolId,
+            toolName: payload.tool_name || pageTitle.value,
+            toolOptions,
+            toolPayload,
+            hasToolOptionsSnapshot,
+            canEditOptions: payload.can_edit_options !== false,
         };
     }
 
@@ -1089,7 +1188,14 @@ const normalizeAssistantResponse = (source = {}, fallbackText = "") => {
         usage: isPlainObject(payload.usage) ? payload.usage : null,
         cost: isPlainObject(payload.cost) ? payload.cost : null,
         isPromptTool: false,
+        isToolResponse: Boolean(payload.tool || payload.model_key || payload.state || payload.tool_options),
         isQuestion: type === "question",
+        subToolId,
+        toolName: payload.tool_name || pageTitle.value,
+        toolOptions,
+        toolPayload,
+        hasToolOptionsSnapshot,
+        canEditOptions: payload.can_edit_options !== false,
     };
 };
 
@@ -1108,7 +1214,7 @@ const shouldHideDuplicateContent = (content, results, isPromptTool) => {
     return normalizedContent === combinedResults;
 };
 
-const mapMessage = (message = {}, index = 0) => {
+const mapMessage = (message = {}, index = 0, context = {}) => {
     const normalized = message.role === "assistant"
         ? normalizeAssistantResponse(message, message.content)
         : {
@@ -1118,10 +1224,33 @@ const mapMessage = (message = {}, index = 0) => {
             cost: null,
             isQuestion: false,
             isPromptTool: false,
+            isToolResponse: false,
             resultTitle: copy.value.result,
         };
 
     const results = normalized.results || [];
+    const subToolId = Number(normalized.subToolId || activeSubToolId.value);
+    const toolOptions = message.role === "assistant"
+        ? cloneToolOptions(
+            normalized.hasToolOptionsSnapshot
+                ? normalized.toolOptions
+                : (context.toolOptions || normalized.toolOptions || normalized.state || {}),
+            subToolId
+        )
+        : null;
+    const toolPayload = message.role === "assistant"
+        ? {
+            ...buildToolPayload(
+                { id: subToolId },
+                toolOptions,
+                context.userMessage || "",
+                activeConversation.value
+            ),
+            ...(isPlainObject(context.toolPayload) ? context.toolPayload : {}),
+            ...(isPlainObject(normalized.toolPayload) ? normalized.toolPayload : {}),
+            state: toolOptions,
+        }
+        : null;
 
     return {
         ...message,
@@ -1139,6 +1268,14 @@ const mapMessage = (message = {}, index = 0) => {
         results,
         resultTitle: normalized.resultTitle || copy.value.result,
         responseState: normalized.state,
+        tool_id: message.role === "assistant" ? subToolId : null,
+        tool_name: message.role === "assistant" ? normalized.toolName : "",
+        tool_options: toolOptions,
+        tool_payload: toolPayload,
+        can_edit_options: message.role === "assistant"
+            && normalized.isToolResponse
+            && normalized.canEditOptions
+            && !message.typing,
         usage: normalized.usage,
         cost: normalized.cost,
         metadata: message.role === "assistant" ? {
@@ -1150,6 +1287,39 @@ const mapMessage = (message = {}, index = 0) => {
         is_error: Boolean(message.is_error) || normalized.success === false,
         typing: Boolean(message.typing),
     };
+};
+
+const mapMessages = (rows = []) => {
+    let lastUserMessage = "";
+    let lastToolOptions = null;
+    let lastToolPayload = null;
+
+    return rows.map((message, index) => {
+        if (message.role === "user") {
+            lastUserMessage = String(message.content || "");
+            const metadata = isPlainObject(message.metadata) ? message.metadata : {};
+            const state = isPlainObject(message.state)
+                ? message.state
+                : (isPlainObject(metadata.state) ? metadata.state : null);
+
+            lastToolOptions = state;
+            lastToolPayload = isPlainObject(metadata.request_payload)
+                ? metadata.request_payload
+                : {
+                    sub_tool_id: message.sub_tool_id || metadata.sub_tool_id || activeSubToolId.value,
+                    conversation_uuid: activeConversation.value?.uuid || "",
+                    user_message: lastUserMessage,
+                    state,
+                    debug: false,
+                };
+        }
+
+        return mapMessage(message, index, {
+            userMessage: lastUserMessage,
+            toolOptions: lastToolOptions,
+            toolPayload: lastToolPayload,
+        });
+    });
 };
 
 const conversationTitle = (conversation = {}) => {
@@ -1256,9 +1426,8 @@ const loadConversations = async () => {
 };
 
 const hydrateStateFromMessages = (rows) => {
-    const latestState = [...rows]
+    const latestState = mapMessages(rows)
         .reverse()
-        .map((message) => mapMessage(message))
         .find((message) => message.role === "assistant" && message.responseState)?.responseState;
 
     if (latestState) {
@@ -1268,6 +1437,9 @@ const hydrateStateFromMessages = (rows) => {
 };
 
 const loadConversationDetails = async (uuid) => {
+    editingToolResponse.value = null;
+    composerDraftBeforeEdit.value = "";
+
     if (!uuid || !localStorage.getItem("auth_token")) {
         activeConversation.value = null;
         messages.value = [];
@@ -1291,7 +1463,7 @@ const loadConversationDetails = async (uuid) => {
             }
         }
 
-        messages.value = rows.map(mapMessage);
+        messages.value = mapMessages(rows);
         hydrateStateFromMessages(rows);
         await scrollToBottom();
     } finally {
@@ -1328,7 +1500,7 @@ const closeStream = () => {
     streamingAssistant.value = false;
 };
 
-const openAssistantStream = async (conversation, afterId) => {
+const openAssistantStream = async (conversation, afterId, toolContext = {}) => {
     closeStream();
     streamingAssistant.value = true;
 
@@ -1337,13 +1509,26 @@ const openAssistantStream = async (conversation, afterId) => {
     console.log("After message id:", afterId);
     console.log("Stream URL:", `/api/v1/conversation/${conversation.uuid}/stream?after_id=${String(afterId || 0)}`);
 
-    const typingMessage = mapMessage({
-        localKey: createLocalKey(),
-        role: "assistant",
-        content: "",
-        typing: true,
-        created_at: now(),
-    });
+    const typingMessage = mapMessage(
+        {
+            localKey: createLocalKey(),
+            role: "assistant",
+            content: "",
+            typing: true,
+            metadata: {
+                sub_tool_id: toolContext.toolPayload?.sub_tool_id,
+                tool_options: toolContext.toolOptions,
+                tool_payload: toolContext.toolPayload,
+            },
+            created_at: now(),
+        },
+        0,
+        {
+            userMessage: toolContext.toolPayload?.user_message,
+            toolOptions: toolContext.toolOptions,
+            toolPayload: toolContext.toolPayload,
+        }
+    );
 
     console.log("Typing assistant message pushed before stream:", debugClone(typingMessage));
 
@@ -1421,13 +1606,16 @@ const openAssistantStream = async (conversation, afterId) => {
     };
 };
 
-const sendMessage = async () => {
-    const text = userMessage.value.trim();
+const sendMessage = async (request = {}) => {
+    const requestOverrides = request?.regenerate === true ? request : {};
+    const text = String(requestOverrides.text ?? userMessage.value).trim();
 
     if (!text || sendDisabled.value || !activeSubToolId.value) return;
 
     errorMessage.value = "";
     sendingMessage.value = true;
+    editingToolResponse.value = null;
+    composerDraftBeforeEdit.value = "";
 
     let debugGroupOpen = false;
 
@@ -1457,18 +1645,11 @@ const sendMessage = async () => {
             return;
         }
 
-        const requestState = normalizeToolState(promptState.value);
+        const requestState = normalizeToolState(requestOverrides.state ?? promptState.value);
 
         console.log("6) NORMALIZED REQUEST STATE:", debugClone(requestState));
 
-        const payload = {
-            user_id: Number(conversation.user_id) || null,
-            sub_tool_id: activeSubToolId.value,
-            conversation_uuid: conversation.uuid,
-            user_message: text,
-            state: requestState,
-            debug: false,
-        };
+        const payload = buildToolPayload(subtool.value, requestState, text, conversation);
 
         console.log("7) PAYLOAD SENT TO BACKEND:", debugClone(payload));
         console.log("7.1) PAYLOAD JSON:", JSON.stringify(payload, null, 2));
@@ -1535,6 +1716,14 @@ const sendMessage = async () => {
         console.groupEnd();
 
         const directResponse = normalizeAssistantResponse(response);
+        const responseMetadata = {
+            ...directResponse,
+            sub_tool_id: payload.sub_tool_id,
+            tool_name: pageTitle.value,
+            tool_options: cloneToolOptions(requestState, payload.sub_tool_id),
+            tool_payload: debugClone(payload),
+            can_edit_options: true,
+        };
 
         console.groupCollapsed("11) NORMALIZED DIRECT RESPONSE USED BY FRONTEND");
         console.log("directResponse:", debugClone(directResponse));
@@ -1552,8 +1741,12 @@ const sendMessage = async () => {
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: directResponse.content,
-                metadata: directResponse,
+                metadata: responseMetadata,
                 created_at: now(),
+            }, 0, {
+                userMessage: text,
+                toolOptions: requestState,
+                toolPayload: payload,
             });
 
             console.groupCollapsed("12) ASSISTANT QUESTION MESSAGE PRINTED IN FRONTEND");
@@ -1580,8 +1773,12 @@ const sendMessage = async () => {
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: "",
-                metadata: directResponse,
+                metadata: responseMetadata,
                 created_at: now(),
+            }, 0, {
+                userMessage: text,
+                toolOptions: requestState,
+                toolPayload: payload,
             });
 
             console.groupCollapsed("12) ASSISTANT RESULT MESSAGE PRINTED IN FRONTEND");
@@ -1610,8 +1807,12 @@ const sendMessage = async () => {
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: directResponse.content,
-                metadata: directResponse,
+                metadata: responseMetadata,
                 created_at: now(),
+            }, 0, {
+                userMessage: text,
+                toolOptions: requestState,
+                toolPayload: payload,
             });
 
             console.groupCollapsed("12) ASSISTANT CONTENT MESSAGE PRINTED IN FRONTEND");
@@ -1637,7 +1838,10 @@ const sendMessage = async () => {
         console.log("Stream after_id:", response?.data?.message_id);
         console.log("This usually means frontend did not receive printable AI text in direct response.");
 
-        await openAssistantStream(conversation, response?.data?.message_id);
+        await openAssistantStream(conversation, response?.data?.message_id, {
+            toolOptions: requestState,
+            toolPayload: payload,
+        });
         closeSendDebugGroup();
     } catch (error) {
         console.groupCollapsed("SEND MESSAGE ERROR DEBUG");
@@ -1652,6 +1856,57 @@ const sendMessage = async () => {
     } finally {
         sendingMessage.value = false;
     }
+};
+
+const openToolOptionsForResponse = async (response) => {
+    if (!response?.can_edit_options) return;
+
+    if (!editingToolResponse.value) {
+        composerDraftBeforeEdit.value = userMessage.value;
+    }
+
+    const subToolId = Number(response.tool_id || activeSubToolId.value);
+    promptState.value = cloneToolOptions(response.tool_options || {}, subToolId);
+    userMessage.value = String(response.tool_payload?.user_message || "");
+    editingToolResponse.value = response;
+
+    await nextTick();
+
+    if (optionsPanel.value) {
+        optionsPanel.value.open = true;
+        optionsPanel.value.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    autoResize();
+};
+
+const cancelToolOptionsEdit = () => {
+    editingToolResponse.value = null;
+    userMessage.value = composerDraftBeforeEdit.value;
+    composerDraftBeforeEdit.value = "";
+    restorePromptState(activeConversation.value?.uuid);
+
+    nextTick(() => autoResize());
+};
+
+const regenerateToolResponse = async (response, updatedOptions = promptState.value) => {
+    const text = String(response?.tool_payload?.user_message || userMessage.value).trim();
+
+    if (!text) {
+        errorMessage.value = copy.value.genericError;
+        return;
+    }
+
+    const subToolId = Number(response?.tool_id || activeSubToolId.value);
+    const state = cloneToolOptions(updatedOptions, subToolId);
+
+    editingToolResponse.value = null;
+    composerDraftBeforeEdit.value = "";
+    await sendMessage({
+        regenerate: true,
+        text,
+        state,
+    });
 };
 
 const startNewChat = async () => {
@@ -1672,6 +1927,8 @@ const startNewChat = async () => {
 
         messages.value = [];
         promptState.value = createDefaultToolState(activeSubToolId.value);
+        editingToolResponse.value = null;
+        composerDraftBeforeEdit.value = "";
         sidebarOpen.value = false;
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2/${conversation.uuid}`);
@@ -1708,6 +1965,8 @@ const deleteConversation = async (conversation) => {
             activeConversation.value = null;
             messages.value = [];
             promptState.value = createDefaultToolState(activeSubToolId.value);
+            editingToolResponse.value = null;
+            composerDraftBeforeEdit.value = "";
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2`);
         }
     } finally {
@@ -1786,6 +2045,8 @@ watch(
         activeConversation.value = null;
         messages.value = [];
         promptState.value = createDefaultToolState(activeSubToolId.value);
+        editingToolResponse.value = null;
+        composerDraftBeforeEdit.value = "";
 
         await initialize();
     }
@@ -2165,6 +2426,31 @@ button:disabled {
     margin-top: 12px;
 }
 
+.response-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.response-actions button,
+.options-editing button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border: 1px solid #cfe3ef;
+    border-radius: 9px;
+    color: var(--blue);
+    background: #f5fbfe;
+}
+
+.response-actions button:hover,
+.options-editing button:hover:not(:disabled) {
+    border-color: var(--blue);
+    background: #eaf6fc;
+}
+
 .typing {
     display: flex;
     gap: 5px;
@@ -2213,6 +2499,41 @@ button:disabled {
 
 .options-panel summary::-webkit-details-marker {
     display: none;
+}
+
+.options-editing {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 13px 12px;
+    padding: 10px 12px;
+    border: 1px solid #cfe7f4;
+    border-radius: 10px;
+    color: var(--navy);
+    background: #eef8fd;
+}
+
+.options-editing > span,
+.options-editing > div {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.options-editing button {
+    color: #fff;
+    background: var(--blue);
+}
+
+.options-editing button.secondary {
+    color: var(--muted);
+    background: #fff;
+}
+
+.options-editing button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .options-summary {
@@ -2399,6 +2720,15 @@ button:disabled {
 
     .options-grid {
         grid-template-columns: 1fr;
+    }
+
+    .options-editing {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .options-editing > div {
+        justify-content: flex-end;
     }
 
     .options-grid .wide {
