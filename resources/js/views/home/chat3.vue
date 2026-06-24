@@ -72,8 +72,7 @@
                             <template v-else>
                                 <KeywordGeneratorResult v-if="isKeywordResultMessage(message)" :message="message"
                                     :results="getKeywordResults(message)" :labels="labels" :copied-key="copiedKey"
-                                    @copy-keyword="copyKeyword" @copy-all="copyAllKeywords"
-                                    @regenerate="regenerateKeywordResult" />
+                                    @copy-keyword="copyKeyword" @copy-all="copyAllKeywords" />
 
                                 <div v-else-if="message.content" class="message-content"
                                     v-html="formatMessage(message.content)"></div>
