@@ -147,6 +147,9 @@
                                     <span v-if="msg.streaming && !msg.content" class="typing-indicator">
                                         <span></span><span></span><span></span>
                                     </span>
+                                    <div v-else-if="msg.plainText && isScriptGeneratorMessage(msg)"
+                                        class="markdown-body plain-text-message script-output-text"
+                                        v-text="displayMessageContent(msg)"></div>
                                     <div v-else-if="msg.plainText" class="markdown-body plain-text-message">{{
                                         displayMessageContent(msg) }}</div>
                                     <div v-else class="markdown-body"
@@ -585,26 +588,20 @@
                         <label v-for="field in scriptGeneratorSelectFields" :key="field.key">
                             <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
                             <select v-model="scriptGeneratorState[field.key]">
-                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
                                 <option v-for="option in field.options" :key="option" :value="option">
                                     {{ option }}
                                 </option>
                             </select>
                         </label>
 
-                        <label>
-                            <span>{{ isArabic ? "عدد النتائج" : "Results count" }}</span>
-                            <input v-model.number="scriptGeneratorState.results_count" type="number" min="1" max="10">
-                        </label>
-
-                        <label>
-                            <span>{{ isArabic ? "تضمين ملاحظات المشاهد" : "Include scene notes" }}</span>
-                            <select v-model="scriptGeneratorState.include_scene_notes">
-                                <option :value="null">{{ isArabic ? "افتراضي" : "Default" }}</option>
-                                <option :value="true">{{ isArabic ? "نعم" : "Yes" }}</option>
-                                <option :value="false">{{ isArabic ? "لا" : "No" }}</option>
-                            </select>
-                        </label>
+                        <fieldset class="wide-field extra-options-field">
+                            <legend>{{ isArabic ? "تفاصيل الإنتاج" : "Production details" }}</legend>
+                            <label v-for="option in scriptGeneratorProductionOptions" :key="option.key"
+                                class="check-option">
+                                <input v-model="scriptGeneratorState[option.key]" type="checkbox">
+                                <span>{{ isArabic ? option.labelAr : option.labelEn }}</span>
+                            </label>
+                        </fieldset>
 
                         <fieldset class="wide-field extra-options-field">
                             <legend>{{ isArabic ? "خيارات إضافية" : "Extra options" }}</legend>
@@ -1703,17 +1700,22 @@ const emailWriterExtraOptions = [
 
 const createEmptyScriptGeneratorState = () => ({
     topic: null,
-    script_type: null,
-    platform: null,
-    language: null,
-    tone: null,
-    audience: null,
-    duration: null,
-    format: null,
-    include_scene_notes: null,
-    results_count: 2,
-    extra_options: [],
-    last_output: null,
+    platform: "TikTok / Instagram Reels / YouTube Shorts",
+    duration: "60 seconds",
+    script_type: "Marketing / Explainer",
+    target_audience: "General Audience",
+    tone: "Engaging and clear",
+    language: "Arabic",
+    include_visual_details: true,
+    include_effects: true,
+    include_sound_effects: true,
+    include_camera_movements: true,
+    include_on_screen_text: true,
+    extra_options: [
+        "Strong opening hook",
+        "Scene-by-scene production format",
+        "Clear ending / CTA",
+    ],
 });
 
 const scriptGeneratorState = ref(createEmptyScriptGeneratorState());
@@ -1721,16 +1723,34 @@ const scriptGeneratorOptionsOpen = ref(false);
 
 const scriptGeneratorSelectFields = [
     {
-        key: "script_type",
-        labelAr: "نوع السكريبت",
-        labelEn: "Script type",
-        options: ["Video Script", "Ad Script", "YouTube Script", "TikTok Script", "Reel Script", "Podcast Script", "Voice Over Script"],
-    },
-    {
         key: "platform",
         labelAr: "المنصة",
         labelEn: "Platform",
-        options: ["YouTube", "TikTok", "Instagram Reels", "Facebook", "X", "Podcast", "General"],
+        options: ["TikTok / Instagram Reels / YouTube Shorts", "YouTube", "TikTok", "Instagram Reels", "Facebook", "X", "Podcast", "General"],
+    },
+    {
+        key: "duration",
+        labelAr: "مدة الفيديو",
+        labelEn: "Video duration",
+        options: ["15 seconds", "30 seconds", "60 seconds", "90 seconds", "2 minutes", "3 minutes", "5 minutes"],
+    },
+    {
+        key: "script_type",
+        labelAr: "نوع السكريبت",
+        labelEn: "Script type",
+        options: ["Marketing / Explainer", "Video Script", "Ad Script", "YouTube Script", "TikTok Script", "Reel Script", "Podcast Script", "Voice Over Script"],
+    },
+    {
+        key: "target_audience",
+        labelAr: "الجمهور المستهدف",
+        labelEn: "Target audience",
+        options: ["General Audience", "Customers", "Business Owners", "Content Creators", "Students", "Professionals", "Parents", "Youth"],
+    },
+    {
+        key: "tone",
+        labelAr: "النبرة",
+        labelEn: "Tone",
+        options: ["Engaging and clear", "Engaging", "Professional", "Friendly", "Formal", "Persuasive", "Funny", "Emotional", "Simple"],
     },
     {
         key: "language",
@@ -1738,43 +1758,20 @@ const scriptGeneratorSelectFields = [
         labelEn: "Language",
         options: ["Arabic", "English", "French", "Chinese", "Russian"],
     },
-    {
-        key: "tone",
-        labelAr: "النبرة",
-        labelEn: "Tone",
-        options: ["Engaging", "Professional", "Friendly", "Formal", "Persuasive", "Funny", "Emotional", "Simple"],
-    },
-    {
-        key: "audience",
-        labelAr: "الجمهور المستهدف",
-        labelEn: "Target audience",
-        options: ["General Audience", "Customers", "Business Owners", "Content Creators", "Students", "Professionals", "Parents", "Youth"],
-    },
-    {
-        key: "duration",
-        labelAr: "مدة السكريبت",
-        labelEn: "Script duration",
-        options: ["15 seconds", "30 seconds", "60 seconds", "90 seconds", "2 minutes", "3 minutes", "5 minutes"],
-    },
-    {
-        key: "format",
-        labelAr: "تنسيق السكريبت",
-        labelEn: "Script format",
-        options: ["Hook + Body + CTA", "Scene by Scene", "Voice Over", "Dialogue", "Bullet Script", "Full Script"],
-    },
+];
+
+const scriptGeneratorProductionOptions = [
+    { key: "include_visual_details", labelAr: "تضمين التفاصيل البصرية", labelEn: "Include visual details" },
+    { key: "include_effects", labelAr: "تضمين المؤثرات البصرية", labelEn: "Include visual effects" },
+    { key: "include_sound_effects", labelAr: "تضمين المؤثرات الصوتية", labelEn: "Include sound effects" },
+    { key: "include_camera_movements", labelAr: "تضمين حركات الكاميرا", labelEn: "Include camera movements" },
+    { key: "include_on_screen_text", labelAr: "تضمين النصوص الظاهرة على الشاشة", labelEn: "Include on-screen text" },
 ];
 
 const scriptGeneratorExtraOptions = [
-    "Strong hook",
-    "Include call to action",
-    "Scene by scene",
-    "Add visual notes",
-    "Add voice over direction",
-    "Short and catchy",
-    "Emotional style",
-    "Professional style",
-    "Ready to record",
-    "Simple and direct",
+    "Strong opening hook",
+    "Scene-by-scene production format",
+    "Clear ending / CTA",
 ];
 
 const createEmptyProductDescriptionState = () => ({
@@ -2115,16 +2112,61 @@ const EMAIL_WRITER_FIELD_LABELS = {
 
 const SCRIPT_GENERATOR_FIELD_LABELS = {
     topic: "موضوع السكريبت",
-    script_type: "نوع السكريبت",
     platform: "المنصة",
-    language: "اللغة",
+    duration: "مدة الفيديو",
+    script_type: "نوع السكريبت",
+    target_audience: "الجمهور المستهدف",
     tone: "النبرة",
-    audience: "الجمهور المستهدف",
-    duration: "مدة السكريبت",
-    format: "تنسيق السكريبت",
-    include_scene_notes: "تضمين ملاحظات المشاهد",
-    results_count: "عدد النتائج",
+    language: "اللغة",
+    include_visual_details: "تضمين التفاصيل البصرية",
+    include_effects: "تضمين المؤثرات البصرية",
+    include_sound_effects: "تضمين المؤثرات الصوتية",
+    include_camera_movements: "تضمين حركات الكاميرا",
+    include_on_screen_text: "تضمين النصوص الظاهرة على الشاشة",
     extra_options: "خيارات إضافية",
+};
+
+const sanitizeScriptGeneratorOutput = (value) => {
+    if (value === null || value === undefined) return "";
+
+    let output = String(value).replace(/^\uFEFF/, "");
+    const trimmed = output.trim();
+
+    if (
+        trimmed.length >= 2
+        && trimmed.startsWith('"')
+        && trimmed.endsWith('"')
+    ) {
+        try {
+            const decoded = JSON.parse(trimmed);
+            if (typeof decoded === "string") output = decoded;
+        } catch {
+            // Keep the model output as-is when it is not a valid JSON string.
+        }
+    }
+
+    if (!output.includes("\n") && /\\[nr]/.test(output)) {
+        output = output.replace(/\\r\\n|\\n|\\r/g, "\n");
+    }
+
+    return output
+        .replace(/\\"/g, '"')
+        .replace(/\\([()[\]{}])/g, "$1")
+        .replace(/\.""(?=\s*$)/, ".")
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*(null|undefined)\s*$/i.test(line))
+        .join("\n")
+        .trim();
+};
+
+const inferScriptTopicFromMessage = (message = "") => {
+    const text = String(message || "").trim();
+    if (!text) return null;
+
+    const arabicTopic = text.match(/عن\s+(.+)$/u)?.[1];
+    const englishTopic = text.match(/\babout\s+(.+)$/iu)?.[1];
+
+    return String(arabicTopic || englishTopic || text).trim() || null;
 };
 
 const EMAIL_WRITER_VALUE_LABELS = {
@@ -2811,52 +2853,65 @@ const buildEmailWriterQuestionMessage = (apiResponse) => {
 const normalizeScriptGeneratorState = (state = {}) => {
     const base = createEmptyScriptGeneratorState();
     const candidate = state && typeof state === "object" && !Array.isArray(state) ? state : {};
-    const merged = { ...base, ...candidate };
+    const compatibleCandidate = { ...candidate };
+
+    if (!Object.prototype.hasOwnProperty.call(candidate, "target_audience") && candidate.audience != null) {
+        compatibleCandidate.target_audience = candidate.audience;
+    }
+    if (!Object.prototype.hasOwnProperty.call(candidate, "include_visual_details") && candidate.include_scene_notes != null) {
+        compatibleCandidate.include_visual_details = candidate.include_scene_notes;
+    }
+
+    const merged = { ...base, ...compatibleCandidate };
 
     [
         "topic",
-        "script_type",
         "platform",
-        "language",
-        "tone",
-        "audience",
         "duration",
-        "format",
-        "last_output",
+        "script_type",
+        "target_audience",
+        "tone",
+        "language",
     ].forEach((key) => {
         merged[key] = merged[key] === null || merged[key] === undefined
             ? null
             : String(merged[key]).trim() || null;
     });
 
-    if (typeof merged.include_scene_notes === "boolean") {
-        merged.include_scene_notes = merged.include_scene_notes;
-    } else if (merged.include_scene_notes === "true" || merged.include_scene_notes === 1 || merged.include_scene_notes === "1") {
-        merged.include_scene_notes = true;
-    } else if (merged.include_scene_notes === "false" || merged.include_scene_notes === 0 || merged.include_scene_notes === "0") {
-        merged.include_scene_notes = false;
-    } else {
-        merged.include_scene_notes = null;
-    }
-
-    if (
-        merged.results_count === null
-        || merged.results_count === undefined
-        || merged.results_count === ""
-    ) {
-        merged.results_count = 2;
-    } else {
-        const resultsCount = Number(merged.results_count);
-        merged.results_count = Number.isFinite(resultsCount) && resultsCount > 0
-            ? Math.floor(resultsCount)
-            : 2;
-    }
+    [
+        "include_visual_details",
+        "include_effects",
+        "include_sound_effects",
+        "include_camera_movements",
+        "include_on_screen_text",
+    ].forEach((key) => {
+        if (typeof merged[key] === "boolean") return;
+        if (merged[key] === "false" || merged[key] === 0 || merged[key] === "0") {
+            merged[key] = false;
+            return;
+        }
+        merged[key] = true;
+    });
 
     merged.extra_options = Array.isArray(merged.extra_options)
         ? merged.extra_options.map((item) => String(item || "").trim()).filter(Boolean)
         : [];
 
-    return merged;
+    return {
+        topic: merged.topic,
+        platform: merged.platform,
+        duration: merged.duration,
+        script_type: merged.script_type,
+        target_audience: merged.target_audience,
+        tone: merged.tone,
+        language: merged.language,
+        include_visual_details: merged.include_visual_details,
+        include_effects: merged.include_effects,
+        include_sound_effects: merged.include_sound_effects,
+        include_camera_movements: merged.include_camera_movements,
+        include_on_screen_text: merged.include_on_screen_text,
+        extra_options: merged.extra_options,
+    };
 };
 
 const isEmptyScriptGeneratorValue = (value) => {
@@ -2869,7 +2924,7 @@ const getMissingScriptGeneratorFields = (state = {}) => {
 
     return Object.entries(normalized)
         .filter(([key, value]) =>
-            !["extra_options", "last_output"].includes(key)
+            key !== "extra_options"
             && isEmptyScriptGeneratorValue(value)
         )
         .map(([key]) => key);
@@ -2880,32 +2935,37 @@ const hasScriptGeneratorStateValue = (state = {}) => {
 
     return Boolean(
         normalized.topic
-        || normalized.script_type
         || normalized.platform
-        || normalized.language
-        || normalized.tone
-        || normalized.audience
         || normalized.duration
-        || normalized.format
-        || normalized.include_scene_notes !== null
-        || normalized.results_count
+        || normalized.script_type
+        || normalized.target_audience
+        || normalized.tone
+        || normalized.language
+        || normalized.include_visual_details
+        || normalized.include_effects
+        || normalized.include_sound_effects
+        || normalized.include_camera_movements
+        || normalized.include_on_screen_text
         || normalized.extra_options.length
-        || normalized.last_output
     );
 };
 
 const mergeScriptGeneratorState = (oldState = {}, newState = {}) => {
     const merged = normalizeScriptGeneratorState(oldState);
-    const incoming = normalizeScriptGeneratorState(newState);
+    const candidate = newState && typeof newState === "object" && !Array.isArray(newState)
+        ? { ...newState }
+        : {};
 
-    Object.entries(incoming).forEach(([key, value]) => {
-        if (key === "extra_options") {
-            if (Array.isArray(value) && value.length > 0) merged[key] = value;
-            return;
-        }
+    if (!Object.prototype.hasOwnProperty.call(candidate, "target_audience") && candidate.audience != null) {
+        candidate.target_audience = candidate.audience;
+    }
+    if (!Object.prototype.hasOwnProperty.call(candidate, "include_visual_details") && candidate.include_scene_notes != null) {
+        candidate.include_visual_details = candidate.include_scene_notes;
+    }
 
-        if (value !== null && value !== undefined && value !== "") {
-            merged[key] = value;
+    Object.keys(merged).forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(candidate, key)) {
+            merged[key] = candidate[key];
         }
     });
 
@@ -3337,22 +3397,18 @@ const getScriptGeneratorOutput = (msg = {}) => {
         : {};
 
     const resultText = Array.isArray(metadata.results)
-        ? metadata.results
-            .map((item) => {
-                if (typeof item === "string") return item.trim();
-
-                const title = String(item?.title || item?.name || "").trim();
-                const text = String(item?.text || item?.content || item?.script || "").trim();
-
-                return [title, text].filter(Boolean).join("\n\n");
-            })
-            .filter(Boolean)
-            .join("\n\n")
+        ? (typeof metadata.results[0] === "string"
+            ? metadata.results[0]
+            : metadata.results[0]?.text || metadata.results[0]?.content || metadata.results[0]?.script)
         : "";
 
-    return resultText
-        || String(metadata.state?.last_output || "").trim()
-        || String(msg?.content || msg?.message || "").trim();
+    return sanitizeScriptGeneratorOutput(
+        resultText
+        || metadata.state?.last_output
+        || msg?.content
+        || msg?.message
+        || ""
+    );
 };
 
 const isScriptGeneratorResult = (msg = {}) =>
@@ -5492,10 +5548,14 @@ const normalizeScriptGeneratorApiResponse = (response = {}) => {
     }
 
     const results = Array.isArray(payload?.results)
-        ? payload.results
+        ? payload.results.slice(0, 1)
             .map((item, index) => ({
                 id: Number(item?.id || index + 1),
-                text: String(item?.text || "").trim(),
+                text: sanitizeScriptGeneratorOutput(
+                    typeof item === "string"
+                        ? item
+                        : item?.text || item?.content || item?.script || ""
+                ),
                 title: item?.title ?? null,
                 subject: item?.subject ?? null,
                 meta: item?.meta && typeof item.meta === "object" ? item.meta : {},
@@ -5514,12 +5574,15 @@ const normalizeScriptGeneratorApiResponse = (response = {}) => {
         conversation_uuid: payload?.conversation_uuid || activeConversation.value?.uuid || route.params.uuid || null,
         message: String(payload?.message || ""),
         state: payload?.state && typeof payload.state === "object"
-            ? normalizeScriptGeneratorState(payload.state)
+            ? payload.state
             : null,
         results,
-        outputText: results.length
-            ? results.map((item) => item.text).join("\n\n")
-            : "",
+        outputText: sanitizeScriptGeneratorOutput(
+            results[0]?.text
+            || payload?.state?.last_output
+            || payload?.message
+            || ""
+        ),
         count: payload?.count ?? results.length,
         request_id: payload?.request_id || null,
         debug: payload?.debug ?? null,
@@ -6482,11 +6545,7 @@ const handleEmailWriterSubmit = async (text, options = {}) => {
     }
 };
 
-const handleScriptGeneratorSubmit = async (text, options = {}) => {
-    const submitOptions = {
-        forceNewIdempotency: false,
-        ...options,
-    };
+const handleScriptGeneratorSubmit = async (text) => {
     const initialInputText = String(text || "").trim();
     const initialStateTopic = String(scriptGeneratorState.value.topic || "").trim();
 
@@ -6509,10 +6568,11 @@ const handleScriptGeneratorSubmit = async (text, options = {}) => {
 
     const localScriptState = resolveScriptGeneratorStateForSubmit(conversation.uuid);
     const inputText = initialInputText || String(localScriptState.topic || "").trim();
-    const idempotencyKey = resolveIdempotencyKey(conversation.uuid, inputText, {
-        forceNew: submitOptions.forceNewIdempotency,
-    });
-
+    if (!localScriptState.topic) {
+        localScriptState.topic = inferScriptTopicFromMessage(inputText);
+        scriptGeneratorState.value = normalizeScriptGeneratorState(localScriptState);
+        saveScriptGeneratorStateToSession(conversation.uuid, scriptGeneratorState.value);
+    }
     await addUserLocalMessage(inputText, {
         sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
         metadata: {
@@ -6533,11 +6593,7 @@ const handleScriptGeneratorSubmit = async (text, options = {}) => {
             sub_tool_id: SCRIPT_GENERATOR_SUB_TOOL_ID,
             conversation_uuid: conversation.uuid,
             user_message: inputText,
-            idempotency_key: idempotencyKey,
-            state: hasScriptGeneratorStateValue(localScriptState)
-                ? localScriptState
-                : createEmptyScriptGeneratorState(),
-            debug: false,
+            state: normalizeScriptGeneratorState(localScriptState),
         };
 
         console.log("[ScriptGenerator] payload before send:", JSON.stringify(payload, null, 2));
@@ -6598,9 +6654,7 @@ const handleScriptGeneratorSubmit = async (text, options = {}) => {
             return;
         }
 
-        const missingFields = getMissingScriptGeneratorFields(
-            apiResponse.state || scriptGeneratorState.value
-        );
+        const missingFields = getMissingScriptGeneratorFields(scriptGeneratorState.value);
 
         if (apiResponse.type === "question" || missingFields.length > 0) {
             await addAssistantLocalMessage(
@@ -6615,9 +6669,7 @@ const handleScriptGeneratorSubmit = async (text, options = {}) => {
             return;
         }
 
-        const outputText = apiResponse.results.length
-            ? apiResponse.results.map((item) => item.text).join("\n\n")
-            : "";
+        const outputText = apiResponse.outputText;
 
         if (!outputText) {
             await addAssistantLocalMessage(
@@ -7928,6 +7980,10 @@ watch(
 
 .plain-text-message {
     white-space: pre-line;
+}
+
+.script-output-text {
+    white-space: pre-wrap;
 }
 
 .markdown-body :deep(h1),
