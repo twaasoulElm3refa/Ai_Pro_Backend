@@ -100,7 +100,8 @@
                         <span class="options-summary">{{ optionsSummary }}</span>
                     </summary>
 
-                    <div class="options-grid">
+                    <form class="options-grid" @submit.prevent="submitCurrentToolFromOptions"
+                        @keydown.enter.exact.prevent="submitCurrentToolFromOptions">
                         <label v-for="field in activeTool.fields" :key="field.key"
                             :class="{ wide: field.wide }">
                             <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
@@ -121,7 +122,6 @@
                         <label v-for="field in activeTool.booleanFields" :key="field.key">
                             <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
                             <select v-model="toolState[field.key]">
-                                <option :value="null">{{ labels.defaultValue }}</option>
                                 <option :value="true">{{ labels.yes }}</option>
                                 <option :value="false">{{ labels.no }}</option>
                             </select>
@@ -136,6 +136,15 @@
                             </label>
                         </fieldset>
 
+                        <fieldset v-if="activeTool.extraOptions?.length" class="wide checkbox-field">
+                            <legend>{{ labels.extraOptions }}</legend>
+                            <label v-for="option in activeTool.extraOptions" :key="option" class="checkbox-option">
+                                <input type="checkbox" :checked="toolState.extra_options.includes(option)"
+                                    @change="toggleExtraOption(option)">
+                                <span>{{ option }}</span>
+                            </label>
+                        </fieldset>
+
                         <label v-for="field in activeTool.textArrayFields || []" :key="field.key" class="wide">
                             <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
                             <input :value="getTextArrayValue(field.key)" type="text"
@@ -146,7 +155,19 @@
                             <span>{{ labels.extraOptions }}</span>
                             <input v-model="extraOptionsText" type="text" :placeholder="labels.extraOptionsPlaceholder">
                         </label>
-                    </div>
+
+                        <div class="wide options-actions">
+                            <button type="submit" class="options-submit-button" :disabled="sendDisabled">
+                                <i :class="sendingMessage ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
+                                {{ labels.send }}
+                            </button>
+                            <button type="button" class="options-reset-button" :disabled="sendDisabled"
+                                @click="resetCurrentToolOptions">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                                {{ isArabic ? "إعادة تعيين الخيارات" : "Reset options" }}
+                            </button>
+                        </div>
+                    </form>
                 </details>
 
                 <div v-if="refineMode" class="refine-banner">
@@ -204,8 +225,8 @@ const getInitialKeywordGeneratorState = () => ({
     search_intent: null,
     location: null,
     results_count: null,
-    include_long_tail: null,
-    include_clusters: null,
+    include_long_tail: false,
+    include_clusters: false,
     extra_options: [],
     last_output: null,
 });
@@ -556,7 +577,27 @@ const subtool = ref({
 const activeTool = computed(() =>
     CHAT3_TOOLS[Number(subtool.value.id)] || CHAT3_TOOLS[KEYWORD_GENERATOR_SUB_TOOL_ID]
 );
-const toolState = ref(activeTool.value.getInitialState());
+const getDefaultStateForTool = (toolId) => {
+    const tool = CHAT3_TOOLS[Number(toolId)] || CHAT3_TOOLS[KEYWORD_GENERATOR_SUB_TOOL_ID];
+    return tool.getInitialState();
+};
+const toolStates = ref(
+    Object.fromEntries(
+        Object.values(CHAT3_TOOLS).map((tool) => [tool.id, getDefaultStateForTool(tool.id)])
+    )
+);
+const toolState = computed({
+    get: () => {
+        const toolId = activeTool.value.id;
+        if (!toolStates.value[toolId]) {
+            toolStates.value[toolId] = getDefaultStateForTool(toolId);
+        }
+        return toolStates.value[toolId];
+    },
+    set: (value) => {
+        toolStates.value[activeTool.value.id] = value;
+    },
+});
 const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
@@ -610,7 +651,7 @@ const optionsSummary = computed(() => {
     return count ? String(count) : labels.value.defaultValue;
 });
 const extraOptionsText = computed({
-    get: () => Array.isArray(toolState.value.extra_options) ? toolState.value.extra_options.join(", ") : "",
+    get: () => Array.isArray(toolState.value?.extra_options) ? toolState.value.extra_options.join(", ") : "",
     set: (value) => {
         toolState.value.extra_options = String(value || "")
             .split(",")
@@ -618,6 +659,29 @@ const extraOptionsText = computed({
             .filter(Boolean);
     },
 });
+
+const addExtraOption = (option) => {
+    const value = String(option || "").trim();
+    if (!value) return;
+    if (!Array.isArray(toolState.value.extra_options)) toolState.value.extra_options = [];
+    if (!toolState.value.extra_options.includes(value)) toolState.value.extra_options.push(value);
+};
+
+const removeExtraOption = (option) => {
+    if (!Array.isArray(toolState.value.extra_options)) {
+        toolState.value.extra_options = [];
+        return;
+    }
+    toolState.value.extra_options = toolState.value.extra_options.filter((item) => item !== option);
+};
+
+const toggleExtraOption = (option) => {
+    if (toolState.value.extra_options.includes(option)) {
+        removeExtraOption(option);
+    } else {
+        addExtraOption(option);
+    }
+};
 
 const getTextArrayValue = (key) =>
     Array.isArray(toolState.value[key]) ? toolState.value[key].join(", ") : "";
@@ -648,15 +712,16 @@ const createIdempotencyKey = () => {
     });
 };
 
-const normalizeToolState = (state = {}) => {
-    const base = activeTool.value.getInitialState();
+const normalizeToolState = (state = {}, toolId = activeTool.value.id) => {
+    const tool = CHAT3_TOOLS[Number(toolId)] || activeTool.value;
+    const base = tool.getInitialState();
     const source = isPlainObject(state) ? state : {};
     const normalized = { ...base };
-    const booleanKeys = (activeTool.value.booleanFields || []).map((field) => field.key);
+    const booleanKeys = (tool.booleanFields || []).map((field) => field.key);
     const arrayKeys = [
         "extra_options",
-        ...(activeTool.value.arrayFields || []).map((field) => field.key),
-        ...(activeTool.value.textArrayFields || []).map((field) => field.key),
+        ...(tool.arrayFields || []).map((field) => field.key),
+        ...(tool.textArrayFields || []).map((field) => field.key),
     ];
 
     Object.keys(base).forEach((key) => {
@@ -668,7 +733,9 @@ const normalizeToolState = (state = {}) => {
         }
 
         if (booleanKeys.includes(key)) {
-            normalized[key] = typeof source[key] === "boolean" ? source[key] : base[key];
+            normalized[key] = typeof source[key] === "boolean"
+                ? source[key]
+                : Boolean(base[key]);
             return;
         }
 
@@ -1044,17 +1111,19 @@ const persistState = (uuid = activeConversation.value?.uuid) => {
 };
 
 const restoreState = (uuid) => {
-    if (!uuid) {
-        toolState.value = activeTool.value.getInitialState();
-        return;
-    }
+    if (!uuid) return;
 
     try {
         const stored = safeJsonParse(sessionStorage.getItem(stateStorageKey(uuid)) || "");
-        toolState.value = normalizeKeywordState(stored || {});
+        if (stored) toolState.value = normalizeToolState(stored, activeTool.value.id);
     } catch {
-        toolState.value = activeTool.value.getInitialState();
+        // Keep the in-memory state if storage is unavailable or invalid.
     }
+};
+
+const resetCurrentToolOptions = () => {
+    toolStates.value[activeTool.value.id] = getDefaultStateForTool(activeTool.value.id);
+    persistState();
 };
 
 const requireAuth = async () => {
@@ -1115,6 +1184,16 @@ const loadConversations = async () => {
 };
 
 const hydrateStateFromMessages = (rows = []) => {
+    try {
+        const stored = safeJsonParse(sessionStorage.getItem(stateStorageKey()) || "");
+        if (stored) {
+            toolState.value = normalizeToolState(stored, activeTool.value.id);
+            return;
+        }
+    } catch {
+        // Fall back to the latest state stored with the conversation messages.
+    }
+
     const latest = [...rows]
         .reverse()
         .map((row, index) => mapMessage(row, index))
@@ -1382,6 +1461,53 @@ const sendKeywordMessage = async () => {
     await submitKeywordRequest(userMessage.value);
 };
 
+const buildUserMessage = (toolId, state = {}) => {
+    const typedMessage = String(userMessage.value || "").trim();
+    if (typedMessage) return typedMessage;
+
+    const content = String(state.content || "").trim();
+    const topic = String(state.topic || "").trim();
+
+    if (Number(toolId) === META_DESCRIPTION_SUB_TOOL_ID && content) {
+        return `Write SEO meta descriptions for: ${content}`;
+    }
+    if (Number(toolId) === CONTENT_ANALYZER_SUB_TOOL_ID && content) {
+        return `Analyze this content: ${content}`;
+    }
+    if (Number(toolId) === CONTENT_OPTIMIZER_SUB_TOOL_ID && content) {
+        return `Optimize this content for SEO: ${content}`;
+    }
+    if (Number(toolId) === KEYWORD_GENERATOR_SUB_TOOL_ID && topic) {
+        return `Generate SEO keywords for: ${topic}`;
+    }
+
+    return content || topic;
+};
+
+const submitCurrentToolFromOptions = async () => {
+    const toolId = Number(activeTool.value?.id || 0);
+    const currentState = toolStates.value[toolId];
+
+    if (!toolId || !currentState) {
+        errorMessage.value = isArabic.value
+            ? "برجاء اختيار أداة أولًا."
+            : "Please select a tool first.";
+        return;
+    }
+
+    const message = buildUserMessage(toolId, currentState);
+    if (!message) {
+        errorMessage.value = isArabic.value
+            ? "برجاء كتابة محتوى أو رسالة قبل الإرسال."
+            : "Please enter content or a message before sending.";
+        return;
+    }
+
+    await submitKeywordRequest(message, {
+        state: currentState,
+    });
+};
+
 const startNewChat = async () => {
     if (creatingConversation.value || !(await requireAuth())) return;
 
@@ -1398,7 +1524,6 @@ const startNewChat = async () => {
             ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
         ];
         messages.value = [];
-        toolState.value = activeTool.value.getInitialState();
         sidebarOpen.value = false;
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat3/${conversation.uuid}`);
@@ -1435,7 +1560,6 @@ const deleteConversation = async (conversation) => {
             closeStream();
             activeConversation.value = null;
             messages.value = [];
-            toolState.value = activeTool.value.getInitialState();
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat3`);
         }
     } finally {
@@ -1530,6 +1654,14 @@ onUnmounted(() => {
     closeStream();
     window.removeEventListener("lang-changed", handleLanguageChange);
 });
+
+watch(
+    () => toolStates.value[activeTool.value.id],
+    () => {
+        if (activeConversation.value?.uuid) persistState(activeConversation.value.uuid);
+    },
+    { deep: true }
+);
 
 watch(
     () => route.params.uuid,
@@ -2241,6 +2373,35 @@ button:disabled {
 
 .options-grid .wide {
     grid-column: span 2;
+}
+
+.options-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.options-submit-button,
+.options-reset-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.options-submit-button {
+    border: 0;
+    color: #fff;
+    background: var(--navy);
+}
+
+.options-reset-button {
+    border: 1px solid var(--line);
+    color: var(--navy);
+    background: #fff;
 }
 
 .checkbox-field {
