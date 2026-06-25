@@ -1,5 +1,7 @@
 <template>
-    <div class="d-flex flex-column min-vh-100">
+    <loader-component v-if="isLoading" />
+
+    <div v-else class="d-flex flex-column min-vh-100">
         <navbar-component
             v-if="showNavbar"
             :hide-header="hideHeader"
@@ -14,8 +16,26 @@
 </template>
 
 <script>
+import LoaderComponent from "./components/layouts/Loader.vue";
+
 export default {
     name: "App",
+
+    components: {
+        LoaderComponent,
+    },
+
+    data() {
+        return {
+            isLoading: true,
+        };
+    },
+
+    mounted() {
+        setTimeout(() => {
+            this.isLoading = false;
+        }, 1500);
+    },
 
     computed: {
         showNavbar() {
