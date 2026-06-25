@@ -6,7 +6,7 @@
             <div class="ring ring-three"></div>
 
             <div class="logo-box">
-                <img src="/images/ai_logo.png" alt="AI بالعربي" />
+                <img src="/images/Ai_logo.png" alt="AI بالعربي" />
             </div>
         </div>
     </div>
