@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Repository\Messages\MessageInterface;
 use App\Services\AiArabicWriterService;
+use App\Services\ChatSeoToolService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
 use App\Services\ProductDescriptionGeneratorService;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class MessageController extends Controller
@@ -57,7 +59,8 @@ class MessageController extends Controller
         AiArabicWriterService $writerService,
         EmailWriterService $emailWriterService,
         ScriptGeneratorService $scriptGeneratorService,
-        ProductDescriptionGeneratorService $productDescriptionGeneratorService
+        ProductDescriptionGeneratorService $productDescriptionGeneratorService,
+        ChatSeoToolService $chatSeoToolService
     )
     {
         Log::info('Message send request received', [
@@ -89,7 +92,14 @@ class MessageController extends Controller
             $subToolId = (int) ($data['sub_tool_id'] ?? $conversation->sub_tool_id ?? 0);
             $content = $this->resolveInputContent($data);
             $requestedTool = trim((string) $request->input('tool', ''));
+            $requestedToolKey = trim((string) $request->input('tool_key', ''));
+            $requestedModelKey = trim((string) $request->input('model_key', ''));
             $requestedTaskKey = trim((string) $request->input('task_key', ''));
+            $isChatSeoTool = ChatSeoToolService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
+                $requestedModelKey
+            );
             $isTextSummarizer = (
                 $subToolId === self::TEXT_SUMMARIZER_SUB_TOOL_ID
                 || strcasecmp($requestedTool, self::TEXT_SUMMARIZER_TOOL_KEY) === 0
@@ -116,10 +126,17 @@ class MessageController extends Controller
                 }
             }
 
-            if ($content === '' && ! $isTextSummarizer) {
+            if ($content === '' && ! $isTextSummarizer && ! $isChatSeoTool) {
                 return $this->validationError([
                     'user_message' => ['Message content is required.'],
                 ], 'Invalid message data.');
+            }
+
+            if ($isChatSeoTool) {
+                return $this->success(
+                    $chatSeoToolService->handle($conversation, $data, $content, $userId),
+                    'SEO Tool Response Ready.'
+                );
             }
 
             if ($isTextSummarizer) {
@@ -239,6 +256,8 @@ class MessageController extends Controller
             }
 
             return $this->handleDefaultFlow($conversation, $data, $content, $userId);
+        } catch (ValidationException $th) {
+            return $this->validationError($th->errors(), 'Invalid SEO tool payload.');
         } catch (Throwable $th) {
             Log::error('Send message failed.', [
                 'message' => $th->getMessage(),
@@ -405,6 +424,8 @@ class MessageController extends Controller
 
         try {
             $providerResponse = $writerService->generateReplyWithUsage($providerPayload, $endpoint);
+        } catch (ValidationException $th) {
+            return $this->validationError($th->errors(), 'Invalid SEO tool payload.');
         } catch (Throwable $th) {
             Log::warning('Summarizer first attempt failed', [
                 'message' => $th->getMessage(),

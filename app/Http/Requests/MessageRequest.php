@@ -13,6 +13,7 @@ class MessageRequest extends FormRequest
 {
     private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
     private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
+    private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16];
 
     /**
      * Determine if the user is authorized to make this request.
@@ -119,7 +120,7 @@ class MessageRequest extends FormRequest
                 ),
             ],
             'role' => ['nullable', 'in:user'],
-            'idempotency_key' => ['nullable', 'uuid'],
+            'idempotency_key' => ['nullable', 'string', 'max:150'],
             'debug' => ['nullable', 'boolean'],
             'tool' => ['nullable', 'string', 'max:100'],
             'tool_key' => ['nullable', 'string', 'max:100'],
@@ -134,6 +135,11 @@ class MessageRequest extends FormRequest
         ];
 
         $subToolId = (int) $this->input('sub_tool_id');
+
+        if (in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)) {
+            return array_merge($rules, $this->chat3SeoStateRules());
+        }
+
         $configService = app(DynamicToolConfigService::class);
         $config = $configService->configFor($subToolId);
 
@@ -212,6 +218,46 @@ class MessageRequest extends FormRequest
             'state.number_of_headlines' => ['nullable', 'integer', 'min:1', 'max:20'],
             'state.headline_length' => ['nullable', 'string', 'max:50'],
             'state.last_output' => ['nullable', 'string', 'max:10000'],
+            'state.extra_options' => ['nullable', 'array'],
+            'state.extra_options.*' => ['string', 'max:150'],
+        ];
+    }
+
+    private function chat3SeoStateRules(): array
+    {
+        return [
+            'state.topic' => ['nullable', 'string', 'max:1000'],
+            'state.industry' => ['nullable', 'string', 'max:150'],
+            'state.target_audience' => ['nullable', 'string', 'max:250'],
+            'state.language' => ['nullable', 'string', 'max:80'],
+            'state.keyword_type' => ['nullable', 'string', 'max:100'],
+            'state.search_intent' => ['nullable', 'string', 'max:100'],
+            'state.location' => ['nullable', 'string', 'max:150'],
+            'state.results_count' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'state.include_long_tail' => ['nullable', 'boolean'],
+            'state.include_clusters' => ['nullable', 'boolean'],
+            'state.content' => ['nullable', 'string', 'max:100000'],
+            'state.page_title' => ['nullable', 'string', 'max:500'],
+            'state.primary_keyword' => ['nullable', 'string', 'max:250'],
+            'state.tone' => ['nullable', 'string', 'max:100'],
+            'state.length' => ['nullable', 'string', 'max:100'],
+            'state.max_characters' => ['nullable', 'integer', 'min:50', 'max:320'],
+            'state.include_cta' => ['nullable', 'boolean'],
+            'state.analysis_goal' => ['nullable', 'string', 'max:250'],
+            'state.target_keyword' => ['nullable', 'string', 'max:250'],
+            'state.content_type' => ['nullable', 'string', 'max:150'],
+            'state.audience' => ['nullable', 'string', 'max:250'],
+            'state.checks' => ['nullable', 'array'],
+            'state.checks.*' => ['string', 'max:100'],
+            'state.detail_level' => ['nullable', 'string', 'max:100'],
+            'state.include_recommendations' => ['nullable', 'boolean'],
+            'state.optimization_goal' => ['nullable', 'string', 'max:250'],
+            'state.secondary_keywords' => ['nullable', 'array'],
+            'state.secondary_keywords.*' => ['string', 'max:150'],
+            'state.seo_level' => ['nullable', 'string', 'max:100'],
+            'state.preserve_meaning' => ['nullable', 'boolean'],
+            'state.include_explanation' => ['nullable', 'boolean'],
+            'state.last_output' => ['nullable', 'string', 'max:100000'],
             'state.extra_options' => ['nullable', 'array'],
             'state.extra_options.*' => ['string', 'max:150'],
         ];

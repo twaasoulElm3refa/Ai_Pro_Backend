@@ -1235,17 +1235,14 @@ const buildPayload = (conversation, text, options = {}) => {
         sub_tool_id: activeTool.value.id,
         conversation_uuid: conversation.uuid,
         user_message: text,
+        content: text,
+        tool: activeTool.value.toolKey,
+        tool_key: activeTool.value.toolKey,
+        model_key: activeTool.value.modelKey,
         state,
         debug: false,
+        idempotency_key: createIdempotencyKey(),
     };
-
-    if (activeTool.value.id === KEYWORD_GENERATOR_SUB_TOOL_ID) {
-        payload.content = text;
-        payload.tool = activeTool.value.toolKey;
-        payload.tool_key = activeTool.value.toolKey;
-        payload.model_key = activeTool.value.modelKey;
-        payload.idempotency_key = createIdempotencyKey();
-    }
 
     return payload;
 };
