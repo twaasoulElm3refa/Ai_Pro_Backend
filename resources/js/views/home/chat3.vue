@@ -70,14 +70,10 @@
                             </div>
 
                             <template v-else>
-                                <KeywordGeneratorResult v-if="isKeywordResultMessage(message)" :message="message"
-                                    :results="getKeywordResults(message)" :labels="labels" :copied-key="copiedKey"
-                                    @copy-keyword="copyKeyword" @copy-all="copyAllKeywords" />
-
-                                <MetaDescriptionResult v-else-if="isMetaDescriptionResultMessage(message)"
-                                    :message="message" :results="getMetaDescriptionResults(message)"
-                                    :max-characters="message.responseState?.max_characters || 160"
-                                    :labels="labels" :copied-key="copiedKey" @copy-result="copyKeyword" />
+                                <SeoToolResult v-if="isSeoToolResultMessage(message)" :message="message"
+                                    :results="getSeoToolResults(message)" :labels="labels" :copied-key="copiedKey"
+                                    @copy-result="copyKeyword" @copy-all="copyAllSeoResults"
+                                    @edit-options="editMessageOptions" />
 
                                 <div v-else-if="message.content" class="message-content"
                                     :class="{ 'tool-output-text': isSeoToolMessage(message) }"
@@ -94,7 +90,7 @@
                     {{ errorMessage }}
                 </div>
 
-                <details class="options-panel">
+                <details ref="optionsPanelRef" class="options-panel">
                     <summary>
                         <span><i class="bi bi-sliders"></i> {{ labels.options }}</span>
                         <span class="options-summary">{{ optionsSummary }}</span>
@@ -295,111 +291,131 @@ const unwrapResponse = (source = {}) => {
     return source || {};
 };
 
-const normalizeKeywordItem = (item, index = 0) => {
-    const row = isPlainObject(item) ? item : { text: item };
-    const meta = isPlainObject(row.meta) ? row.meta : {};
-    const text = String(row.text || row.title || row.subject || row.keyword || row.name || "").trim();
-    const title = String(row.title || row.keyword || "").trim();
+const stripJsonFence = (value = "") =>
+    String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
-    if (!text) return null;
+const parseLooseJson = (value) => safeJsonParse(stripJsonFence(value));
 
-    return {
-        id: row.id || index + 1,
-        title,
-        subject: String(row.subject || "").trim(),
-        text,
-        type: String(meta.type || row.type || "").trim(),
-        intent: String(meta.intent || row.intent || "").trim(),
-        cluster: String(meta.cluster || row.cluster || "").trim(),
-        meta: {
-            type: meta.type || row.type || null,
-            intent: meta.intent || row.intent || null,
-            cluster: meta.cluster || row.cluster || null,
-        },
-    };
-};
-
-const normalizeKeywordItems = (items = []) =>
-    (Array.isArray(items) ? items : [])
-        .map((item, index) => normalizeKeywordItem(item, index))
-        .filter(Boolean);
-
-const pushKeywordCandidate = (candidates, value) => {
+const pushSeoCandidate = (candidates, value) => {
     if (value === null || value === undefined || value === "") return;
 
     candidates.push(value);
 
     if (typeof value === "string") {
-        const parsed = safeJsonParse(value);
+        const parsed = parseLooseJson(value);
         if (parsed) candidates.push(parsed);
     }
 };
 
-const normalizeKeywordGeneratorResults = (source = {}) => {
+const directSeoText = (row = {}) => {
+    if (!isPlainObject(row)) return row;
+
+    return row.text
+        ?? row.content
+        ?? row.description
+        ?? row.meta_description
+        ?? row.optimized_text
+        ?? row.optimized_content
+        ?? row.analysis
+        ?? row.output
+        ?? row.message
+        ?? row.reply
+        ?? "";
+};
+
+const normalizeSeoTextItem = (item, index = 0) => {
+    const rawText = directSeoText(item);
+    const parsedText = typeof rawText === "string" ? parseLooseJson(rawText) : null;
+
+    if (Array.isArray(parsedText?.results)) {
+        return normalizeSeoItems(parsedText.results);
+    }
+
+    const text = cleanOutputText(rawText);
+    if (!text || looksLikeJsonText(text) || reasoningPattern.test(text)) return null;
+
+    return {
+        id: Number(isPlainObject(item) ? item.id : 0) || index + 1,
+        text,
+        meta: isPlainObject(item?.meta) ? item.meta : {},
+    };
+};
+
+const normalizeSeoItems = (items = []) =>
+    (Array.isArray(items) ? items : [])
+        .flatMap((item, index) => {
+            const normalized = normalizeSeoTextItem(item, index);
+            return Array.isArray(normalized) ? normalized : [normalized];
+        })
+        .filter(Boolean)
+        .map((item, index) => ({ ...item, id: Number(item.id) || index + 1 }));
+
+const collectSeoCandidates = (source = {}) => {
     const response = unwrapResponse(source);
-    const candidates = [];
     const meta = metadataFrom(response);
+    const requestPayload = isPlainObject(meta.request_payload)
+        ? meta.request_payload
+        : isPlainObject(response.request_payload)
+            ? response.request_payload
+            : {};
+    const candidates = [];
 
-    pushKeywordCandidate(candidates, meta.normalized_results);
-    pushKeywordCandidate(candidates, response.normalized_results);
-    pushKeywordCandidate(candidates, meta.state?.last_output);
-    pushKeywordCandidate(candidates, response.state?.last_output);
-    pushKeywordCandidate(candidates, meta.results?.[0]?.text);
-    pushKeywordCandidate(candidates, response.results?.[0]?.text);
-    pushKeywordCandidate(candidates, meta.results);
-    pushKeywordCandidate(candidates, response.results);
-    pushKeywordCandidate(candidates, response.text);
-    pushKeywordCandidate(candidates, response.content);
-    pushKeywordCandidate(candidates, response.reply);
-    pushKeywordCandidate(candidates, meta.text);
-    pushKeywordCandidate(candidates, meta.content);
-    pushKeywordCandidate(candidates, meta.reply);
-    pushKeywordCandidate(candidates, response);
+    [
+        meta.normalized_results,
+        response.normalized_results,
+        meta.results,
+        response.results,
+        meta.state?.last_output,
+        response.responseState?.last_output,
+        response.state?.last_output,
+        requestPayload.state?.last_output,
+        response.last_output,
+        meta.text,
+        response.text,
+        meta.content,
+        response.content,
+        meta.message,
+        response.message,
+        meta.reply,
+        response.reply,
+        meta.output,
+        response.output,
+        response,
+    ].forEach((value) => pushSeoCandidate(candidates, value));
 
-    for (const candidate of candidates) {
-        if (!candidate) continue;
+    return candidates;
+};
 
+const normalizeSeoToolResults = (source = {}) => {
+    for (const candidate of collectSeoCandidates(source)) {
         if (Array.isArray(candidate)) {
-            const nestedJson = candidate.length === 1
-                ? safeJsonParse(
-                    typeof candidate[0] === "string"
-                        ? candidate[0]
-                        : (typeof candidate[0]?.text === "string" ? candidate[0].text : "")
-                )
-                : null;
-
-            if (Array.isArray(nestedJson?.results)) {
-                const normalized = normalizeKeywordItems(nestedJson.results);
-                if (normalized.length) return normalized;
-            }
-
-            const normalized = normalizeKeywordItems(candidate);
+            const normalized = normalizeSeoItems(candidate);
             if (normalized.length) return normalized;
+            continue;
         }
 
         if (isPlainObject(candidate)) {
-            if (Array.isArray(candidate.normalized_results)) {
-                const normalized = normalizeKeywordItems(candidate.normalized_results);
+            const nestedResults = candidate.normalized_results || candidate.results;
+            if (Array.isArray(nestedResults)) {
+                const normalized = normalizeSeoItems(nestedResults);
                 if (normalized.length) return normalized;
             }
 
-            if (Array.isArray(candidate.results)) {
-                const normalized = normalizeKeywordItems(candidate.results);
-                if (normalized.length) return normalized;
-            }
-
-            if (typeof candidate.text === "string") {
-                const parsedText = safeJsonParse(candidate.text);
-                if (Array.isArray(parsedText?.results)) {
-                    const normalized = normalizeKeywordItems(parsedText.results);
-                    if (normalized.length) return normalized;
-                }
-            }
+            const item = normalizeSeoTextItem(candidate, 0);
+            const normalized = Array.isArray(item) ? item : [item].filter(Boolean);
+            if (normalized.length) return normalized;
+            continue;
         }
+
+        const item = normalizeSeoTextItem(candidate, 0);
+        const normalized = Array.isArray(item) ? item : [item].filter(Boolean);
+        if (normalized.length) return normalized;
     }
 
     return [];
 };
+
+const normalizeKeywordGeneratorResults = normalizeSeoToolResults;
 
 const CHAT3_TOOLS = {
     [KEYWORD_GENERATOR_SUB_TOOL_ID]: {
@@ -434,6 +450,7 @@ const CHAT3_TOOLS = {
         title: "مولد الوصف التعريفي",
         titleEn: "Meta Description Generator",
         getInitialState: getInitialMetaDescriptionState,
+        normalizeResults: normalizeSeoToolResults,
         fields: [
             { key: "content", labelAr: "المحتوى أو وصف الصفحة", labelEn: "Page content or description", type: "textarea", wide: true },
             { key: "page_title", labelAr: "عنوان الصفحة", labelEn: "Page title", type: "text" },
@@ -457,6 +474,7 @@ const CHAT3_TOOLS = {
         title: "تحليل المحتوى",
         titleEn: "Content Analyzer",
         getInitialState: getInitialContentAnalyzerState,
+        normalizeResults: normalizeSeoToolResults,
         fields: [
             { key: "content", labelAr: "المحتوى المراد تحليله", labelEn: "Content to analyze", type: "textarea", wide: true },
             { key: "analysis_goal", labelAr: "هدف التحليل", labelEn: "Analysis goal", type: "text" },
@@ -482,6 +500,7 @@ const CHAT3_TOOLS = {
         title: "تحسين المحتوى",
         titleEn: "Content Optimizer",
         getInitialState: getInitialContentOptimizerState,
+        normalizeResults: normalizeSeoToolResults,
         fields: [
             { key: "content", labelAr: "المحتوى المراد تحسينه", labelEn: "Content to optimize", type: "textarea", wide: true },
             { key: "optimization_goal", labelAr: "هدف التحسين", labelEn: "Optimization goal", type: "text" },
@@ -532,7 +551,7 @@ const labels = computed(() => isArabic.value ? {
     copy: "نسخ",
     copied: "تم النسخ",
     copyAll: "نسخ الكل",
-    regenerate: "إعادة التوليد",
+    editOptions: "تعديل الخيارات",
     refine: "تعديل/تحسين",
     cancel: "إلغاء",
     genericError: "تعذر تنفيذ الطلب. حاول مرة أخرى.",
@@ -558,7 +577,7 @@ const labels = computed(() => isArabic.value ? {
     copy: "Copy",
     copied: "Copied",
     copyAll: "Copy all",
-    regenerate: "Regenerate",
+    editOptions: "Edit options",
     refine: "Edit/Refine",
     cancel: "Cancel",
     genericError: "The request could not be completed. Please try again.",
@@ -615,6 +634,7 @@ const textareaRef = ref(null);
 const eventSource = ref(null);
 const copiedKey = ref("");
 const refineMode = ref(false);
+const optionsPanelRef = ref(null);
 
 const markdown = new MarkdownIt({
     html: false,
@@ -771,6 +791,33 @@ const metadataFrom = (message = {}) => {
     return {};
 };
 
+const SEO_TOOL_IDS = [
+    KEYWORD_GENERATOR_SUB_TOOL_ID,
+    META_DESCRIPTION_SUB_TOOL_ID,
+    CONTENT_ANALYZER_SUB_TOOL_ID,
+    CONTENT_OPTIMIZER_SUB_TOOL_ID,
+];
+
+const requestPayloadFrom = (message = {}) => {
+    const meta = metadataFrom(message);
+    if (isPlainObject(meta.request_payload)) return meta.request_payload;
+    if (isPlainObject(message.request_payload)) return message.request_payload;
+    if (isPlainObject(message.requestPayload)) return message.requestPayload;
+    return {};
+};
+
+const responseStateFrom = (message = {}, toolId = resolveMessageSubToolId(message)) => {
+    const meta = metadataFrom(message);
+    const requestPayload = requestPayloadFrom(message);
+    const state = message.responseState
+        || meta.state
+        || message.state
+        || requestPayload.state
+        || {};
+
+    return isPlainObject(state) ? normalizeToolState(state, toolId) : null;
+};
+
 const resolveMessageSubToolId = (message = {}) => {
     const meta = metadataFrom(message);
     const tool = String(meta.tool_key || meta.tool || message.tool_key || message.tool || "").toLowerCase();
@@ -818,104 +865,17 @@ const cleanOutputText = (value) => {
 
 const reasoningPattern = /\b(we need to|let['’]s|check length|count characters|we must)\b/i;
 
-const normalizeMetaDescriptionItem = (item, index = 0, maxCharacters = 160) => {
-    const row = isPlainObject(item) ? item : { text: item };
-    const text = cleanOutputText(row.text || row.content || row.description || "");
-    if (!text || reasoningPattern.test(text)) return null;
-
-    return {
-        id: Number(row.id || index + 1),
-        text,
-        characters: Number(row.meta?.characters) || [...text].length,
-        maxCharacters: Number(row.meta?.max_characters) || Number(maxCharacters) || 160,
-    };
-};
-
-const extractMetaDescriptionsFromText = (value, maxCharacters = 160) => {
-    const text = cleanOutputText(value);
-    if (!text) return [];
-
-    const parsed = safeJsonParse(
-        text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim()
-    );
-    if (Array.isArray(parsed?.results)) {
-        return parsed.results
-            .map((item, index) => normalizeMetaDescriptionItem(item, index, maxCharacters))
-            .filter(Boolean);
-    }
-
-    const candidates = text
-        .split(/\n+/)
-        .map((line) => line.replace(/^\s*(?:\d+[.)]|[-*•])\s*/, "").trim())
-        .filter((line) => line && !reasoningPattern.test(line))
-        .filter((line) => line.length >= 35 && line.length <= Number(maxCharacters || 160) + 40);
-
-    return candidates
-        .map((line, index) => normalizeMetaDescriptionItem(line, index, maxCharacters))
-        .filter(Boolean);
-};
-
-const getMetaDescriptionResults = (source = {}) => {
-    const response = unwrapResponse(source);
-    const meta = metadataFrom(response);
-    const state = meta.state || response.responseState || response.state || {};
-    const maxCharacters = Number(state.max_characters) || 160;
-    const rawResults = meta.normalized_results || response.metaDescriptionResults || meta.results || response.results;
-
-    if (Array.isArray(rawResults)) {
-        const normalized = rawResults
-            .map((item, index) => normalizeMetaDescriptionItem(item, index, maxCharacters))
-            .filter(Boolean);
-        if (normalized.length) return normalized;
-    }
-
-    const fallbacks = [
-        meta.results?.[0]?.text,
-        response.results?.[0]?.text,
-        meta.state?.last_output,
-        response.state?.last_output,
-        response.content,
-        response.message,
-    ];
-
-    for (const candidate of fallbacks) {
-        const extracted = extractMetaDescriptionsFromText(candidate, maxCharacters);
-        if (extracted.length) return extracted;
-    }
-
-    return [];
-};
-
 const getToolOutput = (source = {}, subToolId = resolveMessageSubToolId(source)) => {
-    const response = unwrapResponse(source);
-    const meta = metadataFrom(response);
+    if (!SEO_TOOL_IDS.includes(Number(subToolId))) return "";
 
-    if (subToolId === META_DESCRIPTION_SUB_TOOL_ID) {
-        return getMetaDescriptionResults(response);
-    }
-
-    const firstResult = Array.isArray(meta.results)
-        ? meta.results[0]
-        : Array.isArray(response.results)
-            ? response.results[0]
-            : null;
-
-    const output = firstResult?.text
-        || (typeof firstResult === "string" ? firstResult : "")
-        || meta.state?.last_output
-        || response.state?.last_output
-        || meta.message
-        || response.message
-        || response.content
-        || "";
-
-    const cleaned = cleanOutputText(output);
-    return looksLikeJsonText(cleaned) ? "" : cleaned;
+    return normalizeSeoToolResults(source)
+        .map((item) => String(item?.text || "").trim())
+        .filter(Boolean)
+        .join("\n\n");
 };
 
 const isSeoToolMessage = (message = {}) =>
-    [META_DESCRIPTION_SUB_TOOL_ID, CONTENT_ANALYZER_SUB_TOOL_ID, CONTENT_OPTIMIZER_SUB_TOOL_ID]
-        .includes(resolveMessageSubToolId(message));
+    SEO_TOOL_IDS.includes(resolveMessageSubToolId(message));
 
 const isKeywordGeneratorMessage = (message = {}) => {
     const meta = metadataFrom(message);
@@ -937,128 +897,51 @@ const isKeywordGeneratorMessage = (message = {}) => {
 
 const isKeywordMessage = isKeywordGeneratorMessage;
 
-const isMetaDescriptionResultMessage = (message = {}) =>
+const isSeoToolResultMessage = (message = {}) =>
     message.role === "assistant"
     && !message.typing
-    && resolveMessageSubToolId(message) === META_DESCRIPTION_SUB_TOOL_ID
-    && getMetaDescriptionResults(message).length > 0;
+    && SEO_TOOL_IDS.includes(resolveMessageSubToolId(message))
+    && getSeoToolResults(message).length > 0;
 
-const isKeywordResultMessage = (message = {}) =>
-    message.role === "assistant"
-    && !message.typing
-    && isKeywordGeneratorMessage(message)
-    && getKeywordResults(message).length > 0;
-
-const getKeywordResults = (message = {}) =>
-    Array.isArray(message.keywordResults) && message.keywordResults.length
-        ? message.keywordResults
-        : normalizeKeywordGeneratorResults(message);
+const getSeoToolResults = (message = {}) =>
+    Array.isArray(message.seoToolResults) && message.seoToolResults.length
+        ? message.seoToolResults
+        : normalizeSeoToolResults(message);
 
 const looksLikeJsonText = (value = "") => {
     const text = String(value || "").trim();
     return text.startsWith("{") || text.startsWith("[");
 };
 
-const keywordFallbackContent = () =>
-    isArabic.value
-        ? "تم استلام نتيجة مولد الكلمات المفتاحية، لكن تعذر تنظيمها للعرض. حاول إعادة التوليد."
-        : "Keyword results were received, but could not be formatted. Please try regenerating.";
-
-const getAssistantOutput = (message = {}) => {
-    const meta = metadataFrom(message);
-
-    return String(
-        meta.state?.last_output
-        || message.responseState?.last_output
-        || message.content
-        || meta.results?.[0]?.text
-        || ""
-    ).trim();
-};
-
-const compactKeywordPreviousOutput = (message = {}) => {
-    const resultText = getKeywordResults(message)
-        .map((item) => String(item?.text || "").trim())
-        .filter(Boolean)
-        .join("\n");
-
-    if (resultText) {
-        return resultText.slice(0, 3000);
-    }
-
-    const output = getAssistantOutput(message);
-    if (!output) return "";
-
-    const parsed = safeJsonParse(
-        output
-            .replace(/^```(?:json)?\s*/i, "")
-            .replace(/\s*```$/i, "")
-            .trim()
-    );
-    const parsedResults = parsed ? normalizeKeywordGeneratorResults(parsed) : [];
-
-    if (parsedResults.length) {
-        return parsedResults
-            .map((item) => String(item?.text || "").trim())
-            .filter(Boolean)
-            .join("\n")
-            .slice(0, 3000);
-    }
-
-    if (looksLikeJsonText(output)) {
-        return "";
-    }
-
-    return output
-        .replace(/`+/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 3000);
-};
-
 const mapMessage = (message = {}, index = 0) => {
     const meta = metadataFrom(message);
     const subToolId = resolveMessageSubToolId(message);
-    const keyword = message.role === "assistant" && subToolId === KEYWORD_GENERATOR_SUB_TOOL_ID;
-    const metaDescription = message.role === "assistant" && subToolId === META_DESCRIPTION_SUB_TOOL_ID;
-    const seoTextTool = message.role === "assistant"
-        && [CONTENT_ANALYZER_SUB_TOOL_ID, CONTENT_OPTIMIZER_SUB_TOOL_ID].includes(subToolId);
+    const seoTool = message.role === "assistant" && SEO_TOOL_IDS.includes(subToolId);
     const responsePayload = {
         ...message,
         ...meta,
         state: meta.state || message.state,
+        request_payload: meta.request_payload || message.request_payload,
         results: meta.normalized_results || meta.results || message.results,
     };
-    const keywordResults = keyword
-        ? CHAT3_TOOLS[KEYWORD_GENERATOR_SUB_TOOL_ID].normalizeResults(responsePayload)
-        : [];
-    const metaDescriptionResults = metaDescription
-        ? getMetaDescriptionResults(responsePayload)
-        : [];
+    const seoToolResults = seoTool ? normalizeSeoToolResults(responsePayload) : [];
     const rawContent = String(message.content || meta.message || "");
-    const toolOutput = seoTextTool ? getToolOutput(responsePayload, subToolId) : "";
+    const formattedError = isArabic.value
+        ? "تعذر تنسيق نتيجة الأداة. يرجى إعادة المحاولة."
+        : "The tool result could not be formatted. Please try again.";
 
     return {
         ...message,
         localKey: message.localKey || `${message.role || "message"}-${message.id || index}-${message.created_at || createLocalKey()}`,
         role: message.role || "assistant",
-        content: keyword
-            ? (keywordResults.length ? "" : (looksLikeJsonText(rawContent) ? keywordFallbackContent() : rawContent))
-            : metaDescription
-                ? (metaDescriptionResults.length
-                    ? ""
-                    : (isArabic.value
-                        ? "لم يتم توليد أوصاف تعريفية صالحة. يرجى إعادة المحاولة."
-                        : "No valid meta descriptions were generated. Please try again."))
-                : seoTextTool
-                    ? (toolOutput || (isArabic.value
-                        ? "تعذر تنسيق نتيجة الأداة. يرجى إعادة المحاولة."
-                        : "The tool result could not be formatted. Please try again."))
-                    : rawContent,
+        content: seoTool
+            ? (seoToolResults.length ? "" : (looksLikeJsonText(rawContent) ? formattedError : cleanOutputText(rawContent) || formattedError))
+            : rawContent,
         metadata: meta,
-        responseState: isPlainObject(meta.state) ? normalizeToolState(meta.state) : null,
-        keywordResults,
-        metaDescriptionResults,
+        responseState: responseStateFrom({ ...message, metadata: meta }, subToolId),
+        keywordResults: subToolId === KEYWORD_GENERATOR_SUB_TOOL_ID ? seoToolResults : [],
+        metaDescriptionResults: subToolId === META_DESCRIPTION_SUB_TOOL_ID ? seoToolResults : [],
+        seoToolResults,
         is_error: Boolean(message.is_error || meta.success === false || meta.type === "error"),
         typing: Boolean(message.typing),
     };
@@ -1364,11 +1247,6 @@ const buildPayload = (conversation, text, options = {}) => {
         payload.idempotency_key = createIdempotencyKey();
     }
 
-    if (options.regenerate) {
-        payload.regenerate = true;
-        payload.previous_output = String(options.previousOutput || "").slice(0, 3000);
-    }
-
     return payload;
 };
 
@@ -1402,28 +1280,22 @@ const submitKeywordRequest = async (text, options = {}) => {
 
         const response = await chatServices.sendMessage(payload);
         const directPayload = unwrapResponse(response);
-        const directResults = activeTool.value.id === KEYWORD_GENERATOR_SUB_TOOL_ID
+        const directResults = SEO_TOOL_IDS.includes(activeTool.value.id)
             ? activeTool.value.normalizeResults(directPayload)
-            : activeTool.value.id === META_DESCRIPTION_SUB_TOOL_ID
-                ? getMetaDescriptionResults(directPayload)
-                : [];
-        const directOutput = [CONTENT_ANALYZER_SUB_TOOL_ID, CONTENT_OPTIMIZER_SUB_TOOL_ID]
-            .includes(activeTool.value.id)
-            ? getToolOutput(directPayload, activeTool.value.id)
-            : "";
+            : [];
+        const directOutput = getToolOutput(directPayload, activeTool.value.id);
         const directSubToolId = Number(directPayload.sub_tool_id || 0);
         const directToolKey = String(directPayload.tool || directPayload.tool_key || "").toLowerCase();
         const isDirectFinalResponse = directSubToolId === activeTool.value.id
             || directToolKey === activeTool.value.toolKey;
 
-        if ((directResults.length || directOutput || (
-            activeTool.value.id === META_DESCRIPTION_SUB_TOOL_ID && isDirectFinalResponse
-        )) && (
+        if ((directResults.length || directOutput || isDirectFinalResponse) && (
             directPayload.tool
             || directPayload.sub_tool_id
             || directPayload.state
             || directPayload.results
             || directPayload.message
+            || directPayload.content
         )) {
             const metadata = {
                 type: directPayload.type || "result",
@@ -1585,8 +1457,8 @@ const copyKeyword = async ({ text, key }) => {
     }, 1200);
 };
 
-const copyAllKeywords = async (message) => {
-    const text = getKeywordResults(message)
+const copyAllSeoResults = async (message) => {
+    const text = getSeoToolResults(message)
         .map(keywordCopyText)
         .filter(Boolean)
         .join("\n");
@@ -1596,36 +1468,27 @@ const copyAllKeywords = async (message) => {
     await copyKeyword({ text, key: `${message.localKey}:all` });
 };
 
-const findUserInputBeforeMessage = (message) => {
-    const index = messages.value.findIndex((item) => item.localKey === message.localKey);
-    const rows = index >= 0 ? messages.value.slice(0, index) : messages.value;
-
-    return [...rows].reverse().find((item) => item.role === "user")?.content || "";
-};
-
-const regenerateKeywordResult = async (message) => {
-    const meta = metadataFrom(message);
-    const oldPayload = isPlainObject(meta.request_payload) ? meta.request_payload : {};
-    const text = String(oldPayload.user_message || findUserInputBeforeMessage(message) || "").trim();
-    if (!text) return;
-
-    await submitKeywordRequest(text, {
-        regenerate: true,
-        previousOutput: compactKeywordPreviousOutput(message),
-        state: meta.state || message.responseState || toolState.value,
-    });
-};
-
-const startRefine = async (message) => {
-    if (message?.responseState) {
-        toolState.value = normalizeKeywordState(message.responseState);
-        persistState();
-    }
-
-    refineMode.value = true;
-    userMessage.value = "";
+const focusFirstOptionField = async () => {
     await nextTick();
-    textareaRef.value?.focus();
+    const panel = optionsPanelRef.value;
+    const field = panel?.querySelector?.(
+        "textarea:not([disabled]), input:not([disabled]):not([type='hidden']), select:not([disabled])"
+    );
+    field?.focus?.();
+};
+
+const editMessageOptions = async (message) => {
+    const toolId = resolveMessageSubToolId(message);
+    const state = responseStateFrom(message, toolId) || responseStateFrom({ metadata: metadataFrom(message) }, toolId);
+
+    if (!state) return;
+
+    toolStates.value[toolId] = normalizeToolState(state, toolId);
+    refineMode.value = false;
+    userMessage.value = "";
+    optionsPanelRef.value?.setAttribute?.("open", "");
+    persistState(activeConversation.value?.uuid);
+    await focusFirstOptionField();
 };
 
 const initialize = async () => {
@@ -1694,15 +1557,15 @@ watch(
     }
 );
 
-const KeywordGeneratorResult = defineComponent({
-    name: "KeywordGeneratorResult",
+const SeoToolResult = defineComponent({
+    name: "SeoToolResult",
     props: {
         message: { type: Object, required: true },
         results: { type: Array, default: () => [] },
         labels: { type: Object, required: true },
         copiedKey: { type: String, default: "" },
     },
-    emits: ["copy-keyword", "copy-all", "regenerate"],
+    emits: ["copy-result", "copy-all", "edit-options"],
     setup(props, { emit }) {
         const tw = {
             shell: "grid w-full max-w-[720px] min-w-0 gap-0 max-[900px]:max-w-full",
@@ -1717,20 +1580,18 @@ const KeywordGeneratorResult = defineComponent({
             item: "min-w-0 border-b border-[#e5e7eb] bg-white last:border-b-0",
             row: "grid min-w-0 grid-cols-[34px_minmax(0,1fr)_34px] items-start gap-3 px-3.5 pb-2 pt-3 max-sm:grid-cols-[30px_minmax(0,1fr)_32px] max-sm:gap-[9px] max-sm:p-[11px]",
             index: "grid h-7 w-7 place-items-center rounded-[9px] bg-gradient-to-br from-[#123f6d] to-[#1f87c9] font-extrabold text-white",
-            textWrap: "grid min-w-0 gap-1",
+            textWrap: "min-w-0 break-words text-[#15324b] leading-7 [overflow-wrap:anywhere]",
             keywordText: "block break-words text-[#15324b] leading-7 [overflow-wrap:anywhere]",
             subject: "block text-[#687b8e] leading-6 [overflow-wrap:anywhere]",
             copyButton: "grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[10px] border border-[#d1d5db] bg-white p-0 text-[#111827] transition-colors hover:bg-[#f9fafb] disabled:cursor-not-allowed disabled:opacity-60",
-            meta: "flex flex-wrap gap-1.5 px-[60px] pb-3 max-sm:ps-[50px] max-sm:pe-[11px]",
-            chip: "max-w-full rounded-full border border-[#d1d5db] bg-[#f9fafb] px-2 py-1 text-[11px] text-[#374151] [overflow-wrap:anywhere]",
+            actionBar: "flex justify-start border-t border-[#e5e7eb] bg-[#fbfdff] px-3.5 py-2",
+            editButton: "inline-flex items-center gap-1.5 rounded-[10px] border border-[#d1d5db] bg-white px-3 py-2 text-xs font-semibold text-[#123f6d] transition-colors hover:bg-[#f3faff]",
         };
-
-        const tag = (value) => value
-            ? h("span", { class: tw.chip }, value)
-            : null;
 
         const copyText = (item) => String(item?.text || "").trim();
         const allCopyKey = `${props.message.localKey}:all`;
+        const resultTitle = () => props.labels.resultTitle
+            || (document.documentElement.dir === "rtl" ? "النتيجة" : "Result");
 
         return () => h("div", { class: tw.shell }, [
             h("div", { class: tw.copyBar }, [
@@ -1751,32 +1612,27 @@ const KeywordGeneratorResult = defineComponent({
             h("div", { class: tw.frame }, [
                 h("div", { class: tw.frameHeader }, [
                     h("div", { class: tw.titleWrap }, [
-                        h("strong", { class: tw.title }, "النتيجة"),
+                        h("strong", { class: tw.title }, resultTitle()),
                         h("small", { class: tw.count }, `${props.results.length} ${props.labels.resultsCount}`),
                     ]),
                 ]),
 
                 h("div", { class: tw.list }, props.results.map((item, index) => {
                     const key = `${props.message.localKey}:${item.id || index}`;
-                    const tags = [
-                        tag(item.type || item.meta?.type),
-                        tag(item.intent || item.meta?.intent),
-                        tag(item.cluster || item.meta?.cluster),
-                    ].filter(Boolean);
 
                     return h("section", { class: tw.item, key }, [
                         h("div", { class: tw.row }, [
-                            h("span", { class: tw.index }, String(item.id || index + 1)),
-                            h("div", { class: tw.textWrap }, [
-                                h("strong", { class: tw.keywordText }, item.text || item.title),
-                                item.subject ? h("small", { class: tw.subject }, item.subject) : null,
-                            ]),
+                            h("span", { class: tw.index }, String(index + 1)),
+                            h("div", {
+                                class: tw.textWrap,
+                                innerHTML: formatMessage(item.text || ""),
+                            }),
                             h("button", {
                                 class: tw.copyButton,
                                 type: "button",
                                 title: props.copiedKey === key ? props.labels.copied : props.labels.copy,
                                 "aria-label": props.copiedKey === key ? props.labels.copied : props.labels.copy,
-                                onClick: () => emit("copy-keyword", { text: copyText(item), key }),
+                                onClick: () => emit("copy-result", { text: copyText(item), key }),
                             }, [
                                 h("i", {
                                     class: props.copiedKey === key
@@ -1785,64 +1641,24 @@ const KeywordGeneratorResult = defineComponent({
                                 }),
                             ]),
                         ]),
-                        tags.length ? h("div", { class: tw.meta }, tags) : null,
                     ]);
                 })),
-            ]),
 
-            h("div", { class: tw.regenerateBar }, [
-                h("button", {
-                    class: tw.regenerateButton,
-                    type: "button",
-                    onClick: () => emit("regenerate", props.message),
-                }, [
-                    h("i", { class: "bi bi-arrow-clockwise text-[#1f87c9]" }),
-                    h("span", {}, props.labels.regenerate),
+                h("div", { class: tw.actionBar }, [
+                    h("button", {
+                        class: tw.editButton,
+                        type: "button",
+                        onClick: () => emit("edit-options", props.message),
+                    }, [
+                        h("i", { class: "bi bi-sliders text-[#1f87c9]" }),
+                        h("span", {}, props.labels.editOptions),
+                    ]),
                 ]),
             ]),
         ]);
     },
 });
 
-const MetaDescriptionResult = defineComponent({
-    name: "MetaDescriptionResult",
-    props: {
-        message: { type: Object, required: true },
-        results: { type: Array, default: () => [] },
-        maxCharacters: { type: Number, default: 160 },
-        labels: { type: Object, required: true },
-        copiedKey: { type: String, default: "" },
-    },
-    emits: ["copy-result"],
-    setup(props, { emit }) {
-        return () => h("div", { class: "meta-description-results" },
-            props.results.map((item, index) => {
-                const key = `${props.message.localKey}:meta:${item.id || index}`;
-                const count = Number(item.characters) || [...String(item.text || "")].length;
-                const limit = Number(item.maxCharacters) || props.maxCharacters || 160;
-
-                return h("section", { class: "meta-description-card", key }, [
-                    h("div", { class: "meta-description-header" }, [
-                        h("strong", {}, `${index + 1}`),
-                        h("button", {
-                            type: "button",
-                            title: props.copiedKey === key ? props.labels.copied : props.labels.copy,
-                            onClick: () => emit("copy-result", { text: item.text, key }),
-                        }, [
-                            h("i", {
-                                class: props.copiedKey === key ? "bi bi-check2" : "bi bi-copy",
-                            }),
-                        ]),
-                    ]),
-                    h("p", { class: "meta-description-text" }, item.text),
-                    h("small", { class: "meta-description-count" },
-                        `${count} / ${limit} ${document.documentElement.dir === "rtl" ? "حرف" : "characters"}`
-                    ),
-                ]);
-            })
-        );
-    },
-});
 </script>
 
 <style scoped>
@@ -2167,110 +1983,6 @@ button:disabled {
     white-space: pre-wrap;
 }
 
-.meta-description-results {
-    display: grid;
-    min-width: min(680px, 68vw);
-    gap: 12px;
-}
-
-.meta-description-card {
-    padding: 14px;
-    border: 1px solid #d6e9f4;
-    border-radius: 14px;
-    background: #fbfdff;
-}
-
-.meta-description-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.meta-description-header strong {
-    display: grid;
-    width: 28px;
-    height: 28px;
-    place-items: center;
-    border-radius: 9px;
-    color: #fff;
-    background: var(--navy);
-}
-
-.meta-description-header button {
-    width: 34px;
-    height: 34px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    color: var(--navy);
-    background: #fff;
-}
-
-.meta-description-text {
-    margin: 0;
-    line-height: 1.75;
-    white-space: pre-wrap;
-}
-
-.meta-description-count {
-    display: block;
-    margin-top: 8px;
-    color: var(--muted);
-}
-
-.result-list {
-    display: grid;
-    gap: 12px;
-    min-width: min(680px, 68vw);
-}
-
-.message-content+.result-list {
-    margin-top: 14px;
-}
-
-.result-card {
-    overflow: hidden;
-    border: 1px solid #d6e9f4;
-    border-radius: 14px;
-    background: #fbfdff;
-}
-
-.result-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 13px;
-    border-bottom: 1px solid #e2eef5;
-    color: var(--navy);
-    background: #f0f8fc;
-}
-
-.result-header button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 9px;
-    border: 0;
-    border-radius: 8px;
-    color: var(--blue);
-    background: #fff;
-}
-
-.result-text {
-    padding: 15px;
-    color: var(--ink);
-}
-
-.result-subject {
-    display: inline-block;
-    margin: 12px 15px 0;
-    padding: 4px 8px;
-    border-radius: 999px;
-    color: var(--blue);
-    background: #eaf6fc;
-}
-
 .response-meta {
     display: flex;
     flex-wrap: wrap;
@@ -2559,9 +2271,6 @@ button:disabled {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .result-list {
-        min-width: 0;
-    }
 }
 
 @media (max-width: 560px) {
