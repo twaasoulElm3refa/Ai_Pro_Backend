@@ -323,6 +323,109 @@ const directSeoText = (row = {}) => {
         ?? "";
 };
 
+const normalizeToolResultItem = (item, index = 0) => {
+    if (typeof item === "string") {
+        const parsed = parseLooseJson(item);
+        if (Array.isArray(parsed?.results)) return normalizeToolResultItems(parsed.results);
+
+        item = { text: item };
+    }
+
+    if (!isPlainObject(item)) return null;
+
+    const rawText = item.text ?? item.content ?? item.description ?? item.meta_description ?? "";
+    const parsedText = typeof rawText === "string" ? parseLooseJson(rawText) : null;
+    if (Array.isArray(parsedText?.results)) return normalizeToolResultItems(parsedText.results);
+
+    const text = cleanOutputText(rawText);
+    if (!text || looksLikeJsonText(text) || reasoningPattern.test(text)) return null;
+
+    return {
+        id: Number(item.id) || index + 1,
+        text,
+        title: item.title ?? null,
+        subject: item.subject ?? null,
+        meta: isPlainObject(item.meta) ? item.meta : {},
+    };
+};
+
+const normalizeToolResultItems = (items = []) =>
+    (Array.isArray(items) ? items : [])
+        .flatMap((item, index) => {
+            const normalized = normalizeToolResultItem(item, index);
+            return Array.isArray(normalized) ? normalized : [normalized];
+        })
+        .filter(Boolean)
+        .map((item, index) => ({ ...item, id: Number(item.id) || index + 1 }));
+
+const collectToolResponseLayers = (source = {}) => {
+    const layers = [];
+    const queue = [source];
+    const seen = new Set();
+
+    while (queue.length && layers.length < 12) {
+        const current = queue.shift();
+        if (!isPlainObject(current) || seen.has(current)) continue;
+
+        seen.add(current);
+        layers.push(current);
+
+        ["data", "response", "raw"].forEach((key) => {
+            if (isPlainObject(current[key])) queue.push(current[key]);
+        });
+    }
+
+    return layers;
+};
+
+const normalizeLastOutputResults = (value) => {
+    const text = cleanOutputText(value);
+    if (!text) return [];
+
+    const parsed = parseLooseJson(text);
+    if (Array.isArray(parsed?.results)) return normalizeToolResultItems(parsed.results);
+
+    return text
+        .split(/\n+/)
+        .map((line, index) => ({
+            id: index + 1,
+            text: cleanOutputText(line),
+            title: null,
+            subject: null,
+            meta: {},
+        }))
+        .filter((item) => item.text.length > 0);
+};
+
+const normalizeToolResults = (response) => {
+    if (!response) return [];
+
+    const layers = collectToolResponseLayers(response);
+
+    for (const layer of layers) {
+        for (const items of [layer.results, layer.normalized_results]) {
+            const normalized = normalizeToolResultItems(items);
+            if (normalized.length) return normalized;
+        }
+    }
+
+    for (const layer of layers) {
+        const state = isPlainObject(layer.state) ? layer.state : null;
+        const responseState = isPlainObject(layer.responseState) ? layer.responseState : null;
+        const fromState = normalizeLastOutputResults(state?.last_output ?? responseState?.last_output);
+        if (fromState.length) return fromState;
+    }
+
+    for (const layer of layers) {
+        for (const value of [layer.content, layer.output, layer.reply, layer.text, layer.message]) {
+            const normalized = normalizeLastOutputResults(value);
+            if (normalized.length) return normalized;
+        }
+    }
+
+    return [];
+};
+
 const normalizeSeoTextItem = (item, index = 0) => {
     const rawText = directSeoText(item);
     const parsedText = typeof rawText === "string" ? parseLooseJson(rawText) : null;
@@ -387,6 +490,9 @@ const collectSeoCandidates = (source = {}) => {
 };
 
 const normalizeSeoToolResults = (source = {}) => {
+    const directResults = normalizeToolResults(source);
+    if (directResults.length) return directResults;
+
     for (const candidate of collectSeoCandidates(source)) {
         if (Array.isArray(candidate)) {
             const normalized = normalizeSeoItems(candidate);
@@ -982,6 +1088,8 @@ const mapMessage = (message = {}, index = 0) => {
         state: meta.state || message.state,
         request_payload: meta.request_payload || message.request_payload,
         results: meta.normalized_results || meta.results || message.results,
+        normalized_results: meta.normalized_results || message.normalized_results,
+        raw: message.raw || meta.raw || meta.raw_response,
     };
     const seoToolResults = seoTool ? normalizeSeoToolResults(responsePayload) : [];
     const rawContent = String(message.content || meta.message || "");
@@ -1001,6 +1109,9 @@ const mapMessage = (message = {}, index = 0) => {
         keywordResults: subToolId === KEYWORD_GENERATOR_SUB_TOOL_ID ? seoToolResults : [],
         metaDescriptionResults: subToolId === META_DESCRIPTION_SUB_TOOL_ID ? seoToolResults : [],
         seoToolResults,
+        results: seoTool ? seoToolResults : message.results,
+        count: Number(message.count || meta.count || seoToolResults.length || 0),
+        raw: message.raw || meta.raw || meta.raw_response || null,
         is_error: Boolean(message.is_error || meta.success === false || meta.type === "error"),
         typing: Boolean(message.typing),
     };
@@ -1378,21 +1489,32 @@ const submitKeywordRequest = async (text, options = {}) => {
         )) {
             const metadata = {
                 type: directPayload.type || "result",
-                tool: activeTool.value.toolKey,
-                tool_key: activeTool.value.toolKey,
-                model_key: activeTool.value.modelKey,
-                sub_tool_id: activeTool.value.id,
+                tool: directPayload.tool || activeTool.value.toolKey,
+                tool_key: directPayload.tool_key || directPayload.tool || activeTool.value.toolKey,
+                model_key: directPayload.model_key || activeTool.value.modelKey,
+                sub_tool_id: directPayload.sub_tool_id || activeTool.value.id,
                 state: normalizeToolState(directPayload.state || requestState),
                 request_payload: payload,
                 normalized_results: directResults,
                 results: Array.isArray(directPayload.results) ? directPayload.results : [],
                 message: directPayload.message || "",
+                count: Number(directPayload.count || directResults.length || 0),
+                raw_response: directPayload,
             };
 
             messages.value.push(mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
                 content: directOutput,
+                type: directPayload.type || "result",
+                tool: metadata.tool,
+                tool_key: metadata.tool_key,
+                model_key: metadata.model_key,
+                sub_tool_id: metadata.sub_tool_id,
+                results: directResults,
+                state: metadata.state,
+                count: metadata.count,
+                raw: directPayload,
                 metadata,
                 created_at: new Date().toISOString(),
             }));
@@ -1673,6 +1795,7 @@ const SeoToolResult = defineComponent({
 
         const copyText = (item) => String(item?.text || "").trim();
         const allCopyKey = `${props.message.localKey}:all`;
+        const resultCount = () => Number(props.message.count || props.results.length || 0);
         const resultTitle = () => props.labels.resultTitle
             || (document.documentElement.dir === "rtl" ? "النتيجة" : "Result");
 
@@ -1696,7 +1819,7 @@ const SeoToolResult = defineComponent({
                 h("div", { class: tw.frameHeader }, [
                     h("div", { class: tw.titleWrap }, [
                         h("strong", { class: tw.title }, resultTitle()),
-                        h("small", { class: tw.count }, `${props.results.length} ${props.labels.resultsCount}`),
+                        h("small", { class: tw.count }, `${resultCount()} ${props.labels.resultsCount}`),
                     ]),
                 ]),
 
