@@ -21,6 +21,7 @@ class ChatSeoToolService
     public const META_DESCRIPTION_SUB_TOOL_ID = 14;
     public const CONTENT_ANALYZER_SUB_TOOL_ID = 15;
     public const CONTENT_OPTIMIZER_SUB_TOOL_ID = 16;
+    public const AI_DETECTOR_SUB_TOOL_ID = 17;
 
     private const TOOLS = [
         self::KEYWORD_GENERATOR_SUB_TOOL_ID => [
@@ -46,6 +47,12 @@ class ChatSeoToolService
             'tool_key' => 'ai_content_optimizer',
             'model_key' => 'content_optimizer',
             'endpoint' => 'tasks/content-optimizer/chat',
+        ],
+        self::AI_DETECTOR_SUB_TOOL_ID => [
+            'name' => 'AI Detector',
+            'tool_key' => 'ai_detector',
+            'model_key' => 'ai_detector',
+            'endpoint' => 'tasks/ai-detector/chat',
         ],
     ];
 
@@ -91,13 +98,21 @@ class ChatSeoToolService
             abort(403, 'Conversation does not belong to the authenticated user.');
         }
 
+        $originalContent = $content;
         $state = $this->normalizeState($toolId, is_array($data['state'] ?? null) ? $data['state'] : [], $content);
         $state['last_output'] = null;
         $content = $this->contentForTool($toolId, $content, $state);
+        $chatMessageContent = $toolId === self::AI_DETECTOR_SUB_TOOL_ID
+            ? trim($originalContent)
+            : $content;
 
         if ($content === '') {
             throw ValidationException::withMessages([
-                'user_message' => ['Message content is required.'],
+                'user_message' => [
+                    $toolId === self::AI_DETECTOR_SUB_TOOL_ID
+                        ? 'Text to analyze is required.'
+                        : 'Message content is required.',
+                ],
             ]);
         }
 
@@ -110,7 +125,7 @@ class ChatSeoToolService
             'user_id' => $userId,
             'sub_tool_id' => $toolId,
             'conversation_uuid' => $conversation->uuid,
-            'user_message' => $content,
+            'user_message' => $toolId === self::AI_DETECTOR_SUB_TOOL_ID ? $chatMessageContent : $content,
             'content' => $content,
             'tool' => $tool['tool_key'],
             'tool_key' => $tool['tool_key'],
@@ -120,7 +135,7 @@ class ChatSeoToolService
             'idempotency_key' => $idempotencyKey,
         ];
 
-        $userMessage = $this->storeUserMessage($conversation, $content, $idempotencyKey, [
+        $userMessage = $this->storeUserMessage($conversation, $chatMessageContent !== '' ? $chatMessageContent : $content, $idempotencyKey, [
             'type' => 'seo_tool_request',
             'tool' => $tool['tool_key'],
             'tool_key' => $tool['tool_key'],
@@ -324,7 +339,9 @@ class ChatSeoToolService
             'sub_tool_id' => $toolId,
             'tool' => (string) ($metadata['tool'] ?? $tool['tool_key']),
             'tool_key' => (string) ($metadata['tool_key'] ?? $metadata['tool'] ?? $tool['tool_key']),
+            'provider' => (string) ($metadata['provider'] ?? 'openrouter'),
             'model_key' => (string) ($metadata['model_key'] ?? $tool['model_key']),
+            'user_id' => $userId,
             'conversation_uuid' => $conversation->uuid,
             'message_id' => $assistantMessage->id,
             'assistant_message_id' => $assistantMessage->id,
@@ -332,7 +349,9 @@ class ChatSeoToolService
             'results' => $normalizedResults,
             'normalized_results' => $normalizedResults,
             'count' => count($normalizedResults),
-            'message' => '',
+            'message' => $toolId === self::AI_DETECTOR_SUB_TOOL_ID
+                ? 'AI content detection analysis completed successfully.'
+                : '',
             'request_payload' => is_array($metadata['request_payload'] ?? null) ? $metadata['request_payload'] : null,
             'usage' => $this->normalizeUsage($metadata['usage'] ?? []),
             'cost' => $this->normalizeCost($metadata['cost'] ?? []),
@@ -347,7 +366,13 @@ class ChatSeoToolService
             'sub_tool_id' => $toolId,
             'title' => $tool['name'],
             'conversation_uuid' => $conversation->uuid,
-            'body' => $this->buildUserPrompt($toolId, $state, $requestPayload['user_message']),
+            'body' => $this->buildUserPrompt(
+                $toolId,
+                $state,
+                $toolId === self::AI_DETECTOR_SUB_TOOL_ID
+                    ? $requestPayload['content']
+                    : $requestPayload['user_message']
+            ),
             'user_message' => $requestPayload['user_message'],
             'content' => $requestPayload['content'],
             'tool' => $tool['tool_key'],
@@ -370,6 +395,43 @@ class ChatSeoToolService
             self::META_DESCRIPTION_SUB_TOOL_ID => $common.' Generate concise SEO meta descriptions. Each result text must be a finished meta description. Include meta.characters and meta.max_characters.',
             self::CONTENT_ANALYZER_SUB_TOOL_ID => $common.' Analyze the content for SEO, readability, structure, keyword usage, and requested checks. Put the formatted readable analysis inside one result text.',
             self::CONTENT_OPTIMIZER_SUB_TOOL_ID => $common.' Optimize the content while preserving meaning. Put the improved text inside one result text.',
+            self::AI_DETECTOR_SUB_TOOL_ID => <<<'PROMPT'
+Return valid JSON only.
+Do not include markdown.
+Do not include explanations outside JSON.
+You are an AI content detection assistant.
+
+Analyze the provided text for possible AI-writing signals.
+Be cautious and never claim certainty.
+Do not say the text is definitely AI-written or definitely human-written.
+Give a likelihood estimate only when include_score is true.
+Use evidence based on style, structure, specificity, repetition, generic wording, and naturalness.
+If include_rewrite_tips is true, include practical tips to make the text sound more natural.
+
+Use this exact schema:
+{
+  "results": [
+    {
+      "id": 1,
+      "text": "Final readable analysis here.",
+      "meta": {
+        "ai_likelihood_score": 55,
+        "signals": ["signal 1", "signal 2"],
+        "rewrite_tips": ["tip 1", "tip 2"]
+      }
+    }
+  ]
+}
+
+Rules:
+- ai_likelihood_score must be between 0 and 100.
+- If include_score is false, omit ai_likelihood_score or set it to null.
+- If include_evidence is false, return an empty signals array.
+- If include_rewrite_tips is false, return an empty rewrite_tips array.
+- results[0].text must be readable to the end user.
+- Do not include chain-of-thought or hidden reasoning.
+- Do not include phrases like "We need to" or "Let's analyze".
+PROMPT,
             default => $common,
         };
     }
@@ -397,6 +459,7 @@ class ChatSeoToolService
             self::META_DESCRIPTION_SUB_TOOL_ID => 'Generate the requested number of meta descriptions and respect max_characters.',
             self::CONTENT_ANALYZER_SUB_TOOL_ID => 'Return a clear analysis in readable text.',
             self::CONTENT_OPTIMIZER_SUB_TOOL_ID => 'Return the optimized content only unless include_explanation is true.',
+            self::AI_DETECTOR_SUB_TOOL_ID => 'Analyze the text for possible AI-writing signals and return one cautious readable detector analysis.',
             default => 'Return clean results.',
         };
 
@@ -461,11 +524,32 @@ class ChatSeoToolService
                 'extra_options' => ['Natural keyword usage', 'Improve structure'],
                 'last_output' => null,
             ],
+            self::AI_DETECTOR_SUB_TOOL_ID => [
+                'content' => null,
+                'language' => 'Auto Detect',
+                'analysis_depth' => 'Medium',
+                'detection_focus' => 'AI writing signals',
+                'include_score' => true,
+                'include_evidence' => true,
+                'include_rewrite_tips' => true,
+                'extra_options' => ['Be cautious', 'Do not claim certainty'],
+                'last_output' => null,
+            ],
             default => [],
         };
 
         $arrayKeys = ['extra_options', 'checks', 'secondary_keywords'];
-        $booleanKeys = ['include_long_tail', 'include_clusters', 'include_cta', 'include_recommendations', 'preserve_meaning', 'include_explanation'];
+        $booleanKeys = [
+            'include_long_tail',
+            'include_clusters',
+            'include_cta',
+            'include_recommendations',
+            'preserve_meaning',
+            'include_explanation',
+            'include_score',
+            'include_evidence',
+            'include_rewrite_tips',
+        ];
         $integerKeys = ['results_count', 'max_characters'];
         $normalized = $base;
 
@@ -496,7 +580,9 @@ class ChatSeoToolService
         }
 
         if (array_key_exists('content', $normalized) && ! $normalized['content'] && trim($content) !== '') {
-            $normalized['content'] = trim($content);
+            $normalized['content'] = $toolId === self::AI_DETECTOR_SUB_TOOL_ID
+                ? $this->extractAiDetectorContent($content)
+                : trim($content);
         }
 
         if ($toolId === self::KEYWORD_GENERATOR_SUB_TOOL_ID && ! $normalized['topic'] && trim($content) !== '') {
@@ -510,7 +596,38 @@ class ChatSeoToolService
                 : 3;
         }
 
+        if ($toolId === self::AI_DETECTOR_SUB_TOOL_ID) {
+            $normalized['content'] = $this->extractAiDetectorContent((string) ($normalized['content'] ?: $content));
+            $normalized['extra_options'] = $normalized['extra_options'] !== []
+                ? $normalized['extra_options']
+                : ['Be cautious', 'Do not claim certainty'];
+        }
+
         return $normalized;
+    }
+
+    private function extractAiDetectorContent(string $userMessage): string
+    {
+        $text = trim($userMessage);
+
+        if ($text === '') {
+            return '';
+        }
+
+        foreach ([
+            '/AI-written:\s*([\s\S]+)$/iu',
+            '/ai generated:\s*([\s\S]+)$/iu',
+            '/content:\s*([\s\S]+)$/iu',
+            '/text:\s*([\s\S]+)$/iu',
+            '/النص:\s*([\s\S]+)$/iu',
+            '/المحتوى:\s*([\s\S]+)$/iu',
+        ] as $pattern) {
+            if (preg_match($pattern, $text, $match) && trim((string) ($match[1] ?? '')) !== '') {
+                return trim((string) $match[1]);
+            }
+        }
+
+        return $text;
     }
 
     private function providerResponseIsError(array $providerResponse): bool
@@ -551,6 +668,7 @@ class ChatSeoToolService
 
         return trim((string) match ($toolId) {
             self::KEYWORD_GENERATOR_SUB_TOOL_ID => $state['topic'] ?? '',
+            self::AI_DETECTOR_SUB_TOOL_ID => $state['content'] ?? '',
             default => $state['content'] ?? '',
         });
     }
@@ -635,14 +753,58 @@ class ChatSeoToolService
                 $meta['max_characters'] = (int) ($state['max_characters'] ?? ($meta['max_characters'] ?? 160));
             }
 
-            $normalized[] = [
+            if ($toolId === self::AI_DETECTOR_SUB_TOOL_ID) {
+                $meta = $this->normalizeAiDetectorMeta($meta, $state);
+            }
+
+            $item = [
                 'id' => is_numeric($result['id'] ?? null) ? (int) $result['id'] : count($normalized) + 1,
                 'text' => $text,
+                'title' => $this->toNullableString($result['title'] ?? null),
+                'subject' => $this->toNullableString($result['subject'] ?? null),
                 'meta' => $meta,
             ];
+
+            $normalized[] = $item;
         }
 
         return $normalized;
+    }
+
+    private function normalizeAiDetectorMeta(array $meta, array $state): array
+    {
+        if (($state['include_score'] ?? true) && array_key_exists('ai_likelihood_score', $meta)) {
+            $score = is_numeric($meta['ai_likelihood_score']) ? (int) $meta['ai_likelihood_score'] : null;
+            $meta['ai_likelihood_score'] = $score === null ? null : max(0, min(100, $score));
+        } elseif (! ($state['include_score'] ?? true)) {
+            unset($meta['ai_likelihood_score']);
+        }
+
+        $meta['signals'] = ($state['include_evidence'] ?? true)
+            ? $this->normalizeStringList($meta['signals'] ?? [])
+            : [];
+
+        $meta['rewrite_tips'] = ($state['include_rewrite_tips'] ?? true)
+            ? $this->normalizeStringList($meta['rewrite_tips'] ?? [])
+            : [];
+
+        return $meta;
+    }
+
+    private function normalizeStringList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = preg_split('/\r?\n|,/u', $value) ?: [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(fn ($item) => trim((string) $item), $value),
+            fn ($item) => $item !== ''
+        ));
     }
 
     private function extractRawOutput(mixed $providerResponse): string

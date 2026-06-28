@@ -13,7 +13,7 @@ class MessageRequest extends FormRequest
 {
     private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
     private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
-    private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16];
+    private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17];
 
     /**
      * Determine if the user is authorized to make this request.
@@ -219,12 +219,14 @@ class MessageRequest extends FormRequest
                 'ai_meta_description_generator',
                 'ai_content_analyzer',
                 'ai_content_optimizer',
+                'ai_detector',
             ], true)
             || in_array($modelKey, [
                 'keyword_generator',
                 'meta_description_generator',
                 'content_analyzer',
                 'content_optimizer',
+                'ai_detector',
             ], true);
 
         if (! $isChat3SeoTool) {
@@ -244,7 +246,9 @@ class MessageRequest extends FormRequest
             }
         }
 
-        $state['results_count'] = $this->positiveInteger($state['results_count'] ?? null, 3, 100);
+        if ($subToolId !== 17 && $toolKey !== 'ai_detector' && $modelKey !== 'ai_detector') {
+            $state['results_count'] = $this->positiveInteger($state['results_count'] ?? null, 3, 100);
+        }
 
         if (! is_array($state['extra_options'] ?? null)) {
             $state['extra_options'] = [];
@@ -371,6 +375,11 @@ class MessageRequest extends FormRequest
             'state.seo_level' => ['nullable', 'string', 'max:100'],
             'state.preserve_meaning' => ['nullable', 'boolean'],
             'state.include_explanation' => ['nullable', 'boolean'],
+            'state.analysis_depth' => ['nullable', 'string', 'max:100'],
+            'state.detection_focus' => ['nullable', 'string', 'max:150'],
+            'state.include_score' => ['nullable', 'boolean'],
+            'state.include_evidence' => ['nullable', 'boolean'],
+            'state.include_rewrite_tips' => ['nullable', 'boolean'],
             'state.last_output' => ['nullable', 'string', 'max:100000'],
             'state.extra_options' => ['nullable', 'array'],
             'state.extra_options.*' => ['string', 'max:150'],
