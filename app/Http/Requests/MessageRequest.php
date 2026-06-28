@@ -13,7 +13,7 @@ class MessageRequest extends FormRequest
 {
     private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
     private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
-    private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18];
+    private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
      * Determine if the user is authorized to make this request.
@@ -221,6 +221,7 @@ class MessageRequest extends FormRequest
                 'ai_content_optimizer',
                 'ai_detector',
                 'ai_humanizer',
+                'business_name_generator',
             ], true)
             || in_array($modelKey, [
                 'keyword_generator',
@@ -229,6 +230,7 @@ class MessageRequest extends FormRequest
                 'content_optimizer',
                 'ai_detector',
                 'ai_humanizer',
+                'business_name_generator',
             ], true);
 
         if (! $isChat3SeoTool) {
@@ -248,7 +250,11 @@ class MessageRequest extends FormRequest
             }
         }
 
-        if (! in_array($subToolId, [17, 18], true) && ! in_array($toolKey, ['ai_detector', 'ai_humanizer'], true) && ! in_array($modelKey, ['ai_detector', 'ai_humanizer'], true)) {
+        if (
+            ! in_array($subToolId, [17, 18, 20], true)
+            && ! in_array($toolKey, ['ai_detector', 'ai_humanizer', 'business_name_generator'], true)
+            && ! in_array($modelKey, ['ai_detector', 'ai_humanizer', 'business_name_generator'], true)
+        ) {
             $state['results_count'] = $this->positiveInteger($state['results_count'] ?? null, 3, 100);
         }
 
@@ -350,6 +356,7 @@ class MessageRequest extends FormRequest
             'state.industry' => ['nullable', 'string', 'max:150'],
             'state.target_audience' => ['nullable', 'string', 'max:250'],
             'state.language' => ['nullable', 'string', 'max:80'],
+            'state.business_idea' => ['nullable', 'string', 'max:5000'],
             'state.keyword_type' => ['nullable', 'string', 'max:100'],
             'state.search_intent' => ['nullable', 'string', 'max:100'],
             'state.location' => ['nullable', 'string', 'max:150'],
@@ -360,6 +367,7 @@ class MessageRequest extends FormRequest
             'state.page_title' => ['nullable', 'string', 'max:500'],
             'state.primary_keyword' => ['nullable', 'string', 'max:250'],
             'state.tone' => ['nullable', 'string', 'max:100'],
+            'state.name_style' => ['nullable', 'string', 'max:100'],
             'state.length' => ['nullable', 'string', 'max:100'],
             'state.max_characters' => ['nullable', 'integer', 'min:50', 'max:320'],
             'state.include_cta' => ['nullable', 'boolean'],
@@ -369,6 +377,10 @@ class MessageRequest extends FormRequest
             'state.audience' => ['nullable', 'string', 'max:250'],
             'state.checks' => ['nullable', 'array'],
             'state.checks.*' => ['string', 'max:100'],
+            'state.keywords' => ['nullable', 'array'],
+            'state.keywords.*' => ['string', 'max:100'],
+            'state.avoid_words' => ['nullable', 'array'],
+            'state.avoid_words.*' => ['string', 'max:100'],
             'state.detail_level' => ['nullable', 'string', 'max:100'],
             'state.include_recommendations' => ['nullable', 'boolean'],
             'state.optimization_goal' => ['nullable', 'string', 'max:250'],
@@ -377,6 +389,8 @@ class MessageRequest extends FormRequest
             'state.seo_level' => ['nullable', 'string', 'max:100'],
             'state.preserve_meaning' => ['nullable', 'boolean'],
             'state.preserve_keywords' => ['nullable', 'boolean'],
+            'state.include_slogans' => ['nullable', 'boolean'],
+            'state.include_domain_ideas' => ['nullable', 'boolean'],
             'state.include_explanation' => ['nullable', 'boolean'],
             'state.analysis_depth' => ['nullable', 'string', 'max:100'],
             'state.detection_focus' => ['nullable', 'string', 'max:150'],

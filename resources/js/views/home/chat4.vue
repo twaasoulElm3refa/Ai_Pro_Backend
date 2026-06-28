@@ -100,7 +100,68 @@
                             }"
                         >
                             <template v-if="message.role === 'assistant' && message.results?.length">
-                                <div class="ai-response-card">
+                                <template v-if="isBusinessNameMessage(message)">
+                                    <div class="business-response-card">
+                                        <div class="ai-response-header">
+                                            <div class="ai-response-title">
+                                                <i class="bi bi-stars"></i>
+                                                <span>{{ message.metadata?.title || labels.businessNameResultTitle }}</span>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                class="copy-card-button"
+                                                @click="copyText(getMessageText(message), `msg-${message.localKey}`)"
+                                            >
+                                                <i class="bi bi-copy"></i>
+                                                {{ copiedKey === `msg-${message.localKey}` ? labels.copied : labels.copyAll }}
+                                            </button>
+                                        </div>
+
+                                        <div class="business-result-list">
+                                            <article
+                                                v-for="(item, itemIndex) in message.results"
+                                                :key="`${message.localKey}-${item.id || itemIndex}`"
+                                                class="business-result-card"
+                                            >
+                                                <div class="result-header">
+                                                    <div class="result-title-stack">
+                                                        <strong>{{ item.title || `${labels.businessNameResultTitle} ${itemIndex + 1}` }}</strong>
+                                                        <span>{{ item.subject || labels.businessNameResultTitle }}</span>
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        @click="copyText(getResultCopyText(item, getMessageToolId(message)), `result-${message.localKey}-${item.id || itemIndex}`)"
+                                                    >
+                                                        <i class="bi bi-copy"></i>
+                                                        {{ copiedKey === `result-${message.localKey}-${item.id || itemIndex}` ? labels.copied : labels.copyResult }}
+                                                    </button>
+                                                </div>
+
+                                                <div class="business-result-body">
+                                                    <p class="business-name">{{ item.text }}</p>
+                                                    <p v-if="item.meta?.slogan" class="business-slogan">{{ item.meta.slogan }}</p>
+
+                                                    <div v-if="getBusinessDomains(item).length" class="business-domain-section">
+                                                        <span class="business-domain-label">{{ labels.domainIdeas }}</span>
+                                                        <div class="business-domain-list">
+                                                            <span
+                                                                v-for="domain in getBusinessDomains(item)"
+                                                                :key="domain"
+                                                                class="domain-chip"
+                                                            >
+                                                                {{ domain }}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div v-else class="ai-response-card">
                                     <div class="ai-response-header">
                                         <div class="ai-response-title">
                                             <i class="bi bi-stars"></i>
@@ -117,10 +178,7 @@
                                         </button>
                                     </div>
 
-                                    <div
-                                        class="ai-response-content"
-                                        v-html="formatMessage(getMessageText(message))"
-                                    ></div>
+                                    <div class="ai-response-content" v-html="formatMessage(getMessageText(message))"></div>
 
                                     <div
                                         v-if="message.results[0]?.meta?.ai_likelihood_score !== undefined"
@@ -197,7 +255,90 @@
                     </summary>
 
                     <form class="options-grid" @submit.prevent="applyOptions">
-                        <template v-if="isHumanizer">
+                        <template v-if="isBusinessNameTool">
+                            <label>
+                                <span>{{ labels.language }}</span>
+                                <select v-model="toolState.language">
+                                    <option>Auto Detect</option>
+                                    <option>Arabic</option>
+                                    <option>English</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>{{ labels.tone }}</span>
+                                <select v-model="toolState.tone">
+                                    <option>Creative</option>
+                                    <option>Professional</option>
+                                    <option>Friendly</option>
+                                    <option>Luxury</option>
+                                    <option>Modern</option>
+                                    <option>Simple</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>{{ labels.nameStyle }}</span>
+                                <select v-model="toolState.name_style">
+                                    <option>Brandable</option>
+                                    <option>Descriptive</option>
+                                    <option>Short</option>
+                                    <option>Modern</option>
+                                    <option>Arabic</option>
+                                    <option>English</option>
+                                    <option>Tech Style</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>{{ labels.industry }}</span>
+                                <input v-model="toolState.industry" type="text">
+                            </label>
+
+                            <label>
+                                <span>{{ labels.targetAudience }}</span>
+                                <input v-model="toolState.target_audience" type="text">
+                            </label>
+
+                            <label>
+                                <span>{{ labels.resultsCount }}</span>
+                                <input v-model.number="toolState.results_count" type="number" min="1" max="30">
+                            </label>
+
+                            <label class="wide">
+                                <span>{{ labels.keywords }}</span>
+                                <input
+                                    :value="serializeList(toolState.keywords)"
+                                    type="text"
+                                    placeholder="AI, marketing, tools"
+                                    @input="updateListField('keywords', $event.target.value)"
+                                >
+                            </label>
+
+                            <label class="wide">
+                                <span>{{ labels.avoidWords }}</span>
+                                <input
+                                    :value="serializeList(toolState.avoid_words)"
+                                    type="text"
+                                    placeholder="cheap, copy, old"
+                                    @input="updateListField('avoid_words', $event.target.value)"
+                                >
+                            </label>
+
+                            <fieldset class="wide checkbox-field">
+                                <legend>{{ labels.businessNameOptions }}</legend>
+                                <label class="checkbox-option">
+                                    <input v-model="toolState.include_slogans" type="checkbox">
+                                    <span>{{ labels.includeSlogans }}</span>
+                                </label>
+                                <label class="checkbox-option">
+                                    <input v-model="toolState.include_domain_ideas" type="checkbox">
+                                    <span>{{ labels.includeDomainIdeas }}</span>
+                                </label>
+                            </fieldset>
+                        </template>
+
+                        <template v-else-if="isHumanizer">
                             <label>
                                 <span>{{ labels.language }}</span>
                                 <select v-model="toolState.language">
@@ -383,15 +524,26 @@ const CHAT4_TOOLS = {
         sub_tool_id: 18,
         tool_key: "ai_humanizer",
         model_key: "ai_humanizer",
-        title_ar: " النصوص بالذكاء الاصطناعي",
+        title_ar: "أنسنة النصوص بالذكاء الاصطناعي",
         title_en: "AI Humanizer",
         subtitle_ar: "تحويل النص إلى صياغة طبيعية وأكثر بشرية",
         subtitle_en: "Rewrite AI-like text into natural human language",
     },
+    20: {
+        sub_tool_id: 20,
+        tool_key: "business_name_generator",
+        model_key: "business_name_generator",
+        title_ar: "مولد أسماء المشاريع",
+        title_en: "Business Name Generator",
+        subtitle_ar: "توليد أسماء مشاريع مميزة مع أفكار شعارات ودومينات",
+        subtitle_en: "Generate memorable business names with slogan and domain ideas",
+    },
 };
+
 const CHAT4_SUB_TOOL_IDS = Object.keys(CHAT4_TOOLS).map(Number);
 const DETECTOR_SUB_TOOL_ID = 17;
 const HUMANIZER_SUB_TOOL_ID = 18;
+const BUSINESS_NAME_SUB_TOOL_ID = 20;
 
 const route = useRoute();
 const router = useRouter();
@@ -409,6 +561,22 @@ const isArabic = computed(() =>
 
 const activeConversation = ref(null);
 const currentSubtool = ref(null);
+const conversations = ref([]);
+const messages = ref([]);
+const userMessage = ref("");
+const errorMessage = ref("");
+const loadingConversations = ref(false);
+const loadingMessages = ref(false);
+const creatingConversation = ref(false);
+const isSending = ref(false);
+const isAssistantTyping = ref(false);
+const deletingUuid = ref("");
+const sidebarOpen = ref(false);
+const messagesContainer = ref(null);
+const textareaRef = ref(null);
+const copiedKey = ref("");
+const optionsPanelRef = ref(null);
+
 const activeSubToolId = computed(() => {
     const candidates = [
         activeConversation.value?.sub_tool_id,
@@ -423,28 +591,38 @@ const activeSubToolId = computed(() => {
 
     return matched || DETECTOR_SUB_TOOL_ID;
 });
+
 const activeToolConfig = computed(() => CHAT4_TOOLS[activeSubToolId.value] || CHAT4_TOOLS[DETECTOR_SUB_TOOL_ID]);
 const isHumanizer = computed(() => Number(activeSubToolId.value) === HUMANIZER_SUB_TOOL_ID);
+const isBusinessNameTool = computed(() => Number(activeSubToolId.value) === BUSINESS_NAME_SUB_TOOL_ID);
 
 const labels = computed(() => isArabic.value ? {
     title: activeToolConfig.value.title_ar,
     subtitle: activeToolConfig.value.subtitle_ar,
     newChat: "محادثة جديدة",
-    creating: "جاري الإنشاء...",
+    creating: "جارٍ الإنشاء...",
     recent: "المحادثات الأخيرة",
-    loading: "جاري التحميل...",
+    loading: "جارٍ التحميل...",
     noChats: "لا توجد محادثات بعد",
     deleteChat: "حذف المحادثة",
-    loadingConversation: "جاري تحميل المحادثة...",
-    welcome: isHumanizer.value
-        ? "الصق النص الذي تريد , وسنحوله إلى صياغة طبيعية وسلسة مع الحفاظ على المعنى."
-        : "الصق النص أو اكتب طلبك، وسنحلل مؤشرات الأسلوب والبنية والتكرار بدون ادعاء اليقين.",
-    placeholder: isHumanizer.value
-        ? "الصق النص المراد أنسنته أو اكتب طلبك هنا..."
-        : "الصق النص المراد تحليله أو اكتب طلبك هنا...",
+    loadingConversation: "جارٍ تحميل المحادثة...",
+    welcome: isBusinessNameTool.value
+        ? "اكتب فكرة مشروعك وسنولد لك أسماء مناسبة مع شعارات قصيرة وأفكار دومينات عند الحاجة."
+        : isHumanizer.value
+            ? "الصق النص الذي تريد أنسنته، وسنحوله إلى صياغة طبيعية وسلسة مع الحفاظ على المعنى."
+            : "الصق النص أو اكتب طلبك، وسنحلل مؤشرات الأسلوب والبنية والتكرار بدون ادعاء اليقين.",
+    placeholder: isBusinessNameTool.value
+        ? "اكتب فكرة المشروع أو صف النشاط الذي تريد توليد أسماء له..."
+        : isHumanizer.value
+            ? "الصق النص المراد أنسنته أو اكتب طلبك هنا..."
+            : "الصق النص المراد تحليله أو اكتب طلبك هنا...",
     send: "إرسال",
     hint: "Enter للإرسال، وShift + Enter لسطر جديد",
-    options: isHumanizer.value ? "خيارات الأنسنة" : "خيارات التحليل",
+    options: isBusinessNameTool.value
+        ? "خيارات توليد الأسماء"
+        : isHumanizer.value
+            ? "خيارات الأنسنة"
+            : "خيارات التحليل",
     applyOptions: "تعديل الخيارات",
     resetOptions: "إعادة تعيين الخيارات",
     language: "اللغة",
@@ -455,7 +633,11 @@ const labels = computed(() => isArabic.value ? {
     includeEvidence: "إظهار الأدلة والمؤشرات",
     includeRewriteTips: "إظهار نصائح إعادة الصياغة",
     extraOptions: "خيارات إضافية",
-    aiResponseTitle: isHumanizer.value ? "النص بعد الأنسنة" : "نتيجة التحليل",
+    aiResponseTitle: isBusinessNameTool.value
+        ? "أسماء المشاريع المقترحة"
+        : isHumanizer.value
+            ? "النص بعد الأنسنة"
+            : "نتيجة التحليل",
     tone: "النبرة",
     audience: "الجمهور",
     humanizeLevel: "درجة الأنسنة",
@@ -464,19 +646,29 @@ const labels = computed(() => isArabic.value ? {
     preserveKeywords: "الحفاظ على الكلمات المفتاحية",
     humanizerOptions: "خيارات الأنسنة",
     humanizerResultTitle: "النص بعد الأنسنة",
-    score: "AI Likelihood Score",
-    signals: "Signals",
-    rewriteTips: "Rewrite Tips",
+    businessNameOptions: "خيارات توليد الأسماء",
+    businessNameResultTitle: "أسماء المشاريع المقترحة",
+    nameStyle: "أسلوب الاسم",
+    industry: "المجال",
+    targetAudience: "الجمهور المستهدف",
+    keywords: "كلمات مهمة",
+    avoidWords: "كلمات يجب تجنبها",
+    includeSlogans: "إضافة شعارات قصيرة",
+    includeDomainIdeas: "إضافة أفكار دومينات",
+    domainIdeas: "أفكار الدومينات",
+    score: "درجة احتمال الذكاء",
+    signals: "المؤشرات",
+    rewriteTips: "نصائح إعادة الصياغة",
     copy: "نسخ",
     copied: "تم النسخ",
-    copyFull: "نسخ التحليل الكامل",
     copyResult: "نسخ النتيجة",
     copyAll: "نسخ كل النتائج",
-    optionsApplied: "تم تحديث الخيارات. أرسل النص لتطبيقها.",
     authRequired: "يجب تسجيل الدخول أولاً.",
-    genericError: isHumanizer.value
-        ? "تعذر أنسنة النص الآن. يرجى المحاولة مرة أخرى."
-        : "تعذر تحليل المحتوى الآن. يرجى المحاولة مرة أخرى.",
+    genericError: isBusinessNameTool.value
+        ? "تعذر توليد أسماء المشاريع الآن. يرجى المحاولة مرة أخرى."
+        : isHumanizer.value
+            ? "تعذر أنسنة النص الآن. يرجى المحاولة مرة أخرى."
+            : "تعذر تحليل المحتوى الآن. يرجى المحاولة مرة أخرى.",
 } : {
     title: activeToolConfig.value.title_en,
     subtitle: activeToolConfig.value.subtitle_en,
@@ -487,15 +679,23 @@ const labels = computed(() => isArabic.value ? {
     noChats: "No chats yet",
     deleteChat: "Delete chat",
     loadingConversation: "Loading conversation...",
-    welcome: isHumanizer.value
-        ? "Paste text to humanize, and we will rewrite it into a natural, smooth version while preserving the meaning."
-        : "Paste text or ask for an analysis. The detector reviews style, structure, repetition, and specificity without claiming certainty.",
-    placeholder: isHumanizer.value
-        ? "Paste text to humanize or type your request..."
-        : "Paste text to analyze or type your request...",
+    welcome: isBusinessNameTool.value
+        ? "Describe your project and we will generate business names, short slogans, and domain ideas when needed."
+        : isHumanizer.value
+            ? "Paste text to humanize, and we will rewrite it into a natural, smooth version while preserving the meaning."
+            : "Paste text or ask for an analysis. The detector reviews style, structure, repetition, and specificity without claiming certainty.",
+    placeholder: isBusinessNameTool.value
+        ? "Describe the business idea or startup you want names for..."
+        : isHumanizer.value
+            ? "Paste text to humanize or type your request..."
+            : "Paste text to analyze or type your request...",
     send: "Send",
     hint: "Enter to send, Shift + Enter for a new line",
-    options: isHumanizer.value ? "Humanizer options" : "Detector options",
+    options: isBusinessNameTool.value
+        ? "Business name options"
+        : isHumanizer.value
+            ? "Humanizer options"
+            : "Detector options",
     applyOptions: "Apply options",
     resetOptions: "Reset options",
     language: "Language",
@@ -506,7 +706,11 @@ const labels = computed(() => isArabic.value ? {
     includeEvidence: "Include evidence",
     includeRewriteTips: "Include rewrite tips",
     extraOptions: "Extra options",
-    aiResponseTitle: isHumanizer.value ? "Humanized text" : "Analysis result",
+    aiResponseTitle: isBusinessNameTool.value
+        ? "Suggested business names"
+        : isHumanizer.value
+            ? "Humanized text"
+            : "Analysis result",
     tone: "Tone",
     audience: "Audience",
     humanizeLevel: "Humanize level",
@@ -515,25 +719,38 @@ const labels = computed(() => isArabic.value ? {
     preserveKeywords: "Preserve keywords",
     humanizerOptions: "Humanizer options",
     humanizerResultTitle: "Humanized text",
+    businessNameOptions: "Business name options",
+    businessNameResultTitle: "Suggested business names",
+    nameStyle: "Name style",
+    industry: "Industry",
+    targetAudience: "Target audience",
+    keywords: "Important keywords",
+    avoidWords: "Words to avoid",
+    includeSlogans: "Include slogans",
+    includeDomainIdeas: "Include domain ideas",
+    domainIdeas: "Domain ideas",
     score: "AI Likelihood Score",
     signals: "Signals",
     rewriteTips: "Rewrite Tips",
     copy: "Copy",
     copied: "Copied",
-    copyFull: "Copy full analysis",
     copyResult: "Copy result",
     copyAll: "Copy all results",
-    optionsApplied: "Options updated. Send text to apply them.",
     authRequired: "Please sign in first.",
-    genericError: isHumanizer.value
-        ? "Could not humanize the text right now. Please try again."
-        : "Could not analyze the content right now. Please try again.",
+    genericError: isBusinessNameTool.value
+        ? "Could not generate business names right now. Please try again."
+        : isHumanizer.value
+            ? "Could not humanize the text right now. Please try again."
+            : "Could not analyze the content right now. Please try again.",
 });
 
-const examplePrompt = computed(() => isHumanizer.value
-    ? "Humanize this text in Arabic: الذكاء الاصطناعي يقوم بتحسين عمليات إنشاء المحتوى بطريقة فعالة للغاية."
-    : "Analyze this text and tell me if it sounds AI-written: Artificial intelligence is transforming the way businesses create content and communicate with customers."
+const examplePrompt = computed(() => isBusinessNameTool.value
+    ? "Generate 10 Arabic business names for a startup that sells AI tools for marketers"
+    : isHumanizer.value
+        ? "Humanize this text in Arabic: الذكاء الاصطناعي يقوم بتحسين عمليات إنشاء المحتوى بطريقة فعالة للغاية."
+        : "Analyze this text and tell me if it sounds AI-written: Artificial intelligence is transforming the way businesses create content and communicate with customers."
 );
+
 const detectorExtraOptionChoices = [
     "Be cautious",
     "Do not claim certainty",
@@ -548,9 +765,21 @@ const humanizerExtraOptionChoices = [
     "Keep original meaning",
     "Simplify wording",
 ];
-const extraOptionChoices = computed(() =>
-    isHumanizer.value ? humanizerExtraOptionChoices : detectorExtraOptionChoices
-);
+const businessNameExtraOptionChoices = [
+    "Easy to remember",
+    "Avoid duplicates",
+    "Brandable names",
+    "Short names",
+    "Modern sound",
+    "Domain-friendly",
+    "Avoid hard pronunciation",
+];
+
+const extraOptionChoices = computed(() => {
+    if (isBusinessNameTool.value) return businessNameExtraOptionChoices;
+    if (isHumanizer.value) return humanizerExtraOptionChoices;
+    return detectorExtraOptionChoices;
+});
 
 function createDetectorState() {
     return {
@@ -581,43 +810,64 @@ function createHumanizerState() {
     };
 }
 
+function createBusinessNameState() {
+    return {
+        business_idea: null,
+        industry: null,
+        target_audience: null,
+        language: "Auto Detect",
+        tone: "Creative",
+        name_style: "Brandable",
+        keywords: [],
+        avoid_words: [],
+        results_count: 10,
+        include_slogans: true,
+        include_domain_ideas: true,
+        extra_options: ["Easy to remember", "Avoid duplicates", "Brandable names"],
+        last_output: null,
+    };
+}
+
 function createDefaultStateForTool(subToolId) {
-    return Number(subToolId) === HUMANIZER_SUB_TOOL_ID
-        ? createHumanizerState()
-        : createDetectorState();
+    if (Number(subToolId) === HUMANIZER_SUB_TOOL_ID) return createHumanizerState();
+    if (Number(subToolId) === BUSINESS_NAME_SUB_TOOL_ID) return createBusinessNameState();
+    return createDetectorState();
 }
 
 const toolState = ref(createDefaultStateForTool(DETECTOR_SUB_TOOL_ID));
-const conversations = ref([]);
-const messages = ref([]);
-const userMessage = ref("");
-const errorMessage = ref("");
-const loadingConversations = ref(false);
-const loadingMessages = ref(false);
-const creatingConversation = ref(false);
-const isSending = ref(false);
-const isAssistantTyping = ref(false);
-const deletingUuid = ref("");
-const sidebarOpen = ref(false);
-const messagesContainer = ref(null);
-const textareaRef = ref(null);
-const copiedKey = ref("");
-const optionsPanelRef = ref(null);
-
-const pageTitle = computed(() => labels.value.title);
+const pageTitle = computed(() => isArabic.value ? activeToolConfig.value.title_ar : activeToolConfig.value.title_en);
 const sendDisabled = computed(() => isSending.value || isAssistantTyping.value);
+
 const optionsSummary = computed(() => {
     const state = toolState.value || {};
-    return isHumanizer.value
-        ? [state.language, state.tone, state.humanize_level, `${state.results_count || 1} result`].filter(Boolean).join(" / ")
-        : [state.language, state.analysis_depth, state.detection_focus].filter(Boolean).join(" / ");
-});
-const typingText = computed(() => {
-    if (isHumanizer.value) {
-        return isArabic.value ? "جاري الكتابة" : "Humanizing text";
+
+    if (isBusinessNameTool.value) {
+        return [state.language, state.tone, state.name_style, `${state.results_count || 10} results`]
+            .filter(Boolean)
+            .join(" / ");
     }
 
-    return isArabic.value ? "جاري الكتابة" : "Analyzing content";
+    if (isHumanizer.value) {
+        return [state.language, state.tone, state.humanize_level, `${state.results_count || 1} result`]
+            .filter(Boolean)
+            .join(" / ");
+    }
+
+    return [state.language, state.analysis_depth, state.detection_focus]
+        .filter(Boolean)
+        .join(" / ");
+});
+
+const typingText = computed(() => {
+    if (isBusinessNameTool.value) {
+        return isArabic.value ? "جاري توليد أسماء المشاريع" : "Generating business names";
+    }
+
+    if (isHumanizer.value) {
+        return isArabic.value ? "جاري أنسنة النص" : "Humanizing text";
+    }
+
+    return isArabic.value ? "جاري تحليل المحتوى" : "Analyzing content";
 });
 
 useSeoMeta({
@@ -628,10 +878,78 @@ useSeoMeta({
 const formatMessage = (value = "") =>
     DOMPurify.sanitize(markdown.render(String(value || "")), { USE_PROFILES: { html: true } });
 
+const createLocalKey = () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const createIdempotencyKey = () => {
+    if (window?.crypto?.randomUUID) return window.crypto.randomUUID();
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+        const random = Math.floor(Math.random() * 16);
+        const value = char === "x" ? random : (random & 0x3) | 0x8;
+        return value.toString(16);
+    });
+};
+
+const safeJsonParse = (value) => {
+    if (!value || typeof value !== "string") return null;
+
+    try {
+        return JSON.parse(value);
+    } catch {
+        return null;
+    }
+};
+
+const metadataFrom = (message = {}) => {
+    if (message.metadata && typeof message.metadata === "object") return message.metadata;
+    if (typeof message.metadata === "string") return safeJsonParse(message.metadata) || {};
+    return {};
+};
+
+function getMessageToolId(message) {
+    return Number(
+        message?.metadata?.sub_tool_id
+        || message?.responseState?.sub_tool_id
+        || activeSubToolId.value
+        || DETECTOR_SUB_TOOL_ID
+    );
+}
+
+function isBusinessNameMessage(message) {
+    return getMessageToolId(message) === BUSINESS_NAME_SUB_TOOL_ID;
+}
+
+function getBusinessDomains(item) {
+    return Array.isArray(item?.meta?.domain_ideas)
+        ? item.meta.domain_ideas.map((domain) => String(domain || "").trim()).filter(Boolean)
+        : [];
+}
+
+function getResultCopyText(item, toolId = activeSubToolId.value) {
+    if (Number(toolId) === BUSINESS_NAME_SUB_TOOL_ID) {
+        const parts = [String(item?.text || "").trim()].filter(Boolean);
+
+        if (item?.meta?.slogan) {
+            parts.push(`Slogan: ${String(item.meta.slogan).trim()}`);
+        }
+
+        const domains = getBusinessDomains(item);
+        if (domains.length) {
+            parts.push(`Domains: ${domains.join(", ")}`);
+        }
+
+        return parts.join("\n");
+    }
+
+    return String(item?.text || item?.content || item?.output || "").trim();
+}
+
 function getMessageText(message) {
     if (message?.results?.length) {
+        const toolId = getMessageToolId(message);
+
         return message.results
-            .map((item) => item.text || item.content || item.output || "")
+            .map((item) => getResultCopyText(item, toolId))
             .filter(Boolean)
             .join("\n\n");
     }
@@ -640,11 +958,30 @@ function getMessageText(message) {
 }
 
 function getResultTitle(subToolId = activeSubToolId.value) {
+    if (Number(subToolId) === BUSINESS_NAME_SUB_TOOL_ID) {
+        return isArabic.value ? "أسماء المشاريع المقترحة" : "Suggested business names";
+    }
+
     if (Number(subToolId) === HUMANIZER_SUB_TOOL_ID) {
         return isArabic.value ? "النص بعد الأنسنة" : "Humanized text";
     }
 
     return isArabic.value ? "نتيجة التحليل" : "Analysis result";
+}
+
+function serializeList(list) {
+    return Array.isArray(list) ? list.join(", ") : "";
+}
+
+function parseCsvList(value) {
+    return String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function updateListField(key, value) {
+    toolState.value[key] = parseCsvList(value);
 }
 
 function cleanErrorMessage(error) {
@@ -681,7 +1018,7 @@ function cleanErrorMessage(error) {
 
     if (text.includes("401") || lower.includes("unauthenticated") || lower.includes("unauthorized")) {
         return isArabic.value
-            ? "يرجى تسجيل الدخول أولا للمتابعة."
+            ? "يرجى تسجيل الدخول أولاً للمتابعة."
             : "Please sign in first to continue.";
     }
 
@@ -691,42 +1028,11 @@ function cleanErrorMessage(error) {
             : "Please make sure the required text is entered correctly.";
     }
 
-    return isArabic.value
-        ? "تعذر تنفيذ الطلب الآن. يرجى المحاولة مرة أخرى."
-        : "Could not complete the request right now. Please try again.";
+    return labels.value.genericError;
 }
-
-const createLocalKey = () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const createIdempotencyKey = () => {
-    if (window?.crypto?.randomUUID) return window.crypto.randomUUID();
-
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
-        const random = Math.floor(Math.random() * 16);
-        const value = char === "x" ? random : (random & 0x3) | 0x8;
-        return value.toString(16);
-    });
-};
-
-const safeJsonParse = (value) => {
-    if (!value || typeof value !== "string") return null;
-
-    try {
-        return JSON.parse(value);
-    } catch {
-        return null;
-    }
-};
-
-const metadataFrom = (message = {}) => {
-    if (message.metadata && typeof message.metadata === "object") return message.metadata;
-    if (typeof message.metadata === "string") return safeJsonParse(message.metadata) || {};
-    return {};
-};
 
 function extractDetectorContent(userMessage) {
     const text = String(userMessage || "").trim();
-
     const markerPatterns = [
         /AI-written:\s*([\s\S]+)$/i,
         /ai generated:\s*([\s\S]+)$/i,
@@ -738,9 +1044,7 @@ function extractDetectorContent(userMessage) {
 
     for (const pattern of markerPatterns) {
         const match = text.match(pattern);
-        if (match?.[1]) {
-            return match[1].trim();
-        }
+        if (match?.[1]) return match[1].trim();
     }
 
     return text;
@@ -766,7 +1070,6 @@ function buildDetectorState(userMessage, currentState = {}) {
 
 function extractHumanizerContent(userMessage) {
     const text = String(userMessage || "").trim();
-
     const markerPatterns = [
         /humanize this text in arabic:\s*([\s\S]+)$/i,
         /humanize this text:\s*([\s\S]+)$/i,
@@ -813,7 +1116,105 @@ function buildHumanizerState(userMessage, currentState = {}) {
     };
 }
 
+function extractBusinessIdea(userMessage) {
+    const text = String(userMessage || "").trim();
+    const patterns = [
+        /business names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/i,
+        /project names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/i,
+        /startup names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/i,
+        /names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/i,
+        /أسماء\s+(?:مشاريع|مشروع|شركات|شركة)\s+(?:عن|لـ|ل)?\s*([\s\S]+)$/i,
+        /اسماء\s+(?:مشاريع|مشروع|شركات|شركة)\s+(?:عن|لـ|ل)?\s*([\s\S]+)$/i,
+        /فكرة\s+المشروع:\s*([\s\S]+)$/i,
+        /business idea:\s*([\s\S]+)$/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match?.[1]) return match[1].trim();
+    }
+
+    return text;
+}
+
+function extractRequestedCount(text, fallback = 10) {
+    const match = String(text || "").match(/(?:generate|write|create|اكتب|ولد|أنشئ)\s+(\d+)/i);
+    return Number(match?.[1] || fallback);
+}
+
+function detectLanguageFromText(text) {
+    const value = String(text || "");
+    if (/arabic|عربي|العربية|بالعربي/i.test(value) || /[\u0600-\u06FF]/.test(value)) {
+        return "Arabic";
+    }
+    if (/english|إنجليزي|الإنجليزية/i.test(value)) {
+        return "English";
+    }
+    return "Auto Detect";
+}
+
+function extractBusinessNameMeta(userMessage) {
+    const text = String(userMessage || "").trim();
+
+    const audienceMatch =
+        text.match(/for\s+([a-zA-Z\s]+)$/i)
+        || text.match(/target audience:\s*([^.\n]+)/i)
+        || text.match(/الجمهور:\s*([^.\n]+)/i);
+
+    let targetAudience = audienceMatch?.[1]?.trim() || null;
+
+    if (/marketers/i.test(text)) {
+        targetAudience = "marketers";
+    }
+
+    let industry = null;
+    if (/AI tools|artificial intelligence|ذكاء اصطناعي|أدوات ذكاء/i.test(text)) {
+        industry = "AI tools";
+    }
+
+    return {
+        industry,
+        target_audience: targetAudience,
+    };
+}
+
+function extractBusinessKeywords(text) {
+    const matches = String(text || "").match(/\b[A-Za-z]{2,}\b/g) || [];
+    return [...new Set(matches)].slice(0, 5);
+}
+
+function buildBusinessNameState(userMessage, currentState = {}) {
+    const text = String(userMessage || "").trim();
+    const businessIdea = currentState.business_idea || extractBusinessIdea(text);
+    const meta = extractBusinessNameMeta(text);
+    const keywords = Array.isArray(currentState.keywords) && currentState.keywords.length
+        ? currentState.keywords
+        : extractBusinessKeywords(text);
+
+    return {
+        business_idea: businessIdea || text,
+        industry: currentState.industry || meta.industry || "General",
+        target_audience: currentState.target_audience || meta.target_audience || "General Audience",
+        language: currentState.language || detectLanguageFromText(text),
+        tone: currentState.tone || "Creative",
+        name_style: currentState.name_style || "Brandable",
+        keywords,
+        avoid_words: Array.isArray(currentState.avoid_words) ? currentState.avoid_words : [],
+        results_count: Math.max(1, Math.min(30, Number(currentState.results_count || extractRequestedCount(text, 10)))),
+        include_slogans: currentState.include_slogans ?? true,
+        include_domain_ideas: currentState.include_domain_ideas ?? true,
+        extra_options: currentState.extra_options?.length
+            ? currentState.extra_options
+            : ["Easy to remember", "Avoid duplicates", "Brandable names"],
+        last_output: null,
+    };
+}
+
 function buildChat4ToolState(subToolId, userMessage, currentState = {}) {
+    if (Number(subToolId) === BUSINESS_NAME_SUB_TOOL_ID) {
+        return buildBusinessNameState(userMessage, currentState);
+    }
+
     if (Number(subToolId) === HUMANIZER_SUB_TOOL_ID) {
         return buildHumanizerState(userMessage, currentState);
     }
@@ -821,12 +1222,17 @@ function buildChat4ToolState(subToolId, userMessage, currentState = {}) {
     return buildDetectorState(userMessage, currentState);
 }
 
+function getStateSeedText(state = toolState.value) {
+    return String(state?.content || state?.business_idea || "");
+}
+
 function buildChat4Payload(messageText, conversation) {
-    const subToolId = activeSubToolId.value;
+    const subToolId = Number(activeSubToolId.value);
     const config = CHAT4_TOOLS[subToolId] || CHAT4_TOOLS[DETECTOR_SUB_TOOL_ID];
     const requestState = buildChat4ToolState(subToolId, messageText, {
         ...toolState.value,
         content: null,
+        business_idea: null,
     });
 
     return {
@@ -846,26 +1252,23 @@ function buildChat4Payload(messageText, conversation) {
 
 function normalizeResultText(value) {
     if (value && typeof value === "object") {
-        return normalizeResultText(value.text || value.content || value.output || value.message || "");
+        return normalizeResultText(value.text || value.name || value.content || value.output || value.message || "");
     }
 
     const text = String(value || "").trim();
-
-    if (!text || text === "[object Object]") {
-        return "";
-    }
+    if (!text || text === "[object Object]") return "";
 
     const parsed = safeJsonParse(text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, ""));
     if (parsed && typeof parsed === "object") {
         const nestedResults = Array.isArray(parsed.results) ? parsed.results : [];
         if (nestedResults.length) {
             return nestedResults
-                .map((item) => normalizeResultText(item?.text || item?.content || item?.output || ""))
+                .map((item) => normalizeResultText(item?.text || item?.name || item?.content || item?.output || ""))
                 .filter(Boolean)
                 .join("\n\n");
         }
 
-        return normalizeResultText(parsed.text || parsed.content || parsed.output || parsed.message || "");
+        return normalizeResultText(parsed.text || parsed.name || parsed.content || parsed.output || parsed.message || "");
     }
 
     if (
@@ -885,7 +1288,7 @@ function normalizeChat4Response(response) {
     if (results.length) {
         return results.map((item, index) => ({
             id: item.id || index + 1,
-            text: normalizeResultText(item.text || item.content || item.output || ""),
+            text: normalizeResultText(item.text || item.name || item.content || item.output || ""),
             title: item.title || null,
             subject: item.subject || null,
             meta: item.meta && typeof item.meta === "object" ? item.meta : {},
@@ -893,13 +1296,17 @@ function normalizeChat4Response(response) {
     }
 
     if (response?.state?.last_output) {
-        return [{
-            id: 1,
-            text: normalizeResultText(response.state.last_output),
-            title: null,
-            subject: null,
-            meta: {},
-        }].filter((item) => item.text.trim());
+        return String(response.state.last_output)
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((text, index) => ({
+                id: index + 1,
+                text,
+                title: null,
+                subject: null,
+                meta: {},
+            }));
     }
 
     return [];
@@ -909,7 +1316,7 @@ const unwrapApiData = (response) => response?.data || response || {};
 
 const normalizeStateFromResponse = (state = {}, subToolId = activeSubToolId.value) => buildChat4ToolState(
     subToolId,
-    state.content || "",
+    state.business_idea || state.content || "",
     {
         ...createDefaultStateForTool(subToolId),
         ...(state && typeof state === "object" ? state : {}),
@@ -960,7 +1367,10 @@ const persistState = (uuid = activeConversation.value?.uuid || route.params.uuid
 
 const restoreState = (uuid = route.params.uuid || "draft") => {
     const stored = safeJsonParse(sessionStorage.getItem(stateStorageKey(uuid)) || "");
-    toolState.value = normalizeStateFromResponse(stored || createDefaultStateForTool(activeSubToolId.value), activeSubToolId.value);
+    toolState.value = normalizeStateFromResponse(
+        stored || createDefaultStateForTool(activeSubToolId.value),
+        activeSubToolId.value
+    );
 };
 
 const hydrateStateFromMessages = (rows = []) => {
@@ -1159,14 +1569,11 @@ const sendMessage = async () => {
         await scrollToBottom();
     } catch (error) {
         isAssistantTyping.value = false;
-        const friendlyMessage = cleanErrorMessage(error);
-
-        errorMessage.value = "";
         messages.value.push(mapMessage({
             localKey: createLocalKey(),
             role: "assistant",
             is_error: true,
-            content: friendlyMessage,
+            content: cleanErrorMessage(error),
             created_at: new Date().toISOString(),
         }));
         await scrollToBottom();
@@ -1256,7 +1663,7 @@ const toggleExtraOption = (option) => {
 };
 
 const applyOptions = () => {
-    toolState.value = buildChat4ToolState(activeSubToolId.value, toolState.value.content || "", toolState.value);
+    toolState.value = buildChat4ToolState(activeSubToolId.value, getStateSeedText(toolState.value), toolState.value);
     persistState();
     errorMessage.value = "";
     if (optionsPanelRef.value) {
@@ -1400,64 +1807,76 @@ button:disabled {
 .welcome-icon {
     display: grid;
     place-items: center;
-    color: #fff;
-    background: linear-gradient(145deg, var(--navy), var(--cyan));
-    box-shadow: 0 10px 25px rgba(31, 135, 201, 0.2);
-}
-
-.brand-icon {
     width: 42px;
     height: 42px;
-    flex: 0 0 42px;
-    border-radius: 13px;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(145deg, var(--navy), var(--blue));
+}
+
+.new-chat-button,
+.icon-button,
+.conversation-delete {
+    border: 1px solid #d3e2ef;
+    background: #fff;
 }
 
 .new-chat-button {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    width: 100%;
     padding: 11px 14px;
-    border: 0;
-    border-radius: 12px;
-    color: #fff;
-    background: var(--navy);
+    border-radius: 10px;
+    color: var(--navy);
+    font-weight: 700;
 }
 
 .section-label {
-    margin: 24px 8px 10px;
+    margin: 18px 0 10px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.08em;
     text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.sidebar-status {
+    padding: 18px 10px;
+    border: 1px dashed #d8e6f7;
+    border-radius: 12px;
+    color: var(--muted);
+    text-align: center;
 }
 
 .conversation-list {
     display: grid;
-    gap: 6px;
-    overflow-y: auto;
+    gap: 10px;
+    overflow: auto;
 }
 
 .conversation-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
     align-items: center;
-    border-radius: 11px;
+    padding: 8px;
+    border: 1px solid #dce8f2;
+    border-radius: 12px;
+    background: #f9fcfe;
 }
 
-.conversation-item:hover,
 .conversation-item.active {
-    background: #eef7fc;
+    border-color: #bfdaf0;
+    background: #eef7fd;
 }
 
 .conversation-open {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 10px;
     min-width: 0;
-    flex: 1;
-    padding: 10px;
+    padding: 0;
     border: 0;
     color: var(--ink);
     background: transparent;
@@ -1474,138 +1893,125 @@ button:disabled {
 .icon-button {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
-    border: 0;
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
-    color: var(--muted);
-    background: transparent;
-}
-
-.conversation-delete:hover,
-.icon-button:hover {
     color: var(--navy);
-    background: #edf5fa;
-}
-
-.sidebar-status,
-.center-status {
-    padding: 22px 8px;
-    color: var(--muted);
-    text-align: center;
-}
-
-.spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    margin-inline-end: 8px;
-    border: 2px solid #c9ddec;
-    border-top-color: var(--navy);
-    border-radius: 999px;
-    animation: spin 0.8s linear infinite;
-    vertical-align: middle;
 }
 
 .workspace {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
-    min-height: 0;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    height: calc(100vh - 70px);
+    min-height: 100%;
 }
 
 .workspace-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 14px;
-    padding: 18px 28px;
+    padding: 24px max(24px, calc((100% - 900px) / 2));
     border-bottom: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(12px);
+    background: #fff;
 }
 
 .workspace-header h1 {
-    margin: 2px 0 0;
-    font-size: 19px;
+    margin: 4px 0 0;
+    font-size: 28px;
+    line-height: 1.2;
 }
 
 .eyebrow {
     margin: 0;
     color: var(--blue);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
+    font-size: 12px;
+    font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .tool-badges {
     display: flex;
-    gap: 7px;
-    margin-inline-start: auto;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .tool-badges span {
-    padding: 5px 9px;
-    border: 1px solid #d6e9f4;
+    padding: 6px 10px;
+    border: 1px solid #d5e4ef;
     border-radius: 999px;
-    color: #357192;
-    background: #f2faff;
-    font-size: 11px;
+    color: var(--navy);
+    background: #f8fbfe;
+    font-size: 12px;
 }
 
 .messages {
-    overflow-y: auto;
-    padding: 34px max(24px, calc((100% - 900px) / 2));
+    flex: 1;
+    padding: 26px max(24px, calc((100% - 900px) / 2));
+    overflow: auto;
 }
 
+.center-status,
 .welcome-card {
-    max-width: 620px;
-    margin: 10vh auto 0;
-    padding: 38px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 18px 55px rgba(18, 63, 109, 0.08);
+    display: grid;
+    place-items: center;
     text-align: center;
 }
 
-.welcome-icon {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 18px;
-    border-radius: 20px;
-    font-size: 24px;
+.center-status {
+    gap: 10px;
+    min-height: 220px;
+    color: var(--muted);
 }
 
-.welcome-card h2 {
-    margin: 0 0 10px;
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #cfe3ef;
+    border-top-color: var(--blue);
+    border-radius: 999px;
+    animation: spin 0.8s linear infinite;
+}
+
+.welcome-card {
+    gap: 16px;
+    max-width: 680px;
+    margin: 40px auto 0;
+    padding: 30px 24px;
+    border: 1px solid #d7e6f2;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 16px 36px rgba(18, 63, 109, 0.08);
+}
+
+.welcome-card h2,
+.welcome-card p {
+    margin: 0;
 }
 
 .welcome-card p {
-    margin: 0;
     color: var(--muted);
-    line-height: 1.7;
+    line-height: 1.8;
 }
 
 .suggestion {
-    margin-top: 20px;
-    padding: 9px 14px;
-    border: 1px solid #cfe7f4;
-    border-radius: 999px;
+    padding: 11px 14px;
+    border: 1px dashed #b9d7ed;
+    border-radius: 12px;
     color: var(--navy);
-    background: #f3faff;
+    background: #f7fcff;
 }
 
 .message-list {
     display: grid;
-    gap: 24px;
+    gap: 18px;
 }
 
 .message-row {
     display: flex;
     align-items: flex-start;
-    gap: 11px;
+    gap: 12px;
 }
 
 .message-row.user {
@@ -1615,51 +2021,37 @@ button:disabled {
 .avatar {
     display: grid;
     place-items: center;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-    border-radius: 11px;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border-radius: 12px;
     color: #fff;
-    background: var(--navy);
-}
-
-.user .avatar {
-    background: #718397;
+    background: linear-gradient(145deg, var(--navy), var(--blue));
+    box-shadow: 0 8px 18px rgba(18, 63, 109, 0.18);
 }
 
 .message-body {
-    max-width: min(780px, 85%);
-    padding: 14px 16px;
-    border: 1px solid var(--line);
-    border-radius: 6px 18px 18px 18px;
+    min-width: 0;
+    max-width: min(760px, 100%);
+}
+
+.message-content {
+    padding: 13px 15px;
+    border: 1px solid #dce7f1;
+    border-radius: 16px;
     background: #fff;
-    box-shadow: 0 5px 18px rgba(18, 63, 109, 0.05);
+    line-height: 1.85;
+    box-shadow: 0 12px 26px rgba(18, 63, 109, 0.06);
 }
 
-.user .message-body {
-    border: 0;
-    border-radius: 18px 6px 18px 18px;
+.user .message-content {
     color: #fff;
-    background: var(--navy);
-}
-
-.message-body.error {
-    border-color: #f2b7b7;
-    color: #8b2525;
-    background: #fff5f5;
-}
-
-.message-body.card-shell {
-    max-width: min(780px, 85%);
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
+    border-color: transparent;
+    background: linear-gradient(145deg, var(--navy), var(--blue));
 }
 
 .message-content :deep(p) {
-    margin: 0 0 0.75em;
-    line-height: 1.75;
+    margin: 0 0 0.9em;
 }
 
 .message-content :deep(p:last-child) {
@@ -1679,6 +2071,11 @@ button:disabled {
     display: flex;
     align-items: center;
     gap: 8px;
+    padding: 13px 15px;
+    border: 1px solid #d8e6f7;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 12px 26px rgba(18, 63, 109, 0.06);
 }
 
 .assistant-typing-text {
@@ -1711,7 +2108,8 @@ button:disabled {
     animation-delay: 0.3s;
 }
 
-.ai-response-card {
+.ai-response-card,
+.business-response-card {
     overflow: hidden;
     min-width: min(620px, 68vw);
     border: 1px solid #d6e9f4;
@@ -1739,7 +2137,8 @@ button:disabled {
     font-weight: 800;
 }
 
-.copy-card-button {
+.copy-card-button,
+.result-header button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1751,17 +2150,11 @@ button:disabled {
     font-size: 12px;
 }
 
-.copy-card-button:hover {
-    border-color: var(--blue);
-    background: #f7fcff;
-}
-
 .ai-response-content {
     padding: 16px;
     color: var(--ink);
     font-size: 14px;
     line-height: 1.9;
-    white-space: normal;
 }
 
 .ai-response-content :deep(p) {
@@ -1770,16 +2163,6 @@ button:disabled {
 
 .ai-response-content :deep(p:last-child) {
     margin-bottom: 0;
-}
-
-.ai-response-content :deep(ul),
-.ai-response-content :deep(ol) {
-    margin: 0.75em 0;
-    padding-inline-start: 22px;
-}
-
-.ai-response-content :deep(li) {
-    margin-bottom: 0.35em;
 }
 
 .ai-score-box {
@@ -1794,10 +2177,6 @@ button:disabled {
     background: #eef6ff;
     font-size: 14px;
     font-weight: 700;
-}
-
-.ai-score-box strong {
-    font-size: 18px;
 }
 
 .ai-meta-section {
@@ -1817,9 +2196,92 @@ button:disabled {
 .ai-meta-section ul {
     margin: 0;
     padding-inline-start: 20px;
+    line-height: 1.75;
+}
+
+.business-result-list {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+}
+
+.business-result-card {
+    overflow: hidden;
+    border: 1px solid #d6e9f4;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 13px;
+    border-bottom: 1px solid #e2eef5;
+    color: var(--navy);
+    background: #f8fbfe;
+}
+
+.result-title-stack {
+    display: grid;
+    gap: 2px;
+}
+
+.result-title-stack strong {
+    font-size: 14px;
+}
+
+.result-title-stack span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.business-result-body {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+}
+
+.business-name {
+    margin: 0;
+    color: var(--navy);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.business-slogan {
+    margin: 0;
     color: var(--ink);
     font-size: 14px;
-    line-height: 1.75;
+    line-height: 1.8;
+}
+
+.business-domain-section {
+    display: grid;
+    gap: 8px;
+}
+
+.business-domain-label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.business-domain-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.domain-chip {
+    padding: 6px 10px;
+    border: 1px solid #d3e6f3;
+    border-radius: 999px;
+    color: var(--blue);
+    background: #eef8fd;
+    font-size: 12px;
 }
 
 .clean-error-card {
@@ -1832,100 +2294,6 @@ button:disabled {
     border-radius: 12px;
     color: #8b2525;
     background: #fff4f4;
-    font-size: 14px;
-    line-height: 1.7;
-}
-
-.clean-error-card i {
-    margin-top: 3px;
-    flex: 0 0 auto;
-}
-
-.detector-result-list {
-    display: grid;
-    gap: 12px;
-    min-width: min(680px, 68vw);
-}
-
-.detector-copy-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: flex-end;
-}
-
-.detector-copy-bar button,
-.result-header button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border: 1px solid #cfe3ef;
-    border-radius: 8px;
-    color: var(--blue);
-    background: #fff;
-}
-
-.detector-result-card {
-    overflow: hidden;
-    border: 1px solid #d6e9f4;
-    border-radius: 8px;
-    background: #fbfdff;
-}
-
-.result-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 13px;
-    border-bottom: 1px solid #e2eef5;
-    color: var(--navy);
-    background: #f0f8fc;
-}
-
-.result-subject {
-    display: inline-block;
-    margin: 12px 15px 0;
-    padding: 4px 8px;
-    border-radius: 999px;
-    color: var(--blue);
-    background: #eaf6fc;
-}
-
-.score-box {
-    margin: 14px 15px 0;
-    padding: 11px 13px;
-    border-radius: 8px;
-    color: var(--navy);
-    background: #eef6ff;
-    font-size: 14px;
-    font-weight: 800;
-}
-
-.result-text {
-    margin: 0;
-    padding: 15px;
-    color: var(--ink);
-    font-size: 14px;
-    line-height: 1.8;
-    white-space: pre-line;
-}
-
-.meta-list {
-    margin: 0 15px 15px;
-}
-
-.meta-list h4 {
-    margin: 0 0 8px;
-    color: var(--navy);
-    font-size: 14px;
-}
-
-.meta-list ul {
-    margin: 0;
-    padding-inline-start: 20px;
-    color: var(--ink);
     font-size: 14px;
     line-height: 1.7;
 }
@@ -2142,113 +2510,100 @@ button:disabled {
     }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 980px) {
     .detector-chat {
         grid-template-columns: 1fr;
     }
 
-    .workspace {
-        height: calc(100vh - 64px);
-    }
-
     .sidebar {
         position: fixed;
-        inset-block: 0;
-        inset-inline-start: 0;
-        width: min(310px, 86vw);
-        transform: translateX(-110%);
-        transition: transform 0.2s ease;
+        inset: 0 auto 0 0;
+        width: min(320px, 84vw);
+        transform: translateX(-105%);
+        transition: transform 0.22s ease;
+        box-shadow: 0 12px 40px rgba(18, 63, 109, 0.15);
     }
 
     [dir="rtl"] .sidebar {
-        transform: translateX(110%);
+        inset: 0 0 0 auto;
+        transform: translateX(105%);
     }
 
     .sidebar.open {
         transform: translateX(0);
     }
 
+    .mobile-only,
+    .sidebar-overlay {
+        display: block;
+    }
+
     .sidebar-overlay {
         position: fixed;
-        z-index: 15;
         inset: 0;
-        display: block;
+        z-index: 10;
         border: 0;
-        background: rgba(9, 31, 51, 0.38);
+        background: rgba(16, 35, 53, 0.35);
     }
 
-    .mobile-only {
-        display: grid;
+    .workspace-header,
+    .messages,
+    .composer {
+        padding-inline: 18px;
     }
 
-    .sidebar-brand .mobile-only {
-        margin-inline-start: auto;
+    .workspace-header {
+        align-items: flex-start;
+    }
+
+    .workspace-header h1 {
+        font-size: 24px;
     }
 
     .tool-badges {
-        display: none;
+        justify-content: flex-end;
     }
 
     .options-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .detector-result-list {
-        min-width: 0;
+    .wide {
+        grid-column: span 2;
     }
 
-    .ai-response-card {
+    .ai-response-card,
+    .business-response-card {
         min-width: 0;
     }
 }
 
-@media (max-width: 560px) {
-    .workspace-header {
-        padding: 14px 16px;
-    }
-
-    .messages,
-    .composer {
-        padding-inline: 13px;
-    }
-
-    .message-body {
-        max-width: calc(100% - 45px);
-    }
-
-    .message-body.card-shell,
-    .ai-response-card {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .ai-response-header {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .clean-error-card {
-        max-width: 100%;
-    }
-
+@media (max-width: 640px) {
     .options-grid {
         grid-template-columns: 1fr;
     }
 
     .wide {
-        grid-column: auto;
+        grid-column: span 1;
     }
 
-    .options-actions {
-        justify-content: stretch;
+    .message-row,
+    .message-row.user {
+        flex-direction: column;
     }
 
-    .options-actions button {
-        flex: 1;
+    .avatar {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
     }
 
-    .welcome-card {
-        padding: 28px 20px;
+    .message-body {
+        max-width: 100%;
+    }
+
+    .business-name {
+        font-size: 19px;
     }
 }
 </style>

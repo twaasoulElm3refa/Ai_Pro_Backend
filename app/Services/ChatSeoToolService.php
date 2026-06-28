@@ -23,6 +23,7 @@ class ChatSeoToolService
     public const CONTENT_OPTIMIZER_SUB_TOOL_ID = 16;
     public const AI_DETECTOR_SUB_TOOL_ID = 17;
     public const AI_HUMANIZER_SUB_TOOL_ID = 18;
+    public const BUSINESS_NAME_GENERATOR_SUB_TOOL_ID = 20;
 
     private const TOOLS = [
         self::KEYWORD_GENERATOR_SUB_TOOL_ID => [
@@ -60,6 +61,12 @@ class ChatSeoToolService
             'tool_key' => 'ai_humanizer',
             'model_key' => 'ai_humanizer',
             'endpoint' => 'tasks/ai-humanizer/chat',
+        ],
+        self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID => [
+            'name' => 'Business Name Generator',
+            'tool_key' => 'business_name_generator',
+            'model_key' => 'business_name_generator',
+            'endpoint' => 'tasks/business-name-generator/chat',
         ],
     ];
 
@@ -109,7 +116,7 @@ class ChatSeoToolService
         $state = $this->normalizeState($toolId, is_array($data['state'] ?? null) ? $data['state'] : [], $content);
         $state['last_output'] = null;
         $content = $this->contentForTool($toolId, $content, $state);
-        $chatMessageContent = in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true)
+        $chatMessageContent = in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID, self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID], true)
             ? trim($originalContent)
             : $content;
 
@@ -119,6 +126,7 @@ class ChatSeoToolService
                     match ($toolId) {
                         self::AI_DETECTOR_SUB_TOOL_ID => 'Text to analyze is required.',
                         self::AI_HUMANIZER_SUB_TOOL_ID => 'Text to humanize is required.',
+                        self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID => 'Business idea is required.',
                         default => 'Message content is required.',
                     },
                 ],
@@ -134,7 +142,7 @@ class ChatSeoToolService
             'user_id' => $userId,
             'sub_tool_id' => $toolId,
             'conversation_uuid' => $conversation->uuid,
-            'user_message' => in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true) ? $chatMessageContent : $content,
+            'user_message' => in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID, self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID], true) ? $chatMessageContent : $content,
             'content' => $content,
             'tool' => $tool['tool_key'],
             'tool_key' => $tool['tool_key'],
@@ -363,6 +371,7 @@ class ChatSeoToolService
             'message' => match ($toolId) {
                 self::AI_DETECTOR_SUB_TOOL_ID => 'AI content detection analysis completed successfully.',
                 self::AI_HUMANIZER_SUB_TOOL_ID => 'تم تحويل النص إلى صياغة بشرية بنجاح.',
+                self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID => 'تم توليد أسماء المشاريع بنجاح.',
                 default => '',
             },
             'request_payload' => is_array($metadata['request_payload'] ?? null) ? $metadata['request_payload'] : null,
@@ -382,7 +391,7 @@ class ChatSeoToolService
             'body' => $this->buildUserPrompt(
                 $toolId,
                 $state,
-                in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true)
+                in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID, self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID], true)
                     ? $requestPayload['content']
                     : $requestPayload['user_message']
             ),
@@ -478,6 +487,57 @@ Rules:
 - No explanation before or after JSON.
 - The response must start with { and end with }.
 PROMPT,
+            self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID => <<<'PROMPT'
+Return valid JSON only.
+Do not include markdown.
+Do not include explanations outside JSON.
+You are a business name generator.
+
+Generate business/project/startup name ideas based on:
+- business_idea
+- industry
+- target_audience
+- language
+- tone
+- name_style
+- keywords
+- avoid_words
+- include_slogans
+- include_domain_ideas
+- results_count
+
+Rules:
+- Return exactly results_count results.
+- Each result.text must contain only the business name.
+- Names must be unique.
+- Avoid avoid_words.
+- Follow the requested language.
+- Make names brandable, easy to remember, and suitable for the target audience.
+- Do not add unsupported facts.
+- No reasoning.
+- No chain-of-thought.
+- No explanation before or after JSON.
+- The response must start with { and end with }.
+
+Use this exact schema:
+{
+  "results": [
+    {
+      "id": 1,
+      "text": "Business name here",
+      "title": "Business name here",
+      "subject": "Business name",
+      "meta": {
+        "slogan": "Optional slogan here",
+        "domain_ideas": ["example.com", "example.ai"]
+      }
+    }
+  ]
+}
+
+If include_slogans is false, set meta.slogan to null.
+If include_domain_ideas is false, set meta.domain_ideas to [].
+PROMPT,
             default => $common,
         };
     }
@@ -507,6 +567,7 @@ PROMPT,
             self::CONTENT_OPTIMIZER_SUB_TOOL_ID => 'Return the optimized content only unless include_explanation is true.',
             self::AI_DETECTOR_SUB_TOOL_ID => 'Analyze the text for possible AI-writing signals and return one cautious readable detector analysis.',
             self::AI_HUMANIZER_SUB_TOOL_ID => 'Rewrite the text into a natural human style and return exactly the requested number of results.',
+            self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID => 'Generate unique business names and return exactly the requested number of results.',
             default => 'Return clean results.',
         };
 
@@ -594,10 +655,25 @@ PROMPT,
                 'extra_options' => ['Improve flow', 'Avoid robotic phrasing'],
                 'last_output' => null,
             ],
+            self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID => [
+                'business_idea' => null,
+                'industry' => null,
+                'target_audience' => null,
+                'language' => 'Auto Detect',
+                'tone' => 'Creative',
+                'name_style' => 'Brandable',
+                'keywords' => [],
+                'avoid_words' => [],
+                'results_count' => 10,
+                'include_slogans' => true,
+                'include_domain_ideas' => true,
+                'extra_options' => ['Easy to remember', 'Avoid duplicates', 'Brandable names'],
+                'last_output' => null,
+            ],
             default => [],
         };
 
-        $arrayKeys = ['extra_options', 'checks', 'secondary_keywords'];
+        $arrayKeys = ['extra_options', 'checks', 'secondary_keywords', 'keywords', 'avoid_words'];
         $booleanKeys = [
             'include_long_tail',
             'include_clusters',
@@ -609,6 +685,8 @@ PROMPT,
             'include_evidence',
             'include_rewrite_tips',
             'preserve_keywords',
+            'include_slogans',
+            'include_domain_ideas',
         ];
         $integerKeys = ['results_count', 'max_characters'];
         $normalized = $base;
@@ -677,6 +755,10 @@ PROMPT,
                 : ['Improve flow', 'Avoid robotic phrasing'];
         }
 
+        if ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID) {
+            $normalized = $this->normalizeBusinessNameState($content, $normalized);
+        }
+
         return $normalized;
     }
 
@@ -723,6 +805,84 @@ PROMPT,
             '/حول هذا النص:\s*([\s\S]+)$/iu',
             '/النص:\s*([\s\S]+)$/iu',
             '/المحتوى:\s*([\s\S]+)$/iu',
+        ] as $pattern) {
+            if (preg_match($pattern, $text, $match) && trim((string) ($match[1] ?? '')) !== '') {
+                return trim((string) $match[1]);
+            }
+        }
+
+        return $text;
+    }
+
+    private function normalizeBusinessNameState(string $userMessage, array $state): array
+    {
+        $text = trim($userMessage);
+        $businessIdea = $this->toNullableString($state['business_idea'] ?? null) ?? $this->extractBusinessIdea($text);
+
+        preg_match('/(?:generate|write|create|اكتب|ولد|أنشئ)\s+(\d+)/iu', $text, $countMatch);
+
+        $isArabic = preg_match('/arabic|عربي|العربية|بالعربي/iu', $text) === 1
+            || preg_match('/[\x{0600}-\x{06FF}]/u', $text) === 1;
+
+        $industry = $this->toNullableString($state['industry'] ?? null);
+        if (! $industry && preg_match('/AI tools|artificial intelligence|ذكاء اصطناعي|أدوات ذكاء/iu', $text)) {
+            $industry = 'AI tools';
+        }
+
+        $targetAudience = $this->toNullableString($state['target_audience'] ?? null);
+        if (! $targetAudience && preg_match('/marketers|مسوقين|المسوقين/iu', $text)) {
+            $targetAudience = 'marketers';
+        }
+
+        $language = $this->toNullableString($state['language'] ?? null);
+        if (! $language || $language === 'Auto Detect') {
+            $language = $isArabic ? 'Arabic' : 'Auto Detect';
+        }
+
+        $keywords = $this->normalizeStringList($state['keywords'] ?? []);
+        if ($keywords === []) {
+            preg_match_all('/\b[A-Za-z]{2,}\b/u', $text, $keywordMatches);
+            $keywords = array_values(array_slice(array_unique($keywordMatches[0] ?? []), 0, 5));
+        }
+
+        return [
+            'business_idea' => $businessIdea ?: $text,
+            'industry' => $industry ?: 'General',
+            'target_audience' => $targetAudience ?: 'General Audience',
+            'language' => $language,
+            'tone' => $this->toNullableString($state['tone'] ?? null) ?: 'Creative',
+            'name_style' => $this->toNullableString($state['name_style'] ?? null) ?: 'Brandable',
+            'keywords' => $keywords,
+            'avoid_words' => $this->normalizeStringList($state['avoid_words'] ?? []),
+            'results_count' => max(1, min(30, (int) ($state['results_count'] ?? ($countMatch[1] ?? 10)))),
+            'include_slogans' => array_key_exists('include_slogans', $state)
+                ? (bool) $state['include_slogans']
+                : true,
+            'include_domain_ideas' => array_key_exists('include_domain_ideas', $state)
+                ? (bool) $state['include_domain_ideas']
+                : true,
+            'extra_options' => $this->normalizeStringList($state['extra_options'] ?? [])
+                ?: ['Easy to remember', 'Avoid duplicates', 'Brandable names'],
+            'last_output' => null,
+        ];
+    }
+
+    private function extractBusinessIdea(string $userMessage): string
+    {
+        $text = trim($userMessage);
+
+        if ($text === '') {
+            return '';
+        }
+
+        foreach ([
+            '/business names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/iu',
+            '/project names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/iu',
+            '/startup names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/iu',
+            '/names?\s+for\s+(?:a\s+|an\s+)?([\s\S]+)$/iu',
+            '/(?:أسماء|اسماء)\s+(?:مشاريع|مشروع|شركات|شركة)\s+(?:عن|لـ|ل)?\s*([\s\S]+)$/iu',
+            '/فكرة\s+المشروع:\s*([\s\S]+)$/iu',
+            '/business idea:\s*([\s\S]+)$/iu',
         ] as $pattern) {
             if (preg_match($pattern, $text, $match) && trim((string) ($match[1] ?? '')) !== '') {
                 return trim((string) $match[1]);
@@ -803,6 +963,10 @@ PROMPT,
     {
         $content = trim($content);
 
+        if ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID) {
+            return trim((string) ($state['business_idea'] ?? $content));
+        }
+
         if (in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true)) {
             return trim((string) ($state['content'] ?? $content));
         }
@@ -815,6 +979,7 @@ PROMPT,
             self::KEYWORD_GENERATOR_SUB_TOOL_ID => $state['topic'] ?? '',
             self::AI_DETECTOR_SUB_TOOL_ID => $state['content'] ?? '',
             self::AI_HUMANIZER_SUB_TOOL_ID => $state['content'] ?? '',
+            self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID => $state['business_idea'] ?? '',
             default => $state['content'] ?? '',
         });
     }
@@ -888,7 +1053,7 @@ PROMPT,
                 continue;
             }
 
-            $text = $this->cleanOutputText($result['text'] ?? $result['content'] ?? $result['description'] ?? '');
+            $text = $this->cleanOutputText($result['text'] ?? $result['name'] ?? $result['content'] ?? $result['description'] ?? '');
             if ($text === '' || $this->looksLikeJson($text)) {
                 continue;
             }
@@ -903,11 +1068,15 @@ PROMPT,
                 $meta = $this->normalizeAiDetectorMeta($meta, $state);
             }
 
+            if ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID) {
+                $meta = $this->normalizeBusinessNameMeta($meta, $state);
+            }
+
             $item = [
                 'id' => is_numeric($result['id'] ?? null) ? (int) $result['id'] : count($normalized) + 1,
                 'text' => $text,
-                'title' => $this->toNullableString($result['title'] ?? null),
-                'subject' => $this->toNullableString($result['subject'] ?? null),
+                'title' => $this->toNullableString($result['title'] ?? null) ?? ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID ? $text : null),
+                'subject' => $this->toNullableString($result['subject'] ?? null) ?? ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID ? 'Business name' : null),
                 'meta' => $meta,
             ];
 
@@ -932,6 +1101,19 @@ PROMPT,
 
         $meta['rewrite_tips'] = ($state['include_rewrite_tips'] ?? true)
             ? $this->normalizeStringList($meta['rewrite_tips'] ?? [])
+            : [];
+
+        return $meta;
+    }
+
+    private function normalizeBusinessNameMeta(array $meta, array $state): array
+    {
+        $meta['slogan'] = ($state['include_slogans'] ?? true)
+            ? $this->toNullableString($meta['slogan'] ?? null)
+            : null;
+
+        $meta['domain_ideas'] = ($state['include_domain_ideas'] ?? true)
+            ? $this->normalizeStringList($meta['domain_ideas'] ?? [])
             : [];
 
         return $meta;
