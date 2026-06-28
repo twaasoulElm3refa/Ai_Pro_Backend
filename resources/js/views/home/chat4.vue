@@ -614,10 +614,10 @@ const optionsSummary = computed(() => {
 });
 const typingText = computed(() => {
     if (isHumanizer.value) {
-        return isArabic.value ? "جاري أنسنة النص" : "Humanizing text";
+        return isArabic.value ? "جاري الكتابة" : "Humanizing text";
     }
 
-    return isArabic.value ? "جاري تحليل المحتوى" : "Analyzing content";
+    return isArabic.value ? "جاري الكتابة" : "Analyzing content";
 });
 
 useSeoMeta({
