@@ -16,12 +16,8 @@
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    class="back-button"
-                    :aria-label="t('user.toolShow.backAria')"
-                    @click="router.push(`/${homeService.getLang()}`)"
-                >
+                <button type="button" class="back-button" :aria-label="t('user.toolShow.backAria')"
+                    @click="router.push(`/${homeService.getLang()}`)">
                     <i class="bi bi-arrow-left"></i>
                     <span>{{ t("user.toolShow.back") }}</span>
                 </button>
@@ -49,24 +45,13 @@
                         <span class="count-badge">{{ subtools.length }}</span>
                     </div>
 
-                    <TransitionGroup
-                        v-if="subtools.length"
-                        name="subtool-card"
-                        tag="div"
-                        class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
-                    >
-                        <article
-                            v-for="subtool in subtools"
-                            :key="subtool.id"
-                            class="subtool-card"
-                        >
+                    <TransitionGroup v-if="subtools.length" name="subtool-card" tag="div"
+                        class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <article v-for="subtool in subtools" :key="subtool.id" class="subtool-card">
                             <!-- TOP ROW -->
                             <div class="subtool-top">
-                                <div
-                                    class="subtool-icon"
-                                    :class="getSubtoolIconClass(subtool)"
-                                    :aria-label="subtool.title"
-                                >
+                                <div class="subtool-icon" :class="getSubtoolIconClass(subtool)"
+                                    :aria-label="subtool.title">
                                     <!-- TEXT EDITOR ICON -->
                                     <template v-if="isTextEditorSubtool(subtool)">
                                         <div class="icon-orbit"></div>
@@ -120,7 +105,8 @@
                                 </div>
 
                                 <span :class="['status-chip', subtool.is_active ? 'active' : 'inactive']">
-                                    {{ subtool.is_active ? t("user.toolShow.statusActive") : t("user.toolShow.statusInactive") }}
+                                    {{ subtool.is_active ? t("user.toolShow.statusActive") :
+                                        t("user.toolShow.statusInactive") }}
                                 </span>
                             </div>
 
@@ -145,12 +131,9 @@
                                     </p>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    class="chat-button"
+                                <button type="button" class="chat-button"
                                     :aria-label="t('user.toolShow.chatAria', { name: subtool.title })"
-                                    @click="openSubtoolChat(subtool)"
-                                >
+                                    @click="openSubtoolChat(subtool)">
                                     <i class="bi bi-chat-fill"></i>
                                     {{ t("user.toolShow.chatButton") }}
                                 </button>
@@ -313,11 +296,14 @@ const subtools = computed(() =>
 const openSubtoolChat = async (subtool) => {
     const mainToolId = Number(rawTool.value?.id || tool.value?.id);
 
-    const chatPage = mainToolId === 3
-        ? "chat3"
-        : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
-            ? "chat2"
-            : "chat";
+    const chatPage =
+        mainToolId === 4
+            ? "chat4"
+            : mainToolId === 3
+                ? "chat3"
+                : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
+                    ? "chat2"
+                    : "chat";
 
     await router.push(
         `/${homeService.getLang()}/subtool/${subtool.slug}/${chatPage}`
