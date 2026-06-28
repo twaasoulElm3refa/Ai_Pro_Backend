@@ -845,14 +845,14 @@ const optionsSummary = computed(() => {
 
 const typingText = computed(() => {
     if (isBusinessNameTool.value) {
-        return isArabic.value ? "جاري توليد أسماء المشاريع" : "Generating business names";
+        return isArabic.value ? "جاري الكتابة" : "Generating business names";
     }
 
     if (isHumanizer.value) {
-        return isArabic.value ? "جاري أنسنة النص" : "Humanizing text";
+        return isArabic.value ? "جاري الكتابة" : "Humanizing text";
     }
 
-    return isArabic.value ? "جاري تحليل المحتوى" : "Analyzing content";
+    return isArabic.value ? "جاري الكتابة" : "Analyzing content";
 });
 
 useSeoMeta({
