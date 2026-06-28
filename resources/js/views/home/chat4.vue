@@ -383,7 +383,7 @@ const CHAT4_TOOLS = {
         sub_tool_id: 18,
         tool_key: "ai_humanizer",
         model_key: "ai_humanizer",
-        title_ar: "أنسنة النصوص بالذكاء الاصطناعي",
+        title_ar: " النصوص بالذكاء الاصطناعي",
         title_en: "AI Humanizer",
         subtitle_ar: "تحويل النص إلى صياغة طبيعية وأكثر بشرية",
         subtitle_en: "Rewrite AI-like text into natural human language",
@@ -437,7 +437,7 @@ const labels = computed(() => isArabic.value ? {
     deleteChat: "حذف المحادثة",
     loadingConversation: "جاري تحميل المحادثة...",
     welcome: isHumanizer.value
-        ? "الصق النص الذي تريد أنسنته، وسنحوله إلى صياغة طبيعية وسلسة مع الحفاظ على المعنى."
+        ? "الصق النص الذي تريد , وسنحوله إلى صياغة طبيعية وسلسة مع الحفاظ على المعنى."
         : "الصق النص أو اكتب طلبك، وسنحلل مؤشرات الأسلوب والبنية والتكرار بدون ادعاء اليقين.",
     placeholder: isHumanizer.value
         ? "الصق النص المراد أنسنته أو اكتب طلبك هنا..."
