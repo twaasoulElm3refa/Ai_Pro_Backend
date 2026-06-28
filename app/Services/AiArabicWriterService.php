@@ -10,7 +10,7 @@ use Throwable;
 
 class AiArabicWriterService
 {
-    private const PROVIDER_BUSY_MESSAGE = 'الموديل مشغول مؤقتًا، حاول مرة أخرى بعد قليل.';
+    private const PROVIDER_BUSY_MESSAGE = 'الموديل مشغول مؤقتا بسبب كثرة الطلبات. يرجى المحاولة بعد قليل.';
 
     private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
 
@@ -172,17 +172,22 @@ class AiArabicWriterService
             $status = $response->status();
             $body = $response->body();
             $providerMessage = $this->extractProviderFailureMessage($responsePayload, $body);
-            $friendlyMessage = $status === 429
-                ? self::PROVIDER_BUSY_MESSAGE
-                : 'AI request failed with status '.$status.($providerMessage ? ': '.$providerMessage : '');
+            $friendlyMessage = $this->friendlyProviderFailureMessage($status, $providerMessage);
+            $requestId = $this->extractScalarString($responsePayload, [
+                ['request_id'],
+                ['data', 'request_id'],
+                ['error', 'metadata', 'provider_request_id'],
+                ['data', 'error', 'metadata', 'provider_request_id'],
+            ]);
 
-            Log::error('AI request returned non-success status.', [
+            Log::warning('OpenRouter provider error', [
                 'base_url' => $this->url,
                 'endpoint' => $endpoint,
                 'target_url' => $targetUrl,
-                'payload' => $payload,
+                'payload' => $this->summarizePayloadForLog($payload),
                 'status' => $status,
                 'body' => $body,
+                'request_id' => $requestId,
                 'response_json' => $responsePayload,
                 'provider_message' => $providerMessage,
             ]);
@@ -199,6 +204,8 @@ class AiArabicWriterService
                     'response_json' => $responsePayload,
                     'provider_message' => $providerMessage,
                     'friendly_message' => $friendlyMessage,
+                    'code' => $status === 429 ? 'AI_RATE_LIMITED' : 'AI_PROVIDER_ERROR',
+                    'request_id' => $requestId,
                 ],
                 $status
             );
@@ -668,6 +675,31 @@ class AiArabicWriterService
         }
 
         return mb_substr($body, 0, 1000);
+    }
+
+    protected function friendlyProviderFailureMessage(int $status, ?string $providerMessage = null): string
+    {
+        $message = strtolower((string) $providerMessage);
+
+        if (
+            $status === 429
+            || str_contains($message, '429')
+            || str_contains($message, 'rate limit')
+            || str_contains($message, 'rate-limited')
+            || str_contains($message, 'too many requests')
+        ) {
+            return self::PROVIDER_BUSY_MESSAGE;
+        }
+
+        if (
+            str_contains($message, 'openrouter')
+            || str_contains($message, 'provider returned error')
+            || str_contains($message, 'provider error')
+        ) {
+            return 'A temporary error occurred while connecting to the AI provider. Please try again.';
+        }
+
+        return 'Could not complete the AI request right now. Please try again.';
     }
 
     protected function buildTargetUrl(?string $endpoint): string

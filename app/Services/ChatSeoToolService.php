@@ -646,6 +646,10 @@ PROMPT,
     private function providerErrorMessage(array $providerResponse): string
     {
         $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
+        $status = (int) (
+            $providerResponse['status']
+            ?? ($raw['status'] ?? ($raw['data']['status'] ?? 0))
+        );
         $message = $this->toNullableString(
             $providerResponse['message']
             ?? ($providerResponse['reply'] ?? null)
@@ -655,7 +659,42 @@ PROMPT,
             ?? ($raw['data']['error'] ?? null)
         );
 
-        return $message ?? 'AI provider returned an error while generating the SEO tool response.';
+        $haystack = strtolower((string) $message);
+
+        if (
+            $status === 429
+            || str_contains($haystack, '429')
+            || str_contains($haystack, 'rate limit')
+            || str_contains($haystack, 'rate-limited')
+            || str_contains($haystack, 'too many requests')
+        ) {
+            return 'الموديل مشغول مؤقتا بسبب كثرة الطلبات. يرجى المحاولة بعد قليل.';
+        }
+
+        if (
+            str_contains($haystack, 'openrouter')
+            || str_contains($haystack, 'provider returned error')
+            || str_contains($haystack, 'provider error')
+        ) {
+            return 'A temporary error occurred while connecting to the AI provider. Please try again.';
+        }
+
+        return $message && ! $this->looksTechnicalError($message)
+            ? $message
+            : 'AI provider failed while generating the response. Please try again.';
+    }
+
+    private function looksTechnicalError(string $message): bool
+    {
+        $haystack = strtolower($message);
+
+        return str_contains($haystack, '{')
+            || str_contains($haystack, 'http://')
+            || str_contains($haystack, 'https://')
+            || str_contains($haystack, 'stack trace')
+            || str_contains($haystack, 'request_id')
+            || str_contains($haystack, 'provider')
+            || str_contains($haystack, 'openrouter');
     }
 
     private function contentForTool(int $toolId, string $content, array $state): string

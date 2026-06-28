@@ -752,6 +752,7 @@ PROMPT;
         return response()->json([
             'status' => 'error',
             'message' => $message,
+            'code' => $context['code'] ?? ($status === 429 ? 'AI_RATE_LIMITED' : 'AI_PROVIDER_ERROR'),
             'detail' => config('app.debug') ? $th->getMessage() : null,
         ], $status);
     }

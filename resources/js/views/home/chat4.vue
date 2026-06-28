@@ -92,14 +92,69 @@
                             <i :class="message.role === 'assistant' ? 'bi bi-stars' : 'bi bi-person-fill'"></i>
                         </div>
 
-                        <div class="message-body" :class="{ error: message.is_error }">
-                            <template v-if="message.role === 'assistant' && message.results.length">
-                                <DetectorResults
-                                    :message="message"
-                                    :labels="labels"
-                                    :copied-key="copiedKey"
-                                    @copy="copyText"
-                                />
+                        <div
+                            class="message-body"
+                            :class="{
+                                error: message.is_error,
+                                'card-shell': message.role === 'assistant' && (message.results?.length || message.is_error),
+                            }"
+                        >
+                            <template v-if="message.role === 'assistant' && message.results?.length">
+                                <div class="ai-response-card">
+                                    <div class="ai-response-header">
+                                        <div class="ai-response-title">
+                                            <i class="bi bi-stars"></i>
+                                            <span>{{ message.metadata?.title || labels.aiResponseTitle }}</span>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            class="copy-card-button"
+                                            @click="copyText(getMessageText(message), `msg-${message.localKey}`)"
+                                        >
+                                            <i class="bi bi-copy"></i>
+                                            {{ copiedKey === `msg-${message.localKey}` ? labels.copied : labels.copy }}
+                                        </button>
+                                    </div>
+
+                                    <div
+                                        class="ai-response-content"
+                                        v-html="formatMessage(getMessageText(message))"
+                                    ></div>
+
+                                    <div
+                                        v-if="message.results[0]?.meta?.ai_likelihood_score !== undefined"
+                                        class="ai-score-box"
+                                    >
+                                        <span>{{ labels.score }}</span>
+                                        <strong>{{ message.results[0].meta.ai_likelihood_score }} / 100</strong>
+                                    </div>
+
+                                    <div v-if="message.results[0]?.meta?.signals?.length" class="ai-meta-section">
+                                        <h4>{{ labels.signals }}</h4>
+                                        <ul>
+                                            <li v-for="signal in message.results[0].meta.signals" :key="signal">
+                                                {{ signal }}
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <div v-if="message.results[0]?.meta?.rewrite_tips?.length" class="ai-meta-section">
+                                        <h4>{{ labels.rewriteTips }}</h4>
+                                        <ul>
+                                            <li v-for="tip in message.results[0].meta.rewrite_tips" :key="tip">
+                                                {{ tip }}
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template v-else-if="message.role === 'assistant' && message.is_error">
+                                <div class="clean-error-card">
+                                    <i class="bi bi-exclamation-circle"></i>
+                                    <span>{{ message.content }}</span>
+                                </div>
                             </template>
 
                             <div
@@ -244,7 +299,7 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import MarkdownIt from "markdown-it";
@@ -296,6 +351,7 @@ const labels = computed(() => isArabic.value ? {
     includeEvidence: "إظهار الأدلة والمؤشرات",
     includeRewriteTips: "إظهار نصائح إعادة الصياغة",
     extraOptions: "خيارات إضافية",
+    aiResponseTitle: "النتيجة",
     score: "AI Likelihood Score",
     signals: "Signals",
     rewriteTips: "Rewrite Tips",
@@ -332,6 +388,7 @@ const labels = computed(() => isArabic.value ? {
     includeEvidence: "Include evidence",
     includeRewriteTips: "Include rewrite tips",
     extraOptions: "Extra options",
+    aiResponseTitle: "Result",
     score: "AI Likelihood Score",
     signals: "Signals",
     rewriteTips: "Rewrite Tips",
@@ -396,75 +453,68 @@ useSeoMeta({
     description: computed(() => labels.value.welcome),
 });
 
-const DetectorResults = defineComponent({
-    name: "DetectorResults",
-    props: {
-        message: { type: Object, required: true },
-        labels: { type: Object, required: true },
-        copiedKey: { type: String, default: "" },
-    },
-    emits: ["copy"],
-    setup(props, { emit }) {
-        const resultText = (item) => String(item?.text || "").trim();
-        const allText = () => props.message.results.map(resultText).filter(Boolean).join("\n\n");
-
-        return () => h("div", { class: "detector-result-list" }, [
-            h("div", { class: "detector-copy-bar" }, [
-                h("button", {
-                    type: "button",
-                    onClick: () => emit("copy", allText(), `full-${props.message.localKey}`),
-                }, [
-                    h("i", { class: "bi bi-copy" }),
-                    props.copiedKey === `full-${props.message.localKey}` ? props.labels.copied : props.labels.copyFull,
-                ]),
-                h("button", {
-                    type: "button",
-                    onClick: () => emit("copy", allText(), `all-${props.message.localKey}`),
-                }, [
-                    h("i", { class: "bi bi-clipboard-check" }),
-                    props.copiedKey === `all-${props.message.localKey}` ? props.labels.copied : props.labels.copyAll,
-                ]),
-            ]),
-            ...props.message.results.map((item, index) => h("section", {
-                key: item.id || index,
-                class: "detector-result-card",
-            }, [
-                h("div", { class: "result-header" }, [
-                    h("strong", {}, item.title || `${props.labels.copyResult} ${index + 1}`),
-                    h("button", {
-                        type: "button",
-                        onClick: () => emit("copy", resultText(item), `item-${props.message.localKey}-${index}`),
-                    }, [
-                        h("i", { class: "bi bi-copy" }),
-                        props.copiedKey === `item-${props.message.localKey}-${index}` ? props.labels.copied : props.labels.copy,
-                    ]),
-                ]),
-                item.subject ? h("small", { class: "result-subject" }, item.subject) : null,
-                item.meta?.ai_likelihood_score !== undefined && item.meta?.ai_likelihood_score !== null
-                    ? h("div", { class: "score-box" }, `${props.labels.score}: ${item.meta.ai_likelihood_score} / 100`)
-                    : null,
-                resultText(item)
-                    ? h("p", { class: "result-text" }, resultText(item))
-                    : null,
-                Array.isArray(item.meta?.signals) && item.meta.signals.length
-                    ? h("div", { class: "meta-list" }, [
-                        h("h4", {}, props.labels.signals),
-                        h("ul", {}, item.meta.signals.map((signal) => h("li", { key: signal }, signal))),
-                    ])
-                    : null,
-                Array.isArray(item.meta?.rewrite_tips) && item.meta.rewrite_tips.length
-                    ? h("div", { class: "meta-list" }, [
-                        h("h4", {}, props.labels.rewriteTips),
-                        h("ul", {}, item.meta.rewrite_tips.map((tip) => h("li", { key: tip }, tip))),
-                    ])
-                    : null,
-            ])),
-        ]);
-    },
-});
-
 const formatMessage = (value = "") =>
     DOMPurify.sanitize(markdown.render(String(value || "")), { USE_PROFILES: { html: true } });
+
+function getMessageText(message) {
+    if (message?.results?.length) {
+        return message.results
+            .map((item) => item.text || item.content || item.output || "")
+            .filter(Boolean)
+            .join("\n\n");
+    }
+
+    return String(message?.content || "");
+}
+
+function cleanErrorMessage(error) {
+    const raw =
+        error?.response?.data?.message
+        || error?.response?.data?.detail
+        || error?.response?.data?.error
+        || error?.message
+        || "";
+
+    const text = String(raw);
+    const lower = text.toLowerCase();
+
+    if (
+        text.includes("429")
+        || lower.includes("rate-limited")
+        || lower.includes("rate limit")
+        || lower.includes("too many requests")
+    ) {
+        return isArabic.value
+            ? "الموديل مشغول مؤقتا بسبب كثرة الطلبات. يرجى المحاولة بعد قليل."
+            : "The AI model is temporarily busy due to high demand. Please try again shortly.";
+    }
+
+    if (
+        lower.includes("openrouter")
+        || lower.includes("provider returned error")
+        || lower.includes("provider error")
+    ) {
+        return isArabic.value
+            ? "حدث خطأ مؤقت أثناء الاتصال بمزود الذكاء الاصطناعي. يرجى إعادة المحاولة."
+            : "A temporary error occurred while connecting to the AI provider. Please try again.";
+    }
+
+    if (text.includes("401") || lower.includes("unauthenticated") || lower.includes("unauthorized")) {
+        return isArabic.value
+            ? "يرجى تسجيل الدخول أولا للمتابعة."
+            : "Please sign in first to continue.";
+    }
+
+    if (text.includes("422") || lower.includes("validation")) {
+        return isArabic.value
+            ? "يرجى التأكد من إدخال النص المطلوب بشكل صحيح."
+            : "Please make sure the required text is entered correctly.";
+    }
+
+    return isArabic.value
+        ? "تعذر تنفيذ الطلب الآن. يرجى المحاولة مرة أخرى."
+        : "Could not complete the request right now. Please try again.";
+}
 
 const createLocalKey = () => `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -555,13 +605,48 @@ function buildDetectorPayload(messageText, conversation) {
     };
 }
 
+function normalizeResultText(value) {
+    if (value && typeof value === "object") {
+        return normalizeResultText(value.text || value.content || value.output || value.message || "");
+    }
+
+    const text = String(value || "").trim();
+
+    if (!text || text === "[object Object]") {
+        return "";
+    }
+
+    const parsed = safeJsonParse(text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, ""));
+    if (parsed && typeof parsed === "object") {
+        const nestedResults = Array.isArray(parsed.results) ? parsed.results : [];
+        if (nestedResults.length) {
+            return nestedResults
+                .map((item) => normalizeResultText(item?.text || item?.content || item?.output || ""))
+                .filter(Boolean)
+                .join("\n\n");
+        }
+
+        return normalizeResultText(parsed.text || parsed.content || parsed.output || parsed.message || "");
+    }
+
+    if (
+        text.includes("OpenRouter")
+        || text.includes("https://openrouter.ai")
+        || text.includes("Provider returned error")
+    ) {
+        return "";
+    }
+
+    return text;
+}
+
 function normalizeDetectorResponse(response) {
     const results = Array.isArray(response?.results) ? response.results : [];
 
     if (results.length) {
         return results.map((item, index) => ({
             id: item.id || index + 1,
-            text: String(item.text || item.content || item.output || "").trim(),
+            text: normalizeResultText(item.text || item.content || item.output || ""),
             title: item.title || null,
             subject: item.subject || null,
             meta: item.meta && typeof item.meta === "object" ? item.meta : {},
@@ -571,11 +656,11 @@ function normalizeDetectorResponse(response) {
     if (response?.state?.last_output) {
         return [{
             id: 1,
-            text: response.state.last_output,
+            text: normalizeResultText(response.state.last_output),
             title: null,
             subject: null,
             meta: {},
-        }];
+        }].filter((item) => item.text.trim());
     }
 
     return [];
@@ -813,19 +898,14 @@ const sendMessage = async () => {
         await scrollToBottom();
     } catch (error) {
         isAssistantTyping.value = false;
-        const backendMessage =
-            error?.response?.data?.message
-            || error?.response?.data?.detail
-            || error?.response?.data?.error
-            || error?.message
-            || labels.value.genericError;
+        const friendlyMessage = cleanErrorMessage(error);
 
-        errorMessage.value = backendMessage;
+        errorMessage.value = "";
         messages.value.push(mapMessage({
             localKey: createLocalKey(),
             role: "assistant",
             is_error: true,
-            content: backendMessage,
+            content: friendlyMessage,
             created_at: new Date().toISOString(),
         }));
         await scrollToBottom();
@@ -1287,6 +1367,14 @@ button:disabled {
     background: #fff5f5;
 }
 
+.message-body.card-shell {
+    max-width: min(780px, 85%);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
 .message-content :deep(p) {
     margin: 0 0 0.75em;
     line-height: 1.75;
@@ -1339,6 +1427,136 @@ button:disabled {
 
 .animation-delay-300 {
     animation-delay: 0.3s;
+}
+
+.ai-response-card {
+    overflow: hidden;
+    min-width: min(620px, 68vw);
+    border: 1px solid #d6e9f4;
+    border-radius: 12px;
+    background: #fbfdff;
+    box-shadow: 0 10px 28px rgba(18, 63, 109, 0.08);
+}
+
+.ai-response-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 14px;
+    border-bottom: 1px solid #e2eef5;
+    background: #f0f8fc;
+}
+
+.ai-response-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.copy-card-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #cfe3ef;
+    border-radius: 8px;
+    color: var(--blue);
+    background: #fff;
+    font-size: 12px;
+}
+
+.copy-card-button:hover {
+    border-color: var(--blue);
+    background: #f7fcff;
+}
+
+.ai-response-content {
+    padding: 16px;
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.9;
+    white-space: normal;
+}
+
+.ai-response-content :deep(p) {
+    margin: 0 0 0.9em;
+}
+
+.ai-response-content :deep(p:last-child) {
+    margin-bottom: 0;
+}
+
+.ai-response-content :deep(ul),
+.ai-response-content :deep(ol) {
+    margin: 0.75em 0;
+    padding-inline-start: 22px;
+}
+
+.ai-response-content :deep(li) {
+    margin-bottom: 0.35em;
+}
+
+.ai-score-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 0 16px 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    color: var(--navy);
+    background: #eef6ff;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.ai-score-box strong {
+    font-size: 18px;
+}
+
+.ai-meta-section {
+    margin: 0 16px 16px;
+    padding: 13px 14px;
+    border: 1px solid #e2eef5;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.ai-meta-section h4 {
+    margin: 0 0 8px;
+    color: var(--navy);
+    font-size: 14px;
+}
+
+.ai-meta-section ul {
+    margin: 0;
+    padding-inline-start: 20px;
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.clean-error-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    max-width: min(620px, 75vw);
+    padding: 13px 15px;
+    border: 1px solid #f1b9b9;
+    border-radius: 12px;
+    color: #8b2525;
+    background: #fff4f4;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.clean-error-card i {
+    margin-top: 3px;
+    flex: 0 0 auto;
 }
 
 .detector-result-list {
@@ -1694,6 +1912,10 @@ button:disabled {
     .detector-result-list {
         min-width: 0;
     }
+
+    .ai-response-card {
+        min-width: 0;
+    }
 }
 
 @media (max-width: 560px) {
@@ -1708,6 +1930,21 @@ button:disabled {
 
     .message-body {
         max-width: calc(100% - 45px);
+    }
+
+    .message-body.card-shell,
+    .ai-response-card {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .ai-response-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .clean-error-card {
+        max-width: 100%;
     }
 
     .options-grid {
