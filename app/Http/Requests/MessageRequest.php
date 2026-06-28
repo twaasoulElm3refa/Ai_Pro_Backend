@@ -156,29 +156,142 @@ class MessageRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->filled('sub_tool_id')) {
+        $this->normalizeMessageTextFields();
+
+        if (! $this->filled('sub_tool_id')) {
+            $conversationId = $this->input('conversation_id');
+            $conversationUuid = $this->input('conversation_uuid');
+
+            if (! $conversationId && ! $conversationUuid) {
+                $this->normalizeChat3SeoStateForValidation();
+
+                return;
+            }
+
+            $query = Conversation::query();
+            if ($this->user()) {
+                $query->where('user_id', $this->user()->id);
+            }
+
+            $conversation = $conversationId
+                ? (clone $query)->where('id', (int) $conversationId)->first()
+                : (clone $query)->where('uuid', (string) $conversationUuid)->first();
+
+            if ($conversation) {
+                $this->merge(['sub_tool_id' => (int) $conversation->sub_tool_id]);
+            }
+        }
+
+        $this->normalizeChat3SeoStateForValidation();
+    }
+
+    private function normalizeMessageTextFields(): void
+    {
+        $messageText = $this->firstFilledScalar(['content', 'user_message', 'message']);
+
+        if ($messageText === null) {
             return;
         }
 
-        $conversationId = $this->input('conversation_id');
-        $conversationUuid = $this->input('conversation_uuid');
+        $merge = [];
 
-        if (! $conversationId && ! $conversationUuid) {
+        if (! $this->filled('content')) {
+            $merge['content'] = $messageText;
+        }
+
+        if (! $this->filled('user_message')) {
+            $merge['user_message'] = $messageText;
+        }
+
+        if ($merge !== []) {
+            $this->merge($merge);
+        }
+    }
+
+    private function normalizeChat3SeoStateForValidation(): void
+    {
+        $subToolId = (int) $this->input('sub_tool_id');
+        $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
+        $modelKey = strtolower(trim((string) $this->input('model_key')));
+        $isChat3SeoTool = in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)
+            || in_array($toolKey, [
+                'ai_keyword_generator',
+                'ai_meta_description_generator',
+                'ai_content_analyzer',
+                'ai_content_optimizer',
+            ], true)
+            || in_array($modelKey, [
+                'keyword_generator',
+                'meta_description_generator',
+                'content_analyzer',
+                'content_optimizer',
+            ], true);
+
+        if (! $isChat3SeoTool) {
             return;
         }
 
-        $query = Conversation::query();
-        if ($this->user()) {
-            $query->where('user_id', $this->user()->id);
+        $state = $this->input('state');
+        $state = is_array($state) ? $state : [];
+        $messageText = $this->firstFilledScalar(['content', 'user_message', 'message']);
+
+        if ($messageText !== null) {
+            $state['content'] = $this->filledNestedString($state, 'content') ?? $messageText;
+            $state['user_message'] = $this->filledNestedString($state, 'user_message') ?? $messageText;
+
+            if ($subToolId === 13 || $toolKey === 'ai_keyword_generator' || $modelKey === 'keyword_generator') {
+                $state['topic'] = $this->filledNestedString($state, 'topic') ?? $messageText;
+            }
         }
 
-        $conversation = $conversationId
-            ? (clone $query)->where('id', (int) $conversationId)->first()
-            : (clone $query)->where('uuid', (string) $conversationUuid)->first();
+        $state['results_count'] = $this->positiveInteger($state['results_count'] ?? null, 3, 100);
 
-        if ($conversation) {
-            $this->merge(['sub_tool_id' => (int) $conversation->sub_tool_id]);
+        if (! is_array($state['extra_options'] ?? null)) {
+            $state['extra_options'] = [];
         }
+
+        $this->merge(['state' => $state]);
+    }
+
+    private function firstFilledScalar(array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $this->input($key);
+
+            if (! is_scalar($value)) {
+                continue;
+            }
+
+            $text = trim((string) $value);
+
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return null;
+    }
+
+    private function filledNestedString(array $state, string $key): ?string
+    {
+        $value = $state[$key] ?? null;
+
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+
+        return $text === '' ? null : $text;
+    }
+
+    private function positiveInteger(mixed $value, int $fallback, int $max): int
+    {
+        if (! is_numeric($value)) {
+            return $fallback;
+        }
+
+        return max(1, min($max, (int) $value));
     }
 
     private function legacyStateRules(): array
@@ -226,7 +339,8 @@ class MessageRequest extends FormRequest
     private function chat3SeoStateRules(): array
     {
         return [
-            'state.topic' => ['nullable', 'string', 'max:1000'],
+            'state.topic' => ['nullable', 'string', 'max:5000'],
+            'state.user_message' => ['nullable', 'string', 'max:5000'],
             'state.industry' => ['nullable', 'string', 'max:150'],
             'state.target_audience' => ['nullable', 'string', 'max:250'],
             'state.language' => ['nullable', 'string', 'max:80'],

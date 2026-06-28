@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api\home;
 
+use App\Exceptions\AiServiceException;
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MessageRequest;
@@ -256,6 +257,8 @@ class MessageController extends Controller
             }
 
             return $this->handleDefaultFlow($conversation, $data, $content, $userId);
+        } catch (AiServiceException $th) {
+            return $this->aiProviderErrorResponse($th);
         } catch (ValidationException $th) {
             return $this->validationError($th->errors(), 'Invalid SEO tool payload.');
         } catch (Throwable $th) {
@@ -720,6 +723,37 @@ PROMPT;
                 'provider_error' => $th->getMessage(),
             ] : null,
         ], 502);
+    }
+
+    protected function aiProviderErrorResponse(AiServiceException $th)
+    {
+        $context = $th->context();
+        $status = (int) ($context['status'] ?? $th->getCode() ?: 502);
+
+        if ($status < 400 || $status > 599) {
+            $status = 502;
+        }
+
+        $message = $this->toNullableString($context['friendly_message'] ?? null)
+            ?? $this->toNullableString($th->getMessage())
+            ?? 'AI provider failed while generating the response. Please try again.';
+
+        if ($status === 429) {
+            $message = $this->toNullableString($context['friendly_message'] ?? null)
+                ?? 'الموديل مشغول مؤقتًا، حاول مرة أخرى بعد قليل.';
+        }
+
+        Log::warning('AI provider error returned to client.', [
+            'status' => $status,
+            'message' => $th->getMessage(),
+            'context' => $context,
+        ]);
+
+        return response()->json([
+            'status' => 'error',
+            'message' => $message,
+            'detail' => config('app.debug') ? $th->getMessage() : null,
+        ], $status);
     }
 
     protected function handleDefaultFlow(Conversation $conversation, array $data, string $content, int $userId)

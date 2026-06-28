@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiServiceException;
 use App\Models\Conversation;
 use App\Models\CostLogger;
 use App\Models\Message;
@@ -144,6 +145,23 @@ class ChatSeoToolService
         $providerPayload = $this->buildProviderPayload($toolId, $tool, $conversation, $requestPayload, $state);
 
         $providerResponse = $this->writerService->generateReplyWithUsage($providerPayload, $endpoint);
+        $providerResponse = is_array($providerResponse)
+            ? $providerResponse
+            : ['reply' => (string) $providerResponse];
+
+        if ($this->providerResponseIsError($providerResponse)) {
+            throw new AiServiceException(
+                $this->providerErrorMessage($providerResponse),
+                [
+                    'endpoint' => $endpoint,
+                    'tool' => $tool['tool_key'],
+                    'model_key' => $tool['model_key'],
+                    'sub_tool_id' => $toolId,
+                    'provider_response' => $providerResponse,
+                ]
+            );
+        }
+
         $rawOutput = $this->extractRawOutput($providerResponse);
         $normalizedResults = $this->normalizeResults($toolId, $providerResponse, $rawOutput, $state);
 
@@ -396,7 +414,7 @@ class ChatSeoToolService
                 'keyword_type' => null,
                 'search_intent' => null,
                 'location' => null,
-                'results_count' => null,
+                'results_count' => 3,
                 'include_long_tail' => false,
                 'include_clusters' => false,
                 'extra_options' => [],
@@ -485,7 +503,42 @@ class ChatSeoToolService
             $normalized['topic'] = trim($content);
         }
 
+        if ($toolId === self::KEYWORD_GENERATOR_SUB_TOOL_ID) {
+            $resultsCount = $normalized['results_count'] ?? 3;
+            $normalized['results_count'] = is_numeric($resultsCount)
+                ? max(1, (int) $resultsCount)
+                : 3;
+        }
+
         return $normalized;
+    }
+
+    private function providerResponseIsError(array $providerResponse): bool
+    {
+        $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
+        $success = $providerResponse['success']
+            ?? ($raw['success'] ?? ($raw['data']['success'] ?? true));
+        $type = strtolower(trim((string) (
+            $providerResponse['type']
+            ?? ($raw['type'] ?? ($raw['data']['type'] ?? ''))
+        )));
+
+        return $success === false || $type === 'error';
+    }
+
+    private function providerErrorMessage(array $providerResponse): string
+    {
+        $raw = is_array($providerResponse['raw'] ?? null) ? $providerResponse['raw'] : [];
+        $message = $this->toNullableString(
+            $providerResponse['message']
+            ?? ($providerResponse['reply'] ?? null)
+            ?? ($raw['message'] ?? null)
+            ?? ($raw['data']['message'] ?? null)
+            ?? ($raw['error'] ?? null)
+            ?? ($raw['data']['error'] ?? null)
+        );
+
+        return $message ?? 'AI provider returned an error while generating the SEO tool response.';
     }
 
     private function contentForTool(int $toolId, string $content, array $state): string

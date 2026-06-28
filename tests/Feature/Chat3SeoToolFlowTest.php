@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\AiServiceException;
 use App\Models\Conversation;
 use App\Models\MainTools;
 use App\Models\Message;
@@ -111,6 +112,86 @@ class Chat3SeoToolFlowTest extends TestCase
             ->assertJsonPath('data.normalized_results.0.text', 'وصف تعريفي أول جاهز هنا')
             ->assertJsonPath('data.normalized_results.1.text', 'وصف تعريفي ثاني جاهز هنا')
             ->assertJsonPath('data.state.results_count', 2);
+    }
+
+    public function test_keyword_generator_main_chat_payload_is_normalized_from_user_message(): void
+    {
+        [$user, $conversation] = $this->makeContext(13);
+        Sanctum::actingAs($user);
+
+        $message = 'Generate 3 keyword ideas about Egypt vs Iran match';
+        $writer = Mockery::mock(AiArabicWriterService::class);
+        $writer->shouldReceive('generateReplyWithUsage')
+            ->once()
+            ->withArgs(fn (array $payload, string $endpoint): bool =>
+                $endpoint === 'tasks/keyword-generator/chat'
+                && $payload['sub_tool_id'] === 13
+                && $payload['tool_key'] === 'ai_keyword_generator'
+                && $payload['model_key'] === 'keyword_generator'
+                && $payload['content'] === $message
+                && $payload['user_message'] === $message
+                && $payload['state']['topic'] === $message
+                && $payload['state']['results_count'] === 3
+            )
+            ->andReturn([
+                'reply' => '{"results":[{"id":1,"text":"egypt iran match"},{"id":2,"text":"egypt football keywords"},{"id":3,"text":"iran match analysis"}]}',
+                'usage' => ['total_tokens' => 0],
+                'model_key' => 'keyword_generator',
+            ]);
+        $this->app->instance(AiArabicWriterService::class, $writer);
+
+        $response = $this->apiPostJson('/api/v1/message/send', [
+            'sub_tool_id' => 13,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => $message,
+            'tool' => 'ai_keyword_generator',
+            'tool_key' => 'ai_keyword_generator',
+            'model_key' => 'keyword_generator',
+            'state' => [
+                'results_count' => null,
+                'extra_options' => null,
+            ],
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.count', 3)
+            ->assertJsonPath('data.state.topic', $message)
+            ->assertJsonPath('data.state.results_count', 3)
+            ->assertJsonPath('data.request_payload.content', $message)
+            ->assertJsonPath('data.request_payload.user_message', $message)
+            ->assertJsonPath('data.request_payload.state.topic', $message)
+            ->assertJsonPath('data.request_payload.state.results_count', 3);
+    }
+
+    public function test_keyword_generator_rate_limit_returns_clear_json_error(): void
+    {
+        [$user, $conversation] = $this->makeContext(13);
+        Sanctum::actingAs($user);
+
+        $message = 'Generate keywords about football';
+        $friendlyMessage = 'الموديل مشغول مؤقتًا، حاول مرة أخرى بعد قليل.';
+        $writer = Mockery::mock(AiArabicWriterService::class);
+        $writer->shouldReceive('generateReplyWithUsage')
+            ->once()
+            ->andThrow(new AiServiceException($friendlyMessage, [
+                'status' => 429,
+                'friendly_message' => $friendlyMessage,
+                'response_body' => '{"error":"rate limited"}',
+            ], 429));
+        $this->app->instance(AiArabicWriterService::class, $writer);
+
+        $this->apiPostJson('/api/v1/message/send', [
+            'sub_tool_id' => 13,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => $message,
+            'tool_key' => 'ai_keyword_generator',
+            'model_key' => 'keyword_generator',
+            'state' => [],
+            'idempotency_key' => (string) Str::uuid(),
+        ])->assertStatus(429)
+            ->assertJsonPath('status', 'error')
+            ->assertJsonPath('message', $friendlyMessage);
     }
 
     public function test_content_analyzer_returns_readable_text_inside_result_text(): void

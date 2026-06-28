@@ -10,6 +10,8 @@ use Throwable;
 
 class AiArabicWriterService
 {
+    private const PROVIDER_BUSY_MESSAGE = 'الموديل مشغول مؤقتًا، حاول مرة أخرى بعد قليل.';
+
     private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
 
     private const KEYWORD_GENERATOR_TOOL_KEY = 'ai_keyword_generator';
@@ -152,26 +154,53 @@ class AiArabicWriterService
             );
         }
 
+        $responsePayload = null;
+
+        try {
+            $responsePayload = $response->json();
+        } catch (Throwable $jsonThrowable) {
+            Log::debug('AI response JSON decode skipped.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'status' => $response->status(),
+                'error_message' => $jsonThrowable->getMessage(),
+            ]);
+        }
+
         if (! $response->successful()) {
+            $status = $response->status();
+            $body = $response->body();
+            $providerMessage = $this->extractProviderFailureMessage($responsePayload, $body);
+            $friendlyMessage = $status === 429
+                ? self::PROVIDER_BUSY_MESSAGE
+                : 'AI request failed with status '.$status.($providerMessage ? ': '.$providerMessage : '');
+
             Log::error('AI request returned non-success status.', [
                 'base_url' => $this->url,
                 'endpoint' => $endpoint,
                 'target_url' => $targetUrl,
                 'payload' => $payload,
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $status,
+                'body' => $body,
+                'response_json' => $responsePayload,
+                'provider_message' => $providerMessage,
             ]);
 
             throw new AiServiceException(
-                'AI request failed with status '.$response->status(),
+                $friendlyMessage,
                 [
                     'base_url' => $this->url,
                     'endpoint' => $endpoint,
                     'target_url' => $targetUrl,
                     'payload' => $payload,
-                    'status' => $response->status(),
-                    'response_body' => $response->body(),
-                ]
+                    'status' => $status,
+                    'response_body' => $body,
+                    'response_json' => $responsePayload,
+                    'provider_message' => $providerMessage,
+                    'friendly_message' => $friendlyMessage,
+                ],
+                $status
             );
         }
 
@@ -183,7 +212,7 @@ class AiArabicWriterService
             'response' => $response->json(),
         ]);
 
-        $responsePayload = $response->json();
+        $responsePayload = is_array($responsePayload) ? $responsePayload : $response->json();
         $content = $this->extractContent($responsePayload);
         $structuredContent = $this->extractStructuredJson($content);
         $declaredType = $this->extractScalarString($responsePayload, [
@@ -613,6 +642,32 @@ class AiArabicWriterService
         }
 
         return null;
+    }
+
+    protected function extractProviderFailureMessage(mixed $payload, string $body): ?string
+    {
+        $message = $this->extractScalarString($payload, [
+            ['message'],
+            ['detail'],
+            ['error'],
+            ['error', 'message'],
+            ['data', 'message'],
+            ['data', 'detail'],
+            ['data', 'error'],
+            ['data', 'error', 'message'],
+        ]);
+
+        if ($message !== null) {
+            return $message;
+        }
+
+        $body = trim($body);
+
+        if ($body === '') {
+            return null;
+        }
+
+        return mb_substr($body, 0, 1000);
     }
 
     protected function buildTargetUrl(?string $endpoint): string

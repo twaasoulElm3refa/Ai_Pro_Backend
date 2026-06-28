@@ -732,6 +732,12 @@ const createIdempotencyKey = () => {
     });
 };
 
+const toPositiveInteger = (value, fallback = 3) => {
+    const number = Number(value);
+
+    return Number.isFinite(number) && number > 0 ? Math.floor(number) : fallback;
+};
+
 const normalizeToolState = (state = {}, toolId = activeTool.value.id) => {
     const tool = CHAT3_TOOLS[Number(toolId)] || activeTool.value;
     const base = tool.getInitialState();
@@ -783,6 +789,59 @@ const toolRequestState = (state = {}) => ({
 });
 
 const keywordRequestState = toolRequestState;
+
+const resolveToolKey = (tool = activeTool.value) =>
+    tool?.tool_key || tool?.toolKey || subtool.value?.toolKey || KEYWORD_GENERATOR_TOOL_KEY;
+
+const resolveModelKey = (tool = activeTool.value) =>
+    tool?.model_key || tool?.modelKey || subtool.value?.modelKey || KEYWORD_GENERATOR_MODEL_KEY;
+
+const mapMessageToRequiredToolFields = (state, message, toolId, toolKey, options = {}) => {
+    const next = { ...(isPlainObject(state) ? state : {}) };
+    const cleanMessage = String(message || "").trim();
+    const key = String(toolKey || "").toLowerCase();
+    const preserveExisting = Boolean(options.preserveExisting);
+    const valueFor = (value) => (preserveExisting && String(value || "").trim() ? value : cleanMessage);
+
+    if (!cleanMessage) return next;
+
+    next.content = valueFor(next.content);
+    next.topic = valueFor(next.topic);
+    next.user_message = cleanMessage;
+
+    if (Number(toolId) === KEYWORD_GENERATOR_SUB_TOOL_ID || key === KEYWORD_GENERATOR_TOOL_KEY) {
+        next.topic = valueFor(next.topic);
+    }
+
+    if (key === "ai_social_post_generator" || key === "social_post_generator") {
+        next.content = valueFor(next.content);
+        next.topic = valueFor(next.topic);
+    }
+
+    if (key === "ai_email_writer" || key === "email_writer") {
+        next.purpose = valueFor(next.purpose);
+        next.content = valueFor(next.content);
+    }
+
+    if (key === "ai_script_generator" || key === "script_generator") {
+        next.topic = valueFor(next.topic);
+    }
+
+    if (key === "ai_product_description_generator" || key === "product_description_generator") {
+        next.product = valueFor(next.product);
+        next.content = valueFor(next.content);
+    }
+
+    if (key === "prompt_enhancer" || key === "ai_prompt_enhancer") {
+        next.original_prompt = valueFor(next.original_prompt);
+    }
+
+    if (key === "idea_generator" || key === "ai_idea_generator") {
+        next.topic = valueFor(next.topic);
+    }
+
+    return next;
+};
 
 const metadataFrom = (message = {}) => {
     if (isPlainObject(message.metadata)) return message.metadata;
@@ -1179,7 +1238,11 @@ const openAssistantStream = async (conversation, afterId) => {
         if (payload.type === "error" && index >= 0) {
             messages.value[index].typing = false;
             messages.value[index].is_error = true;
-            messages.value[index].content = payload.content || labels.value.genericError;
+            messages.value[index].content =
+                payload.message
+                || payload.detail
+                || payload.content
+                || labels.value.genericError;
             closeStream();
         }
 
@@ -1195,19 +1258,27 @@ const openAssistantStream = async (conversation, afterId) => {
     };
 };
 
-const inferStateFromMessage = (state, text) => {
-    const next = normalizeToolState(state);
+const inferStateFromMessage = (state, text, options = {}) => {
+    const toolId = activeTool.value.id;
+    const toolKey = resolveToolKey();
+    const next = mapMessageToRequiredToolFields(
+        normalizeToolState(state, toolId),
+        text,
+        toolId,
+        toolKey,
+        options
+    );
     const hadExplicitContent = Boolean(isPlainObject(state) && String(state.content || "").trim());
     const message = String(text || "").trim();
     const contentAfterColon = message.includes(":")
         ? message.slice(message.indexOf(":") + 1).trim()
         : "";
 
-    if ([META_DESCRIPTION_SUB_TOOL_ID, CONTENT_ANALYZER_SUB_TOOL_ID, CONTENT_OPTIMIZER_SUB_TOOL_ID].includes(activeTool.value.id)) {
-        next.content = next.content || contentAfterColon || message;
+    if ([META_DESCRIPTION_SUB_TOOL_ID, CONTENT_ANALYZER_SUB_TOOL_ID, CONTENT_OPTIMIZER_SUB_TOOL_ID].includes(toolId)) {
+        next.content = hadExplicitContent ? next.content : contentAfterColon || message;
     }
 
-    if (activeTool.value.id === META_DESCRIPTION_SUB_TOOL_ID && !next.primary_keyword) {
+    if (toolId === META_DESCRIPTION_SUB_TOOL_ID && !next.primary_keyword) {
         const match = message.match(/\bfor\s+(?:an?\s+)?(.+?)(?:[.!?]|$)/i);
         next.primary_keyword = cleanOutputText(match?.[1] || next.content);
         if (!hadExplicitContent && next.primary_keyword) {
@@ -1215,36 +1286,47 @@ const inferStateFromMessage = (state, text) => {
         }
     }
 
-    if (activeTool.value.id === CONTENT_ANALYZER_SUB_TOOL_ID && !next.target_keyword) {
+    if (toolId === CONTENT_ANALYZER_SUB_TOOL_ID && !next.target_keyword) {
         const match = message.match(/:\s*([A-Za-z][A-Za-z\s-]{2,40})/);
         next.target_keyword = match?.[1]?.trim().split(/\s+/).slice(0, 3).join(" ") || null;
     }
 
-    if (activeTool.value.id === CONTENT_OPTIMIZER_SUB_TOOL_ID && !next.primary_keyword) {
+    if (toolId === CONTENT_OPTIMIZER_SUB_TOOL_ID && !next.primary_keyword) {
         const match = message.match(/\bkeyword\s+(.+?)(?=:|,|\.|$)/i);
         next.primary_keyword = cleanOutputText(match?.[1] || "");
     }
 
+    next.results_count = toPositiveInteger(next.results_count, 3);
+    next.extra_options = Array.isArray(next.extra_options) ? next.extra_options : [];
+
     return next;
 };
 
-const buildPayload = (conversation, text, options = {}) => {
-    const state = inferStateFromMessage(options.state || toolState.value, text);
-    const payload = {
-        user_id: Number(conversation.user_id) || null,
-        sub_tool_id: activeTool.value.id,
-        conversation_uuid: conversation.uuid,
+const buildToolPayload = (messageText, conversation = activeConversation.value, options = {}) => {
+    const text = String(messageText || "").trim();
+    const tool = activeTool.value;
+    const toolId = Number(tool?.id || subtool.value?.id || KEYWORD_GENERATOR_SUB_TOOL_ID);
+    const toolKey = resolveToolKey(tool);
+    const modelKey = resolveModelKey(tool);
+    const state = inferStateFromMessage(options.state || toolState.value, text, {
+        preserveExisting: Boolean(options.state),
+    });
+    state.results_count = toPositiveInteger(state.results_count, 3);
+    state.extra_options = Array.isArray(state.extra_options) ? state.extra_options : [];
+
+    return {
+        user_id: Number(conversation?.user_id) || null,
+        sub_tool_id: toolId,
+        conversation_uuid: conversation?.uuid,
         user_message: text,
         content: text,
-        tool: activeTool.value.toolKey,
-        tool_key: activeTool.value.toolKey,
-        model_key: activeTool.value.modelKey,
+        tool: toolKey,
+        tool_key: toolKey,
+        model_key: modelKey,
         state,
         debug: false,
         idempotency_key: createIdempotencyKey(),
     };
-
-    return payload;
 };
 
 const submitKeywordRequest = async (text, options = {}) => {
@@ -1258,7 +1340,7 @@ const submitKeywordRequest = async (text, options = {}) => {
         const conversation = await ensureConversation();
         if (!conversation?.uuid) return;
 
-        const payload = buildPayload(conversation, cleanText, options);
+        const payload = buildToolPayload(cleanText, conversation, options);
         const requestState = toolRequestState(payload.state);
 
         messages.value.push(mapMessage({
@@ -1320,7 +1402,11 @@ const submitKeywordRequest = async (text, options = {}) => {
 
         await openAssistantStream(conversation, response?.data?.message_id || directPayload.message_id);
     } catch (error) {
-        errorMessage.value = error?.response?.data?.message || labels.value.genericError;
+        errorMessage.value =
+            error?.response?.data?.message
+            || error?.response?.data?.detail
+            || error?.response?.data?.error
+            || labels.value.genericError;
     } finally {
         sendingMessage.value = false;
     }
