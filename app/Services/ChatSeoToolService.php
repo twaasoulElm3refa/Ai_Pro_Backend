@@ -22,6 +22,7 @@ class ChatSeoToolService
     public const CONTENT_ANALYZER_SUB_TOOL_ID = 15;
     public const CONTENT_OPTIMIZER_SUB_TOOL_ID = 16;
     public const AI_DETECTOR_SUB_TOOL_ID = 17;
+    public const AI_HUMANIZER_SUB_TOOL_ID = 18;
 
     private const TOOLS = [
         self::KEYWORD_GENERATOR_SUB_TOOL_ID => [
@@ -53,6 +54,12 @@ class ChatSeoToolService
             'tool_key' => 'ai_detector',
             'model_key' => 'ai_detector',
             'endpoint' => 'tasks/ai-detector/chat',
+        ],
+        self::AI_HUMANIZER_SUB_TOOL_ID => [
+            'name' => 'AI Humanizer',
+            'tool_key' => 'ai_humanizer',
+            'model_key' => 'ai_humanizer',
+            'endpoint' => 'tasks/ai-humanizer/chat',
         ],
     ];
 
@@ -102,16 +109,18 @@ class ChatSeoToolService
         $state = $this->normalizeState($toolId, is_array($data['state'] ?? null) ? $data['state'] : [], $content);
         $state['last_output'] = null;
         $content = $this->contentForTool($toolId, $content, $state);
-        $chatMessageContent = $toolId === self::AI_DETECTOR_SUB_TOOL_ID
+        $chatMessageContent = in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true)
             ? trim($originalContent)
             : $content;
 
         if ($content === '') {
             throw ValidationException::withMessages([
                 'user_message' => [
-                    $toolId === self::AI_DETECTOR_SUB_TOOL_ID
-                        ? 'Text to analyze is required.'
-                        : 'Message content is required.',
+                    match ($toolId) {
+                        self::AI_DETECTOR_SUB_TOOL_ID => 'Text to analyze is required.',
+                        self::AI_HUMANIZER_SUB_TOOL_ID => 'Text to humanize is required.',
+                        default => 'Message content is required.',
+                    },
                 ],
             ]);
         }
@@ -125,7 +134,7 @@ class ChatSeoToolService
             'user_id' => $userId,
             'sub_tool_id' => $toolId,
             'conversation_uuid' => $conversation->uuid,
-            'user_message' => $toolId === self::AI_DETECTOR_SUB_TOOL_ID ? $chatMessageContent : $content,
+            'user_message' => in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true) ? $chatMessageContent : $content,
             'content' => $content,
             'tool' => $tool['tool_key'],
             'tool_key' => $tool['tool_key'],
@@ -191,6 +200,8 @@ class ChatSeoToolService
             $normalizedResults = [[
                 'id' => 1,
                 'text' => $fallbackText,
+                'title' => null,
+                'subject' => null,
                 'meta' => [],
             ]];
         }
@@ -328,10 +339,10 @@ class ChatSeoToolService
     {
         $tool = self::TOOLS[$toolId];
         $metadata = is_array($assistantMessage->metadata ?? null) ? $assistantMessage->metadata : [];
-        $normalizedResults = $this->normalizeResultItems($metadata['normalized_results'] ?? $metadata['results'] ?? []);
         $state = is_array($metadata['state'] ?? null)
             ? $this->normalizeState($toolId, $metadata['state'], '')
             : [];
+        $normalizedResults = $this->normalizeResultItems($metadata['normalized_results'] ?? $metadata['results'] ?? [], $toolId, $state);
 
         return [
             'success' => true,
@@ -349,9 +360,11 @@ class ChatSeoToolService
             'results' => $normalizedResults,
             'normalized_results' => $normalizedResults,
             'count' => count($normalizedResults),
-            'message' => $toolId === self::AI_DETECTOR_SUB_TOOL_ID
-                ? 'AI content detection analysis completed successfully.'
-                : '',
+            'message' => match ($toolId) {
+                self::AI_DETECTOR_SUB_TOOL_ID => 'AI content detection analysis completed successfully.',
+                self::AI_HUMANIZER_SUB_TOOL_ID => 'تم تحويل النص إلى صياغة بشرية بنجاح.',
+                default => '',
+            },
             'request_payload' => is_array($metadata['request_payload'] ?? null) ? $metadata['request_payload'] : null,
             'usage' => $this->normalizeUsage($metadata['usage'] ?? []),
             'cost' => $this->normalizeCost($metadata['cost'] ?? []),
@@ -369,7 +382,7 @@ class ChatSeoToolService
             'body' => $this->buildUserPrompt(
                 $toolId,
                 $state,
-                $toolId === self::AI_DETECTOR_SUB_TOOL_ID
+                in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true)
                     ? $requestPayload['content']
                     : $requestPayload['user_message']
             ),
@@ -432,6 +445,39 @@ Rules:
 - Do not include chain-of-thought or hidden reasoning.
 - Do not include phrases like "We need to" or "Let's analyze".
 PROMPT,
+            self::AI_HUMANIZER_SUB_TOOL_ID => <<<'PROMPT'
+Return valid JSON only.
+Do not include markdown.
+Do not include explanations outside JSON.
+You are an AI text humanizer.
+
+Rewrite the provided content to sound more natural, human, smooth, and readable.
+Preserve the original meaning if preserve_meaning is true.
+Preserve important keywords if preserve_keywords is true.
+Use the requested language, tone, audience, and humanize_level.
+Avoid robotic phrasing, repetitive structure, stiff wording, and overly generic AI-like style.
+Do not add unsupported facts.
+Do not change names, numbers, or important terms unless necessary for readability.
+
+Use this exact schema:
+{
+  "results": [
+    {
+      "id": 1,
+      "text": "Humanized text here",
+      "meta": {}
+    }
+  ]
+}
+
+Rules:
+- Return exactly results_count results.
+- Each result.text must contain only the rewritten/humanized text.
+- No reasoning.
+- No chain-of-thought.
+- No explanation before or after JSON.
+- The response must start with { and end with }.
+PROMPT,
             default => $common,
         };
     }
@@ -460,6 +506,7 @@ PROMPT,
             self::CONTENT_ANALYZER_SUB_TOOL_ID => 'Return a clear analysis in readable text.',
             self::CONTENT_OPTIMIZER_SUB_TOOL_ID => 'Return the optimized content only unless include_explanation is true.',
             self::AI_DETECTOR_SUB_TOOL_ID => 'Analyze the text for possible AI-writing signals and return one cautious readable detector analysis.',
+            self::AI_HUMANIZER_SUB_TOOL_ID => 'Rewrite the text into a natural human style and return exactly the requested number of results.',
             default => 'Return clean results.',
         };
 
@@ -535,6 +582,18 @@ PROMPT,
                 'extra_options' => ['Be cautious', 'Do not claim certainty'],
                 'last_output' => null,
             ],
+            self::AI_HUMANIZER_SUB_TOOL_ID => [
+                'content' => null,
+                'language' => 'Auto Detect',
+                'tone' => 'Natural',
+                'audience' => 'General Audience',
+                'humanize_level' => 'Medium',
+                'preserve_meaning' => true,
+                'preserve_keywords' => true,
+                'results_count' => 1,
+                'extra_options' => ['Improve flow', 'Avoid robotic phrasing'],
+                'last_output' => null,
+            ],
             default => [],
         };
 
@@ -549,6 +608,7 @@ PROMPT,
             'include_score',
             'include_evidence',
             'include_rewrite_tips',
+            'preserve_keywords',
         ];
         $integerKeys = ['results_count', 'max_characters'];
         $normalized = $base;
@@ -580,9 +640,11 @@ PROMPT,
         }
 
         if (array_key_exists('content', $normalized) && ! $normalized['content'] && trim($content) !== '') {
-            $normalized['content'] = $toolId === self::AI_DETECTOR_SUB_TOOL_ID
-                ? $this->extractAiDetectorContent($content)
-                : trim($content);
+            $normalized['content'] = match ($toolId) {
+                self::AI_DETECTOR_SUB_TOOL_ID => $this->extractAiDetectorContent($content),
+                self::AI_HUMANIZER_SUB_TOOL_ID => $this->extractAiHumanizerContent($content),
+                default => trim($content),
+            };
         }
 
         if ($toolId === self::KEYWORD_GENERATOR_SUB_TOOL_ID && ! $normalized['topic'] && trim($content) !== '') {
@@ -603,6 +665,18 @@ PROMPT,
                 : ['Be cautious', 'Do not claim certainty'];
         }
 
+        if ($toolId === self::AI_HUMANIZER_SUB_TOOL_ID) {
+            $normalized['content'] = $this->extractAiHumanizerContent((string) ($normalized['content'] ?: $content));
+            $isArabic = preg_match('/[\x{0600}-\x{06FF}]/u', (string) $normalized['content']) === 1;
+            if (! $normalized['language'] || $normalized['language'] === 'Auto Detect') {
+                $normalized['language'] = $isArabic ? 'Arabic' : 'Auto Detect';
+            }
+            $normalized['results_count'] = max(1, min(5, (int) ($normalized['results_count'] ?? 1)));
+            $normalized['extra_options'] = $normalized['extra_options'] !== []
+                ? $normalized['extra_options']
+                : ['Improve flow', 'Avoid robotic phrasing'];
+        }
+
         return $normalized;
     }
 
@@ -619,6 +693,34 @@ PROMPT,
             '/ai generated:\s*([\s\S]+)$/iu',
             '/content:\s*([\s\S]+)$/iu',
             '/text:\s*([\s\S]+)$/iu',
+            '/النص:\s*([\s\S]+)$/iu',
+            '/المحتوى:\s*([\s\S]+)$/iu',
+        ] as $pattern) {
+            if (preg_match($pattern, $text, $match) && trim((string) ($match[1] ?? '')) !== '') {
+                return trim((string) $match[1]);
+            }
+        }
+
+        return $text;
+    }
+
+    private function extractAiHumanizerContent(string $userMessage): string
+    {
+        $text = trim($userMessage);
+
+        if ($text === '') {
+            return '';
+        }
+
+        foreach ([
+            '/Humanize this text in Arabic:\s*([\s\S]+)$/iu',
+            '/Humanize this text:\s*([\s\S]+)$/iu',
+            '/Humanize:\s*([\s\S]+)$/iu',
+            '/content:\s*([\s\S]+)$/iu',
+            '/text:\s*([\s\S]+)$/iu',
+            '/أنسن هذا النص:\s*([\s\S]+)$/iu',
+            '/حوّل هذا النص:\s*([\s\S]+)$/iu',
+            '/حول هذا النص:\s*([\s\S]+)$/iu',
             '/النص:\s*([\s\S]+)$/iu',
             '/المحتوى:\s*([\s\S]+)$/iu',
         ] as $pattern) {
@@ -701,6 +803,10 @@ PROMPT,
     {
         $content = trim($content);
 
+        if (in_array($toolId, [self::AI_DETECTOR_SUB_TOOL_ID, self::AI_HUMANIZER_SUB_TOOL_ID], true)) {
+            return trim((string) ($state['content'] ?? $content));
+        }
+
         if ($content !== '') {
             return $content;
         }
@@ -708,6 +814,7 @@ PROMPT,
         return trim((string) match ($toolId) {
             self::KEYWORD_GENERATOR_SUB_TOOL_ID => $state['topic'] ?? '',
             self::AI_DETECTOR_SUB_TOOL_ID => $state['content'] ?? '',
+            self::AI_HUMANIZER_SUB_TOOL_ID => $state['content'] ?? '',
             default => $state['content'] ?? '',
         });
     }

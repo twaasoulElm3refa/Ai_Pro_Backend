@@ -56,13 +56,13 @@
                 </button>
 
                 <div>
-                    <p class="eyebrow">AI Detector</p>
+                    <p class="eyebrow">{{ activeToolConfig.title_en }}</p>
                     <h1>{{ pageTitle }}</h1>
                 </div>
 
                 <div class="tool-badges">
-                    <span>sub_tool_id: 17</span>
-                    <span>ai_detector</span>
+                    <span>sub_tool_id: {{ activeSubToolId }}</span>
+                    <span>{{ activeToolConfig.tool_key }}</span>
                 </div>
             </header>
 
@@ -172,7 +172,7 @@
 
                         <div class="message-body assistant-typing-body">
                             <div class="assistant-typing-content">
-                                <span class="assistant-typing-text">جاري تحليل المحتوى</span>
+                                <span class="assistant-typing-text">{{ typingText }}</span>
                                 <span class="typing-dots" aria-hidden="true">
                                     <span class="typing-dot"></span>
                                     <span class="typing-dot animation-delay-150"></span>
@@ -197,49 +197,110 @@
                     </summary>
 
                     <form class="options-grid" @submit.prevent="applyOptions">
-                        <label>
-                            <span>{{ labels.language }}</span>
-                            <select v-model="detectorState.language">
-                                <option>Auto Detect</option>
-                                <option>Arabic</option>
-                                <option>English</option>
-                            </select>
-                        </label>
-
-                        <label>
-                            <span>{{ labels.analysisDepth }}</span>
-                            <select v-model="detectorState.analysis_depth">
-                                <option>Quick</option>
-                                <option>Medium</option>
-                                <option>Deep</option>
-                            </select>
-                        </label>
-
-                        <label class="wide">
-                            <span>{{ labels.detectionFocus }}</span>
-                            <select v-model="detectorState.detection_focus">
-                                <option>AI writing signals</option>
-                                <option>Human tone</option>
-                                <option>Repetition and generic wording</option>
-                                <option>Structure and style</option>
-                            </select>
-                        </label>
-
-                        <fieldset class="wide checkbox-field">
-                            <legend>{{ labels.outputOptions }}</legend>
-                            <label class="checkbox-option">
-                                <input v-model="detectorState.include_score" type="checkbox">
-                                <span>{{ labels.includeScore }}</span>
+                        <template v-if="isHumanizer">
+                            <label>
+                                <span>{{ labels.language }}</span>
+                                <select v-model="toolState.language">
+                                    <option>Auto Detect</option>
+                                    <option>Arabic</option>
+                                    <option>English</option>
+                                </select>
                             </label>
-                            <label class="checkbox-option">
-                                <input v-model="detectorState.include_evidence" type="checkbox">
-                                <span>{{ labels.includeEvidence }}</span>
+
+                            <label>
+                                <span>{{ labels.tone }}</span>
+                                <select v-model="toolState.tone">
+                                    <option>Natural</option>
+                                    <option>Professional</option>
+                                    <option>Friendly</option>
+                                    <option>Simple</option>
+                                    <option>Creative</option>
+                                </select>
                             </label>
-                            <label class="checkbox-option">
-                                <input v-model="detectorState.include_rewrite_tips" type="checkbox">
-                                <span>{{ labels.includeRewriteTips }}</span>
+
+                            <label>
+                                <span>{{ labels.audience }}</span>
+                                <select v-model="toolState.audience">
+                                    <option>General Audience</option>
+                                    <option>Students</option>
+                                    <option>Professionals</option>
+                                    <option>Customers</option>
+                                    <option>Social Media Audience</option>
+                                </select>
                             </label>
-                        </fieldset>
+
+                            <label>
+                                <span>{{ labels.humanizeLevel }}</span>
+                                <select v-model="toolState.humanize_level">
+                                    <option>Light</option>
+                                    <option>Medium</option>
+                                    <option>Strong</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>{{ labels.resultsCount }}</span>
+                                <input v-model.number="toolState.results_count" type="number" min="1" max="5">
+                            </label>
+
+                            <fieldset class="wide checkbox-field">
+                                <legend>{{ labels.humanizerOptions }}</legend>
+                                <label class="checkbox-option">
+                                    <input v-model="toolState.preserve_meaning" type="checkbox">
+                                    <span>{{ labels.preserveMeaning }}</span>
+                                </label>
+                                <label class="checkbox-option">
+                                    <input v-model="toolState.preserve_keywords" type="checkbox">
+                                    <span>{{ labels.preserveKeywords }}</span>
+                                </label>
+                            </fieldset>
+                        </template>
+
+                        <template v-else>
+                            <label>
+                                <span>{{ labels.language }}</span>
+                                <select v-model="toolState.language">
+                                    <option>Auto Detect</option>
+                                    <option>Arabic</option>
+                                    <option>English</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>{{ labels.analysisDepth }}</span>
+                                <select v-model="toolState.analysis_depth">
+                                    <option>Quick</option>
+                                    <option>Medium</option>
+                                    <option>Deep</option>
+                                </select>
+                            </label>
+
+                            <label class="wide">
+                                <span>{{ labels.detectionFocus }}</span>
+                                <select v-model="toolState.detection_focus">
+                                    <option>AI writing signals</option>
+                                    <option>Human tone</option>
+                                    <option>Repetition and generic wording</option>
+                                    <option>Structure and style</option>
+                                </select>
+                            </label>
+
+                            <fieldset class="wide checkbox-field">
+                                <legend>{{ labels.outputOptions }}</legend>
+                                <label class="checkbox-option">
+                                    <input v-model="toolState.include_score" type="checkbox">
+                                    <span>{{ labels.includeScore }}</span>
+                                </label>
+                                <label class="checkbox-option">
+                                    <input v-model="toolState.include_evidence" type="checkbox">
+                                    <span>{{ labels.includeEvidence }}</span>
+                                </label>
+                                <label class="checkbox-option">
+                                    <input v-model="toolState.include_rewrite_tips" type="checkbox">
+                                    <span>{{ labels.includeRewriteTips }}</span>
+                                </label>
+                            </fieldset>
+                        </template>
 
                         <fieldset class="wide checkbox-field">
                             <legend>{{ labels.extraOptions }}</legend>
@@ -250,7 +311,7 @@
                             >
                                 <input
                                     type="checkbox"
-                                    :checked="detectorState.extra_options.includes(option)"
+                                    :checked="toolState.extra_options.includes(option)"
                                     @change="toggleExtraOption(option)"
                                 >
                                 <span>{{ option }}</span>
@@ -308,9 +369,29 @@ import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
 
-const AI_DETECTOR_SUB_TOOL_ID = 17;
-const AI_DETECTOR_TOOL_KEY = "ai_detector";
-const AI_DETECTOR_MODEL_KEY = "ai_detector";
+const CHAT4_TOOLS = {
+    17: {
+        sub_tool_id: 17,
+        tool_key: "ai_detector",
+        model_key: "ai_detector",
+        title_ar: "كاشف المحتوى الذكي",
+        title_en: "AI Content Detector",
+        subtitle_ar: "تحليل احتمالية كتابة المحتوى بالذكاء الاصطناعي",
+        subtitle_en: "Focused AI-writing signal analysis",
+    },
+    18: {
+        sub_tool_id: 18,
+        tool_key: "ai_humanizer",
+        model_key: "ai_humanizer",
+        title_ar: "أنسنة النصوص بالذكاء الاصطناعي",
+        title_en: "AI Humanizer",
+        subtitle_ar: "تحويل النص إلى صياغة طبيعية وأكثر بشرية",
+        subtitle_en: "Rewrite AI-like text into natural human language",
+    },
+};
+const CHAT4_SUB_TOOL_IDS = Object.keys(CHAT4_TOOLS).map(Number);
+const DETECTOR_SUB_TOOL_ID = 17;
+const HUMANIZER_SUB_TOOL_ID = 18;
 
 const route = useRoute();
 const router = useRouter();
@@ -326,9 +407,28 @@ const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "en").toLowerCase() === "ar"
 );
 
+const activeConversation = ref(null);
+const currentSubtool = ref(null);
+const activeSubToolId = computed(() => {
+    const candidates = [
+        activeConversation.value?.sub_tool_id,
+        route.params.sub_tool_id,
+        currentSubtool.value?.id,
+        currentSubtool.value?.sub_tool_id,
+    ];
+
+    const matched = candidates
+        .map((value) => Number(value || 0))
+        .find((value) => CHAT4_SUB_TOOL_IDS.includes(value));
+
+    return matched || DETECTOR_SUB_TOOL_ID;
+});
+const activeToolConfig = computed(() => CHAT4_TOOLS[activeSubToolId.value] || CHAT4_TOOLS[DETECTOR_SUB_TOOL_ID]);
+const isHumanizer = computed(() => Number(activeSubToolId.value) === HUMANIZER_SUB_TOOL_ID);
+
 const labels = computed(() => isArabic.value ? {
-    title: "كاشف المحتوى الذكي",
-    subtitle: "تحليل احتمالية كتابة المحتوى بالذكاء الاصطناعي",
+    title: activeToolConfig.value.title_ar,
+    subtitle: activeToolConfig.value.subtitle_ar,
     newChat: "محادثة جديدة",
     creating: "جاري الإنشاء...",
     recent: "المحادثات الأخيرة",
@@ -336,11 +436,15 @@ const labels = computed(() => isArabic.value ? {
     noChats: "لا توجد محادثات بعد",
     deleteChat: "حذف المحادثة",
     loadingConversation: "جاري تحميل المحادثة...",
-    welcome: "الصق النص أو اكتب طلبك، وسنحلل مؤشرات الأسلوب والبنية والتكرار بدون ادعاء اليقين.",
-    placeholder: "الصق النص المراد تحليله أو اكتب طلبك هنا...",
+    welcome: isHumanizer.value
+        ? "الصق النص الذي تريد أنسنته، وسنحوله إلى صياغة طبيعية وسلسة مع الحفاظ على المعنى."
+        : "الصق النص أو اكتب طلبك، وسنحلل مؤشرات الأسلوب والبنية والتكرار بدون ادعاء اليقين.",
+    placeholder: isHumanizer.value
+        ? "الصق النص المراد أنسنته أو اكتب طلبك هنا..."
+        : "الصق النص المراد تحليله أو اكتب طلبك هنا...",
     send: "إرسال",
     hint: "Enter للإرسال، وShift + Enter لسطر جديد",
-    options: "خيارات التحليل",
+    options: isHumanizer.value ? "خيارات الأنسنة" : "خيارات التحليل",
     applyOptions: "تعديل الخيارات",
     resetOptions: "إعادة تعيين الخيارات",
     language: "اللغة",
@@ -351,7 +455,15 @@ const labels = computed(() => isArabic.value ? {
     includeEvidence: "إظهار الأدلة والمؤشرات",
     includeRewriteTips: "إظهار نصائح إعادة الصياغة",
     extraOptions: "خيارات إضافية",
-    aiResponseTitle: "النتيجة",
+    aiResponseTitle: isHumanizer.value ? "النص بعد الأنسنة" : "نتيجة التحليل",
+    tone: "النبرة",
+    audience: "الجمهور",
+    humanizeLevel: "درجة الأنسنة",
+    resultsCount: "عدد النتائج",
+    preserveMeaning: "الحفاظ على المعنى",
+    preserveKeywords: "الحفاظ على الكلمات المفتاحية",
+    humanizerOptions: "خيارات الأنسنة",
+    humanizerResultTitle: "النص بعد الأنسنة",
     score: "AI Likelihood Score",
     signals: "Signals",
     rewriteTips: "Rewrite Tips",
@@ -362,10 +474,12 @@ const labels = computed(() => isArabic.value ? {
     copyAll: "نسخ كل النتائج",
     optionsApplied: "تم تحديث الخيارات. أرسل النص لتطبيقها.",
     authRequired: "يجب تسجيل الدخول أولاً.",
-    genericError: "تعذر تحليل المحتوى الآن. يرجى المحاولة مرة أخرى.",
+    genericError: isHumanizer.value
+        ? "تعذر أنسنة النص الآن. يرجى المحاولة مرة أخرى."
+        : "تعذر تحليل المحتوى الآن. يرجى المحاولة مرة أخرى.",
 } : {
-    title: "AI Content Detector",
-    subtitle: "Focused AI-writing signal analysis",
+    title: activeToolConfig.value.title_en,
+    subtitle: activeToolConfig.value.subtitle_en,
     newChat: "New chat",
     creating: "Creating...",
     recent: "Recent chats",
@@ -373,11 +487,15 @@ const labels = computed(() => isArabic.value ? {
     noChats: "No chats yet",
     deleteChat: "Delete chat",
     loadingConversation: "Loading conversation...",
-    welcome: "Paste text or ask for an analysis. The detector reviews style, structure, repetition, and specificity without claiming certainty.",
-    placeholder: "Paste text to analyze or type your request...",
+    welcome: isHumanizer.value
+        ? "Paste text to humanize, and we will rewrite it into a natural, smooth version while preserving the meaning."
+        : "Paste text or ask for an analysis. The detector reviews style, structure, repetition, and specificity without claiming certainty.",
+    placeholder: isHumanizer.value
+        ? "Paste text to humanize or type your request..."
+        : "Paste text to analyze or type your request...",
     send: "Send",
     hint: "Enter to send, Shift + Enter for a new line",
-    options: "Detector options",
+    options: isHumanizer.value ? "Humanizer options" : "Detector options",
     applyOptions: "Apply options",
     resetOptions: "Reset options",
     language: "Language",
@@ -388,7 +506,15 @@ const labels = computed(() => isArabic.value ? {
     includeEvidence: "Include evidence",
     includeRewriteTips: "Include rewrite tips",
     extraOptions: "Extra options",
-    aiResponseTitle: "Result",
+    aiResponseTitle: isHumanizer.value ? "Humanized text" : "Analysis result",
+    tone: "Tone",
+    audience: "Audience",
+    humanizeLevel: "Humanize level",
+    resultsCount: "Results count",
+    preserveMeaning: "Preserve meaning",
+    preserveKeywords: "Preserve keywords",
+    humanizerOptions: "Humanizer options",
+    humanizerResultTitle: "Humanized text",
     score: "AI Likelihood Score",
     signals: "Signals",
     rewriteTips: "Rewrite Tips",
@@ -399,32 +525,70 @@ const labels = computed(() => isArabic.value ? {
     copyAll: "Copy all results",
     optionsApplied: "Options updated. Send text to apply them.",
     authRequired: "Please sign in first.",
-    genericError: "Could not analyze the content right now. Please try again.",
+    genericError: isHumanizer.value
+        ? "Could not humanize the text right now. Please try again."
+        : "Could not analyze the content right now. Please try again.",
 });
 
-const examplePrompt = "Analyze this text and tell me if it sounds AI-written: Artificial intelligence is transforming the way businesses create content and communicate with customers.";
-const extraOptionChoices = [
+const examplePrompt = computed(() => isHumanizer.value
+    ? "Humanize this text in Arabic: الذكاء الاصطناعي يقوم بتحسين عمليات إنشاء المحتوى بطريقة فعالة للغاية."
+    : "Analyze this text and tell me if it sounds AI-written: Artificial intelligence is transforming the way businesses create content and communicate with customers."
+);
+const detectorExtraOptionChoices = [
     "Be cautious",
     "Do not claim certainty",
     "Highlight suspicious phrases",
     "Give practical rewrite suggestions",
 ];
+const humanizerExtraOptionChoices = [
+    "Improve flow",
+    "Avoid robotic phrasing",
+    "Make it sound natural",
+    "Vary sentence structure",
+    "Keep original meaning",
+    "Simplify wording",
+];
+const extraOptionChoices = computed(() =>
+    isHumanizer.value ? humanizerExtraOptionChoices : detectorExtraOptionChoices
+);
 
-const createDetectorState = () => ({
-    content: null,
-    language: "Auto Detect",
-    analysis_depth: "Medium",
-    detection_focus: "AI writing signals",
-    include_score: true,
-    include_evidence: true,
-    include_rewrite_tips: true,
-    extra_options: ["Be cautious", "Do not claim certainty"],
-    last_output: null,
-});
+function createDetectorState() {
+    return {
+        content: null,
+        language: "Auto Detect",
+        analysis_depth: "Medium",
+        detection_focus: "AI writing signals",
+        include_score: true,
+        include_evidence: true,
+        include_rewrite_tips: true,
+        extra_options: ["Be cautious", "Do not claim certainty"],
+        last_output: null,
+    };
+}
 
-const detectorState = ref(createDetectorState());
+function createHumanizerState() {
+    return {
+        content: null,
+        language: "Auto Detect",
+        tone: "Natural",
+        audience: "General Audience",
+        humanize_level: "Medium",
+        preserve_meaning: true,
+        preserve_keywords: true,
+        results_count: 1,
+        extra_options: ["Improve flow", "Avoid robotic phrasing"],
+        last_output: null,
+    };
+}
+
+function createDefaultStateForTool(subToolId) {
+    return Number(subToolId) === HUMANIZER_SUB_TOOL_ID
+        ? createHumanizerState()
+        : createDetectorState();
+}
+
+const toolState = ref(createDefaultStateForTool(DETECTOR_SUB_TOOL_ID));
 const conversations = ref([]);
-const activeConversation = ref(null);
 const messages = ref([]);
 const userMessage = ref("");
 const errorMessage = ref("");
@@ -442,11 +606,19 @@ const optionsPanelRef = ref(null);
 
 const pageTitle = computed(() => labels.value.title);
 const sendDisabled = computed(() => isSending.value || isAssistantTyping.value);
-const optionsSummary = computed(() => [
-    detectorState.value.language,
-    detectorState.value.analysis_depth,
-    detectorState.value.detection_focus,
-].filter(Boolean).join(" / "));
+const optionsSummary = computed(() => {
+    const state = toolState.value || {};
+    return isHumanizer.value
+        ? [state.language, state.tone, state.humanize_level, `${state.results_count || 1} result`].filter(Boolean).join(" / ")
+        : [state.language, state.analysis_depth, state.detection_focus].filter(Boolean).join(" / ");
+});
+const typingText = computed(() => {
+    if (isHumanizer.value) {
+        return isArabic.value ? "جاري أنسنة النص" : "Humanizing text";
+    }
+
+    return isArabic.value ? "جاري تحليل المحتوى" : "Analyzing content";
+});
 
 useSeoMeta({
     title: computed(() => `${pageTitle.value} | Ai Pro`),
@@ -465,6 +637,14 @@ function getMessageText(message) {
     }
 
     return String(message?.content || "");
+}
+
+function getResultTitle(subToolId = activeSubToolId.value) {
+    if (Number(subToolId) === HUMANIZER_SUB_TOOL_ID) {
+        return isArabic.value ? "النص بعد الأنسنة" : "Humanized text";
+    }
+
+    return isArabic.value ? "نتيجة التحليل" : "Analysis result";
 }
 
 function cleanErrorMessage(error) {
@@ -584,21 +764,80 @@ function buildDetectorState(userMessage, currentState = {}) {
     };
 }
 
-function buildDetectorPayload(messageText, conversation) {
-    const requestState = buildDetectorState(messageText, {
-        ...detectorState.value,
+function extractHumanizerContent(userMessage) {
+    const text = String(userMessage || "").trim();
+
+    const markerPatterns = [
+        /humanize this text in arabic:\s*([\s\S]+)$/i,
+        /humanize this text:\s*([\s\S]+)$/i,
+        /humanize:\s*([\s\S]+)$/i,
+        /content:\s*([\s\S]+)$/i,
+        /text:\s*([\s\S]+)$/i,
+        /أنسن هذا النص:\s*([\s\S]+)$/i,
+        /حوّل هذا النص:\s*([\s\S]+)$/i,
+        /حول هذا النص:\s*([\s\S]+)$/i,
+        /النص:\s*([\s\S]+)$/i,
+        /المحتوى:\s*([\s\S]+)$/i,
+    ];
+
+    for (const pattern of markerPatterns) {
+        const match = text.match(pattern);
+        if (match?.[1]) return match[1].trim();
+    }
+
+    return text;
+}
+
+function buildHumanizerState(userMessage, currentState = {}) {
+    const text = String(userMessage || "").trim();
+    const content = currentState.content || extractHumanizerContent(text);
+    const countMatch = text.match(/(?:generate|write|create|اكتب|أنشئ|ولد)\s+(\d+)/i);
+    const resultsCount = Math.max(1, Math.min(5, Number(currentState.results_count || countMatch?.[1] || 1)));
+    const hasArabic = /arabic|عربي|العربية|بالعربي/i.test(text) || /[\u0600-\u06FF]/.test(content);
+
+    return {
+        content,
+        language: currentState.language && currentState.language !== "Auto Detect"
+            ? currentState.language
+            : (hasArabic ? "Arabic" : "Auto Detect"),
+        tone: currentState.tone || "Natural",
+        audience: currentState.audience || "General Audience",
+        humanize_level: currentState.humanize_level || "Medium",
+        preserve_meaning: currentState.preserve_meaning ?? true,
+        preserve_keywords: currentState.preserve_keywords ?? true,
+        results_count: resultsCount,
+        extra_options: currentState.extra_options?.length
+            ? currentState.extra_options
+            : ["Improve flow", "Avoid robotic phrasing"],
+        last_output: null,
+    };
+}
+
+function buildChat4ToolState(subToolId, userMessage, currentState = {}) {
+    if (Number(subToolId) === HUMANIZER_SUB_TOOL_ID) {
+        return buildHumanizerState(userMessage, currentState);
+    }
+
+    return buildDetectorState(userMessage, currentState);
+}
+
+function buildChat4Payload(messageText, conversation) {
+    const subToolId = activeSubToolId.value;
+    const config = CHAT4_TOOLS[subToolId] || CHAT4_TOOLS[DETECTOR_SUB_TOOL_ID];
+    const requestState = buildChat4ToolState(subToolId, messageText, {
+        ...toolState.value,
         content: null,
     });
 
     return {
         user_id: conversation?.user_id || null,
-        sub_tool_id: AI_DETECTOR_SUB_TOOL_ID,
+        sub_tool_id: subToolId,
         conversation_uuid: conversation?.uuid,
         user_message: messageText,
         content: messageText,
-        tool: AI_DETECTOR_TOOL_KEY,
-        tool_key: AI_DETECTOR_TOOL_KEY,
-        model_key: AI_DETECTOR_MODEL_KEY,
+        tool: config.tool_key,
+        tool_key: config.tool_key,
+        model_key: config.model_key,
         state: requestState,
         debug: false,
         idempotency_key: createIdempotencyKey(),
@@ -640,7 +879,7 @@ function normalizeResultText(value) {
     return text;
 }
 
-function normalizeDetectorResponse(response) {
+function normalizeChat4Response(response) {
     const results = Array.isArray(response?.results) ? response.results : [];
 
     if (results.length) {
@@ -668,17 +907,18 @@ function normalizeDetectorResponse(response) {
 
 const unwrapApiData = (response) => response?.data || response || {};
 
-const normalizeStateFromResponse = (state = {}) => buildDetectorState(
+const normalizeStateFromResponse = (state = {}, subToolId = activeSubToolId.value) => buildChat4ToolState(
+    subToolId,
     state.content || "",
     {
-        ...createDetectorState(),
+        ...createDefaultStateForTool(subToolId),
         ...(state && typeof state === "object" ? state : {}),
     }
 );
 
 const mapMessage = (message = {}, index = 0) => {
     const meta = metadataFrom(message);
-    const responseResults = normalizeDetectorResponse({
+    const responseResults = normalizeChat4Response({
         results: meta.normalized_results || meta.results || message.results || [],
         state: meta.state || message.state || {},
     });
@@ -706,21 +946,21 @@ const formatConversation = (conversation = {}) => {
         ...conversation,
         uuid,
         user_id: conversation.user_id || null,
-        sub_tool_id: Number(conversation.sub_tool_id || AI_DETECTOR_SUB_TOOL_ID),
+        sub_tool_id: Number(conversation.sub_tool_id || DETECTOR_SUB_TOOL_ID),
         title: conversation.title || firstUserMessage || pageTitle.value,
     };
 };
 
 const stateStorageKey = (uuid = activeConversation.value?.uuid || route.params.uuid || "draft") =>
-    `chat4-ai-detector-state:${uuid}`;
+    `chat4-tool-state:${activeSubToolId.value}:${uuid}`;
 
 const persistState = (uuid = activeConversation.value?.uuid || route.params.uuid || "draft") => {
-    sessionStorage.setItem(stateStorageKey(uuid), JSON.stringify(detectorState.value));
+    sessionStorage.setItem(stateStorageKey(uuid), JSON.stringify(toolState.value));
 };
 
 const restoreState = (uuid = route.params.uuid || "draft") => {
     const stored = safeJsonParse(sessionStorage.getItem(stateStorageKey(uuid)) || "");
-    detectorState.value = normalizeStateFromResponse(stored || createDetectorState());
+    toolState.value = normalizeStateFromResponse(stored || createDefaultStateForTool(activeSubToolId.value), activeSubToolId.value);
 };
 
 const hydrateStateFromMessages = (rows = []) => {
@@ -730,7 +970,7 @@ const hydrateStateFromMessages = (rows = []) => {
         .find((message) => message.role === "assistant" && message.responseState);
 
     if (latest?.responseState) {
-        detectorState.value = normalizeStateFromResponse(latest.responseState);
+        toolState.value = normalizeStateFromResponse(latest.responseState, activeSubToolId.value);
         persistState();
     }
 };
@@ -740,6 +980,26 @@ const requireAuth = async () => {
 
     errorMessage.value = labels.value.authRequired;
     return false;
+};
+
+const loadSubtool = async () => {
+    if (!route.params.slug) {
+        currentSubtool.value = null;
+        return;
+    }
+
+    try {
+        const response = await homeService.showSubtool(route.params.slug);
+        const data = response?.data || response || {};
+        const subToolId = Number(data.id || data.sub_tool_id || 0);
+
+        currentSubtool.value = {
+            ...data,
+            id: CHAT4_SUB_TOOL_IDS.includes(subToolId) ? subToolId : DETECTOR_SUB_TOOL_ID,
+        };
+    } catch {
+        currentSubtool.value = null;
+    }
 };
 
 const scrollToBottom = async () => {
@@ -777,7 +1037,7 @@ const loadConversations = async () => {
         const response = await chatServices.getConversations();
         const rows = Array.isArray(response?.data) ? response.data : [];
         conversations.value = rows
-            .filter((conversation) => Number(conversation.sub_tool_id) === AI_DETECTOR_SUB_TOOL_ID)
+            .filter((conversation) => Number(conversation.sub_tool_id) === activeSubToolId.value)
             .map(formatConversation);
     } finally {
         loadingConversations.value = false;
@@ -844,7 +1104,7 @@ const sendMessage = async () => {
         const conversation = await ensureConversation();
         if (!conversation?.uuid) return;
 
-        const payload = buildDetectorPayload(text, conversation);
+        const payload = buildChat4Payload(text, conversation);
 
         messages.value.push(mapMessage({
             localKey: createLocalKey(),
@@ -853,7 +1113,7 @@ const sendMessage = async () => {
             created_at: new Date().toISOString(),
         }));
 
-        detectorState.value = payload.state;
+        toolState.value = payload.state;
         isAssistantTyping.value = true;
         userMessage.value = "";
         resetTextarea();
@@ -862,7 +1122,7 @@ const sendMessage = async () => {
 
         const response = await chatServices.sendMessage(payload);
         const directResponse = unwrapApiData(response);
-        const results = normalizeDetectorResponse(directResponse);
+        const results = normalizeChat4Response(directResponse);
 
         isAssistantTyping.value = false;
 
@@ -870,8 +1130,8 @@ const sendMessage = async () => {
             throw new Error(labels.value.genericError);
         }
 
-        const responseState = normalizeStateFromResponse(directResponse.state || payload.state);
-        detectorState.value = responseState;
+        const responseState = normalizeStateFromResponse(directResponse.state || payload.state, payload.sub_tool_id);
+        toolState.value = responseState;
         persistState(conversation.uuid);
 
         messages.value.push(mapMessage({
@@ -882,10 +1142,11 @@ const sendMessage = async () => {
             state: responseState,
             metadata: {
                 type: directResponse.type || "result",
-                tool: AI_DETECTOR_TOOL_KEY,
-                tool_key: AI_DETECTOR_TOOL_KEY,
-                model_key: AI_DETECTOR_MODEL_KEY,
-                sub_tool_id: AI_DETECTOR_SUB_TOOL_ID,
+                title: getResultTitle(payload.sub_tool_id),
+                tool: payload.tool,
+                tool_key: payload.tool_key,
+                model_key: payload.model_key,
+                sub_tool_id: payload.sub_tool_id,
                 state: responseState,
                 results,
                 normalized_results: results,
@@ -931,7 +1192,7 @@ const startNewChat = async () => {
             ...conversations.value.filter((item) => item.uuid !== conversation.uuid),
         ];
         messages.value = [];
-        detectorState.value = createDetectorState();
+        toolState.value = createDefaultStateForTool(activeSubToolId.value);
         persistState(conversation.uuid);
         sidebarOpen.value = false;
 
@@ -968,7 +1229,7 @@ const deleteConversation = async (conversation) => {
         if (activeConversation.value?.uuid === conversation.uuid) {
             activeConversation.value = null;
             messages.value = [];
-            detectorState.value = createDetectorState();
+            toolState.value = createDefaultStateForTool(activeSubToolId.value);
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat4`);
         }
     } finally {
@@ -977,7 +1238,7 @@ const deleteConversation = async (conversation) => {
 };
 
 const fillExample = () => {
-    userMessage.value = examplePrompt;
+    userMessage.value = examplePrompt.value;
     nextTick(() => {
         textareaRef.value?.focus();
         autoResize();
@@ -985,17 +1246,17 @@ const fillExample = () => {
 };
 
 const toggleExtraOption = (option) => {
-    const selected = Array.isArray(detectorState.value.extra_options)
-        ? detectorState.value.extra_options
+    const selected = Array.isArray(toolState.value.extra_options)
+        ? toolState.value.extra_options
         : [];
 
-    detectorState.value.extra_options = selected.includes(option)
+    toolState.value.extra_options = selected.includes(option)
         ? selected.filter((item) => item !== option)
         : [...selected, option];
 };
 
 const applyOptions = () => {
-    detectorState.value = buildDetectorState(detectorState.value.content || "", detectorState.value);
+    toolState.value = buildChat4ToolState(activeSubToolId.value, toolState.value.content || "", toolState.value);
     persistState();
     errorMessage.value = "";
     if (optionsPanelRef.value) {
@@ -1004,7 +1265,7 @@ const applyOptions = () => {
 };
 
 const resetOptions = () => {
-    detectorState.value = createDetectorState();
+    toolState.value = createDefaultStateForTool(activeSubToolId.value);
     persistState();
 };
 
@@ -1022,6 +1283,7 @@ const copyText = async (text, key) => {
 
 const initialize = async () => {
     locale.value = homeService.getLang();
+    await loadSubtool();
     restoreState(route.params.uuid || "draft");
     await loadConversations();
 
@@ -1050,6 +1312,26 @@ watch(
 
         restoreState(uuid || "draft");
         await loadConversationDetails(uuid);
+    }
+);
+
+watch(activeSubToolId, (id, previousId) => {
+    if (!id || id === previousId) return;
+
+    toolState.value = createDefaultStateForTool(id);
+    persistState(route.params.uuid || "draft");
+});
+
+watch(
+    () => route.params.slug,
+    async (slug, previousSlug) => {
+        if (slug === previousSlug) return;
+
+        activeConversation.value = null;
+        messages.value = [];
+        await loadSubtool();
+        toolState.value = createDefaultStateForTool(activeSubToolId.value);
+        await loadConversations();
     }
 );
 </script>
@@ -1696,6 +1978,7 @@ button:disabled {
     font-size: 12px;
 }
 
+.options-grid input,
 .options-grid select {
     width: 100%;
     min-width: 0;
@@ -1707,6 +1990,7 @@ button:disabled {
     outline: none;
 }
 
+.options-grid input:focus,
 .options-grid select:focus {
     border-color: var(--blue);
     box-shadow: 0 0 0 3px rgba(31, 135, 201, 0.1);

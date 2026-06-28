@@ -13,7 +13,7 @@ class MessageRequest extends FormRequest
 {
     private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
     private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
-    private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17];
+    private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18];
 
     /**
      * Determine if the user is authorized to make this request.
@@ -220,6 +220,7 @@ class MessageRequest extends FormRequest
                 'ai_content_analyzer',
                 'ai_content_optimizer',
                 'ai_detector',
+                'ai_humanizer',
             ], true)
             || in_array($modelKey, [
                 'keyword_generator',
@@ -227,6 +228,7 @@ class MessageRequest extends FormRequest
                 'content_analyzer',
                 'content_optimizer',
                 'ai_detector',
+                'ai_humanizer',
             ], true);
 
         if (! $isChat3SeoTool) {
@@ -246,7 +248,7 @@ class MessageRequest extends FormRequest
             }
         }
 
-        if ($subToolId !== 17 && $toolKey !== 'ai_detector' && $modelKey !== 'ai_detector') {
+        if (! in_array($subToolId, [17, 18], true) && ! in_array($toolKey, ['ai_detector', 'ai_humanizer'], true) && ! in_array($modelKey, ['ai_detector', 'ai_humanizer'], true)) {
             $state['results_count'] = $this->positiveInteger($state['results_count'] ?? null, 3, 100);
         }
 
@@ -374,12 +376,14 @@ class MessageRequest extends FormRequest
             'state.secondary_keywords.*' => ['string', 'max:150'],
             'state.seo_level' => ['nullable', 'string', 'max:100'],
             'state.preserve_meaning' => ['nullable', 'boolean'],
+            'state.preserve_keywords' => ['nullable', 'boolean'],
             'state.include_explanation' => ['nullable', 'boolean'],
             'state.analysis_depth' => ['nullable', 'string', 'max:100'],
             'state.detection_focus' => ['nullable', 'string', 'max:150'],
             'state.include_score' => ['nullable', 'boolean'],
             'state.include_evidence' => ['nullable', 'boolean'],
             'state.include_rewrite_tips' => ['nullable', 'boolean'],
+            'state.humanize_level' => ['nullable', 'string', 'max:100'],
             'state.last_output' => ['nullable', 'string', 'max:100000'],
             'state.extra_options' => ['nullable', 'array'],
             'state.extra_options.*' => ['string', 'max:150'],
