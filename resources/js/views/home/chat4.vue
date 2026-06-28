@@ -1736,9 +1736,11 @@ watch(
     --ink: #15324b;
     --muted: #687b8e;
     --line: #d8e6f7;
+    height: calc(100vh - 70px);
     min-height: calc(100vh - 70px);
     display: grid;
     grid-template-columns: 290px minmax(0, 1fr);
+    overflow: hidden;
     background: #f5f8fc;
     color: var(--ink);
 }
@@ -1885,10 +1887,13 @@ button:disabled {
 }
 
 .workspace {
+    position: relative;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    min-height: 100%;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
 }
 
 .workspace-header {
@@ -1933,8 +1938,11 @@ button:disabled {
 
 .messages {
     flex: 1;
-    padding: 26px max(24px, calc((100% - 900px) / 2));
-    overflow: auto;
+    min-height: 0;
+    padding: 26px max(24px, calc((100% - 900px) / 2)) 34px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
 }
 
 .center-status,
@@ -2284,9 +2292,17 @@ button:disabled {
 }
 
 .composer {
-    padding: 14px max(24px, calc((100% - 900px) / 2)) 18px;
+    position: sticky;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    flex-shrink: 0;
+    padding: 12px max(24px, calc((100% - 900px) / 2)) 14px;
     border-top: 1px solid var(--line);
-    background: #fff;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 -14px 35px rgba(18, 63, 109, 0.08);
 }
 
 .options-panel {
