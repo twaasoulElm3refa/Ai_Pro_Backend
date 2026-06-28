@@ -81,6 +81,23 @@
                             </template>
                         </div>
                     </article>
+
+                    <article v-if="isAssistantTyping" class="message-row assistant assistant-typing-row" dir="rtl">
+                        <div class="avatar">
+                            <i class="bi bi-stars"></i>
+                        </div>
+
+                        <div class="message-body assistant-typing-body">
+                            <div class="assistant-typing-content">
+                                <span class="assistant-typing-text">جاري الكتابة</span>
+                                <span class="typing-dots" aria-hidden="true">
+                                    <span class="typing-dot"></span>
+                                    <span class="typing-dot animation-delay-150"></span>
+                                    <span class="typing-dot animation-delay-300"></span>
+                                </span>
+                            </div>
+                        </div>
+                    </article>
                 </div>
             </div>
 
@@ -733,6 +750,7 @@ const loadingMessages = ref(false);
 const creatingConversation = ref(false);
 const sendingMessage = ref(false);
 const streamingAssistant = ref(false);
+const isAssistantTyping = ref(false);
 const deletingUuid = ref("");
 const sidebarOpen = ref(false);
 const messagesContainer = ref(null);
@@ -767,7 +785,9 @@ const composerPlaceholder = computed(() =>
         ? (isArabic.value ? "مثال: زوّد long-tail وركز على السعودية" : "Example: add more long-tail keywords and focus on Saudi Arabia")
         : (subtool.value.promptPlaceholder || examplePrompt.value)
 );
-const sendDisabled = computed(() => sendingMessage.value || streamingAssistant.value);
+const sendDisabled = computed(() =>
+    sendingMessage.value || streamingAssistant.value || isAssistantTyping.value
+);
 const optionsSummary = computed(() => {
     const state = normalizeToolState(toolState.value);
     const count = Object.entries(state)
@@ -1312,6 +1332,7 @@ const closeStream = () => {
     }
 
     streamingAssistant.value = false;
+    isAssistantTyping.value = false;
 };
 
 const openAssistantStream = async (conversation, afterId) => {
@@ -1319,16 +1340,7 @@ const openAssistantStream = async (conversation, afterId) => {
 
     closeStream();
     streamingAssistant.value = true;
-
-    const typingMessage = mapMessage({
-        localKey: createLocalKey(),
-        role: "assistant",
-        content: "",
-        typing: true,
-        created_at: new Date().toISOString(),
-    });
-
-    messages.value.push(typingMessage);
+    isAssistantTyping.value = true;
     await scrollToBottom();
 
     const params = new URLSearchParams({
@@ -1340,30 +1352,38 @@ const openAssistantStream = async (conversation, afterId) => {
 
     source.onmessage = async (event) => {
         const payload = JSON.parse(event.data || "{}");
-        const index = messages.value.findIndex((message) => message.localKey === typingMessage.localKey);
 
-        if (payload.type === "token" && index >= 0) {
+        if (payload.type === "token") {
             await scrollToBottom();
         }
 
-        if (payload.type === "error" && index >= 0) {
-            messages.value[index].typing = false;
-            messages.value[index].is_error = true;
-            messages.value[index].content =
-                payload.message
-                || payload.detail
-                || payload.content
-                || labels.value.genericError;
+        if (payload.type === "error") {
+            isAssistantTyping.value = false;
+            messages.value.push(mapMessage({
+                localKey: createLocalKey(),
+                role: "assistant",
+                is_error: true,
+                content: (
+                    payload.message
+                    || payload.detail
+                    || payload.content
+                    || labels.value.genericError
+                ),
+                created_at: new Date().toISOString(),
+            }));
             closeStream();
+            await scrollToBottom();
         }
 
         if (payload.type === "done") {
+            isAssistantTyping.value = false;
             closeStream();
             await loadConversationDetails(conversation.uuid);
         }
     };
 
     source.onerror = async () => {
+        isAssistantTyping.value = false;
         closeStream();
         await loadConversationDetails(conversation.uuid);
     };
@@ -1460,6 +1480,7 @@ const submitKeywordRequest = async (text, options = {}) => {
             content: cleanText,
             created_at: new Date().toISOString(),
         }));
+        isAssistantTyping.value = true;
 
         userMessage.value = "";
         refineMode.value = false;
@@ -1502,6 +1523,7 @@ const submitKeywordRequest = async (text, options = {}) => {
                 raw_response: directPayload,
             };
 
+            isAssistantTyping.value = false;
             messages.value.push(mapMessage({
                 localKey: createLocalKey(),
                 role: "assistant",
@@ -1524,12 +1546,16 @@ const submitKeywordRequest = async (text, options = {}) => {
 
         await openAssistantStream(conversation, response?.data?.message_id || directPayload.message_id);
     } catch (error) {
+        isAssistantTyping.value = false;
         errorMessage.value =
             error?.response?.data?.message
             || error?.response?.data?.detail
             || error?.response?.data?.error
             || labels.value.genericError;
     } finally {
+        if (!streamingAssistant.value) {
+            isAssistantTyping.value = false;
+        }
         sendingMessage.value = false;
     }
 };
@@ -2218,6 +2244,51 @@ button:disabled {
     animation-delay: 0.4s;
 }
 
+.assistant-typing-row {
+    animation: typing-fade-in 0.16s ease-out;
+}
+
+.assistant-typing-body {
+    width: fit-content;
+    max-width: min(420px, 75%);
+}
+
+.assistant-typing-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.assistant-typing-text {
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--navy);
+    display: inline-block;
+    animation: typing-bounce 0.8s infinite ease-in-out;
+}
+
+.animation-delay-150 {
+    animation-delay: 0.15s;
+}
+
+.animation-delay-300 {
+    animation-delay: 0.3s;
+}
+
 .composer {
     position: sticky;
     bottom: 0;
@@ -2419,6 +2490,33 @@ button:disabled {
     to {
         opacity: 0.25;
         transform: translateY(-3px);
+    }
+}
+
+@keyframes typing-bounce {
+
+    0%,
+    80%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.45;
+    }
+
+    40% {
+        transform: translateY(-6px);
+        opacity: 1;
+    }
+}
+
+@keyframes typing-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
