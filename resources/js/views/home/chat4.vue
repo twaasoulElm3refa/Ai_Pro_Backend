@@ -1820,7 +1820,7 @@ button:disabled {
     border: 0;
     border-radius: 12px;
     color: #fff;
-    background: rgb(36, 36, 255);
+    background: rgb(0, 0, 44);
     font-weight: 700;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
