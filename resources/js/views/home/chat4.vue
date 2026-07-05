@@ -1804,7 +1804,6 @@ button:disabled {
     background: linear-gradient(145deg, var(--navy), var(--blue));
 }
 
-.new-chat-button,
 .icon-button,
 .conversation-delete {
     border: 1px solid #d3e2ef;
@@ -1812,14 +1811,24 @@ button:disabled {
 }
 
 .new-chat-button {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    width: 100%;
     padding: 11px 14px;
-    border-radius: 10px;
-    color: var(--navy);
+    border: 0;
+    border-radius: 12px;
+    color: #fff;
+    background: var(--navy);
     font-weight: 700;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.new-chat-button:hover:not(:disabled) {
+    transform: scale(1.02);
+    background: var(--navy);
+    box-shadow: 0 20px 36px rgba(18, 63, 109, 0.16);
 }
 
 .section-label {
