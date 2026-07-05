@@ -1822,7 +1822,7 @@ button:disabled {
     justify-content: center;
     gap: 8px;
     width: calc(100% - 20px);
-    margin-inline: 10px;
+    /* margin-inline: 10px; */
     padding: 11px 14px;
     border: 0;
     border-radius: 12px;

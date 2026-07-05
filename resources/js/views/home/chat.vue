@@ -7586,6 +7586,7 @@ watch(
     background: var(--navy);
     color: #ffffff;
     border: none;
+    margin-inline: 10px;
     border-radius: 14px;
     padding: 0 16px;
     font-size: 14px;

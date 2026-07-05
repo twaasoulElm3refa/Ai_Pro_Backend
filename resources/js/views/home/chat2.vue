@@ -56,22 +56,6 @@
         </button>
 
         <section class="workspace">
-            <!-- <header class="workspace-header">
-                <button class="icon-button mobile-only" type="button" @click="sidebarOpen = true">
-                    <i class="bi bi-list"></i>
-                </button>
-
-                <div>
-                    <p class="eyebrow">{{ toolEyebrow }}</p>
-                    <h1>{{ pageTitle }}</h1>
-                </div>
-
-                <div class="tool-badges">
-                    <span v-if="toolKeyBadge">{{ toolKeyBadge }}</span>
-                    <span v-if="modelKeyBadge">{{ modelKeyBadge }}</span>
-                </div>
-            </header> -->
-
             <div ref="messagesContainer" class="messages" role="log" aria-live="polite">
                 <div v-if="loadingMessages" class="center-status">
                     <span class="spinner"></span>
@@ -2144,7 +2128,7 @@ button:disabled {
     justify-content: center;
     gap: 8px;
     width: calc(100% - 20px);
-    margin-inline: 10px;
+    /* margin-inline: 10px; */
     padding: 11px 14px;
     border: 0;
     border-radius: 12px;
