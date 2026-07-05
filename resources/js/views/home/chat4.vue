@@ -248,217 +248,237 @@
                 </div>
 
                 <details ref="optionsPanelRef" class="options-panel">
-                    <summary>
-                        <span><i class="bi bi-sliders"></i> {{ labels.options }}</span>
-                        <span class="options-summary">{{ optionsSummary }}</span>
+                    <summary class="options-panel-header">
+                        <span class="options-panel-title">
+                            <i class="bi bi-sliders"></i>
+                            {{ labels.options }}
+                        </span>
+                        <span class="options-panel-meta">
+                            <span class="options-summary">{{ optionsSummary }}</span>
+                            <i class="bi bi-chevron-down options-chevron" aria-hidden="true"></i>
+                        </span>
                     </summary>
 
-                    <form class="options-grid" @submit.prevent="applyOptions">
+                    <form class="options-form" @submit.prevent="applyOptions">
                         <template v-if="isBusinessNameTool">
-                            <label>
-                                <span>{{ labels.language }}</span>
-                                <select v-model="toolState.language">
-                                    <option>Auto Detect</option>
-                                    <option>Arabic</option>
-                                    <option>English</option>
-                                </select>
-                            </label>
+                            <div class="options-basic-grid">
+                                <label>
+                                    <span>{{ labels.language }}</span>
+                                    <select v-model="toolState.language">
+                                        <option>Auto Detect</option>
+                                        <option>Arabic</option>
+                                        <option>English</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.tone }}</span>
-                                <select v-model="toolState.tone">
-                                    <option>Creative</option>
-                                    <option>Professional</option>
-                                    <option>Friendly</option>
-                                    <option>Luxury</option>
-                                    <option>Modern</option>
-                                    <option>Simple</option>
-                                </select>
-                            </label>
+                                <label>
+                                    <span>{{ labels.tone }}</span>
+                                    <select v-model="toolState.tone">
+                                        <option>Creative</option>
+                                        <option>Professional</option>
+                                        <option>Friendly</option>
+                                        <option>Luxury</option>
+                                        <option>Modern</option>
+                                        <option>Simple</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.nameStyle }}</span>
-                                <select v-model="toolState.name_style">
-                                    <option>Brandable</option>
-                                    <option>Descriptive</option>
-                                    <option>Short</option>
-                                    <option>Modern</option>
-                                    <option>Arabic</option>
-                                    <option>English</option>
-                                    <option>Tech Style</option>
-                                </select>
-                            </label>
+                                <label>
+                                    <span>{{ labels.nameStyle }}</span>
+                                    <select v-model="toolState.name_style">
+                                        <option>Brandable</option>
+                                        <option>Descriptive</option>
+                                        <option>Short</option>
+                                        <option>Modern</option>
+                                        <option>Arabic</option>
+                                        <option>English</option>
+                                        <option>Tech Style</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.industry }}</span>
-                                <input v-model="toolState.industry" type="text">
-                            </label>
+                                <label>
+                                    <span>{{ labels.industry }}</span>
+                                    <input v-model="toolState.industry" type="text">
+                                </label>
 
-                            <label>
-                                <span>{{ labels.targetAudience }}</span>
-                                <input v-model="toolState.target_audience" type="text">
-                            </label>
+                                <label>
+                                    <span>{{ labels.targetAudience }}</span>
+                                    <input v-model="toolState.target_audience" type="text">
+                                </label>
 
-                            <label>
-                                <span>{{ labels.resultsCount }}</span>
-                                <input v-model.number="toolState.results_count" type="number" min="1" max="30">
-                            </label>
+                                <label>
+                                    <span>{{ labels.resultsCount }}</span>
+                                    <input v-model.number="toolState.results_count" type="number" min="1" max="30">
+                                </label>
 
-                            <label class="wide">
-                                <span>{{ labels.keywords }}</span>
-                                <input
-                                    :value="serializeList(toolState.keywords)"
-                                    type="text"
-                                    placeholder="AI, marketing, tools"
-                                    @input="updateListField('keywords', $event.target.value)"
-                                >
-                            </label>
+                                <label class="wide">
+                                    <span>{{ labels.keywords }}</span>
+                                    <input
+                                        :value="serializeList(toolState.keywords)"
+                                        type="text"
+                                        placeholder="AI, marketing, tools"
+                                        @input="updateListField('keywords', $event.target.value)"
+                                    >
+                                </label>
 
-                            <label class="wide">
-                                <span>{{ labels.avoidWords }}</span>
-                                <input
-                                    :value="serializeList(toolState.avoid_words)"
-                                    type="text"
-                                    placeholder="cheap, copy, old"
-                                    @input="updateListField('avoid_words', $event.target.value)"
-                                >
-                            </label>
+                                <label class="wide">
+                                    <span>{{ labels.avoidWords }}</span>
+                                    <input
+                                        :value="serializeList(toolState.avoid_words)"
+                                        type="text"
+                                        placeholder="cheap, copy, old"
+                                        @input="updateListField('avoid_words', $event.target.value)"
+                                    >
+                                </label>
+                            </div>
 
-                            <fieldset class="wide checkbox-field">
+                            <fieldset class="option-card checkbox-field">
                                 <legend>{{ labels.businessNameOptions }}</legend>
-                                <label class="checkbox-option">
-                                    <input v-model="toolState.include_slogans" type="checkbox">
-                                    <span>{{ labels.includeSlogans }}</span>
-                                </label>
-                                <label class="checkbox-option">
-                                    <input v-model="toolState.include_domain_ideas" type="checkbox">
-                                    <span>{{ labels.includeDomainIdeas }}</span>
-                                </label>
+                                <div class="checkbox-options-list">
+                                    <label class="checkbox-option">
+                                        <input v-model="toolState.include_slogans" type="checkbox">
+                                        <span>{{ labels.includeSlogans }}</span>
+                                    </label>
+                                    <label class="checkbox-option">
+                                        <input v-model="toolState.include_domain_ideas" type="checkbox">
+                                        <span>{{ labels.includeDomainIdeas }}</span>
+                                    </label>
+                                </div>
                             </fieldset>
                         </template>
 
                         <template v-else-if="isHumanizer">
-                            <label>
-                                <span>{{ labels.language }}</span>
-                                <select v-model="toolState.language">
-                                    <option>Auto Detect</option>
-                                    <option>Arabic</option>
-                                    <option>English</option>
-                                </select>
-                            </label>
+                            <div class="options-basic-grid">
+                                <label>
+                                    <span>{{ labels.language }}</span>
+                                    <select v-model="toolState.language">
+                                        <option>Auto Detect</option>
+                                        <option>Arabic</option>
+                                        <option>English</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.tone }}</span>
-                                <select v-model="toolState.tone">
-                                    <option>Natural</option>
-                                    <option>Professional</option>
-                                    <option>Friendly</option>
-                                    <option>Simple</option>
-                                    <option>Creative</option>
-                                </select>
-                            </label>
+                                <label>
+                                    <span>{{ labels.tone }}</span>
+                                    <select v-model="toolState.tone">
+                                        <option>Natural</option>
+                                        <option>Professional</option>
+                                        <option>Friendly</option>
+                                        <option>Simple</option>
+                                        <option>Creative</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.audience }}</span>
-                                <select v-model="toolState.audience">
-                                    <option>General Audience</option>
-                                    <option>Students</option>
-                                    <option>Professionals</option>
-                                    <option>Customers</option>
-                                    <option>Social Media Audience</option>
-                                </select>
-                            </label>
+                                <label>
+                                    <span>{{ labels.audience }}</span>
+                                    <select v-model="toolState.audience">
+                                        <option>General Audience</option>
+                                        <option>Students</option>
+                                        <option>Professionals</option>
+                                        <option>Customers</option>
+                                        <option>Social Media Audience</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.humanizeLevel }}</span>
-                                <select v-model="toolState.humanize_level">
-                                    <option>Light</option>
-                                    <option>Medium</option>
-                                    <option>Strong</option>
-                                </select>
-                            </label>
+                                <label>
+                                    <span>{{ labels.humanizeLevel }}</span>
+                                    <select v-model="toolState.humanize_level">
+                                        <option>Light</option>
+                                        <option>Medium</option>
+                                        <option>Strong</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.resultsCount }}</span>
-                                <input v-model.number="toolState.results_count" type="number" min="1" max="5">
-                            </label>
+                                <label>
+                                    <span>{{ labels.resultsCount }}</span>
+                                    <input v-model.number="toolState.results_count" type="number" min="1" max="5">
+                                </label>
+                            </div>
 
-                            <fieldset class="wide checkbox-field">
+                            <fieldset class="option-card checkbox-field">
                                 <legend>{{ labels.humanizerOptions }}</legend>
-                                <label class="checkbox-option">
-                                    <input v-model="toolState.preserve_meaning" type="checkbox">
-                                    <span>{{ labels.preserveMeaning }}</span>
-                                </label>
-                                <label class="checkbox-option">
-                                    <input v-model="toolState.preserve_keywords" type="checkbox">
-                                    <span>{{ labels.preserveKeywords }}</span>
-                                </label>
+                                <div class="checkbox-options-list">
+                                    <label class="checkbox-option">
+                                        <input v-model="toolState.preserve_meaning" type="checkbox">
+                                        <span>{{ labels.preserveMeaning }}</span>
+                                    </label>
+                                    <label class="checkbox-option">
+                                        <input v-model="toolState.preserve_keywords" type="checkbox">
+                                        <span>{{ labels.preserveKeywords }}</span>
+                                    </label>
+                                </div>
                             </fieldset>
                         </template>
 
                         <template v-else>
-                            <label>
-                                <span>{{ labels.language }}</span>
-                                <select v-model="toolState.language">
-                                    <option>Auto Detect</option>
-                                    <option>Arabic</option>
-                                    <option>English</option>
-                                </select>
-                            </label>
+                            <div class="options-basic-grid">
+                                <label>
+                                    <span>{{ labels.language }}</span>
+                                    <select v-model="toolState.language">
+                                        <option>Auto Detect</option>
+                                        <option>Arabic</option>
+                                        <option>English</option>
+                                    </select>
+                                </label>
 
-                            <label>
-                                <span>{{ labels.analysisDepth }}</span>
-                                <select v-model="toolState.analysis_depth">
-                                    <option>Quick</option>
-                                    <option>Medium</option>
-                                    <option>Deep</option>
-                                </select>
-                            </label>
+                                <label>
+                                    <span>{{ labels.analysisDepth }}</span>
+                                    <select v-model="toolState.analysis_depth">
+                                        <option>Quick</option>
+                                        <option>Medium</option>
+                                        <option>Deep</option>
+                                    </select>
+                                </label>
 
-                            <label class="wide">
-                                <span>{{ labels.detectionFocus }}</span>
-                                <select v-model="toolState.detection_focus">
-                                    <option>AI writing signals</option>
-                                    <option>Human tone</option>
-                                    <option>Repetition and generic wording</option>
-                                    <option>Structure and style</option>
-                                </select>
-                            </label>
+                                <label class="wide">
+                                    <span>{{ labels.detectionFocus }}</span>
+                                    <select v-model="toolState.detection_focus">
+                                        <option>AI writing signals</option>
+                                        <option>Human tone</option>
+                                        <option>Repetition and generic wording</option>
+                                        <option>Structure and style</option>
+                                    </select>
+                                </label>
+                            </div>
 
-                            <fieldset class="wide checkbox-field">
+                            <fieldset class="option-card checkbox-field">
                                 <legend>{{ labels.outputOptions }}</legend>
-                                <label class="checkbox-option">
-                                    <input v-model="toolState.include_score" type="checkbox">
-                                    <span>{{ labels.includeScore }}</span>
-                                </label>
-                                <label class="checkbox-option">
-                                    <input v-model="toolState.include_evidence" type="checkbox">
-                                    <span>{{ labels.includeEvidence }}</span>
-                                </label>
-                                <label class="checkbox-option">
-                                    <input v-model="toolState.include_rewrite_tips" type="checkbox">
-                                    <span>{{ labels.includeRewriteTips }}</span>
-                                </label>
+                                <div class="checkbox-options-list">
+                                    <label class="checkbox-option">
+                                        <input v-model="toolState.include_score" type="checkbox">
+                                        <span>{{ labels.includeScore }}</span>
+                                    </label>
+                                    <label class="checkbox-option">
+                                        <input v-model="toolState.include_evidence" type="checkbox">
+                                        <span>{{ labels.includeEvidence }}</span>
+                                    </label>
+                                    <label class="checkbox-option">
+                                        <input v-model="toolState.include_rewrite_tips" type="checkbox">
+                                        <span>{{ labels.includeRewriteTips }}</span>
+                                    </label>
+                                </div>
                             </fieldset>
                         </template>
 
-                        <fieldset class="wide checkbox-field">
+                        <fieldset class="option-card checkbox-field">
                             <legend>{{ labels.extraOptions }}</legend>
-                            <label
-                                v-for="option in extraOptionChoices"
-                                :key="option"
-                                class="checkbox-option"
-                            >
-                                <input
-                                    type="checkbox"
-                                    :checked="toolState.extra_options.includes(option)"
-                                    @change="toggleExtraOption(option)"
+                            <div class="checkbox-options-list">
+                                <label
+                                    v-for="option in extraOptionChoices"
+                                    :key="option"
+                                    class="checkbox-option"
                                 >
-                                <span>{{ option }}</span>
-                            </label>
+                                    <input
+                                        type="checkbox"
+                                        :checked="toolState.extra_options.includes(option)"
+                                        @change="toggleExtraOption(option)"
+                                    >
+                                    <span>{{ option }}</span>
+                                </label>
+                            </div>
                         </fieldset>
 
-                        <div class="wide options-actions">
+                        <div class="options-actions">
                             <button type="submit" class="options-submit-button" :disabled="sendDisabled">
                                 <i class="bi bi-check2"></i>
                                 {{ labels.applyOptions }}
@@ -2461,88 +2481,189 @@ button:disabled {
 }
 
 .options-panel {
-    margin-bottom: 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #f9fcfe;
+    max-width: 920px;
+    margin: 0 auto 12px;
+    border: 1px solid rgba(18, 63, 109, 0.10);
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(18, 63, 109, 0.05);
+    overflow: hidden;
 }
 
-.options-panel summary {
+.options-panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 13px;
+    padding: 12px 14px;
     color: var(--navy);
+    font-size: 13px;
+    font-weight: 800;
     cursor: pointer;
     list-style: none;
 }
 
-.options-panel summary::-webkit-details-marker {
+.options-panel-header::-webkit-details-marker {
     display: none;
 }
 
+.options-panel-header:focus-visible {
+    outline: 0;
+    box-shadow: inset 0 0 0 3px rgba(31, 135, 201, 0.12);
+}
+
+.options-panel-title,
+.options-panel-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.options-panel-title {
+    flex: 0 0 auto;
+}
+
+.options-panel-meta {
+    justify-content: flex-end;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
 .options-summary {
+    max-width: min(52vw, 420px);
+    overflow: hidden;
     color: var(--muted);
     font-size: 12px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.options-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+.options-chevron {
+    flex: 0 0 auto;
+    transition: transform 0.18s ease;
+}
+
+.options-panel[open] .options-chevron {
+    transform: rotate(180deg);
+}
+
+.options-form {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
-    padding: 4px 13px 14px;
+    padding: 0 14px 14px;
 }
 
-.options-grid label,
-.checkbox-field {
+.options-basic-grid {
     display: grid;
-    gap: 5px;
-    color: var(--muted);
-    font-size: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
 
-.options-grid input,
-.options-grid select {
+.options-basic-grid>label {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.options-basic-grid input,
+.options-basic-grid select {
     width: 100%;
     min-width: 0;
-    padding: 8px 9px;
-    border: 1px solid #d5e3ec;
-    border-radius: 8px;
-    color: var(--ink);
-    background: #fff;
+    min-height: 40px;
+    padding: 9px 10px;
+    border: 1px solid rgba(18, 63, 109, 0.14);
+    border-radius: 10px;
+    color: var(--navy);
+    background: #fbfdff;
+    font: inherit;
+    font-size: 12px;
     outline: none;
 }
 
-.options-grid input:focus,
-.options-grid select:focus {
-    border-color: var(--blue);
+.options-basic-grid input:focus,
+.options-basic-grid select:focus {
+    border-color: rgba(31, 135, 201, 0.55);
     box-shadow: 0 0 0 3px rgba(31, 135, 201, 0.1);
 }
 
 .wide {
-    grid-column: span 2;
+    grid-column: 1 / -1;
+}
+
+[dir="rtl"] .options-basic-grid input,
+[dir="rtl"] .options-basic-grid select {
+    text-align: right;
+}
+
+[dir="ltr"] .options-basic-grid input,
+[dir="ltr"] .options-basic-grid select {
+    text-align: left;
+}
+
+.option-card {
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+    border: 1px solid rgba(18, 63, 109, 0.10);
+    border-radius: 12px;
+    background: #fbfdff;
 }
 
 .checkbox-field {
-    margin: 0;
-    padding: 10px;
-    border: 1px solid #e1edf6;
-    border-radius: 8px;
-    background: #fff;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .checkbox-field legend {
     padding: 0 4px;
-    color: var(--navy);
-    font-weight: 700;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.checkbox-options-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
 }
 
 .checkbox-option {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    color: var(--ink);
+    gap: 6px;
+    max-width: 100%;
+    padding: 7px 10px;
+    border: 1px solid rgba(18, 63, 109, 0.10);
+    border-radius: 999px;
+    color: var(--muted);
+    background: #ffffff;
+    font-size: 11px;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.checkbox-option input {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--blue);
+}
+
+.checkbox-option span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .options-actions {
@@ -2550,26 +2671,49 @@ button:disabled {
     flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
+    padding-top: 2px;
 }
 
 .options-actions button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 8px 12px;
-    border: 1px solid #cfe3ef;
-    border-radius: 8px;
+    gap: 8px;
+    min-height: 40px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .options-submit-button {
+    border: 0;
     color: #fff;
-    background: var(--navy);
+    background: var(--blue);
+    box-shadow: 0 12px 22px rgba(31, 135, 201, 0.18);
 }
 
 .options-reset-button {
-    color: var(--blue);
+    border: 1px solid rgba(18, 63, 109, 0.14);
+    color: var(--navy);
     background: #fff;
+}
+
+.options-submit-button:hover:not(:disabled) {
+    background: #166da4;
+}
+
+.options-reset-button:hover:not(:disabled) {
+    border-color: rgba(31, 135, 201, 0.32);
+    box-shadow: 0 10px 20px rgba(18, 63, 109, 0.06);
+}
+
+.options-actions button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .input-box {
@@ -2743,12 +2887,8 @@ button:disabled {
         justify-content: flex-end;
     }
 
-    .options-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .wide {
-        grid-column: span 2;
+        grid-column: 1 / -1;
     }
 
     .ai-response-card,
@@ -2758,12 +2898,30 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
-    .options-grid {
+    .options-panel-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .options-panel-meta {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .options-summary {
+        max-width: calc(100% - 28px);
+    }
+
+    .options-basic-grid {
         grid-template-columns: 1fr;
     }
 
     .wide {
-        grid-column: span 1;
+        grid-column: 1 / -1;
+    }
+
+    .options-actions button {
+        flex: 1 1 100%;
     }
 
     .message-row,
