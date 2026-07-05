@@ -607,10 +607,10 @@ const labels = computed(() => isArabic.value ? {
     send: "إرسال",
     hint: "Enter للإرسال، وShift + Enter لسطر جديد",
     options: isBusinessNameTool.value
-        ? "خيارات توليد الأسماء"
+        ? "خيارات الأداة"
         : isHumanizer.value
-            ? "خيارات الأنسنة"
-            : "خيارات التحليل",
+            ? "خيارات الأداة"
+            : "خيارات الأداة",
     applyOptions: "تعديل الخيارات",
     resetOptions: "إعادة تعيين الخيارات",
     language: "اللغة",
@@ -1820,7 +1820,7 @@ button:disabled {
     border: 0;
     border-radius: 12px;
     color: #fff;
-    background: navy;
+    background: rgb(36, 36, 255);
     font-weight: 700;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
