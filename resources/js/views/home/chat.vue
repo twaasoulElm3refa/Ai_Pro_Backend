@@ -7510,7 +7510,7 @@ watch(
 
 .sidebar {
     position: relative;
-    width: 304px;
+    width: 292px;
     min-width: 0;
     background: #ffffff;
     border-left: 1px solid rgba(18, 63, 109, 0.10);
@@ -7586,7 +7586,6 @@ watch(
     background: var(--navy);
     color: #ffffff;
     border: none;
-    margin-inline: 10px;
     border-radius: 14px;
     padding: 0 16px;
     font-size: 14px;
@@ -8884,8 +8883,8 @@ watch(
         position: fixed;
         top: 0;
         bottom: 0;
-        width: min(86vw, 304px);
-        max-width: 304px;
+        width: min(86vw, 292px);
+        max-width: 292px;
         height: auto;
         z-index: 100;
         background: #ffffff;

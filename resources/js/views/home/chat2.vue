@@ -1,13 +1,16 @@
 <template>
-    <main class="prompt-chat" :dir="isArabic ? 'rtl' : 'ltr'">
-        <aside class="sidebar" :class="{ open: sidebarOpen }">
+    <main class="prompt-chat" :class="{ 'sidebar-collapsed': desktopSidebarCollapsed }"
+        :dir="isArabic ? 'rtl' : 'ltr'">
+        <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-brand">
                 <span class="brand-icon"><i class="bi bi-stars"></i></span>
                 <div>
                     <strong>{{ pageTitle }}</strong>
                 </div>
-                <button class="icon-button mobile-only" type="button" @click="sidebarOpen = false">
-                    <i class="bi bi-x-lg"></i>
+                <button class="icon-button sidebar-close-toggle" type="button"
+                    :aria-label="isArabic ? 'قفل قائمة المحادثات' : 'Close conversations sidebar'"
+                    @click="closeSidebar">
+                    <i class="bi bi-layout-sidebar-inset-reverse"></i>
                 </button>
             </div>
 
@@ -49,10 +52,15 @@
             </div>
         </aside>
 
+        <button v-if="desktopSidebarCollapsed" type="button" class="desktop-sidebar-open-toggle"
+            :aria-label="isArabic ? 'فتح قائمة المحادثات' : 'Open conversations sidebar'" @click="openSidebar">
+            <i class="bi bi-layout-sidebar-inset"></i>
+        </button>
+
         <button v-if="sidebarOpen" class="sidebar-overlay" type="button" @click="sidebarOpen = false"></button>
         <button v-if="!sidebarOpen" class="mobile-sidebar-toggle mobile-only" type="button"
-            @click="sidebarOpen = true">
-            <i class="bi bi-list"></i>
+            :aria-label="isArabic ? 'فتح قائمة المحادثات' : 'Open conversations sidebar'" @click="openSidebar">
+            <i class="bi bi-layout-sidebar-inset"></i>
         </button>
 
         <section class="workspace">
@@ -650,6 +658,7 @@ const sendingMessage = ref(false);
 const streamingAssistant = ref(false);
 const deletingUuid = ref("");
 const sidebarOpen = ref(false);
+const desktopSidebarCollapsed = ref(false);
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const optionsPanel = ref(null);
@@ -665,6 +674,28 @@ const markdown = new MarkdownIt({
 });
 
 const sendDisabled = computed(() => sendingMessage.value || streamingAssistant.value);
+
+const MOBILE_SIDEBAR_BREAKPOINT = 900;
+
+const isMobileSidebar = () => window.innerWidth <= MOBILE_SIDEBAR_BREAKPOINT;
+
+const closeSidebar = () => {
+    if (isMobileSidebar()) {
+        sidebarOpen.value = false;
+        return;
+    }
+
+    desktopSidebarCollapsed.value = true;
+};
+
+const openSidebar = () => {
+    if (isMobileSidebar()) {
+        sidebarOpen.value = true;
+        return;
+    }
+
+    desktopSidebarCollapsed.value = false;
+};
 
 const extraOptionsText = computed({
     get: () => Array.isArray(promptState.value.extra_options) ? promptState.value.extra_options.join(", ") : "",
@@ -2007,7 +2038,17 @@ onMounted(async () => {
 
 onUnmounted(() => {
     closeStream();
+    document.body.style.overflow = "";
     window.removeEventListener("lang-changed", handleLanguageChange);
+});
+
+watch(sidebarOpen, (isOpen) => {
+    if (window.innerWidth > MOBILE_SIDEBAR_BREAKPOINT) {
+        document.body.style.overflow = "";
+        return;
+    }
+
+    document.body.style.overflow = isOpen ? "hidden" : "";
 });
 
 watch(
@@ -2054,6 +2095,7 @@ watch(
     min-height: calc(100vh - 70px);
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
+    transition: grid-template-columns 0.25s ease;
     background: #f4f8fb;
     color: var(--ink);
 }
@@ -2084,6 +2126,8 @@ button:disabled {
     border-inline-end: 1px solid var(--line);
     background: #fff;
     pointer-events: auto;
+    overflow: hidden;
+    transition: width 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .sidebar-brand {
@@ -2093,6 +2137,12 @@ button:disabled {
     align-items: center;
     gap: 12px;
     margin-bottom: 22px;
+}
+
+.sidebar-close-toggle {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    pointer-events: auto;
 }
 
 .sidebar-brand strong,
@@ -2128,7 +2178,7 @@ button:disabled {
     justify-content: center;
     gap: 8px;
     width: calc(100% - 20px);
-    /* margin-inline: 10px; */
+    margin-inline: 10px;
     padding: 11px 14px;
     border: 0;
     border-radius: 12px;
@@ -2254,6 +2304,7 @@ button:disabled {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     height: calc(100vh - 70px);
+    overflow: hidden;
 }
 
 .workspace-header {
@@ -2297,8 +2348,10 @@ button:disabled {
 }
 
 .messages {
+    min-height: 0;
     overflow-y: auto;
     padding: 34px max(24px, calc((100% - 900px) / 2));
+    padding-bottom: 28px;
 }
 
 .welcome-card {
@@ -2510,9 +2563,57 @@ button:disabled {
 }
 
 .composer {
-    padding: 14px max(24px, calc((100% - 900px) / 2)) 18px;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    align-self: end;
+    padding: 14px max(24px, calc((100% - 900px) / 2)) max(12px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
     background: #fff;
+}
+
+.desktop-sidebar-open-toggle {
+    position: fixed;
+    top: 84px;
+    inset-inline-start: 12px;
+    z-index: 120;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(18, 63, 109, 0.10);
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--navy);
+    box-shadow: 0 14px 30px rgba(18, 63, 109, 0.14);
+    pointer-events: auto;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.desktop-sidebar-open-toggle:hover {
+    transform: scale(1.04);
+    background: rgba(31, 135, 201, 0.08);
+    box-shadow: 0 18px 36px rgba(18, 63, 109, 0.18);
+}
+
+@media (min-width: 901px) {
+    .prompt-chat.sidebar-collapsed {
+        grid-template-columns: 0 minmax(0, 1fr);
+    }
+
+    .prompt-chat.sidebar-collapsed .sidebar {
+        width: 0;
+        padding-inline: 0;
+        border-color: transparent;
+        box-shadow: none;
+        pointer-events: none;
+    }
+
+    .prompt-chat.sidebar-collapsed .sidebar>* {
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+    }
 }
 
 .options-panel {
@@ -2707,7 +2808,7 @@ button:disabled {
         transform: translateX(110%);
     }
 
-    .sidebar.open {
+    .sidebar.sidebar-open {
         transform: translateX(0);
     }
 
@@ -2739,6 +2840,10 @@ button:disabled {
         background: #ffffff;
         box-shadow: 0 14px 30px rgba(18, 63, 109, 0.14);
         pointer-events: auto;
+    }
+
+    .desktop-sidebar-open-toggle {
+        display: none;
     }
 
     .sidebar-brand .mobile-only {
