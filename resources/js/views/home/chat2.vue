@@ -22,21 +22,24 @@
             <div v-if="loadingConversations" class="sidebar-status">{{ copy.loading }}</div>
             <div v-else-if="conversations.length === 0" class="sidebar-status">{{ copy.noChats }}</div>
 
-            <div v-else class="conversation-list">
+            <div v-else class="conversation-list history-list">
                 <div
                     v-for="conversation in conversations"
                     :key="conversation.uuid"
-                    class="conversation-item"
+                    class="conversation-item history-item"
                     :class="{ active: conversation.uuid === activeConversation?.uuid }"
                 >
-                    <button type="button" class="conversation-open" @click="openConversation(conversation)">
+                    <button type="button" class="conversation-open history-item-main" @click="openConversation(conversation)">
                         <i class="bi bi-chat-left-text"></i>
-                        <span>{{ conversation.title }}</span>
+
+                        <div class="history-item-info">
+                            <span class="history-item-title">{{ conversation.title }}</span>
+                        </div>
                     </button>
 
                     <button
                         type="button"
-                        class="conversation-delete"
+                        class="conversation-delete history-delete"
                         :disabled="deletingUuid === conversation.uuid"
                         :aria-label="copy.deleteChat"
                         @click="deleteConversation(conversation)"
@@ -2152,42 +2155,82 @@ button:disabled {
 }
 
 .conversation-list {
-    display: grid;
-    gap: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     overflow-y: auto;
 }
 
 .conversation-item {
     display: flex;
-    align-items: center;
-    border-radius: 11px;
-}
-
-.conversation-item:hover,
-.conversation-item.active {
-    background: #eef7fc;
+    align-items: stretch;
+    gap: 8px;
 }
 
 .conversation-open {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
     flex: 1;
-    padding: 10px;
-    border: 0;
-    color: var(--ink);
-    background: transparent;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(18, 63, 109, 0.08);
+    border-radius: 16px;
+    color: var(--muted);
+    background: #fbfdff;
     text-align: start;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.conversation-open span {
+.conversation-item.active .conversation-open,
+.conversation-open:hover {
+    transform: scale(1.02);
+    border-color: rgba(31, 135, 201, 0.20);
+    background: rgba(31, 135, 201, 0.08);
+    color: var(--navy);
+    box-shadow: 0 18px 32px rgba(18, 63, 109, 0.08);
+}
+
+.conversation-open i {
+    margin-top: 2px;
+    flex-shrink: 0;
+    font-size: 15px;
+}
+
+.history-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.history-item-title {
+    font-size: 13px;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.conversation-delete,
+.conversation-delete {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    min-width: 42px;
+    border: 1px solid rgba(18, 63, 109, 0.08);
+    border-radius: 14px;
+    color: var(--navy);
+    background: #ffffff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.conversation-delete:hover {
+    transform: scale(1.02);
+    background: rgba(31, 135, 201, 0.08);
+    box-shadow: 0 14px 28px rgba(18, 63, 109, 0.08);
+}
+
 .icon-button {
     display: grid;
     place-items: center;
@@ -2199,7 +2242,6 @@ button:disabled {
     background: transparent;
 }
 
-.conversation-delete:hover,
 .icon-button:hover {
     color: var(--navy);
     background: #edf5fa;
