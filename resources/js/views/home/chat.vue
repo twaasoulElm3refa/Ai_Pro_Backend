@@ -7509,24 +7509,36 @@ watch(
 }
 
 .sidebar {
-    width: 320px;
+    position: relative;
+    width: 304px;
+    min-width: 0;
     background: #ffffff;
     border-left: 1px solid rgba(18, 63, 109, 0.10);
     box-shadow: 0 24px 46px rgba(18, 63, 109, 0.08);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    transition: transform 0.3s ease;
+    transition: width 0.25s ease, transform 0.3s ease, box-shadow 0.25s ease, border-color 0.25s ease;
     z-index: 100;
     overflow: hidden;
+    pointer-events: auto;
 }
 
 .sidebar-header {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     padding: 22px 18px 18px;
     border-bottom: 1px solid rgba(18, 63, 109, 0.08);
+}
+
+.sidebar-close-toggle {
+    position: relative;
+    z-index: 3;
+    flex-shrink: 0;
+    pointer-events: auto;
 }
 
 .brand {
@@ -7564,7 +7576,8 @@ watch(
 }
 
 .new-chat-btn {
-    margin: 16px 14px;
+    width: calc(100% - 20px);
+    margin: 16px 10px;
     min-height: 48px;
     display: flex;
     align-items: center;
@@ -7716,14 +7729,58 @@ watch(
     background: rgba(18, 63, 109, 0.20);
     backdrop-filter: blur(4px);
     z-index: 99;
+    pointer-events: auto;
 }
 
 .main-area {
+    position: relative;
+    z-index: 1;
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     background: transparent;
+}
+
+.desktop-sidebar-open-toggle {
+    position: fixed;
+    top: 84px;
+    inset-inline-start: 12px;
+    z-index: 120;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(18, 63, 109, 0.10);
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--navy);
+    box-shadow: 0 14px 30px rgba(18, 63, 109, 0.14);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.desktop-sidebar-open-toggle:hover {
+    transform: scale(1.04);
+    background: rgba(31, 135, 201, 0.08);
+    box-shadow: 0 18px 36px rgba(18, 63, 109, 0.18);
+}
+
+@media (min-width: 901px) {
+    .chat-root.sidebar-collapsed .sidebar {
+        width: 0;
+        border-color: transparent;
+        box-shadow: none;
+        pointer-events: none;
+    }
+
+    .chat-root.sidebar-collapsed .sidebar>* {
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+    }
 }
 
 .mobile-chat-topbar {
@@ -8778,10 +8835,12 @@ watch(
         border-bottom: 1px solid rgba(18, 63, 109, 0.08);
         position: sticky;
         top: 0;
-        z-index: 20;
+        z-index: 40;
     }
 
     .mobile-sidebar-toggle {
+        position: relative;
+        z-index: 41;
         width: 42px;
         height: 42px;
         border: 0;
@@ -8824,8 +8883,8 @@ watch(
         position: fixed;
         top: 0;
         bottom: 0;
-        width: min(86vw, 340px);
-        max-width: 340px;
+        width: min(86vw, 304px);
+        max-width: 304px;
         height: auto;
         z-index: 100;
         background: #ffffff;
@@ -8860,6 +8919,11 @@ watch(
         background: rgba(18, 63, 109, 0.45);
         backdrop-filter: blur(3px);
         animation: sidebarOverlayFade 0.22s ease both;
+        pointer-events: auto;
+    }
+
+    .desktop-sidebar-open-toggle {
+        display: none;
     }
 
     .mobile-only,
@@ -8882,7 +8946,7 @@ watch(
     }
 
     .new-chat-btn {
-        width: calc(100% - 28px);
+        width: calc(100% - 20px);
         min-height: 44px;
     }
 }

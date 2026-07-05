@@ -5,7 +5,6 @@
                 <span class="brand-icon"><i class="bi bi-shield-check"></i></span>
                 <div>
                     <strong>{{ pageTitle }}</strong>
-                    <small>{{ labels.subtitle }}</small>
                 </div>
                 <button class="icon-button mobile-only" type="button" @click="sidebarOpen = false">
                     <i class="bi bi-x-lg"></i>
@@ -51,6 +50,10 @@
         </aside>
 
         <button v-if="sidebarOpen" class="sidebar-overlay" type="button" @click="sidebarOpen = false"></button>
+        <button v-if="!sidebarOpen" class="mobile-sidebar-toggle mobile-only" type="button"
+            @click="sidebarOpen = true">
+            <i class="bi bi-list"></i>
+        </button>
 
         <section class="workspace">
 
@@ -1742,7 +1745,7 @@ watch(
     height: calc(100vh - 70px);
     min-height: calc(100vh - 70px);
     display: grid;
-    grid-template-columns: 290px minmax(0, 1fr);
+    grid-template-columns: 280px minmax(0, 1fr);
     overflow: hidden;
     background: #f5f8fc;
     color: var(--ink);
@@ -1773,9 +1776,12 @@ button:disabled {
     padding: 24px 18px;
     border-inline-end: 1px solid var(--line);
     background: #fff;
+    pointer-events: auto;
 }
 
 .sidebar-brand {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -1815,7 +1821,8 @@ button:disabled {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    width: 100%;
+    width: calc(100% - 20px);
+    margin-inline: 10px;
     padding: 11px 14px;
     border: 0;
     border-radius: 12px;
@@ -1926,12 +1933,15 @@ button:disabled {
 }
 
 .icon-button {
+    position: relative;
+    z-index: 3;
     display: grid;
     place-items: center;
     width: 38px;
     height: 38px;
     border-radius: 10px;
     color: var(--navy);
+    pointer-events: auto;
 }
 
 .workspace {
@@ -2567,7 +2577,8 @@ button:disabled {
     .sidebar {
         position: fixed;
         inset: 0 auto 0 0;
-        width: min(320px, 84vw);
+        width: min(300px, 84vw);
+        z-index: 60;
         transform: translateX(-105%);
         transition: transform 0.22s ease;
         box-shadow: 0 12px 40px rgba(18, 63, 109, 0.15);
@@ -2590,9 +2601,27 @@ button:disabled {
     .sidebar-overlay {
         position: fixed;
         inset: 0;
-        z-index: 10;
+        z-index: 50;
         border: 0;
         background: rgba(16, 35, 53, 0.35);
+        pointer-events: auto;
+    }
+
+    .mobile-sidebar-toggle {
+        position: fixed;
+        top: 12px;
+        inset-inline-start: 12px;
+        z-index: 45;
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(18, 63, 109, 0.10);
+        border-radius: 14px;
+        color: var(--navy);
+        background: #ffffff;
+        box-shadow: 0 14px 30px rgba(18, 63, 109, 0.14);
+        pointer-events: auto;
     }
 
     .workspace-header,
