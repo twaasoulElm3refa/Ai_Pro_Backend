@@ -3,6 +3,7 @@
 use App\Exceptions\AiServiceException;
 use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\ApiKeyMiddleware;
+use App\Http\Middleware\Utf8JsonResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->api(ApiKeyMiddleware::class);
         $middleware->api(AcceptLanguage::class);
+        $middleware->api(Utf8JsonResponse::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (AiServiceException $e, Request $request) {

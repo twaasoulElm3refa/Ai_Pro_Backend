@@ -6,6 +6,7 @@ use App\Models\MainTools;
 use App\Models\SubTools;
 use App\Models\SubToolTranlation;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class ResumeBuilderSeeder extends Seeder
 {
@@ -78,11 +79,13 @@ class ResumeBuilderSeeder extends Seeder
             'deleted_at' => null,
         ])->save();
 
+        $this->updateArabicColumnsIfPresent($subTool->id);
+
         foreach ([
             'ar' => [
-                'name' => 'Ù…Ù†Ø´Ø¦ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©',
-                'prompt_placeholder' => 'Ø­Ø³Ù† Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ù„ÙˆØ¸ÙŠÙØ© Senior Laravel Developer.',
-                'description' => 'ØªØ­Ø³ÙŠÙ† ÙˆØ¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø¨ØªÙ†Ø³ÙŠÙ‚ Ù…Ù†Ø§Ø³Ø¨ Ù„Ø£Ù†Ø¸Ù…Ø© ATS.',
+                'name' => 'منشئ السيرة الذاتية',
+                'prompt_placeholder' => 'حسّن هذه السيرة الذاتية لوظيفة Senior Laravel Developer.',
+                'description' => 'أداة تساعدك على إنشاء أو تحسين السيرة الذاتية بصياغة احترافية مناسبة لأنظمة ATS.',
             ],
             'en' => [
                 'name' => 'Resume Builder',
@@ -98,6 +101,24 @@ class ResumeBuilderSeeder extends Seeder
                     'meta_description' => $translation['description'],
                 ]
             );
+        }
+    }
+
+    private function updateArabicColumnsIfPresent(int $subToolId): void
+    {
+        $columns = collect(DB::getSchemaBuilder()->getColumnListing('sub_tools'));
+        $values = collect([
+            'title_ar' => 'منشئ السيرة الذاتية',
+            'subtitle_ar' => 'تحسين وإنشاء السيرة الذاتية باحترافية',
+            'description_ar' => 'أداة تساعدك على إنشاء أو تحسين السيرة الذاتية بصياغة احترافية مناسبة لأنظمة ATS.',
+            'title_en' => 'Resume Builder',
+            'subtitle_en' => 'Build or improve resumes with ATS-friendly structure',
+        ])->only($columns->all())->all();
+
+        if ($values !== []) {
+            DB::table('sub_tools')
+                ->where('id', $subToolId)
+                ->update($values);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <main class="chat-root" :class="{ 'sidebar-collapsed': desktopSidebarCollapsed }"
         :dir="locale === 'ar' ? 'rtl' : 'ltr'" :aria-label="t('user.chat.workspaceAria')">
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">

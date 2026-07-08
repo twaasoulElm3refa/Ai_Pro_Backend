@@ -671,9 +671,9 @@ const CHAT4_TOOLS = {
         sub_tool_id: 19,
         tool_key: "resume_builder",
         model_key: "resume_builder",
-        title_ar: "Ù…Ù†Ø´Ø¦ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+        title_ar: "منشئ السيرة الذاتية",
         title_en: "Resume Builder",
-        subtitle_ar: "ØªØ­Ø³ÙŠÙ† ÙˆØ¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø¨Ø§Ø­ØªØ±Ø§ÙÙŠØ©",
+        subtitle_ar: "تحسين وإنشاء السيرة الذاتية باحترافية",
         subtitle_en: "Build or improve resumes with ATS-friendly structure",
     },
     20: {
@@ -927,29 +927,29 @@ const labels = computed(() => {
     }
 
     const resumeLabels = isArabic.value ? {
-        welcome: "Ø§Ø±ÙØ¹ Ø³ÙŠØ±ØªÙƒ Ø§Ù„Ø°Ø§ØªÙŠØ© Ø£Ùˆ Ø§ÙƒØªØ¨ Ø·Ù„Ø¨Ùƒ Ù„Ø¥Ù†Ø´Ø§Ø¡ Ø³ÙŠØ±Ø© Ø§Ø­ØªØ±Ø§ÙÙŠØ© Ù…Ù†Ø§Ø³Ø¨Ø© Ù„Ù„ÙˆØ¸ÙŠÙØ© Ø§Ù„Ù…Ø³ØªÙ‡Ø¯ÙØ©.",
-        placeholder: "Ø§ÙƒØªØ¨ Ø·Ù„Ø¨Ùƒ Ù„ØªØ­Ø³ÙŠÙ† Ø£Ùˆ Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©...",
-        options: "Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
-        aiResponseTitle: "Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ù…Ø­Ø³Ù†Ø©",
-        targetRole: "Ø§Ù„ÙˆØ¸ÙŠÙØ© Ø§Ù„Ù…Ø³ØªÙ‡Ø¯ÙØ©",
-        candidateName: "Ø§Ø³Ù… Ø§Ù„Ù…Ø±Ø´Ø­",
-        experienceLevel: "Ù…Ø³ØªÙˆÙ‰ Ø§Ù„Ø®Ø¨Ø±Ø©",
-        resumeStyle: "Ø£Ø³Ù„ÙˆØ¨ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
-        outputFormat: "ØµÙŠØºØ© Ø§Ù„Ø¥Ø®Ø±Ø§Ø¬",
-        sectionsToInclude: "Ø§Ù„Ø£Ù‚Ø³Ø§Ù… Ø§Ù„Ù…Ø·Ù„ÙˆØ¨Ø©",
-        resumeFile: "Ù…Ù„Ù Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
-        uploadResume: "Ø±ÙØ¹ Ù…Ù„Ù Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
-        replaceFile: "Ø§Ø³ØªØ¨Ø¯Ø§Ù„ Ø§Ù„Ù…Ù„Ù",
-        selectedFile: "Ø§Ù„Ù…Ù„Ù Ø§Ù„Ù…Ø®ØªØ§Ø±",
-        removeFile: "Ø­Ø°Ù Ø§Ù„Ù…Ù„Ù",
-        fileRequired: "ÙŠØ±Ø¬Ù‰ Ø±ÙØ¹ Ù…Ù„Ù Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø£ÙˆÙ„Ø§Ù‹",
-        resumeBuilderOptions: "Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
-        resumeBuilderResultTitle: "Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ù…Ø­Ø³Ù†Ø©",
-        downloadFile: "ØªÙ†Ø²ÙŠÙ„ Ø§Ù„Ù…Ù„Ù",
-        invalidFileType: "ÙŠØ±Ø¬Ù‰ Ø±ÙØ¹ Ù…Ù„Ù PDF Ø£Ùˆ DOC Ø£Ùˆ DOCX.",
-        fileTooLarge: "Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù ÙŠØ¬Ø¨ Ø£Ù„Ø§ ÙŠØªØ¬Ø§ÙˆØ² 10MB.",
-        targetRoleRequired: "ÙŠØ±Ø¬Ù‰ Ø¥Ø¯Ø®Ø§Ù„ Ø§Ù„ÙˆØ¸ÙŠÙØ© Ø§Ù„Ù…Ø³ØªÙ‡Ø¯ÙØ©.",
-        genericError: "ØªØ¹Ø°Ø± ØªØ­Ø³ÙŠÙ† Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ø¢Ù†. ÙŠØ±Ø¬Ù‰ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.",
+        welcome: "ارفع سيرتك الذاتية أو اكتب طلبك، وسنساعدك على تحسينها بصياغة احترافية مناسبة لأنظمة ATS.",
+        placeholder: "اكتب طلبك هنا، مثال: حسّن هذه السيرة الذاتية لوظيفة Senior Laravel Developer...",
+        options: "خيارات السيرة الذاتية",
+        aiResponseTitle: "السيرة الذاتية المحسنة",
+        targetRole: "الوظيفة المستهدفة",
+        candidateName: "اسم المرشح",
+        experienceLevel: "مستوى الخبرة",
+        resumeStyle: "أسلوب السيرة الذاتية",
+        outputFormat: "صيغة الإخراج",
+        sectionsToInclude: "الأقسام المطلوبة",
+        resumeFile: "ملف السيرة الذاتية",
+        uploadResume: "رفع ملف السيرة الذاتية",
+        replaceFile: "استبدال الملف",
+        selectedFile: "الملف المختار",
+        removeFile: "حذف الملف",
+        fileRequired: "يرجى رفع ملف السيرة الذاتية أولاً",
+        resumeBuilderOptions: "خيارات السيرة الذاتية",
+        resumeBuilderResultTitle: "السيرة الذاتية المحسنة",
+        downloadFile: "تنزيل الملف",
+        invalidFileType: "يرجى رفع ملف PDF أو DOC أو DOCX.",
+        fileTooLarge: "حجم الملف يجب ألا يتجاوز 10MB.",
+        targetRoleRequired: "يرجى إدخال الوظيفة المستهدفة.",
+        genericError: "تعذر تحسين السيرة الذاتية الآن. يرجى المحاولة مرة أخرى.",
     } : {
         welcome: "Upload an existing resume to improve it, or describe the role and we will build an ATS-friendly resume from scratch.",
         placeholder: "Describe how you want to build or improve the resume...",
@@ -1170,7 +1170,7 @@ const baseTypingText = computed(() => {
 });
 
 const typingText = computed(() => isResumeBuilder.value
-    ? (isArabic.value ? "Ø¬Ø§Ø±ÙŠ ØªØ­Ø³ÙŠÙ† Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©" : "Improving resume")
+    ? (isArabic.value ? "جاري تحسين السيرة الذاتية" : "Improving resume")
     : baseTypingText.value
 );
 
@@ -1270,7 +1270,7 @@ function getMessageDownloadUrl(message) {
 
 function getResultTitle(subToolId = activeSubToolId.value) {
     if (Number(subToolId) === RESUME_BUILDER_SUB_TOOL_ID) {
-        return isArabic.value ? "Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ù…Ø­Ø³Ù†Ø©" : "Improved resume";
+        return isArabic.value ? "السيرة الذاتية المحسنة" : "Improved resume";
     }
 
     if (Number(subToolId) === BUSINESS_NAME_SUB_TOOL_ID) {
@@ -1545,7 +1545,7 @@ function extractResumeTargetRole(userMessage) {
         /target role:\s*([^.\n]+)/i,
         /resume\s+for\s+(?:a\s+|an\s+)?([^.,\n]+)/i,
         /cv\s+for\s+(?:a\s+|an\s+)?([^.,\n]+)/i,
-        /Ø§Ù„ÙˆØ¸ÙŠÙØ©:\s*([^.\n]+)/i,
+        /الوظيفة:\s*([^.\n]+)/i,
     ];
 
     for (const pattern of patterns) {

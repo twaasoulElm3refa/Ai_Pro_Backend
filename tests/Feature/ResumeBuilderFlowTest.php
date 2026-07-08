@@ -77,6 +77,7 @@ class ResumeBuilderFlowTest extends TestCase
         ]);
 
         $response->assertOk()
+            ->assertHeader('Content-Type', 'application/json; charset=UTF-8')
             ->assertJsonPath('data.sub_tool_id', 19)
             ->assertJsonPath('data.tool_key', 'resume_builder')
             ->assertJsonPath('data.state.target_role', 'Senior Laravel Developer')

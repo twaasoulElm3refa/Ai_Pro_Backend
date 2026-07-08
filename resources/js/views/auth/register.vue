@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="min-vh-100 d-flex align-items-center justify-content-center position-relative overflow-hidden"
         :dir="locale === 'ar' ? 'rtl' : 'ltr'">
         <div class="position-absolute w-100 h-100 waves"></div>
