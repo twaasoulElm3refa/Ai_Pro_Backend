@@ -25,13 +25,11 @@
             <div v-else-if="conversations.length === 0" class="sidebar-status">{{ labels.noChats }}</div>
 
             <div v-else class="conversation-list history-list">
-                <div
-                    v-for="conversation in conversations"
-                    :key="conversation.uuid"
+                <div v-for="conversation in conversations" :key="conversation.uuid"
                     class="conversation-item history-item"
-                    :class="{ active: conversation.uuid === activeConversation?.uuid }"
-                >
-                    <button type="button" class="conversation-open history-item-main" @click="openConversation(conversation)">
+                    :class="{ active: conversation.uuid === activeConversation?.uuid }">
+                    <button type="button" class="conversation-open history-item-main"
+                        @click="openConversation(conversation)">
                         <i class="bi bi-chat-left-text"></i>
 
                         <div class="history-item-info">
@@ -39,13 +37,9 @@
                         </div>
                     </button>
 
-                    <button
-                        type="button"
-                        class="conversation-delete history-delete"
-                        :disabled="deletingUuid === conversation.uuid"
-                        :aria-label="labels.deleteChat"
-                        @click="deleteConversation(conversation)"
-                    >
+                    <button type="button" class="conversation-delete history-delete"
+                        :disabled="deletingUuid === conversation.uuid" :aria-label="labels.deleteChat"
+                        @click="deleteConversation(conversation)">
                         <i class="bi bi-trash3"></i>
                     </button>
                 </div>
@@ -81,75 +75,66 @@
                 </div>
 
                 <div v-else class="message-list">
-                    <article
-                        v-for="message in messages"
-                        :key="message.localKey"
-                        class="message-row"
-                        :class="message.role"
-                    >
+                    <article v-for="message in messages" :key="message.localKey" class="message-row"
+                        :class="message.role">
                         <div class="avatar">
                             <i :class="message.role === 'assistant' ? 'bi bi-stars' : 'bi bi-person-fill'"></i>
                         </div>
 
-                        <div
-                            class="message-body"
-                            :class="{
-                                error: message.is_error,
-                                'card-shell': message.role === 'assistant' && (message.results?.length || message.is_error),
-                            }"
-                        >
+                        <div class="message-body" :class="{
+                            error: message.is_error,
+                            'card-shell': message.role === 'assistant' && (message.results?.length || message.is_error),
+                        }">
                             <template v-if="message.role === 'assistant' && message.results?.length">
                                 <template v-if="isBusinessNameMessage(message)">
                                     <div class="business-response-card">
                                         <div class="ai-response-header">
                                             <div class="ai-response-title">
                                                 <i class="bi bi-stars"></i>
-                                                <span>{{ message.metadata?.title || labels.businessNameResultTitle }}</span>
+                                                <span>{{ message.metadata?.title || labels.businessNameResultTitle
+                                                    }}</span>
                                             </div>
 
-                                            <button
-                                                type="button"
-                                                class="copy-card-button"
-                                                @click="copyText(getMessageText(message), `msg-${message.localKey}`)"
-                                            >
+                                            <button type="button" class="copy-card-button"
+                                                @click="copyText(getMessageText(message), `msg-${message.localKey}`)">
                                                 <i class="bi bi-copy"></i>
-                                                {{ copiedKey === `msg-${message.localKey}` ? labels.copied : labels.copyAll }}
+                                                {{ copiedKey === `msg-${message.localKey}` ? labels.copied :
+                                                labels.copyAll }}
                                             </button>
                                         </div>
 
                                         <div class="business-result-list">
-                                            <article
-                                                v-for="(item, itemIndex) in message.results"
+                                            <article v-for="(item, itemIndex) in message.results"
                                                 :key="`${message.localKey}-${item.id || itemIndex}`"
-                                                class="business-result-card"
-                                            >
+                                                class="business-result-card">
                                                 <div class="result-header">
                                                     <div class="result-title-stack">
-                                                        <strong>{{ item.title || `${labels.businessNameResultTitle} ${itemIndex + 1}` }}</strong>
-                                                        <span>{{ item.subject || labels.businessNameResultTitle }}</span>
+                                                        <strong>{{ item.title || `${labels.businessNameResultTitle}
+                                                            ${itemIndex + 1}` }}</strong>
+                                                        <span>{{ item.subject || labels.businessNameResultTitle
+                                                            }}</span>
                                                     </div>
 
-                                                    <button
-                                                        type="button"
-                                                        @click="copyText(getResultCopyText(item, getMessageToolId(message)), `result-${message.localKey}-${item.id || itemIndex}`)"
-                                                    >
+                                                    <button type="button"
+                                                        @click="copyText(getResultCopyText(item, getMessageToolId(message)), `result-${message.localKey}-${item.id || itemIndex}`)">
                                                         <i class="bi bi-copy"></i>
-                                                        {{ copiedKey === `result-${message.localKey}-${item.id || itemIndex}` ? labels.copied : labels.copyResult }}
+                                                        {{ copiedKey === `result-${message.localKey}-${item.id ||
+                                                        itemIndex}` ? labels.copied : labels.copyResult }}
                                                     </button>
                                                 </div>
 
                                                 <div class="business-result-body">
                                                     <p class="business-name">{{ item.text }}</p>
-                                                    <p v-if="item.meta?.slogan" class="business-slogan">{{ item.meta.slogan }}</p>
+                                                    <p v-if="item.meta?.slogan" class="business-slogan">{{
+                                                        item.meta.slogan }}</p>
 
-                                                    <div v-if="getBusinessDomains(item).length" class="business-domain-section">
-                                                        <span class="business-domain-label">{{ labels.domainIdeas }}</span>
+                                                    <div v-if="getBusinessDomains(item).length"
+                                                        class="business-domain-section">
+                                                        <span class="business-domain-label">{{ labels.domainIdeas
+                                                            }}</span>
                                                         <div class="business-domain-list">
-                                                            <span
-                                                                v-for="domain in getBusinessDomains(item)"
-                                                                :key="domain"
-                                                                class="domain-chip"
-                                                            >
+                                                            <span v-for="domain in getBusinessDomains(item)"
+                                                                :key="domain" class="domain-chip">
                                                                 {{ domain }}
                                                             </span>
                                                         </div>
@@ -167,34 +152,28 @@
                                             <span>{{ message.metadata?.title || labels.aiResponseTitle }}</span>
                                         </div>
 
-                                        <button
-                                            type="button"
-                                            class="copy-card-button"
-                                            @click="copyText(getMessageText(message), `msg-${message.localKey}`)"
-                                        >
+                                        <button type="button" class="copy-card-button"
+                                            @click="copyText(getMessageText(message), `msg-${message.localKey}`)">
                                             <i class="bi bi-copy"></i>
                                             {{ copiedKey === `msg-${message.localKey}` ? labels.copied : labels.copy }}
                                         </button>
                                     </div>
 
-                                    <div class="ai-response-content" v-html="formatMessage(getMessageText(message))"></div>
+                                    <div class="ai-response-content" v-html="formatMessage(getMessageText(message))">
+                                    </div>
 
                                     <div v-if="getMessageDownloadUrl(message)" class="ai-download-section">
-                                        <button
-                                            type="button"
-                                            class="ai-download-button"
-                                            @click="downloadResumeFile(message)"
-                                        >
+                                        <button type="button" class="ai-download-button"
+                                            @click="downloadResumeFile(message)">
                                             <i class="bi bi-download"></i>
                                             {{ labels.downloadFile }}
-                                            <span v-if="getMessageFilename(message)">{{ getMessageFilename(message) }}</span>
+                                            <span v-if="getMessageFilename(message)">{{ getMessageFilename(message)
+                                                }}</span>
                                         </button>
                                     </div>
 
-                                    <div
-                                        v-if="message.results[0]?.meta?.ai_likelihood_score !== undefined"
-                                        class="ai-score-box"
-                                    >
+                                    <div v-if="message.results[0]?.meta?.ai_likelihood_score !== undefined"
+                                        class="ai-score-box">
                                         <span>{{ labels.score }}</span>
                                         <strong>{{ message.results[0].meta.ai_likelihood_score }} / 100</strong>
                                     </div>
@@ -226,11 +205,8 @@
                                 </div>
                             </template>
 
-                            <div
-                                v-else-if="message.content"
-                                class="message-content"
-                                v-html="formatMessage(message.content)"
-                            ></div>
+                            <div v-else-if="message.content" class="message-content"
+                                v-html="formatMessage(message.content)"></div>
                         </div>
                     </article>
 
@@ -325,22 +301,16 @@
 
                                 <label class="wide">
                                     <span>{{ labels.keywords }}</span>
-                                    <input
-                                        :value="serializeList(toolState.keywords)"
-                                        type="text"
+                                    <input :value="serializeList(toolState.keywords)" type="text"
                                         placeholder="AI, marketing, tools"
-                                        @input="updateListField('keywords', $event.target.value)"
-                                    >
+                                        @input="updateListField('keywords', $event.target.value)">
                                 </label>
 
                                 <label class="wide">
                                     <span>{{ labels.avoidWords }}</span>
-                                    <input
-                                        :value="serializeList(toolState.avoid_words)"
-                                        type="text"
+                                    <input :value="serializeList(toolState.avoid_words)" type="text"
                                         placeholder="cheap, copy, old"
-                                        @input="updateListField('avoid_words', $event.target.value)"
-                                    >
+                                        @input="updateListField('avoid_words', $event.target.value)">
                                 </label>
                             </div>
 
@@ -427,16 +397,11 @@
                             <fieldset class="option-card checkbox-field">
                                 <legend>{{ labels.sectionsToInclude }}</legend>
                                 <div class="checkbox-options-list">
-                                    <label
-                                        v-for="section in resumeSectionChoices"
-                                        :key="section"
-                                        class="checkbox-option"
-                                    >
-                                        <input
-                                            type="checkbox"
+                                    <label v-for="section in resumeSectionChoices" :key="section"
+                                        class="checkbox-option">
+                                        <input type="checkbox"
                                             :checked="toolState.sections_to_include.includes(section)"
-                                            @change="toggleResumeSection(section)"
-                                        >
+                                            @change="toggleResumeSection(section)">
                                         <span>{{ section }}</span>
                                     </label>
                                 </div>
@@ -446,12 +411,8 @@
                                 <legend>{{ labels.resumeFile }}</legend>
                                 <div class="resume-file-panel">
                                     <label class="resume-file-button">
-                                        <input
-                                            ref="resumeFileInputRef"
-                                            type="file"
-                                            accept=".pdf,.doc,.docx"
-                                            @change="handleResumeFileChange"
-                                        >
+                                        <input ref="resumeFileInputRef" type="file" accept=".pdf,.doc,.docx"
+                                            @change="handleResumeFileChange">
                                         <i class="bi bi-paperclip"></i>
                                         <span>{{ resumeFile ? labels.replaceFile : labels.uploadResume }}</span>
                                     </label>
@@ -583,16 +544,9 @@
                         <fieldset class="option-card checkbox-field">
                             <legend>{{ labels.extraOptions }}</legend>
                             <div class="checkbox-options-list">
-                                <label
-                                    v-for="option in extraOptionChoices"
-                                    :key="option"
-                                    class="checkbox-option"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        :checked="toolState.extra_options.includes(option)"
-                                        @change="toggleExtraOption(option)"
-                                    >
+                                <label v-for="option in extraOptionChoices" :key="option" class="checkbox-option">
+                                    <input type="checkbox" :checked="toolState.extra_options.includes(option)"
+                                        @change="toggleExtraOption(option)">
                                     <span>{{ option }}</span>
                                 </label>
                             </div>
@@ -603,7 +557,8 @@
                                 <i class="bi bi-check2"></i>
                                 {{ labels.applyOptions }}
                             </button>
-                            <button type="button" class="options-reset-button" :disabled="sendDisabled" @click="resetOptions">
+                            <button type="button" class="options-reset-button" :disabled="sendDisabled"
+                                @click="resetOptions">
                                 <i class="bi bi-arrow-counterclockwise"></i>
                                 {{ labels.resetOptions }}
                             </button>
@@ -612,45 +567,23 @@
                 </details>
 
                 <div class="input-box">
-                    <textarea
-                        ref="textareaRef"
-                        v-model="userMessage"
-                        rows="1"
-                        :placeholder="labels.placeholder"
-                        :disabled="sendDisabled"
-                        @input="autoResize"
-                        @keydown.enter.exact.prevent="sendMessage"
-                    ></textarea>
+                    <textarea ref="textareaRef" v-model="userMessage" rows="1" :placeholder="labels.placeholder"
+                        :disabled="sendDisabled" @input="autoResize"
+                        @keydown.enter.exact.prevent="sendMessage"></textarea>
 
-                    <input
-                        v-if="isResumeBuilder"
-                        ref="composerResumeFileInputRef"
-                        class="composer-file-input"
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        @change="handleResumeFileChange"
-                    >
+                    <input v-if="isResumeBuilder" ref="composerResumeFileInputRef" class="composer-file-input"
+                        type="file" accept=".pdf,.doc,.docx" @change="handleResumeFileChange">
 
-                    <button
-                        v-if="isResumeBuilder"
-                        type="button"
-                        class="composer-file-button"
-                        :class="{ 'has-file': resumeFile }"
-                        :disabled="sendDisabled"
+                    <button v-if="isResumeBuilder" type="button" class="composer-file-button"
+                        :class="{ 'has-file': resumeFile }" :disabled="sendDisabled"
                         :title="resumeFile ? resumeFile.name : labels.uploadResume"
                         :aria-label="resumeFile ? labels.replaceFile : labels.uploadResume"
-                        @click="composerResumeFileInputRef?.click()"
-                    >
+                        @click="composerResumeFileInputRef?.click()">
                         <i :class="resumeFile ? 'bi bi-file-earmark-check-fill' : 'bi bi-paperclip'"></i>
                     </button>
 
-                    <button
-                        type="button"
-                        class="send-button"
-                        :disabled="sendDisabled || !canSendMessage"
-                        :aria-label="labels.send"
-                        @click="sendMessage"
-                    >
+                    <button type="button" class="send-button" :disabled="sendDisabled || !canSendMessage"
+                        :aria-label="labels.send" @click="sendMessage">
                         <i :class="sendDisabled ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
                 </div>
@@ -1408,8 +1341,13 @@ async function downloadResumeFile(message) {
             Accept: "application/json",
         };
 
-        if (!url.includes("api.aiarabic.com/tasks/resume-builder/download/")) {
+        const isAiArabicResumeDownload = url.includes("api.aiarabic.com/tasks/resume-builder/download/");
+
+        if (isAiArabicResumeDownload) {
+            headers["x-internal-api-key"] = 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy';
+        } else {
             const token = localStorage.getItem("auth_token");
+
             if (token) {
                 headers.Authorization = `Bearer ${token}`;
             }
@@ -3642,7 +3580,10 @@ button:disabled {
 }
 
 @keyframes typing-bounce {
-    0%, 80%, 100% {
+
+    0%,
+    80%,
+    100% {
         transform: translateY(0);
         opacity: 0.45;
     }
