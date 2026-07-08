@@ -1346,6 +1346,43 @@ function resolveDownloadUrl(url) {
     return `${String(apiBase).replace(/\/$/, "")}/${value.replace(/^\//, "")}`;
 }
 
+async function getDownloadErrorMessage(response) {
+    const fallback = `${response.status} ${response.statusText}`.trim();
+
+    try {
+        const contentType = response.headers.get("content-type") || "";
+
+        if (contentType.includes("application/json")) {
+            const data = await response.json();
+
+            const errors = data?.errors && typeof data.errors === "object"
+                ? Object.values(data.errors).flat().filter(Boolean).join(" ")
+                : "";
+
+            return String(
+                errors
+                || data?.message
+                || data?.detail
+                || data?.error
+                || data?.provider_message
+                || data?.friendly_message
+                || fallback
+                || labels.value.genericError
+            );
+        }
+
+        const text = await response.text();
+
+        return String(
+            text
+            || fallback
+            || labels.value.genericError
+        );
+    } catch {
+        return fallback || labels.value.genericError;
+    }
+}
+
 async function downloadResumeFile(message) {
     const url = resolveDownloadUrl(getMessageDownloadUrl(message));
     if (!url) return;
@@ -1357,7 +1394,7 @@ async function downloadResumeFile(message) {
         });
 
         if (!response.ok) {
-            throw new Error(labels.value.genericError);
+            throw new Error(await getDownloadErrorMessage(response));
         }
 
         const blob = await response.blob();
