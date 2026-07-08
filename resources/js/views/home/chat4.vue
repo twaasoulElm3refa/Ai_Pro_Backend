@@ -1751,6 +1751,27 @@ function buildResumeBuilderFormData(messageText, conversation, payload) {
     return formData;
 }
 
+function removeResumeBuilderFailedAttempts() {
+    messages.value = messages.value.filter((message) => !message?.metadata?.resume_builder_failed_attempt);
+}
+
+function markResumeBuilderAttemptFailed(localKey) {
+    if (!localKey) return;
+
+    messages.value = messages.value.map((message) => {
+        if (message.localKey !== localKey) return message;
+
+        return {
+            ...message,
+            is_error: true,
+            metadata: {
+                ...(message.metadata || {}),
+                resume_builder_failed_attempt: true,
+            },
+        };
+    });
+}
+
 function normalizeResultText(value) {
     if (value && typeof value === "object") {
         return normalizeResultText(value.text || value.name || value.content || value.output || value.message || "");
@@ -2049,6 +2070,8 @@ const ensureConversation = async () => {
 
 const sendMessage = async () => {
     const text = String(userMessage.value || "").trim();
+    let optimisticUserKey = "";
+
     if (isSending.value || isAssistantTyping.value) return;
     if (!text && !isResumeBuilder.value) return;
     if (isResumeBuilder.value && !text && !resumeFile.value) return;
@@ -2068,11 +2091,24 @@ const sendMessage = async () => {
         if (!conversation?.uuid) return;
 
         const payload = buildChat4Payload(finalText, conversation);
+        optimisticUserKey = createLocalKey();
+
+        if (isResumeBuilder.value) {
+            removeResumeBuilderFailedAttempts();
+        }
 
         messages.value.push(mapMessage({
-            localKey: createLocalKey(),
+            localKey: optimisticUserKey,
             role: "user",
             content: finalText,
+            metadata: {
+                tool: payload.tool,
+                tool_key: payload.tool_key,
+                model_key: payload.model_key,
+                sub_tool_id: payload.sub_tool_id,
+                idempotency_key: payload.idempotency_key,
+                optimistic: true,
+            },
             created_at: new Date().toISOString(),
         }));
 
@@ -2133,11 +2169,21 @@ const sendMessage = async () => {
         await scrollToBottom();
     } catch (error) {
         isAssistantTyping.value = false;
+
+        if (isResumeBuilder.value) {
+            markResumeBuilderAttemptFailed(optimisticUserKey);
+        }
+
         messages.value.push(mapMessage({
             localKey: createLocalKey(),
             role: "assistant",
             is_error: true,
             content: cleanErrorMessage(error),
+            metadata: {
+                sub_tool_id: activeSubToolId.value,
+                resume_builder_failed_attempt: isResumeBuilder.value,
+                reply_to_local_key: optimisticUserKey || null,
+            },
             created_at: new Date().toISOString(),
         }));
         await scrollToBottom();

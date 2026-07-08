@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\AiServiceException;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -39,6 +40,196 @@ class AiArabicWriterService
         }
 
         return (string) $response;
+    }
+
+    public function generateResumeBuilderReplyWithUsage(array $fields, ?UploadedFile $file, ?string $endpoint = null): array|string
+    {
+        if ($fields === []) {
+            throw new AiServiceException('AI payload body is required.');
+        }
+
+        $targetUrl = $this->buildTargetUrl($endpoint);
+        $fields = $this->normalizeMultipartFields($fields);
+        $fileHandle = null;
+
+        Log::debug('Resume Builder AI multipart request prepared', [
+            'target_url' => $targetUrl,
+            'has_file' => $file !== null,
+            'file_name' => $file?->getClientOriginalName(),
+            'field_keys' => array_keys($fields),
+        ]);
+
+        try {
+            $http = Http::timeout(120)
+                ->acceptJson()
+                ->asMultipart()
+                ->withHeaders([
+                    'x-internal-api-key' => $this->apiKey,
+                ]);
+
+            if ($file) {
+                $fileHandle = fopen($file->getRealPath(), 'r');
+
+                if ($fileHandle === false) {
+                    throw new AiServiceException('Could not open uploaded resume file.');
+                }
+
+                $http = $http->attach(
+                    'file',
+                    $fileHandle,
+                    $file->getClientOriginalName(),
+                    [
+                        'Content-Type' => $file->getMimeType()
+                            ?: ($file->getClientMimeType() ?: 'application/octet-stream'),
+                    ]
+                );
+            }
+
+            $response = $http->post($targetUrl, $fields);
+        } catch (ConnectionException $th) {
+            Log::error('Resume Builder AI request connection failure.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'field_keys' => array_keys($fields),
+                'has_file' => $file !== null,
+                'file_name' => $file?->getClientOriginalName(),
+                'timeout' => 120,
+                'error_message' => $th->getMessage(),
+            ]);
+
+            throw new AiServiceException(
+                'AI request transport failure: '.$th->getMessage(),
+                [
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
+                    'field_keys' => array_keys($fields),
+                    'has_file' => $file !== null,
+                    'file_name' => $file?->getClientOriginalName(),
+                    'error' => $th->getMessage(),
+                ],
+                0,
+                $th
+            );
+        } catch (AiServiceException $th) {
+            throw $th;
+        } catch (Throwable $th) {
+            Log::error('Resume Builder AI request failed before receiving response.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'field_keys' => array_keys($fields),
+                'has_file' => $file !== null,
+                'file_name' => $file?->getClientOriginalName(),
+                'error_message' => $th->getMessage(),
+                'error_file' => $th->getFile(),
+                'error_line' => $th->getLine(),
+            ]);
+
+            throw new AiServiceException(
+                'AI request transport failure: '.$th->getMessage(),
+                [
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
+                    'field_keys' => array_keys($fields),
+                    'has_file' => $file !== null,
+                    'file_name' => $file?->getClientOriginalName(),
+                    'error' => $th->getMessage(),
+                ],
+                0,
+                $th
+            );
+        } finally {
+            if (is_resource($fileHandle)) {
+                fclose($fileHandle);
+            }
+        }
+
+        $responsePayload = null;
+
+        try {
+            $responsePayload = $response->json();
+        } catch (Throwable $jsonThrowable) {
+            Log::debug('Resume Builder AI response JSON decode skipped.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'status' => $response->status(),
+                'error_message' => $jsonThrowable->getMessage(),
+            ]);
+        }
+
+        if (! $response->successful()) {
+            $status = $response->status();
+            $body = $response->body();
+            $providerMessage = $this->extractProviderFailureMessage($responsePayload, $body);
+            $friendlyMessage = $status === 422
+                ? 'Could not improve the resume right now. Please try again.'
+                : $this->friendlyProviderFailureMessage($status, $providerMessage);
+            $requestId = $this->extractScalarString($responsePayload, [
+                ['request_id'],
+                ['data', 'request_id'],
+                ['error', 'metadata', 'provider_request_id'],
+                ['data', 'error', 'metadata', 'provider_request_id'],
+            ]);
+
+            Log::warning(
+                $status === 422 ? 'Resume Builder AI validation error' : 'Resume Builder AI provider error',
+                [
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
+                    'field_keys' => array_keys($fields),
+                    'has_file' => $file !== null,
+                    'file_name' => $file?->getClientOriginalName(),
+                    'status' => $status,
+                    'body' => mb_substr($body, 0, 2000),
+                    'request_id' => $requestId,
+                    'response_json' => $responsePayload,
+                    'provider_message' => $providerMessage,
+                ]
+            );
+
+            throw new AiServiceException(
+                $providerMessage ?: $friendlyMessage,
+                [
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
+                    'field_keys' => array_keys($fields),
+                    'has_file' => $file !== null,
+                    'file_name' => $file?->getClientOriginalName(),
+                    'status' => $status,
+                    'response_body' => $body,
+                    'response_json' => $responsePayload,
+                    'provider_message' => $providerMessage,
+                    'friendly_message' => $friendlyMessage,
+                    'code' => $status === 422 ? 'AI_VALIDATION_ERROR' : ($status === 429 ? 'AI_RATE_LIMITED' : 'AI_PROVIDER_ERROR'),
+                    'request_id' => $requestId,
+                ],
+                $status
+            );
+        }
+
+        Log::debug('Resume Builder AI request completed.', [
+            'base_url' => $this->url,
+            'endpoint' => $endpoint,
+            'target_url' => $targetUrl,
+            'status' => $response->status(),
+            'response_keys' => is_array($responsePayload) ? array_keys($responsePayload) : [],
+        ]);
+
+        $responsePayload = is_array($responsePayload) ? $responsePayload : $response->json();
+
+        return $this->normalizeAiResponsePayload(
+            is_array($responsePayload) ? $responsePayload : [],
+            $fields,
+            $endpoint,
+            $targetUrl,
+            $response->body()
+        );
     }
 
 
@@ -320,6 +511,146 @@ class AiArabicWriterService
             'results' => $results,
             'count' => is_numeric($count) ? (int) $count : count($results),
             'raw' => is_array($responsePayload) ? $responsePayload : null,
+        ];
+    }
+
+    protected function normalizeMultipartFields(array $fields): array
+    {
+        $normalized = [];
+
+        foreach ($fields as $key => $value) {
+            if (is_bool($value)) {
+                $normalized[$key] = $value ? '1' : '0';
+                continue;
+            }
+
+            if (is_array($value)) {
+                $normalized[$key] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '[]';
+                continue;
+            }
+
+            if ($value === null) {
+                $normalized[$key] = '';
+                continue;
+            }
+
+            $normalized[$key] = is_scalar($value) ? (string) $value : '';
+        }
+
+        return $normalized;
+    }
+
+    protected function normalizeAiResponsePayload(
+        array $responsePayload,
+        array $payload,
+        ?string $endpoint,
+        string $targetUrl,
+        string $responseBody = ''
+    ): array {
+        $content = $this->extractContent($responsePayload);
+        $structuredContent = $this->extractStructuredJson($content);
+        $declaredType = $this->extractScalarString($responsePayload, [
+            ['type'],
+            ['data', 'type'],
+        ]);
+        $declaredSuccess = $responsePayload['success']
+            ?? ($responsePayload['data']['success'] ?? true);
+        $directResults = $this->extractArray($responsePayload, [
+            ['normalized_results'],
+            ['results'],
+            ['data', 'normalized_results'],
+            ['data', 'results'],
+        ]);
+
+        if (
+            ($payload['response_format'] ?? null) === 'results'
+            && $declaredSuccess !== false
+            && ! in_array(strtolower((string) $declaredType), ['question', 'error'], true)
+            && ($directResults === null || $directResults === [])
+            && $structuredContent === null
+        ) {
+            throw new AiServiceException('AI returned invalid structured JSON.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'response_body' => $responseBody,
+            ]);
+        }
+
+        if ($content === '') {
+            Log::error('AI response missing content.', [
+                'base_url' => $this->url,
+                'endpoint' => $endpoint,
+                'target_url' => $targetUrl,
+                'payload' => $this->summarizePayloadForLog($payload),
+                'body' => $responseBody,
+            ]);
+
+            throw new AiServiceException(
+                'AI response is empty.',
+                [
+                    'base_url' => $this->url,
+                    'endpoint' => $endpoint,
+                    'target_url' => $targetUrl,
+                    'payload' => $this->summarizePayloadForLog($payload),
+                    'response_body' => $responseBody,
+                ]
+            );
+        }
+
+        Log::debug('AI response extracted.', [
+            'content_length' => mb_strlen($content),
+        ]);
+
+        $rawResults = $directResults
+            ?? (is_array($structuredContent['results'] ?? null) ? $structuredContent['results'] : []);
+        $results = ($payload['normalize_results'] ?? true)
+            ? $this->normalizeResults($rawResults)
+            : $rawResults;
+        $state = $this->extractArray($responsePayload, [
+            ['state'],
+            ['data', 'state'],
+        ]) ?? (is_array($structuredContent['state'] ?? null) ? $structuredContent['state'] : null);
+        $count = $responsePayload['count']
+            ?? ($responsePayload['data']['count'] ?? null)
+            ?? ($structuredContent['count'] ?? null);
+        $file = $this->extractArray($responsePayload, [
+            ['file'],
+            ['data', 'file'],
+            ['meta', 'file'],
+            ['data', 'meta', 'file'],
+        ]) ?? [];
+
+        return [
+            'reply' => $content,
+            'type' => $declaredType ?? ($results !== [] ? 'result' : null),
+            'tool' => $this->extractScalarString($responsePayload, [
+                ['tool'],
+                ['data', 'tool'],
+            ]),
+            'provider' => $this->extractScalarString($responsePayload, [
+                ['provider'],
+                ['data', 'provider'],
+            ]),
+            'model_key' => $this->extractScalarString($responsePayload, [
+                ['model_key'],
+                ['data', 'model_key'],
+            ]),
+            'request_id' => $this->extractScalarString($responsePayload, [
+                ['request_id'],
+                ['data', 'request_id'],
+            ]),
+            'usage' => $this->extractUsage($responsePayload),
+            'cost' => $this->extractCost($responsePayload),
+            'state' => $state,
+            'headlines' => $this->extractArray($responsePayload, [
+                ['headlines'],
+                ['data', 'headlines'],
+            ]) ?? [],
+            'results' => $results,
+            'file' => $file,
+            'count' => is_numeric($count) ? (int) $count : count($results),
+            'raw' => $responsePayload,
         ];
     }
 
@@ -774,7 +1105,7 @@ class AiArabicWriterService
     {
         $summary = $payload;
 
-        foreach (['body', 'content', 'user_message', 'previous_output', 'extracted_resume_text'] as $key) {
+        foreach (['body', 'content', 'user_message', 'previous_output'] as $key) {
             if (! is_scalar($summary[$key] ?? null)) {
                 continue;
             }

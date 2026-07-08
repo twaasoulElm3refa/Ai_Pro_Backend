@@ -21,8 +21,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
-use Smalot\PdfParser\Parser as PdfParser;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class ResumeBuilderService
@@ -33,7 +31,6 @@ class ResumeBuilderService
     public const MODEL_KEY = 'resume_builder';
 
     private const DEFAULT_ENDPOINT = 'tasks/resume-builder/chat';
-    private const MAX_EXTRACTED_TEXT_LENGTH = 80000;
 
     public function __construct(
         private readonly AiArabicWriterService $writerService,
@@ -89,38 +86,19 @@ class ResumeBuilderService
             }
         }
 
-        $uploadInfo = $this->storeAndExtractUpload($file);
-        $requestPayload = $this->requestPayload($conversation, $state, $userMessageText, $idempotencyKey, $uploadInfo);
-        $userMessage = $this->storeUserMessage(
+        $conversation->loadMissing('user.wallet', 'subTool');
+        $uploadInfo = $this->summarizeUpload($file);
+        $requestPayload = $this->requestPayload(
             $conversation,
+            $state,
             $userMessageText,
             $idempotencyKey,
-            [
-                'type' => 'resume_builder_request',
-                'tool' => self::TOOL_KEY,
-                'tool_key' => self::TOOL_KEY,
-                'model_key' => self::MODEL_KEY,
-                'sub_tool_id' => self::SUB_TOOL_ID,
-                'conversation_uuid' => $conversation->uuid,
-                'state' => $state,
-                'request_payload' => $requestPayload,
-                'uploaded_file' => $uploadInfo['metadata'],
-            ]
+            $uploadInfo,
+            (bool) ($data['debug'] ?? false)
         );
-
-        $conversation->loadMissing('user.wallet', 'subTool');
-        $existingAssistant = Message::where('conversation_id', $conversation->id)
-            ->where('role', 'assistant')
-            ->where('reply_to_message_id', $userMessage->id)
-            ->first();
-
-        if ($existingAssistant) {
-            return $this->responseFromAssistant($existingAssistant, $conversation, $userId);
-        }
-
         $endpoint = $this->resolveEndpoint($conversation);
-        $providerPayload = $this->buildProviderPayload($conversation, $requestPayload, $state, $uploadInfo['text']);
-        $providerResponse = $this->writerService->generateReplyWithUsage($providerPayload, $endpoint);
+        $providerFields = $this->providerFields($requestPayload);
+        $providerResponse = $this->writerService->generateResumeBuilderReplyWithUsage($providerFields, $file, $endpoint);
         $providerResponse = is_array($providerResponse)
             ? $providerResponse
             : ['reply' => (string) $providerResponse];
@@ -186,6 +164,23 @@ class ResumeBuilderService
         $responseTool = $this->toNullableString($providerResponse['tool'] ?? data_get($providerResponse, 'raw.tool')) ?? self::RESPONSE_TOOL;
         $responseMessage = $this->toNullableString($providerResponse['message'] ?? data_get($providerResponse, 'raw.message'))
             ?? 'Resume generated successfully.';
+
+        $userMessage = $this->storeUserMessage(
+            $conversation,
+            $userMessageText,
+            $idempotencyKey,
+            [
+                'type' => 'resume_builder_request',
+                'tool' => self::TOOL_KEY,
+                'tool_key' => self::TOOL_KEY,
+                'model_key' => self::MODEL_KEY,
+                'sub_tool_id' => self::SUB_TOOL_ID,
+                'conversation_uuid' => $conversation->uuid,
+                'state' => $state,
+                'request_payload' => $requestPayload,
+                'uploaded_file' => $uploadInfo['metadata'],
+            ]
+        );
 
         $assistantMessage = null;
         $walletSnapshot = ['balance' => null, 'payback_balance' => null];
@@ -305,7 +300,8 @@ class ResumeBuilderService
         array $state,
         string $userMessage,
         string $idempotencyKey,
-        array $uploadInfo
+        array $uploadInfo,
+        bool $debug
     ): array {
         return [
             'user_id' => (int) $conversation->user_id,
@@ -317,72 +313,27 @@ class ResumeBuilderService
             'tool_key' => self::TOOL_KEY,
             'model_key' => self::MODEL_KEY,
             'state' => $state,
-            'debug' => false,
+            'debug' => $debug,
             'idempotency_key' => $idempotencyKey,
             'uploaded_file' => $uploadInfo['metadata'],
         ];
     }
 
-    private function buildProviderPayload(Conversation $conversation, array $requestPayload, array $state, string $extractedText): array
+    private function providerFields(array $requestPayload): array
     {
         return [
-            'user_id' => $requestPayload['user_id'],
-            'sub_tool_id' => self::SUB_TOOL_ID,
-            'title' => 'Resume Builder',
-            'conversation_uuid' => $conversation->uuid,
-            'body' => $this->buildUserPrompt($requestPayload['user_message'], $state, $extractedText),
-            'user_message' => $requestPayload['user_message'],
-            'content' => $requestPayload['content'],
-            'extracted_resume_text' => $extractedText,
+            'user_id' => (string) $requestPayload['user_id'],
+            'sub_tool_id' => (string) self::SUB_TOOL_ID,
+            'conversation_uuid' => (string) $requestPayload['conversation_uuid'],
+            'user_message' => (string) $requestPayload['user_message'],
+            'content' => (string) $requestPayload['content'],
             'tool' => self::TOOL_KEY,
             'tool_key' => self::TOOL_KEY,
             'model_key' => self::MODEL_KEY,
-            'state' => $state,
-            'instruction' => $this->instruction(),
-            'system_prompt' => $this->systemPrompt(),
-            'response_format' => 'results',
-            'normalize_results' => true,
-            'sensitive' => true,
-            'debug' => false,
+            'state' => json_encode($requestPayload['state'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
+            'debug' => ! empty($requestPayload['debug']) ? '1' : '0',
+            'idempotency_key' => (string) $requestPayload['idempotency_key'],
         ];
-    }
-
-    private function buildUserPrompt(string $userMessage, array $state, string $extractedText): string
-    {
-        $lines = [
-            'User message:',
-            $userMessage,
-            '',
-            'Resume options:',
-        ];
-
-        foreach ($state as $key => $value) {
-            if ($key === 'last_output' || $value === null || $value === '' || $value === []) {
-                continue;
-            }
-
-            $lines[] = '- '.$key.': '.(is_array($value) ? implode(', ', array_map('strval', $value)) : (string) $value);
-        }
-
-        $lines[] = '';
-        $lines[] = 'Uploaded resume text:';
-        $lines[] = $extractedText !== '' ? $extractedText : '[No uploaded resume. Build from the provided user details and add placeholders for missing information.]';
-        $lines[] = '';
-        $lines[] = $this->instruction();
-
-        return implode("\n", $lines);
-    }
-
-    private function instruction(): string
-    {
-        return implode(' ', [
-            'Improve or build a resume for the target role.',
-            'Keep it honest.',
-            'Do not invent jobs, companies, degrees, certifications, dates, or achievements.',
-            'Use strong action verbs.',
-            'Improve clarity and ATS formatting.',
-            'If information is missing, add placeholders or suggestions instead of fake facts.',
-        ]);
     }
 
     private function defaultUserMessage(array $state): string
@@ -392,39 +343,10 @@ class ResumeBuilderService
         return "Improve this resume for {$targetRole}.";
     }
 
-    private function systemPrompt(): string
-    {
-        return <<<'PROMPT'
-Return valid JSON only.
-Do not include markdown fences.
-You are a professional resume builder and resume improver.
-Use the uploaded resume text when provided.
-Never invent jobs, companies, schools, degrees, certifications, dates, metrics, or achievements.
-If a useful fact is missing, add a bracketed placeholder or a suggestion.
-Use ATS-friendly formatting, clear sections, concise bullets, and strong action verbs.
-Follow the requested language, tone, experience level, resume style, output format, sections, and extra options.
-
-Use this exact schema:
-{
-  "results": [
-    {
-      "id": 1,
-      "text": "Improved resume text here",
-      "title": "Improved resume",
-      "subject": "Resume Builder",
-      "meta": {}
-    }
-  ]
-}
-PROMPT;
-    }
-
-    private function storeAndExtractUpload(?UploadedFile $file): array
+    private function summarizeUpload(?UploadedFile $file): array
     {
         if (! $file) {
             return [
-                'text' => '',
-                'path' => null,
                 'metadata' => [
                     'original_filename' => null,
                     'mime_type' => null,
@@ -443,19 +365,7 @@ PROMPT;
             ]);
         }
 
-        $path = $file->store('resume_uploads', 'local');
-        $absolutePath = Storage::disk('local')->path($path);
-        $text = $this->extractTextFromFile($absolutePath, $extension);
-
-        if ($text === '') {
-            throw ValidationException::withMessages([
-                'file' => ['Could not extract text from this file.'],
-            ]);
-        }
-
         return [
-            'text' => $text,
-            'path' => $path,
             'metadata' => [
                 'original_filename' => $this->sanitizeFilename($file->getClientOriginalName()),
                 'mime_type' => $file->getClientMimeType(),
@@ -464,87 +374,6 @@ PROMPT;
                 'uploaded' => true,
             ],
         ];
-    }
-
-    private function extractTextFromFile(string $path, string $extension): string
-    {
-        try {
-            $text = match ($extension) {
-                'pdf' => (new PdfParser)->parseFile($path)->getText(),
-                'docx' => $this->extractDocxText($path),
-                'doc' => throw new HttpException(415, 'DOC files are not supported yet. Please upload PDF or DOCX.'),
-                default => throw ValidationException::withMessages([
-                    'file' => ['Please upload a PDF, DOC, or DOCX resume file.'],
-                ]),
-            };
-        } catch (HttpException $th) {
-            throw $th;
-        } catch (ValidationException $th) {
-            throw $th;
-        } catch (Throwable $th) {
-            Log::warning('Resume text extraction failed.', [
-                'extension' => $extension,
-                'message' => $th->getMessage(),
-            ]);
-
-            throw ValidationException::withMessages([
-                'file' => ['Could not extract text from this file.'],
-            ]);
-        }
-
-        return $this->sanitizeExtractedText($text);
-    }
-
-    private function extractDocxText(string $path): string
-    {
-        $phpWord = IOFactory::load($path);
-        $parts = [];
-
-        foreach ($phpWord->getSections() as $section) {
-            foreach ($section->getElements() as $element) {
-                array_push($parts, ...$this->extractElementText($element));
-            }
-        }
-
-        return implode("\n", array_filter(array_map('trim', $parts)));
-    }
-
-    private function extractElementText(mixed $element): array
-    {
-        $parts = [];
-
-        if (is_object($element) && method_exists($element, 'getText')) {
-            $text = $element->getText();
-            if (is_scalar($text) && trim((string) $text) !== '') {
-                $parts[] = trim((string) $text);
-            }
-        }
-
-        if (is_object($element) && method_exists($element, 'getElements')) {
-            foreach ($element->getElements() as $child) {
-                array_push($parts, ...$this->extractElementText($child));
-            }
-        }
-
-        if (is_object($element) && method_exists($element, 'getRows')) {
-            foreach ($element->getRows() as $row) {
-                if (! method_exists($row, 'getCells')) {
-                    continue;
-                }
-
-                foreach ($row->getCells() as $cell) {
-                    if (! method_exists($cell, 'getElements')) {
-                        continue;
-                    }
-
-                    foreach ($cell->getElements() as $child) {
-                        array_push($parts, ...$this->extractElementText($child));
-                    }
-                }
-            }
-        }
-
-        return $parts;
     }
 
     private function generateOutput(string $text, array $state, array $providerFile = []): array
@@ -967,8 +796,6 @@ PROMPT;
 
     private function summarizeProviderResponse(array $providerResponse): array
     {
-        unset($providerResponse['extracted_resume_text']);
-
         return $providerResponse;
     }
 

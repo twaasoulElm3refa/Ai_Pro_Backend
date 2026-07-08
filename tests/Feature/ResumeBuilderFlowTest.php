@@ -10,9 +10,12 @@ use App\Models\ResumeGeneratedFile;
 use App\Models\SubTools;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Exceptions\AiServiceException;
 use App\Services\AiArabicWriterService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -45,17 +48,25 @@ class ResumeBuilderFlowTest extends TestCase
         $upload = $this->docxUpload('resume.docx', 'Jane Doe Senior Laravel Developer');
         $requestId = (string) Str::uuid();
         $writer = Mockery::mock(AiArabicWriterService::class);
-        $writer->shouldReceive('generateReplyWithUsage')
+        $writer->shouldReceive('generateResumeBuilderReplyWithUsage')
             ->once()
-            ->withArgs(function (array $payload, string $endpoint) use ($state): bool {
+            ->withArgs(function (array $fields, UploadedFile $file, string $endpoint) use ($state): bool {
+                $decodedState = json_decode($fields['state'] ?? '', true);
+
                 return $endpoint === 'tasks/resume-builder/chat'
-                    && $payload['sub_tool_id'] === 19
-                    && $payload['tool_key'] === 'resume_builder'
-                    && $payload['model_key'] === 'resume_builder'
-                    && $payload['state']['target_role'] === $state['target_role']
-                    && $payload['sensitive'] === true
-                    && str_contains($payload['extracted_resume_text'], 'Jane Doe')
-                    && str_contains($payload['instruction'], 'Do not invent jobs');
+                    && $fields['user_id'] !== ''
+                    && $fields['sub_tool_id'] === '19'
+                    && $fields['conversation_uuid'] !== ''
+                    && $fields['user_message'] === 'Improve this resume for a Senior Laravel Developer role and make it ATS-friendly.'
+                    && $fields['content'] === 'Improve this resume for a Senior Laravel Developer role and make it ATS-friendly.'
+                    && $fields['tool'] === 'resume_builder'
+                    && $fields['tool_key'] === 'resume_builder'
+                    && $fields['model_key'] === 'resume_builder'
+                    && ($decodedState['target_role'] ?? null) === $state['target_role']
+                    && $fields['debug'] === '0'
+                    && $fields['idempotency_key'] !== ''
+                    && $file->getClientOriginalName() === 'resume.docx'
+                    && ! array_key_exists('body', $fields);
             })
             ->andReturn([
                 'success' => true,
@@ -130,7 +141,7 @@ class ResumeBuilderFlowTest extends TestCase
 
         $this->assertNotEmpty($response->json('data.results.0.meta.download_url'));
         $this->assertStringContainsString('/tasks/resume-builder/download/', $response->json('data.results.0.meta.download_url'));
-        $this->assertCount(1, Storage::disk('local')->files('resume_uploads'));
+        $this->assertCount(0, Storage::disk('local')->files('resume_uploads'));
         $this->assertCount(1, Storage::disk('local')->files('resume_outputs'));
         $this->assertDatabaseCount('resume_generated_files', 1);
 
@@ -146,7 +157,7 @@ class ResumeBuilderFlowTest extends TestCase
         $this->assertSame(5191, $assistant->metadata['usage']['total_tokens']);
         $this->assertSame('Jane_Doe_resume.docx', $assistant->metadata['file']['filename']);
         $this->assertArrayHasKey('download_url', $assistant->metadata['normalized_results'][0]['meta']);
-        $this->assertArrayNotHasKey('extracted_resume_text', $assistant->metadata['request_payload']);
+        $this->assertArrayNotHasKey('body', $assistant->metadata['request_payload']);
         $this->assertArrayNotHasKey('path', $assistant->metadata['request_payload']['uploaded_file']);
 
         $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
@@ -184,11 +195,14 @@ class ResumeBuilderFlowTest extends TestCase
 
         $idempotencyKey = (string) Str::uuid();
         $writer = Mockery::mock(AiArabicWriterService::class);
-        $writer->shouldReceive('generateReplyWithUsage')
+        $writer->shouldReceive('generateResumeBuilderReplyWithUsage')
             ->once()
-            ->withArgs(fn (array $payload): bool =>
-                $payload['user_message'] === 'Improve this resume for Senior Laravel Developer.'
-                && str_contains($payload['extracted_resume_text'], 'Jane Doe')
+            ->withArgs(fn (array $fields, UploadedFile $file): bool =>
+                $fields['user_message'] === 'Improve this resume for Senior Laravel Developer.'
+                && $fields['content'] === 'Improve this resume for Senior Laravel Developer.'
+                && $fields['sub_tool_id'] === '19'
+                && $file->getClientOriginalName() === 'resume-file-only.docx'
+                && ! array_key_exists('body', $fields)
             )
             ->andReturn([
                 'results' => [[
@@ -239,14 +253,31 @@ class ResumeBuilderFlowTest extends TestCase
         $this->assertSame(975, (int) $wallet->balance);
     }
 
-    public function test_resume_builder_rejects_doc_upload_with_415(): void
+    public function test_resume_builder_forwards_doc_upload_to_ai_service(): void
     {
         Storage::fake('local');
         [$user, $conversation] = $this->makeContext(19, 'Resume Builder', 'resume-builder', 'tasks/resume-builder/chat');
         Sanctum::actingAs($user);
 
         $writer = Mockery::mock(AiArabicWriterService::class);
-        $writer->shouldNotReceive('generateReplyWithUsage');
+        $writer->shouldReceive('generateResumeBuilderReplyWithUsage')
+            ->once()
+            ->withArgs(fn (array $fields, UploadedFile $file, string $endpoint): bool =>
+                $endpoint === 'tasks/resume-builder/chat'
+                && $fields['sub_tool_id'] === '19'
+                && $file->getClientOriginalName() === 'resume.doc'
+            )
+            ->andReturn([
+                'results' => [[
+                    'id' => 1,
+                    'text' => 'DOC resume preview.',
+                    'title' => 'Resume Preview',
+                    'meta' => [],
+                ]],
+                'usage' => ['total_tokens' => 0],
+                'cost' => ['total_cost' => 0, 'currency' => 'USD'],
+                'model_key' => 'resume_builder',
+            ]);
         $this->app->instance(AiArabicWriterService::class, $writer);
 
         $this->withHeaders($this->apiHeaders())->post('/api/v1/message/send', [
@@ -258,8 +289,154 @@ class ResumeBuilderFlowTest extends TestCase
             'model_key' => 'resume_builder',
             'state' => json_encode($this->resumeState()),
             'file' => UploadedFile::fake()->create('resume.doc', 1, 'application/msword'),
-        ])->assertStatus(415)
-            ->assertJsonPath('message', 'DOC files are not supported yet. Please upload PDF or DOCX.');
+        ])->assertOk()
+            ->assertJsonPath('data.results.0.text', 'DOC resume preview.');
+    }
+
+    public function test_resume_builder_provider_failure_does_not_save_failed_user_message(): void
+    {
+        Storage::fake('local');
+        [$user, $conversation] = $this->makeContext(19, 'Resume Builder', 'resume-builder', 'tasks/resume-builder/chat');
+        Sanctum::actingAs($user);
+
+        $writer = Mockery::mock(AiArabicWriterService::class);
+        $writer->shouldReceive('generateResumeBuilderReplyWithUsage')
+            ->once()
+            ->andThrow(new AiServiceException(
+                'The file field is required.',
+                [
+                    'status' => 422,
+                    'friendly_message' => 'Could not improve the resume right now. Please try again.',
+                    'code' => 'AI_VALIDATION_ERROR',
+                ],
+                422
+            ));
+        $this->app->instance(AiArabicWriterService::class, $writer);
+
+        $this->withHeaders($this->apiHeaders())->post('/api/v1/message/send', [
+            'sub_tool_id' => 19,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => 'Improve this resume for a Senior Laravel Developer role.',
+            'content' => 'Improve this resume for a Senior Laravel Developer role.',
+            'tool_key' => 'resume_builder',
+            'model_key' => 'resume_builder',
+            'state' => json_encode($this->resumeState()),
+            'idempotency_key' => (string) Str::uuid(),
+            'file' => UploadedFile::fake()->create('resume.pdf', 1, 'application/pdf'),
+        ])->assertStatus(422)
+            ->assertJsonPath('code', 'AI_VALIDATION_ERROR')
+            ->assertJsonPath('message', 'Could not improve the resume right now. Please try again.');
+
+        $this->assertSame(0, Message::where('conversation_id', $conversation->id)->count());
+        $this->assertSame(0, CostLogger::where('conversation_id', $conversation->id)->count());
+        $this->assertCount(0, Storage::disk('local')->files('resume_outputs'));
+    }
+
+    public function test_resume_builder_writer_sends_multipart_fields_and_file(): void
+    {
+        config([
+            'services.aiarabic.url' => 'https://api.aiarabic.test',
+            'services.aiarabic.key' => 'testing-internal-key',
+        ]);
+
+        Http::fake([
+            'https://api.aiarabic.test/tasks/resume-builder/chat' => Http::response([
+                'success' => true,
+                'type' => 'result',
+                'tool' => 'resume_builder_ai',
+                'model_key' => 'resume_builder',
+                'results' => [[
+                    'id' => 1,
+                    'text' => 'Multipart resume result.',
+                    'title' => 'Resume Preview',
+                    'meta' => [],
+                ]],
+                'usage' => ['total_tokens' => 12],
+                'cost' => ['total_cost' => 0.0001, 'currency' => 'USD'],
+            ], 200),
+        ]);
+
+        $service = app(AiArabicWriterService::class);
+        $state = $this->resumeState();
+        $response = $service->generateResumeBuilderReplyWithUsage([
+            'user_id' => '2',
+            'sub_tool_id' => '19',
+            'conversation_uuid' => (string) Str::uuid(),
+            'user_message' => 'enhance this cv as backend developer',
+            'content' => 'enhance this cv as backend developer',
+            'state' => json_encode($state, JSON_UNESCAPED_UNICODE),
+            'tool' => 'resume_builder',
+            'tool_key' => 'resume_builder',
+            'model_key' => 'resume_builder',
+            'debug' => '0',
+            'idempotency_key' => (string) Str::uuid(),
+        ], UploadedFile::fake()->create('resume.pdf', 10, 'application/pdf'), 'tasks/resume-builder/chat');
+
+        $this->assertSame('Multipart resume result.', $response['results'][0]['text']);
+
+        Http::assertSent(function (Request $request): bool {
+            $fields = collect($request->data())
+                ->filter(fn ($part): bool => is_array($part) && isset($part['name']) && array_key_exists('contents', $part))
+                ->mapWithKeys(fn ($part): array => [$part['name'] => $part['contents']])
+                ->all();
+
+            return $request->url() === 'https://api.aiarabic.test/tasks/resume-builder/chat'
+                && $request->isMultipart()
+                && ! $request->isJson()
+                && $request->hasHeader('x-internal-api-key', 'testing-internal-key')
+                && $request->hasFile('file', null, 'resume.pdf')
+                && ($fields['user_id'] ?? null) === '2'
+                && ($fields['sub_tool_id'] ?? null) === '19'
+                && ($fields['user_message'] ?? null) === 'enhance this cv as backend developer'
+                && ($fields['content'] ?? null) === 'enhance this cv as backend developer'
+                && ($fields['tool'] ?? null) === 'resume_builder'
+                && ($fields['tool_key'] ?? null) === 'resume_builder'
+                && ($fields['model_key'] ?? null) === 'resume_builder'
+                && ($fields['debug'] ?? null) === '0'
+                && ! array_key_exists('body', $fields);
+        });
+    }
+
+    public function test_resume_builder_writer_uses_multipart_even_without_file(): void
+    {
+        config([
+            'services.aiarabic.url' => 'https://api.aiarabic.test',
+            'services.aiarabic.key' => 'testing-internal-key',
+        ]);
+
+        Http::fake([
+            'https://api.aiarabic.test/tasks/resume-builder/chat' => Http::response([
+                'success' => true,
+                'type' => 'result',
+                'results' => [[
+                    'id' => 1,
+                    'text' => 'Text-only resume result.',
+                    'meta' => [],
+                ]],
+            ], 200),
+        ]);
+
+        $service = app(AiArabicWriterService::class);
+        $service->generateResumeBuilderReplyWithUsage([
+            'user_id' => '2',
+            'sub_tool_id' => '19',
+            'conversation_uuid' => (string) Str::uuid(),
+            'user_message' => 'build a resume from my notes',
+            'content' => 'build a resume from my notes',
+            'state' => json_encode($this->resumeState(), JSON_UNESCAPED_UNICODE),
+            'tool' => 'resume_builder',
+            'tool_key' => 'resume_builder',
+            'model_key' => 'resume_builder',
+            'debug' => '0',
+            'idempotency_key' => (string) Str::uuid(),
+        ], null, 'tasks/resume-builder/chat');
+
+        Http::assertSent(fn (Request $request): bool =>
+            $request->url() === 'https://api.aiarabic.test/tasks/resume-builder/chat'
+            && $request->isMultipart()
+            && ! $request->isJson()
+            && ! $request->hasFile('file')
+        );
     }
 
     #[DataProvider('existingChat4ToolProvider')]
