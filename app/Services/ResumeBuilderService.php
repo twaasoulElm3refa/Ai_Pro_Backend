@@ -6,6 +6,7 @@ use App\Exceptions\AiServiceException;
 use App\Models\Conversation;
 use App\Models\CostLogger;
 use App\Models\Message;
+use App\Models\ResumeGeneratedFile;
 use App\Models\User;
 use App\Models\Wallet;
 use Dompdf\Dompdf;
@@ -28,6 +29,7 @@ class ResumeBuilderService
 {
     public const SUB_TOOL_ID = 19;
     public const TOOL_KEY = 'resume_builder';
+    public const RESPONSE_TOOL = 'resume_builder_ai';
     public const MODEL_KEY = 'resume_builder';
 
     private const DEFAULT_ENDPOINT = 'tasks/resume-builder/chat';
@@ -40,6 +42,26 @@ class ResumeBuilderService
 
     public function handle(Conversation $conversation, array $data, ?UploadedFile $file, int $userId): array
     {
+        $idempotencyKey = trim((string) ($data['idempotency_key'] ?? '')) ?: (string) Str::uuid();
+        $lock = Cache::lock("resume-builder-handle:{$userId}:{$conversation->id}:{$idempotencyKey}", 120);
+
+        return $lock->block(30, fn (): array => $this->handleLocked(
+            $conversation,
+            $data,
+            $file,
+            $userId,
+            $idempotencyKey
+        ));
+    }
+
+    private function handleLocked(
+        Conversation $conversation,
+        array $data,
+        ?UploadedFile $file,
+        int $userId,
+        string $idempotencyKey
+    ): array
+    {
         if ((int) $conversation->user_id !== $userId) {
             abort(403, 'Conversation does not belong to the authenticated user.');
         }
@@ -48,15 +70,27 @@ class ResumeBuilderService
         $userMessageText = trim((string) ($data['user_message'] ?? $data['content'] ?? ''));
 
         if ($userMessageText === '') {
-            throw ValidationException::withMessages([
-                'user_message' => ['Message text is required.'],
-            ]);
+            $userMessageText = $this->defaultUserMessage($state);
+        }
+
+        $existingUserMessage = Message::where('conversation_id', $conversation->id)
+            ->where('role', 'user')
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
+
+        if ($existingUserMessage) {
+            $existingAssistant = Message::where('conversation_id', $conversation->id)
+                ->where('role', 'assistant')
+                ->where('reply_to_message_id', $existingUserMessage->id)
+                ->first();
+
+            if ($existingAssistant) {
+                return $this->responseFromAssistant($existingAssistant, $conversation, $userId);
+            }
         }
 
         $uploadInfo = $this->storeAndExtractUpload($file);
-        $idempotencyKey = trim((string) ($data['idempotency_key'] ?? '')) ?: (string) Str::uuid();
         $requestPayload = $this->requestPayload($conversation, $state, $userMessageText, $idempotencyKey, $uploadInfo);
-
         $userMessage = $this->storeUserMessage(
             $conversation,
             $userMessageText,
@@ -125,34 +159,42 @@ class ResumeBuilderService
         }
 
         $resumeText = $this->resultsText($normalizedResults);
-        $generatedOutput = $this->generateOutput($resumeText, $state);
-        $normalizedResults[0]['meta'] = array_merge(
-            is_array($normalizedResults[0]['meta'] ?? null) ? $normalizedResults[0]['meta'] : [],
-            $generatedOutput,
+        $providerFile = $this->normalizeProviderFile($providerResponse['file'] ?? data_get($providerResponse, 'raw.file'));
+        $generatedOutput = $this->generateOutput($resumeText, $state, $providerFile);
+        $fileMetadata = $this->publicFileMetadata($generatedOutput);
+        $normalizedResults = $this->mergeFileMetadataIntoResults(
+            $normalizedResults,
+            $fileMetadata,
+            $state,
             [
                 'original_filename' => $uploadInfo['metadata']['original_filename'] ?? null,
                 'sections' => $state['sections_to_include'],
             ]
         );
 
-        if (($state['output_format'] ?? 'docx') === 'text') {
-            $normalizedResults[0]['meta']['output_format'] = 'text';
-        }
-
-        $responseState = $state;
-        $responseState['last_output'] = $resumeText;
+        $providerState = is_array($providerResponse['state'] ?? null)
+            ? $providerResponse['state']
+            : (is_array(data_get($providerResponse, 'raw.state')) ? data_get($providerResponse, 'raw.state') : []);
+        $responseState = $this->normalizeState(array_replace($state, $providerState));
+        $responseState['last_output'] = $this->toNullableString($responseState['last_output'] ?? null) ?: $resumeText;
         $usage = $this->normalizeUsage($providerResponse['usage'] ?? data_get($providerResponse, 'raw.usage', []));
         $cost = $this->normalizeCost($providerResponse['cost'] ?? data_get($providerResponse, 'raw.cost', []));
         $tokensToDeduct = (int) ($usage['total_tokens'] ?? 0);
         $requestId = $this->toNullableString($providerResponse['request_id'] ?? data_get($providerResponse, 'raw.request_id'));
         $provider = $this->toNullableString($providerResponse['provider'] ?? data_get($providerResponse, 'raw.provider')) ?? 'openrouter';
         $modelKey = $this->toNullableString($providerResponse['model_key'] ?? data_get($providerResponse, 'raw.model_key')) ?? self::MODEL_KEY;
+        $responseTool = $this->toNullableString($providerResponse['tool'] ?? data_get($providerResponse, 'raw.tool')) ?? self::RESPONSE_TOOL;
+        $responseMessage = $this->toNullableString($providerResponse['message'] ?? data_get($providerResponse, 'raw.message'))
+            ?? 'Resume generated successfully.';
 
         $assistantMessage = null;
+        $walletSnapshot = ['balance' => null, 'payback_balance' => null];
         DB::transaction(function () use (
             $conversation,
             $provider,
             $modelKey,
+            $responseTool,
+            $responseMessage,
             $requestId,
             $usage,
             $cost,
@@ -161,14 +203,13 @@ class ResumeBuilderService
             $requestPayload,
             $responseState,
             $normalizedResults,
+            $fileMetadata,
+            $generatedOutput,
             $rawOutput,
             $userId,
-            &$assistantMessage
+            &$assistantMessage,
+            &$walletSnapshot
         ): void {
-            if ($tokensToDeduct > 0 && $conversation->user) {
-                $this->deductWalletTokens($conversation->user, $tokensToDeduct);
-            }
-
             $assistantMessage = Message::create([
                 'conversation_id' => $conversation->id,
                 'role' => 'assistant',
@@ -177,23 +218,53 @@ class ResumeBuilderService
                 'reply_to_message_id' => $userMessage->id,
                 'metadata' => [
                     'type' => 'result',
-                    'tool' => self::TOOL_KEY,
+                    'tool' => $responseTool,
                     'tool_key' => self::TOOL_KEY,
                     'model_key' => $modelKey,
                     'provider' => $provider,
                     'request_id' => $requestId,
                     'sub_tool_id' => self::SUB_TOOL_ID,
                     'conversation_uuid' => $conversation->uuid,
+                    'message' => $responseMessage,
                     'state' => $responseState,
                     'request_payload' => $requestPayload,
                     'results' => $normalizedResults,
                     'normalized_results' => $normalizedResults,
+                    'file' => $fileMetadata,
                     'raw_output' => $rawOutput,
                     'usage' => $usage,
                     'cost' => $cost,
                     'tokens_deducted' => $tokensToDeduct,
                 ],
             ]);
+
+            if ($fileMetadata !== [] && $generatedOutput !== []) {
+                ResumeGeneratedFile::updateOrCreate(
+                    ['file_id' => $fileMetadata['file_id']],
+                    [
+                        'user_id' => $userId,
+                        'conversation_id' => $conversation->id,
+                        'message_id' => $assistantMessage->id,
+                        'conversation_uuid' => $conversation->uuid,
+                        'sub_tool_id' => self::SUB_TOOL_ID,
+                        'filename' => $fileMetadata['filename'],
+                        'path' => $generatedOutput['path'],
+                        'disk' => $generatedOutput['disk'] ?? 'local',
+                        'content_type' => $fileMetadata['content_type'] ?? null,
+                        'output_format' => $fileMetadata['output_format'] ?? null,
+                        'size' => $generatedOutput['size'] ?? null,
+                        'metadata' => [
+                            'request_id' => $requestId,
+                            'provider' => $provider,
+                            'model_key' => $modelKey,
+                        ],
+                    ]
+                );
+            }
+
+            $walletSnapshot = $conversation->user
+                ? $this->deductWalletTokens($conversation->user, $tokensToDeduct)
+                : $this->walletSnapshot($userId, true);
 
             if ($tokensToDeduct > 0 || array_sum(array_map('floatval', [
                 $cost['input_cost'] ?? 0,
@@ -226,7 +297,7 @@ class ResumeBuilderService
         $this->messageCache->updateAfterMessage($assistantMessage);
         $this->clearCache($userId);
 
-        return $this->responseFromAssistant($assistantMessage, $conversation, $userId);
+        return $this->responseFromAssistant($assistantMessage, $conversation, $userId, $walletSnapshot);
     }
 
     private function requestPayload(
@@ -312,6 +383,13 @@ class ResumeBuilderService
             'Improve clarity and ATS formatting.',
             'If information is missing, add placeholders or suggestions instead of fake facts.',
         ]);
+    }
+
+    private function defaultUserMessage(array $state): string
+    {
+        $targetRole = $this->toNullableString($state['target_role'] ?? null) ?: 'the target role';
+
+        return "Improve this resume for {$targetRole}.";
     }
 
     private function systemPrompt(): string
@@ -469,7 +547,7 @@ PROMPT;
         return $parts;
     }
 
-    private function generateOutput(string $text, array $state): array
+    private function generateOutput(string $text, array $state, array $providerFile = []): array
     {
         $format = strtolower((string) ($state['output_format'] ?? 'docx'));
 
@@ -480,14 +558,15 @@ PROMPT;
         }
 
         return match ($format) {
-            'pdf' => $this->generatePdfOutput($text),
-            default => $this->generateDocxOutput($text),
+            'pdf' => $this->generatePdfOutput($text, $state, $providerFile),
+            default => $this->generateDocxOutput($text, $state, $providerFile),
         };
     }
 
-    private function generateDocxOutput(string $text): array
+    private function generateDocxOutput(string $text, array $state, array $providerFile = []): array
     {
-        $filename = (string) Str::uuid().'.docx';
+        $fileId = (string) Str::uuid();
+        $filename = $this->outputFilename($state, $providerFile, 'docx', $fileId);
         $path = 'resume_outputs/'.$filename;
         $phpWord = new PhpWord;
         $phpWord->setDefaultFontName('Arial');
@@ -508,15 +587,22 @@ PROMPT;
         IOFactory::createWriter($phpWord, 'Word2007')->save($absolutePath);
 
         return [
-            'download_url' => $this->temporaryDownloadUrl($filename),
-            'file_url' => $this->temporaryDownloadUrl($filename),
+            'file_id' => $fileId,
+            'filename' => $filename,
+            'path' => $path,
+            'disk' => 'local',
+            'content_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'download_url' => $this->downloadUrlForFileId($fileId),
+            'file_url' => $this->downloadUrlForFileId($fileId),
             'output_format' => 'docx',
+            'size' => Storage::disk('local')->size($path),
         ];
     }
 
-    private function generatePdfOutput(string $text): array
+    private function generatePdfOutput(string $text, array $state, array $providerFile = []): array
     {
-        $filename = (string) Str::uuid().'.pdf';
+        $fileId = (string) Str::uuid();
+        $filename = $this->outputFilename($state, $providerFile, 'pdf', $fileId);
         $path = 'resume_outputs/'.$filename;
         $options = new DompdfOptions;
         $options->set('isRemoteEnabled', false);
@@ -532,23 +618,37 @@ PROMPT;
         Storage::disk('local')->put($path, $dompdf->output());
 
         return [
-            'download_url' => $this->temporaryDownloadUrl($filename),
-            'file_url' => $this->temporaryDownloadUrl($filename),
+            'file_id' => $fileId,
+            'filename' => $filename,
+            'path' => $path,
+            'disk' => 'local',
+            'content_type' => 'application/pdf',
+            'download_url' => $this->downloadUrlForFileId($fileId),
+            'file_url' => $this->downloadUrlForFileId($fileId),
             'output_format' => 'pdf',
+            'size' => Storage::disk('local')->size($path),
         ];
     }
 
-    private function responseFromAssistant(Message $assistantMessage, Conversation $conversation, int $userId): array
+    private function responseFromAssistant(
+        Message $assistantMessage,
+        Conversation $conversation,
+        int $userId,
+        ?array $wallet = null
+    ): array
     {
         $metadata = is_array($assistantMessage->metadata ?? null) ? $assistantMessage->metadata : [];
         $state = $this->normalizeState(is_array($metadata['state'] ?? null) ? $metadata['state'] : []);
         $results = $this->normalizeResultItems($metadata['normalized_results'] ?? $metadata['results'] ?? []);
+        $file = is_array($metadata['file'] ?? null) ? $metadata['file'] : [];
+        $usage = $this->normalizeUsage($metadata['usage'] ?? []);
+        $cost = $this->normalizeCost($metadata['cost'] ?? []);
 
         return [
             'success' => true,
             'type' => 'result',
             'sub_tool_id' => self::SUB_TOOL_ID,
-            'tool' => (string) ($metadata['tool'] ?? self::TOOL_KEY),
+            'tool' => (string) ($metadata['tool'] ?? self::RESPONSE_TOOL),
             'tool_key' => (string) ($metadata['tool_key'] ?? self::TOOL_KEY),
             'provider' => (string) ($metadata['provider'] ?? 'openrouter'),
             'model_key' => (string) ($metadata['model_key'] ?? self::MODEL_KEY),
@@ -556,15 +656,18 @@ PROMPT;
             'conversation_uuid' => $conversation->uuid,
             'message_id' => $assistantMessage->id,
             'assistant_message_id' => $assistantMessage->id,
+            'request_id' => $this->toNullableString($metadata['request_id'] ?? null),
             'state' => $state,
             'results' => $results,
             'normalized_results' => $results,
             'count' => count($results),
-            'message' => 'Resume Builder response ready.',
+            'file' => $file,
+            'message' => $this->toNullableString($metadata['message'] ?? null) ?? 'Resume generated successfully.',
             'request_payload' => is_array($metadata['request_payload'] ?? null) ? $metadata['request_payload'] : null,
-            'usage' => $this->normalizeUsage($metadata['usage'] ?? []),
-            'cost' => $this->normalizeCost($metadata['cost'] ?? []),
-            'wallet' => $this->walletSnapshot($userId),
+            'usage' => $usage,
+            'cost' => $cost,
+            'tokens_deducted' => (int) ($metadata['tokens_deducted'] ?? ($usage['total_tokens'] ?? 0)),
+            'wallet' => $wallet ?? $this->walletSnapshot($userId),
         ];
     }
 
@@ -686,7 +789,7 @@ PROMPT;
                 'id' => is_numeric($result['id'] ?? null) ? (int) $result['id'] : $index + 1,
                 'text' => $text,
                 'title' => $this->toNullableString($result['title'] ?? null) ?: 'Improved resume',
-                'subject' => $this->toNullableString($result['subject'] ?? null) ?: 'Resume Builder',
+                'subject' => $this->toNullableString($result['subject'] ?? null),
                 'meta' => is_array($result['meta'] ?? null) ? $result['meta'] : [],
             ];
         }
@@ -713,6 +816,86 @@ PROMPT;
         }
 
         return [];
+    }
+
+    private function normalizeProviderFile(mixed $file): array
+    {
+        if (! is_array($file)) {
+            return [];
+        }
+
+        return [
+            'file_id' => $this->toNullableString($file['file_id'] ?? null),
+            'filename' => $this->sanitizeFilename($file['filename'] ?? null),
+            'content_type' => $this->toNullableString($file['content_type'] ?? null),
+            'download_url' => $this->toNullableString($file['download_url'] ?? null),
+            'file_url' => $this->toNullableString($file['file_url'] ?? null),
+        ];
+    }
+
+    private function publicFileMetadata(array $generatedOutput): array
+    {
+        if (! $this->toNullableString($generatedOutput['file_id'] ?? null)) {
+            return [];
+        }
+
+        return [
+            'file_id' => $generatedOutput['file_id'],
+            'filename' => $generatedOutput['filename'] ?? null,
+            'content_type' => $generatedOutput['content_type'] ?? null,
+            'download_url' => $generatedOutput['download_url'] ?? null,
+            'file_url' => $generatedOutput['file_url'] ?? null,
+            'output_format' => $generatedOutput['output_format'] ?? null,
+        ];
+    }
+
+    private function mergeFileMetadataIntoResults(array $results, array $file, array $state, array $extraMeta = []): array
+    {
+        if ($results === []) {
+            return [];
+        }
+
+        $outputFormat = $this->toNullableString($state['output_format'] ?? null);
+
+        return array_values(array_map(function (array $result) use ($file, $extraMeta, $outputFormat): array {
+            $meta = is_array($result['meta'] ?? null) ? $result['meta'] : [];
+            $fallbackFileMeta = array_filter([
+                'file_id' => $file['file_id'] ?? null,
+                'download_url' => $file['download_url'] ?? null,
+                'file_url' => $file['file_url'] ?? null,
+                'filename' => $file['filename'] ?? null,
+                'content_type' => $file['content_type'] ?? null,
+                'output_format' => $file['output_format'] ?? $outputFormat,
+            ], fn ($value): bool => $value !== null && $value !== '');
+
+            $result['meta'] = array_filter(
+                array_merge($extraMeta, $meta, $fallbackFileMeta),
+                fn ($value): bool => $value !== null && $value !== ''
+            );
+
+            return $result;
+        }, $results));
+    }
+
+    private function outputFilename(array $state, array $providerFile, string $extension, string $fileId): string
+    {
+        $providerFilename = $this->sanitizeFilename($providerFile['filename'] ?? null);
+
+        if ($providerFilename && strtolower(pathinfo($providerFilename, PATHINFO_EXTENSION)) === $extension) {
+            return $providerFilename;
+        }
+
+        $name = $this->toNullableString($state['candidate_name'] ?? null)
+            ?: $this->toNullableString($state['target_role'] ?? null)
+            ?: 'resume';
+        $slug = Str::slug($name, '_') ?: 'resume';
+
+        return "{$slug}_resume_{$fileId}.{$extension}";
+    }
+
+    private function downloadUrlForFileId(string $fileId): string
+    {
+        return "/tasks/resume-builder/download/{$fileId}";
     }
 
     private function generatePdfFallbackMessage(): string
@@ -910,7 +1093,7 @@ PROMPT;
         ];
     }
 
-    private function deductWalletTokens(User $user, int $tokens): void
+    private function deductWalletTokens(User $user, int $tokens): array
     {
         $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
 
@@ -923,13 +1106,35 @@ PROMPT;
             ]);
         }
 
-        $wallet->balance = max(0, (int) $wallet->balance - $tokens);
-        $wallet->save();
+        if ($tokens > 0) {
+            $balance = (int) $wallet->balance;
+            $payback = (int) ($wallet->payback_balance ?? 0);
+
+            if ($balance >= $tokens) {
+                $wallet->balance = $balance - $tokens;
+            } else {
+                $wallet->balance = 0;
+                $wallet->payback_balance = $payback + ($tokens - $balance);
+            }
+
+            $wallet->save();
+            $wallet->refresh();
+        }
+
+        return [
+            'balance' => (int) $wallet->balance,
+            'payback_balance' => (int) ($wallet->payback_balance ?? 0),
+        ];
     }
 
-    private function walletSnapshot(int $userId): array
+    private function walletSnapshot(int $userId, bool $lock = false): array
     {
-        $wallet = Wallet::where('user_id', $userId)->first();
+        $query = Wallet::where('user_id', $userId);
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $wallet = $query->first();
 
         return [
             'balance' => $wallet ? (int) $wallet->balance : null,

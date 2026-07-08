@@ -10,6 +10,7 @@ use App\Jobs\GenerateAssistantReplyJob;
 use App\Models\Conversation;
 use App\Models\CostLogger;
 use App\Models\Message;
+use App\Models\ResumeGeneratedFile;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Repository\Messages\MessageInterface;
@@ -117,6 +118,7 @@ class MessageController extends Controller
                     ProductDescriptionGeneratorService::TOOL_KEY
                 ) === 0
             );
+            $isResumeBuilder = $subToolId === ResumeBuilderService::SUB_TOOL_ID;
 
             if ($content === '') {
                 if ($isProductDescriptionGenerator) {
@@ -131,13 +133,7 @@ class MessageController extends Controller
                 }
             }
 
-            if ($content === '' && ! $isTextSummarizer && ! $isChatSeoTool) {
-                return $this->validationError([
-                    'user_message' => ['Message content is required.'],
-                ], 'Invalid message data.');
-            }
-
-            if ($subToolId === ResumeBuilderService::SUB_TOOL_ID) {
+            if ($isResumeBuilder) {
                 return $this->success(
                     $resumeBuilderService->handle(
                         $conversation,
@@ -147,6 +143,12 @@ class MessageController extends Controller
                     ),
                     'Resume Builder Response Ready.'
                 );
+            }
+
+            if ($content === '' && ! $isTextSummarizer && ! $isChatSeoTool) {
+                return $this->validationError([
+                    'user_message' => ['Message content is required.'],
+                ], 'Invalid message data.');
             }
 
             if ($isChatSeoTool) {
@@ -323,6 +325,26 @@ class MessageController extends Controller
 
         return Storage::disk('local')->download($path, $filename, [
             'Content-Type' => $contentType,
+        ]);
+    }
+
+    public function downloadResumeGeneratedFile(string $fileId)
+    {
+        $file = ResumeGeneratedFile::query()
+            ->where('file_id', $fileId)
+            ->firstOrFail();
+
+        if ((int) $file->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        $disk = $file->disk ?: 'local';
+        if (! Storage::disk($disk)->exists($file->path)) {
+            abort(404);
+        }
+
+        return Storage::disk($disk)->download($file->path, $file->filename, [
+            'Content-Type' => $file->content_type ?: 'application/octet-stream',
         ]);
     }
 

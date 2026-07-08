@@ -180,14 +180,15 @@
                                     <div class="ai-response-content" v-html="formatMessage(getMessageText(message))"></div>
 
                                     <div v-if="getMessageDownloadUrl(message)" class="ai-download-section">
-                                        <a
-                                            :href="getMessageDownloadUrl(message)"
-                                            target="_blank"
-                                            rel="noopener"
+                                        <button
+                                            type="button"
+                                            class="ai-download-button"
+                                            @click="downloadResumeFile(message)"
                                         >
                                             <i class="bi bi-download"></i>
                                             {{ labels.downloadFile }}
-                                        </a>
+                                            <span v-if="getMessageFilename(message)">{{ getMessageFilename(message) }}</span>
+                                        </button>
                                     </div>
 
                                     <div
@@ -621,14 +622,48 @@
                         @keydown.enter.exact.prevent="sendMessage"
                     ></textarea>
 
+                    <input
+                        v-if="isResumeBuilder"
+                        ref="composerResumeFileInputRef"
+                        class="composer-file-input"
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        @change="handleResumeFileChange"
+                    >
+
+                    <button
+                        v-if="isResumeBuilder"
+                        type="button"
+                        class="composer-file-button"
+                        :class="{ 'has-file': resumeFile }"
+                        :disabled="sendDisabled"
+                        :title="resumeFile ? resumeFile.name : labels.uploadResume"
+                        :aria-label="resumeFile ? labels.replaceFile : labels.uploadResume"
+                        @click="composerResumeFileInputRef?.click()"
+                    >
+                        <i :class="resumeFile ? 'bi bi-file-earmark-check-fill' : 'bi bi-paperclip'"></i>
+                    </button>
+
                     <button
                         type="button"
                         class="send-button"
-                        :disabled="sendDisabled || !userMessage.trim()"
+                        :disabled="sendDisabled || !canSendMessage"
                         :aria-label="labels.send"
                         @click="sendMessage"
                     >
                         <i :class="sendDisabled ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
+                    </button>
+                </div>
+
+                <div v-if="isResumeBuilder && resumeFile" class="composer-file-preview">
+                    <span>
+                        <i class="bi bi-file-earmark-text"></i>
+                        {{ resumeFile.name }}
+                    </span>
+
+                    <button type="button" :disabled="sendDisabled" @click="removeResumeFile">
+                        <i class="bi bi-x-lg"></i>
+                        {{ labels.removeFile }}
                     </button>
                 </div>
 
@@ -728,6 +763,7 @@ const copiedKey = ref("");
 const optionsPanelRef = ref(null);
 const resumeFile = ref(null);
 const resumeFileInputRef = ref(null);
+const composerResumeFileInputRef = ref(null);
 
 const activeSubToolId = computed(() => {
     const candidates = [
@@ -945,7 +981,7 @@ const labels = computed(() => {
         fileRequired: "يرجى رفع ملف السيرة الذاتية أولاً",
         resumeBuilderOptions: "خيارات السيرة الذاتية",
         resumeBuilderResultTitle: "السيرة الذاتية المحسنة",
-        downloadFile: "تنزيل الملف",
+        downloadFile: "تحميل ملف السيرة الذاتية",
         invalidFileType: "يرجى رفع ملف PDF أو DOC أو DOCX.",
         fileTooLarge: "حجم الملف يجب ألا يتجاوز 10MB.",
         targetRoleRequired: "يرجى إدخال الوظيفة المستهدفة.",
@@ -969,7 +1005,7 @@ const labels = computed(() => {
         fileRequired: "Please upload a resume file first.",
         resumeBuilderOptions: "Resume builder options",
         resumeBuilderResultTitle: "Improved resume",
-        downloadFile: "Download file",
+        downloadFile: "Download resume file",
         invalidFileType: "Please upload a PDF, DOC, or DOCX file.",
         fileTooLarge: "File size must be 10MB or less.",
         targetRoleRequired: "Please enter the target role.",
@@ -1130,6 +1166,15 @@ function createDefaultStateForTool(subToolId) {
 const toolState = ref(createDefaultStateForTool(DETECTOR_SUB_TOOL_ID));
 const pageTitle = computed(() => isArabic.value ? activeToolConfig.value.title_ar : activeToolConfig.value.title_en);
 const sendDisabled = computed(() => isSending.value || isAssistantTyping.value);
+const canSendMessage = computed(() => {
+    const hasText = Boolean(String(userMessage.value || "").trim());
+
+    if (isResumeBuilder.value) {
+        return hasText || Boolean(resumeFile.value);
+    }
+
+    return hasText;
+});
 
 const optionsSummary = computed(() => {
     const state = toolState.value || {};
@@ -1264,8 +1309,69 @@ function getMessageText(message) {
 function getMessageDownloadUrl(message) {
     const result = Array.isArray(message?.results) ? message.results[0] : null;
     const meta = result?.meta && typeof result.meta === "object" ? result.meta : {};
+    const messageMeta = message?.metadata && typeof message.metadata === "object" ? message.metadata : {};
+    const file = messageMeta.file && typeof messageMeta.file === "object" ? messageMeta.file : {};
 
-    return String(meta.download_url || meta.file_url || "").trim();
+    return String(
+        meta.download_url
+        || meta.file_url
+        || file.download_url
+        || file.file_url
+        || ""
+    ).trim();
+}
+
+function getMessageFilename(message) {
+    const result = Array.isArray(message?.results) ? message.results[0] : null;
+    const meta = result?.meta && typeof result.meta === "object" ? result.meta : {};
+    const messageMeta = message?.metadata && typeof message.metadata === "object" ? message.metadata : {};
+    const file = messageMeta.file && typeof messageMeta.file === "object" ? messageMeta.file : {};
+
+    return String(meta.filename || file.filename || "").trim();
+}
+
+function resolveDownloadUrl(url) {
+    const value = String(url || "").trim();
+    if (!value) return "";
+
+    if (/^https?:\/\//i.test(value)) {
+        return value;
+    }
+
+    const apiBase =
+        import.meta.env.VITE_API_BASE_URL
+        || import.meta.env.VITE_API_URL
+        || "https://pro.aiarabic.com/api/v1";
+
+    return `${String(apiBase).replace(/\/$/, "")}/${value.replace(/^\//, "")}`;
+}
+
+async function downloadResumeFile(message) {
+    const url = resolveDownloadUrl(getMessageDownloadUrl(message));
+    if (!url) return;
+
+    try {
+        const token = localStorage.getItem("auth_token");
+        const response = await fetch(url, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!response.ok) {
+            throw new Error(labels.value.genericError);
+        }
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = getMessageFilename(message) || "resume.docx";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+        errorMessage.value = cleanErrorMessage(error);
+    }
 }
 
 function getResultTitle(subToolId = activeSubToolId.value) {
@@ -1680,10 +1786,35 @@ function normalizeResultText(value) {
 function normalizeChat4Response(response) {
     const results = Array.isArray(response?.results) ? response.results : [];
     const responseMeta = {
-        download_url: response?.download_url || response?.meta?.download_url || null,
-        file_url: response?.file_url || response?.meta?.file_url || null,
-        output_format: response?.output_format || response?.meta?.output_format || null,
+        download_url:
+            response?.file?.download_url
+            || response?.download_url
+            || response?.meta?.download_url
+            || null,
+        file_url:
+            response?.file?.file_url
+            || response?.file_url
+            || response?.meta?.file_url
+            || null,
+        file_id:
+            response?.file?.file_id
+            || response?.meta?.file_id
+            || null,
+        filename:
+            response?.file?.filename
+            || response?.meta?.filename
+            || null,
+        content_type:
+            response?.file?.content_type
+            || response?.meta?.content_type
+            || null,
+        output_format:
+            response?.state?.output_format
+            || response?.output_format
+            || response?.meta?.output_format
+            || null,
     };
+    const cleanResponseMeta = Object.fromEntries(Object.entries(responseMeta).filter(([, value]) => value));
 
     if (results.length) {
         return results.map((item, index) => ({
@@ -1692,8 +1823,11 @@ function normalizeChat4Response(response) {
             title: item.title || null,
             subject: item.subject || null,
             meta: {
-                ...Object.fromEntries(Object.entries(responseMeta).filter(([, value]) => value)),
                 ...(item.meta && typeof item.meta === "object" ? item.meta : {}),
+                ...Object.fromEntries(Object.entries(cleanResponseMeta).filter(([key]) => {
+                    const itemMeta = item.meta && typeof item.meta === "object" ? item.meta : {};
+                    return !itemMeta[key];
+                })),
             },
         })).filter((item) => item.text.trim() || item.meta.download_url || item.meta.file_url);
     }
@@ -1708,7 +1842,7 @@ function normalizeChat4Response(response) {
                 text,
                 title: null,
                 subject: null,
-                meta: Object.fromEntries(Object.entries(responseMeta).filter(([, value]) => value)),
+                meta: cleanResponseMeta,
             }));
     }
 
@@ -1729,8 +1863,12 @@ const normalizeStateFromResponse = (state = {}, subToolId = activeSubToolId.valu
 const mapMessage = (message = {}, index = 0) => {
     const meta = metadataFrom(message);
     const responseResults = normalizeChat4Response({
+        ...meta,
         results: meta.normalized_results || meta.results || message.results || [],
         state: meta.state || message.state || {},
+        file: meta.file || null,
+        usage: meta.usage || null,
+        cost: meta.cost || null,
     });
     const role = message.role || "assistant";
 
@@ -1911,9 +2049,12 @@ const ensureConversation = async () => {
 
 const sendMessage = async () => {
     const text = String(userMessage.value || "").trim();
-    if (!text || isSending.value || isAssistantTyping.value) return;
+    if (isSending.value || isAssistantTyping.value) return;
+    if (!text && !isResumeBuilder.value) return;
+    if (isResumeBuilder.value && !text && !resumeFile.value) return;
 
-    const resumeValidationMessage = validateResumeBuilderBeforeSend(text);
+    const finalText = text || `Improve this resume for ${toolState.value.target_role || "the target role"}.`;
+    const resumeValidationMessage = validateResumeBuilderBeforeSend(finalText);
     if (resumeValidationMessage) {
         errorMessage.value = resumeValidationMessage;
         return;
@@ -1926,12 +2067,12 @@ const sendMessage = async () => {
         const conversation = await ensureConversation();
         if (!conversation?.uuid) return;
 
-        const payload = buildChat4Payload(text, conversation);
+        const payload = buildChat4Payload(finalText, conversation);
 
         messages.value.push(mapMessage({
             localKey: createLocalKey(),
             role: "user",
-            content: text,
+            content: finalText,
             created_at: new Date().toISOString(),
         }));
 
@@ -1943,7 +2084,7 @@ const sendMessage = async () => {
         await scrollToBottom();
 
         const response = isResumeBuilder.value
-            ? await chatServices.sendMessageFormData(buildResumeBuilderFormData(text, conversation, payload))
+            ? await chatServices.sendMessageFormData(buildResumeBuilderFormData(finalText, conversation, payload))
             : await chatServices.sendMessage(payload);
         const directResponse = unwrapApiData(response);
         const results = normalizeChat4Response(directResponse);
@@ -1967,18 +2108,27 @@ const sendMessage = async () => {
             metadata: {
                 type: directResponse.type || "result",
                 title: getResultTitle(payload.sub_tool_id),
-                tool: payload.tool,
+                tool: directResponse.tool || payload.tool,
+                provider: directResponse.provider || null,
                 tool_key: payload.tool_key,
-                model_key: payload.model_key,
+                model_key: directResponse.model_key || payload.model_key,
                 sub_tool_id: payload.sub_tool_id,
                 state: responseState,
                 results,
                 normalized_results: results,
+                file: directResponse.file || null,
+                usage: directResponse.usage || null,
+                cost: directResponse.cost || null,
+                request_id: directResponse.request_id || null,
                 request_payload: payload,
                 count: results.length,
             },
             created_at: new Date().toISOString(),
         }));
+
+        if (isResumeBuilder.value) {
+            removeResumeFile();
+        }
 
         await scrollToBottom();
     } catch (error) {
@@ -2091,6 +2241,10 @@ const toggleResumeSection = (section) => {
 const clearResumeFileInput = () => {
     if (resumeFileInputRef.value) {
         resumeFileInputRef.value.value = "";
+    }
+
+    if (composerResumeFileInputRef.value) {
+        composerResumeFileInputRef.value.value = "";
     }
 };
 
@@ -2816,20 +2970,40 @@ button:disabled {
 }
 
 .ai-download-section {
+    margin-top: 16px;
     padding: 0 16px 16px;
 }
 
+.ai-download-button,
 .ai-download-section a {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    padding: 8px 12px;
-    border: 1px solid #cfe3ef;
-    border-radius: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 12px;
     color: #fff;
-    background: var(--blue);
-    font-size: 12px;
+    background: linear-gradient(145deg, var(--navy), var(--blue));
+    font-size: 14px;
     font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 14px 28px rgba(18, 63, 109, 0.14);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ai-download-button span {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-download-button:hover,
+.ai-download-section a:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 34px rgba(18, 63, 109, 0.18);
 }
 
 .business-result-list {
@@ -3251,12 +3425,42 @@ button:disabled {
     min-height: 42px;
     max-height: 180px;
     flex: 1;
+    min-width: 0;
     resize: none;
     padding: 10px;
     border: 0;
     color: var(--ink);
     background: transparent;
     outline: 0;
+}
+
+.composer-file-input {
+    display: none;
+}
+
+.composer-file-button {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    border: 1px solid #d3e2ef;
+    border-radius: 14px;
+    color: var(--navy);
+    background: #ffffff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.composer-file-button:hover:not(:disabled) {
+    transform: scale(1.03);
+    background: rgba(31, 135, 201, 0.08);
+    box-shadow: 0 14px 28px rgba(18, 63, 109, 0.08);
+}
+
+.composer-file-button.has-file {
+    color: #ffffff;
+    border-color: var(--blue);
+    background: linear-gradient(145deg, var(--navy), var(--blue));
 }
 
 .send-button {
@@ -3269,6 +3473,41 @@ button:disabled {
     border-radius: 13px;
     color: #fff;
     background: linear-gradient(145deg, var(--navy), var(--blue));
+}
+
+.composer-file-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid #d8e6f7;
+    border-radius: 14px;
+    background: #f8fbfe;
+    color: var(--ink);
+    font-size: 13px;
+}
+
+.composer-file-preview span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.composer-file-preview button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    border: 0;
+    background: transparent;
+    color: var(--navy);
+    font-weight: 700;
 }
 
 .composer-hint {

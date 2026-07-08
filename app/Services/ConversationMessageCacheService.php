@@ -132,6 +132,8 @@ class ConversationMessageCacheService
                     'conversation_uuid',
                     'state',
                     'results',
+                    'normalized_results',
+                    'file',
                     'count',
                     'usage',
                     'cost',

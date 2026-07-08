@@ -345,7 +345,9 @@ class MessageRequest extends FormRequest
     {
         return [
             'sub_tool_id' => ['required', 'integer', 'in:'.self::RESUME_BUILDER_SUB_TOOL_ID],
-            'user_message' => ['required', 'string', 'max:5000'],
+            'content' => ['nullable', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'user_message' => ['nullable', 'string', 'max:5000', 'required_without:file'],
             'state' => ['required', 'array'],
             'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
             'state.target_role' => ['required', 'string', 'max:255'],
