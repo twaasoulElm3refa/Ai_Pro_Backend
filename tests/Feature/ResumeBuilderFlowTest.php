@@ -275,6 +275,61 @@ class ResumeBuilderFlowTest extends TestCase
         $this->assertSame(975, (int) $wallet->balance);
     }
 
+    public function test_resume_builder_edits_previous_output_without_reuploading_file(): void
+    {
+        Storage::fake('local');
+        [$user, $conversation] = $this->makeContext(19, 'Resume Builder', 'resume-builder', 'tasks/resume-builder/chat');
+        Sanctum::actingAs($user);
+
+        $previousOutput = 'Previous resume output with backend experience.';
+        $state = $this->resumeState([
+            'output_format' => 'text',
+            'target_role' => 'Frontend Developer',
+            'last_output' => $previousOutput,
+        ]);
+        $instruction = 'Edit the previous resume output according to the new user instruction and selected options.';
+
+        $writer = Mockery::mock(AiArabicWriterService::class);
+        $writer->shouldReceive('generateResumeBuilderReplyWithUsage')
+            ->once()
+            ->withArgs(function (array $fields, ?UploadedFile $file) use ($state, $instruction, $previousOutput): bool {
+                $decodedState = json_decode($fields['state'] ?? '', true);
+
+                return $file === null
+                    && str_starts_with($fields['user_message'] ?? '', $instruction)
+                    && str_contains($fields['user_message'] ?? '', 'Change the resume for a frontend role.')
+                    && str_starts_with($fields['content'] ?? '', $instruction)
+                    && ($decodedState['last_output'] ?? null) === $previousOutput
+                    && ($decodedState['target_role'] ?? null) === $state['target_role'];
+            })
+            ->andReturn([
+                'results' => [[
+                    'id' => 1,
+                    'text' => 'Updated frontend resume from previous output.',
+                    'title' => 'Resume Preview',
+                    'meta' => [],
+                ]],
+                'usage' => ['total_tokens' => 0],
+                'cost' => ['total_cost' => 0, 'currency' => 'USD'],
+                'model_key' => 'resume_builder',
+            ]);
+        $this->app->instance(AiArabicWriterService::class, $writer);
+
+        $this->withHeaders($this->apiHeaders())->post('/api/v1/message/send', [
+            'sub_tool_id' => 19,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => 'Change the resume for a frontend role.',
+            'content' => 'Change the resume for a frontend role.',
+            'tool_key' => 'resume_builder',
+            'model_key' => 'resume_builder',
+            'state' => json_encode($state),
+            'idempotency_key' => (string) Str::uuid(),
+        ])->assertOk()
+            ->assertJsonPath('data.results.0.text', 'Updated frontend resume from previous output.')
+            ->assertJsonPath('data.state.target_role', 'Frontend Developer')
+            ->assertJsonPath('data.state.last_output', 'Updated frontend resume from previous output.');
+    }
+
     public function test_resume_builder_forwards_doc_upload_to_ai_service(): void
     {
         Storage::fake('local');

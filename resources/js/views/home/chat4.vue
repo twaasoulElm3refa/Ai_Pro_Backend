@@ -172,6 +172,18 @@
                                         </button>
                                     </div>
 
+                                    <div v-if="isResumeBuilderMessage(message)" class="ai-response-actions">
+                                        <button
+                                            type="button"
+                                            class="ai-edit-options-button"
+                                            :disabled="sendDisabled"
+                                            @click="editResumeResponse(message)"
+                                        >
+                                            <i class="bi bi-sliders"></i>
+                                            {{ labels.editOptions }}
+                                        </button>
+                                    </div>
+
                                     <div v-if="message.results[0]?.meta?.ai_likelihood_score !== undefined"
                                         class="ai-score-box">
                                         <span>{{ labels.score }}</span>
@@ -931,6 +943,8 @@ const labels = computed(() => {
         options: "خيارات السيرة الذاتية",
         applyOptions: "تعديل الخيارات",
         resetOptions: "إعادة تعيين الخيارات",
+        editOptions: "تعديل الخيارات",
+        editPreviousResumePrompt: "عدّل السيرة الذاتية السابقة بناءً على هذه التغييرات: ",
         aiResponseTitle: "السيرة الذاتية المحسنة",
         targetRole: "الوظيفة المستهدفة",
         candidateName: "اسم المرشح",
@@ -958,6 +972,8 @@ const labels = computed(() => {
         options: "Resume builder options",
         applyOptions: "Apply options",
         resetOptions: "Reset options",
+        editOptions: "Edit options",
+        editPreviousResumePrompt: "Edit the previous resume based on these changes: ",
         aiResponseTitle: "Improved resume",
         targetRole: "Target role",
         candidateName: "Candidate name",
@@ -1303,6 +1319,10 @@ function getMessageToolId(message) {
 
 function isBusinessNameMessage(message) {
     return getMessageToolId(message) === BUSINESS_NAME_SUB_TOOL_ID;
+}
+
+function isResumeBuilderMessage(message) {
+    return getMessageToolId(message) === RESUME_BUILDER_SUB_TOOL_ID;
 }
 
 function getBusinessDomains(item) {
@@ -2164,11 +2184,12 @@ const ensureConversation = async () => {
 
 const sendMessage = async () => {
     const text = String(userMessage.value || "").trim();
+    const hasPreviousResumeOutput = isResumeBuilder.value && Boolean(String(toolState.value.last_output || "").trim());
     let optimisticUserKey = "";
 
     if (isSending.value || isAssistantTyping.value) return;
     if (!text && !isResumeBuilder.value) return;
-    if (isResumeBuilder.value && !text && !resumeFile.value) return;
+    if (isResumeBuilder.value && !text && !resumeFile.value && !hasPreviousResumeOutput) return;
 
     const finalText = text || `Improve this resume for ${toolState.value.target_role || "the target role"}.`;
     const resumeValidationMessage = validateResumeBuilderBeforeSend(finalText);
@@ -2180,6 +2201,7 @@ const sendMessage = async () => {
     const uploadedFileMeta = isResumeBuilder.value && resumeFile.value
         ? createUploadedFileMeta(resumeFile.value)
         : null;
+    const editingPreviousOutput = isResumeBuilder.value && Boolean(String(toolState.value.last_output || "").trim());
 
     errorMessage.value = "";
     isSending.value = true;
@@ -2207,6 +2229,7 @@ const sendMessage = async () => {
                 idempotency_key: payload.idempotency_key,
                 optimistic: true,
                 uploaded_file: uploadedFileMeta,
+                editing_previous_output: editingPreviousOutput,
             },
             created_at: new Date().toISOString(),
         }));
@@ -2441,12 +2464,43 @@ const validateResumeBuilderBeforeSend = (messageText) => {
         return labels.value.targetRoleRequired;
     }
 
-    if (!resumeFile.value && isImproveResumeRequest(messageText)) {
+    const hasPreviousOutput = Boolean(String(toolState.value.last_output || "").trim());
+
+    if (!hasPreviousOutput && !resumeFile.value && isImproveResumeRequest(messageText)) {
         return labels.value.fileRequired;
     }
 
     return validateResumeFile(resumeFile.value);
 };
+
+async function editResumeResponse(message) {
+    if (!isResumeBuilderMessage(message)) return;
+
+    const previousOutput = getMessageText(message);
+    const meta = message?.metadata && typeof message.metadata === "object"
+        ? message.metadata
+        : {};
+    const responseState = message?.responseState || meta.state || toolState.value || {};
+
+    toolState.value = buildResumeBuilderState("", {
+        ...createDefaultStateForTool(RESUME_BUILDER_SUB_TOOL_ID),
+        ...responseState,
+        last_output: previousOutput,
+    });
+
+    persistState(activeConversation.value?.uuid || route.params.uuid || "draft");
+    userMessage.value = labels.value.editPreviousResumePrompt;
+
+    await nextTick();
+
+    if (optionsPanelRef.value) {
+        optionsPanelRef.value.open = true;
+    }
+
+    textareaRef.value?.focus();
+    textareaRef.value?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    autoResize();
+}
 
 const applyOptions = () => {
     if (isResumeBuilder.value) {
@@ -3217,6 +3271,35 @@ button:disabled {
 .ai-download-section a:hover {
     transform: translateY(-1px);
     box-shadow: 0 18px 34px rgba(18, 63, 109, 0.18);
+}
+
+.ai-response-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 16px 16px;
+}
+
+.ai-edit-options-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid #cfe3ef;
+    border-radius: 12px;
+    color: var(--navy);
+    background: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.ai-edit-options-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: rgba(31, 135, 201, 0.08);
+    box-shadow: 0 12px 24px rgba(18, 63, 109, 0.10);
 }
 
 .business-result-list {

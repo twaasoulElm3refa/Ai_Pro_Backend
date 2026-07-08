@@ -157,7 +157,7 @@ class ResumeBuilderService
             ? $providerResponse['state']
             : (is_array(data_get($providerResponse, 'raw.state')) ? data_get($providerResponse, 'raw.state') : []);
         $responseState = $this->normalizeState(array_replace($state, $providerState));
-        $responseState['last_output'] = $this->toNullableString($responseState['last_output'] ?? null) ?: $resumeText;
+        $responseState['last_output'] = $this->toNullableString($providerState['last_output'] ?? null) ?: $resumeText;
         $usage = $this->normalizeUsage($providerResponse['usage'] ?? data_get($providerResponse, 'raw.usage', []));
         $cost = $this->normalizeCost($providerResponse['cost'] ?? data_get($providerResponse, 'raw.cost', []));
         $tokensToDeduct = (int) ($usage['total_tokens'] ?? 0);
@@ -324,19 +324,40 @@ class ResumeBuilderService
 
     private function providerFields(array $requestPayload): array
     {
+        $state = is_array($requestPayload['state'] ?? null) ? $requestPayload['state'] : [];
+        $userMessage = (string) $requestPayload['user_message'];
+        $content = (string) $requestPayload['content'];
+
+        if (trim((string) ($state['last_output'] ?? '')) !== '') {
+            $userMessage = $this->withPreviousResumeEditInstruction($userMessage);
+            $content = $this->withPreviousResumeEditInstruction($content);
+        }
+
         return [
             'user_id' => (string) $requestPayload['user_id'],
             'sub_tool_id' => (string) self::SUB_TOOL_ID,
             'conversation_uuid' => (string) $requestPayload['conversation_uuid'],
-            'user_message' => (string) $requestPayload['user_message'],
-            'content' => (string) $requestPayload['content'],
+            'user_message' => $userMessage,
+            'content' => $content,
             'tool' => self::TOOL_KEY,
             'tool_key' => self::TOOL_KEY,
             'model_key' => self::MODEL_KEY,
-            'state' => json_encode($requestPayload['state'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
+            'state' => json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
             'debug' => ! empty($requestPayload['debug']) ? '1' : '0',
             'idempotency_key' => (string) $requestPayload['idempotency_key'],
         ];
+    }
+
+    private function withPreviousResumeEditInstruction(string $text): string
+    {
+        $instruction = 'Edit the previous resume output according to the new user instruction and selected options.';
+        $value = trim($text);
+
+        if (str_contains($value, $instruction)) {
+            return $value;
+        }
+
+        return trim($instruction.($value !== '' ? "\n\n{$value}" : ''));
     }
 
     private function defaultUserMessage(array $state): string
