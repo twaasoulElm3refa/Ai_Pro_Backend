@@ -899,6 +899,8 @@ const labels = computed(() => {
         welcome: "ارفع سيرتك الذاتية أو اكتب طلبك، وسنساعدك على تحسينها بصياغة احترافية مناسبة لأنظمة ATS.",
         placeholder: "اكتب طلبك هنا، مثال: حسّن هذه السيرة الذاتية لوظيفة Senior Laravel Developer...",
         options: "خيارات السيرة الذاتية",
+        applyOptions: "تعديل الخيارات",
+        resetOptions: "إعادة تعيين الخيارات",
         aiResponseTitle: "السيرة الذاتية المحسنة",
         targetRole: "الوظيفة المستهدفة",
         candidateName: "اسم المرشح",
@@ -906,6 +908,7 @@ const labels = computed(() => {
         resumeStyle: "أسلوب السيرة الذاتية",
         outputFormat: "صيغة الإخراج",
         sectionsToInclude: "الأقسام المطلوبة",
+        extraOptions: "خيارات إضافية",
         resumeFile: "ملف السيرة الذاتية",
         uploadResume: "رفع ملف السيرة الذاتية",
         replaceFile: "استبدال الملف",
@@ -923,6 +926,8 @@ const labels = computed(() => {
         welcome: "Upload an existing resume to improve it, or describe the role and we will build an ATS-friendly resume from scratch.",
         placeholder: "Describe how you want to build or improve the resume...",
         options: "Resume builder options",
+        applyOptions: "Apply options",
+        resetOptions: "Reset options",
         aiResponseTitle: "Improved resume",
         targetRole: "Target role",
         candidateName: "Candidate name",
@@ -930,6 +935,7 @@ const labels = computed(() => {
         resumeStyle: "Resume style",
         outputFormat: "Output format",
         sectionsToInclude: "Sections to include",
+        extraOptions: "Extra options",
         resumeFile: "Resume file",
         uploadResume: "Upload resume file",
         replaceFile: "Replace file",
@@ -1642,33 +1648,14 @@ function buildBusinessNameState(userMessage, currentState = {}) {
     };
 }
 
-function extractResumeTargetRole(userMessage) {
-    const text = String(userMessage || "").trim();
-    const patterns = [
-        /(?:for|as)\s+(?:a\s+|an\s+)?([^.,\n]+?)\s+(?:role|position|job)/i,
-        /(?:role|position|job):\s*([^.\n]+)/i,
-        /target role:\s*([^.\n]+)/i,
-        /resume\s+for\s+(?:a\s+|an\s+)?([^.,\n]+)/i,
-        /cv\s+for\s+(?:a\s+|an\s+)?([^.,\n]+)/i,
-        /الوظيفة:\s*([^.\n]+)/i,
-    ];
-
-    for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match?.[1]) return match[1].trim();
-    }
-
-    return "";
-}
-
 function buildResumeBuilderState(userMessage, currentState = {}) {
-    const text = String(userMessage || "").trim();
-    const extractedRole = extractResumeTargetRole(text);
     const defaults = createResumeBuilderState();
 
     return {
-        target_role: extractedRole || currentState.target_role || defaults.target_role,
-        candidate_name: currentState.candidate_name || null,
+        target_role: String(currentState.target_role || defaults.target_role || "").trim(),
+        candidate_name: currentState.candidate_name
+            ? String(currentState.candidate_name).trim()
+            : null,
         language: currentState.language || defaults.language,
         tone: currentState.tone || defaults.tone,
         experience_level: currentState.experience_level || defaults.experience_level,
@@ -1680,7 +1667,7 @@ function buildResumeBuilderState(userMessage, currentState = {}) {
         extra_options: Array.isArray(currentState.extra_options) && currentState.extra_options.length
             ? currentState.extra_options
             : defaults.extra_options,
-        last_output: null,
+        last_output: currentState.last_output || null,
     };
 }
 
@@ -1707,11 +1694,13 @@ function getStateSeedText(state = toolState.value) {
 function buildChat4Payload(messageText, conversation) {
     const subToolId = Number(activeSubToolId.value);
     const config = CHAT4_TOOLS[subToolId] || CHAT4_TOOLS[DETECTOR_SUB_TOOL_ID];
-    const requestState = buildChat4ToolState(subToolId, messageText, {
-        ...toolState.value,
-        content: null,
-        business_idea: null,
-    });
+    const requestState = Number(subToolId) === RESUME_BUILDER_SUB_TOOL_ID
+        ? buildResumeBuilderState(messageText, toolState.value)
+        : buildChat4ToolState(subToolId, messageText, {
+            ...toolState.value,
+            content: null,
+            business_idea: null,
+        });
 
     return {
         user_id: conversation?.user_id || null,
@@ -1871,14 +1860,22 @@ function normalizeChat4Response(response) {
 
 const unwrapApiData = (response) => response?.data || response || {};
 
-const normalizeStateFromResponse = (state = {}, subToolId = activeSubToolId.value) => buildChat4ToolState(
-    subToolId,
-    state.business_idea || state.content || state.target_role || "",
-    {
+const normalizeStateFromResponse = (state = {}, subToolId = activeSubToolId.value) => {
+    const baseState = {
         ...createDefaultStateForTool(subToolId),
         ...(state && typeof state === "object" ? state : {}),
+    };
+
+    if (Number(subToolId) === RESUME_BUILDER_SUB_TOOL_ID) {
+        return buildResumeBuilderState("", baseState);
     }
-);
+
+    return buildChat4ToolState(
+        subToolId,
+        state.business_idea || state.content || "",
+        baseState
+    );
+};
 
 const mapMessage = (message = {}, index = 0) => {
     const meta = metadataFrom(message);
@@ -2349,9 +2346,19 @@ const validateResumeBuilderBeforeSend = (messageText) => {
 };
 
 const applyOptions = () => {
-    toolState.value = buildChat4ToolState(activeSubToolId.value, getStateSeedText(toolState.value), toolState.value);
+    if (isResumeBuilder.value) {
+        toolState.value = buildResumeBuilderState("", toolState.value);
+    } else {
+        toolState.value = buildChat4ToolState(
+            activeSubToolId.value,
+            getStateSeedText(toolState.value),
+            toolState.value
+        );
+    }
+
     persistState();
     errorMessage.value = "";
+
     if (optionsPanelRef.value) {
         optionsPanelRef.value.open = false;
     }
