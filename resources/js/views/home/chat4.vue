@@ -92,14 +92,14 @@
                                             <div class="ai-response-title">
                                                 <i class="bi bi-stars"></i>
                                                 <span>{{ message.metadata?.title || labels.businessNameResultTitle
-                                                    }}</span>
+                                                }}</span>
                                             </div>
 
                                             <button type="button" class="copy-card-button"
                                                 @click="copyText(getMessageText(message), `msg-${message.localKey}`)">
                                                 <i class="bi bi-copy"></i>
                                                 {{ copiedKey === `msg-${message.localKey}` ? labels.copied :
-                                                labels.copyAll }}
+                                                    labels.copyAll }}
                                             </button>
                                         </div>
 
@@ -112,14 +112,14 @@
                                                         <strong>{{ item.title || `${labels.businessNameResultTitle}
                                                             ${itemIndex + 1}` }}</strong>
                                                         <span>{{ item.subject || labels.businessNameResultTitle
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
 
                                                     <button type="button"
                                                         @click="copyText(getResultCopyText(item, getMessageToolId(message)), `result-${message.localKey}-${item.id || itemIndex}`)">
                                                         <i class="bi bi-copy"></i>
                                                         {{ copiedKey === `result-${message.localKey}-${item.id ||
-                                                        itemIndex}` ? labels.copied : labels.copyResult }}
+                                                            itemIndex}` ? labels.copied : labels.copyResult }}
                                                     </button>
                                                 </div>
 
@@ -131,7 +131,7 @@
                                                     <div v-if="getBusinessDomains(item).length"
                                                         class="business-domain-section">
                                                         <span class="business-domain-label">{{ labels.domainIdeas
-                                                            }}</span>
+                                                        }}</span>
                                                         <div class="business-domain-list">
                                                             <span v-for="domain in getBusinessDomains(item)"
                                                                 :key="domain" class="domain-chip">
@@ -168,17 +168,13 @@
                                             <i class="bi bi-download"></i>
                                             {{ labels.downloadFile }}
                                             <span v-if="getMessageFilename(message)">{{ getMessageFilename(message)
-                                                }}</span>
+                                            }}</span>
                                         </button>
                                     </div>
 
                                     <div v-if="isResumeBuilderMessage(message)" class="ai-response-actions">
-                                        <button
-                                            type="button"
-                                            class="ai-edit-options-button"
-                                            :disabled="sendDisabled"
-                                            @click="editResumeResponse(message)"
-                                        >
+                                        <button type="button" class="ai-edit-options-button" :disabled="sendDisabled"
+                                            @click="editResumeResponse(message)">
                                             <i class="bi bi-sliders"></i>
                                             {{ labels.editOptions }}
                                         </button>
@@ -217,20 +213,16 @@
                                 </div>
                             </template>
 
-                            <div
-                                v-else-if="message.role === 'user' && getMessageUploadedFile(message)"
-                                class="user-message-stack"
-                            >
-                                <div
-                                    v-if="getMessageUploadedFile(message)"
-                                    class="user-uploaded-file-card"
-                                >
+                            <div v-else-if="message.role === 'user' && getMessageUploadedFile(message)"
+                                class="user-message-stack">
+                                <div v-if="getMessageUploadedFile(message)" class="user-uploaded-file-card">
                                     <span class="user-uploaded-file-icon">
                                         <i class="bi bi-file-earmark-text"></i>
                                     </span>
 
                                     <span class="user-uploaded-file-info">
-                                        <strong>{{ getMessageUploadedFile(message).filename || getMessageUploadedFile(message).name }}</strong>
+                                        <strong>{{ getMessageUploadedFile(message).filename ||
+                                            getMessageUploadedFile(message).name }}</strong>
                                         <small>
                                             {{ getMessageUploadedFile(message).label || 'Document' }}
                                             <template v-if="formatFileSize(getMessageUploadedFile(message).size)">
@@ -240,11 +232,8 @@
                                     </span>
                                 </div>
 
-                                <div
-                                    v-if="message.content"
-                                    class="message-content"
-                                    v-html="formatMessage(message.content)"
-                                ></div>
+                                <div v-if="message.content" class="message-content"
+                                    v-html="formatMessage(message.content)"></div>
                             </div>
 
                             <div v-else-if="message.content" class="message-content"
@@ -1495,10 +1484,16 @@ async function downloadResumeFile(message) {
             Accept: "application/json",
         };
 
-        const token = localStorage.getItem("auth_token");
+        const isAiArabicResumeDownload = url.includes("api.aiarabic.com/tasks/resume-builder/download/");
 
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
+        if (isAiArabicResumeDownload) {
+            headers["x-internal-api-key"] = import.meta.env.VITE_AIARABIC_INTERNAL_API_KEY;
+        } else {
+            const token = localStorage.getItem("auth_token");
+
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
         }
 
         const response = await fetch(url, { headers });
@@ -1509,12 +1504,14 @@ async function downloadResumeFile(message) {
 
         const blob = await response.blob();
         const blobUrl = window.URL.createObjectURL(blob);
+
         const link = document.createElement("a");
         link.href = blobUrl;
         link.download = getMessageFilename(message) || "resume.docx";
         document.body.appendChild(link);
         link.click();
         link.remove();
+
         window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
         errorMessage.value = cleanErrorMessage(error);
