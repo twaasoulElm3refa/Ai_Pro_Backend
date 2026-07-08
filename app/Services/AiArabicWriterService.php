@@ -14,6 +14,8 @@ class AiArabicWriterService
 
     private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
 
+    private const RESUME_BUILDER_SUB_TOOL_ID = 19;
+
     private const KEYWORD_GENERATOR_TOOL_KEY = 'ai_keyword_generator';
 
     private const KEYWORD_GENERATOR_MODEL_KEY = 'keyword_generator';
@@ -48,6 +50,7 @@ class AiArabicWriterService
 
         $targetUrl = $this->buildTargetUrl($endpoint);
         $isKeywordGenerator = $this->isKeywordGeneratorPayload($payload);
+        $shouldSummarizePayload = $isKeywordGenerator || $this->isSensitivePayload($payload);
         $timeout = $isKeywordGenerator ? 90 : 300;
 
         Log::debug('AI request started.', [
@@ -107,7 +110,7 @@ class AiArabicWriterService
                 'endpoint' => $endpoint,
                 'target_url' => $targetUrl,
                 'sub_tool_id' => $payload['sub_tool_id'] ?? null,
-                'payload' => $isKeywordGenerator ? $this->summarizePayloadForLog($payload) : $payload,
+                'payload' => $shouldSummarizePayload ? $this->summarizePayloadForLog($payload) : $payload,
                 'timeout' => $timeout,
                 'error_message' => $th->getMessage(),
             ]);
@@ -122,7 +125,7 @@ class AiArabicWriterService
                     'base_url' => $this->url,
                     'endpoint' => $endpoint,
                     'target_url' => $targetUrl,
-                    'payload' => $payload,
+                    'payload' => $shouldSummarizePayload ? $this->summarizePayloadForLog($payload) : $payload,
                     'error' => $th->getMessage(),
                 ],
                 0,
@@ -133,7 +136,7 @@ class AiArabicWriterService
                 'base_url' => $this->url,
                 'endpoint' => $endpoint,
                 'target_url' => $targetUrl,
-                'payload' => $isKeywordGenerator ? $this->summarizePayloadForLog($payload) : $payload,
+                'payload' => $shouldSummarizePayload ? $this->summarizePayloadForLog($payload) : $payload,
                 'error_message' => $th->getMessage(),
                 'error_file' => $th->getFile(),
                 'error_line' => $th->getLine(),
@@ -146,7 +149,7 @@ class AiArabicWriterService
                     'base_url' => $this->url,
                     'endpoint' => $endpoint,
                     'target_url' => $targetUrl,
-                    'payload' => $payload,
+                    'payload' => $shouldSummarizePayload ? $this->summarizePayloadForLog($payload) : $payload,
                     'error' => $th->getMessage(),
                 ],
                 0,
@@ -198,7 +201,7 @@ class AiArabicWriterService
                     'base_url' => $this->url,
                     'endpoint' => $endpoint,
                     'target_url' => $targetUrl,
-                    'payload' => $payload,
+                    'payload' => $shouldSummarizePayload ? $this->summarizePayloadForLog($payload) : $payload,
                     'status' => $status,
                     'response_body' => $body,
                     'response_json' => $responsePayload,
@@ -253,7 +256,7 @@ class AiArabicWriterService
                 'base_url' => $this->url,
                 'endpoint' => $endpoint,
                 'target_url' => $targetUrl,
-                'payload' => $payload,
+                'payload' => $shouldSummarizePayload ? $this->summarizePayloadForLog($payload) : $payload,
                 'body' => $response->body(),
             ]);
 
@@ -263,7 +266,7 @@ class AiArabicWriterService
                     'base_url' => $this->url,
                     'endpoint' => $endpoint,
                     'target_url' => $targetUrl,
-                    'payload' => $payload,
+                    'payload' => $shouldSummarizePayload ? $this->summarizePayloadForLog($payload) : $payload,
                     'status' => $response->status(),
                     'response_body' => $response->body(),
                 ]
@@ -726,6 +729,14 @@ class AiArabicWriterService
             || strtolower((string) ($payload['model_key'] ?? '')) === self::KEYWORD_GENERATOR_MODEL_KEY;
     }
 
+    protected function isSensitivePayload(array $payload): bool
+    {
+        return (int) ($payload['sub_tool_id'] ?? 0) === self::RESUME_BUILDER_SUB_TOOL_ID
+            || strtolower((string) ($payload['tool'] ?? $payload['tool_key'] ?? '')) === 'resume_builder'
+            || strtolower((string) ($payload['model_key'] ?? '')) === 'resume_builder'
+            || (bool) ($payload['sensitive'] ?? false);
+    }
+
     protected function keywordGeneratorConnectionError(array $payload): array
     {
         $message = 'تعذر الاتصال بخدمة توليد الكلمات المفتاحية. حاول مرة أخرى.';
@@ -763,7 +774,7 @@ class AiArabicWriterService
     {
         $summary = $payload;
 
-        foreach (['body', 'content', 'user_message', 'previous_output'] as $key) {
+        foreach (['body', 'content', 'user_message', 'previous_output', 'extracted_resume_text'] as $key) {
             if (! is_scalar($summary[$key] ?? null)) {
                 continue;
             }

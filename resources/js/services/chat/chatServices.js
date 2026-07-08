@@ -28,6 +28,12 @@ const chatServices = {
         const response = await api.post("/message/send", payload);
         return unwrap(response);
     },
+
+    async sendMessageFormData(formData) {
+        const response = await api.post("/message/send", formData);
+
+        return unwrap(response);
+    },
 };
 
 export default chatServices;

@@ -1072,13 +1072,26 @@ PROMPT,
                 $meta = $this->normalizeBusinessNameMeta($meta, $state);
             }
 
+            $title = $this->toNullableString($result['title'] ?? null) ?? ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID ? $text : null);
+            $subject = $this->toNullableString($result['subject'] ?? null) ?? ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID ? 'Business name' : null);
+            if ($toolId === self::KEYWORD_GENERATOR_SUB_TOOL_ID) {
+                $title = null;
+                $subject = null;
+            }
+
             $item = [
                 'id' => is_numeric($result['id'] ?? null) ? (int) $result['id'] : count($normalized) + 1,
                 'text' => $text,
-                'title' => $this->toNullableString($result['title'] ?? null) ?? ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID ? $text : null),
-                'subject' => $this->toNullableString($result['subject'] ?? null) ?? ($toolId === self::BUSINESS_NAME_GENERATOR_SUB_TOOL_ID ? 'Business name' : null),
                 'meta' => $meta,
             ];
+
+            if ($title !== null) {
+                $item['title'] = $title;
+            }
+
+            if ($subject !== null) {
+                $item['subject'] = $subject;
+            }
 
             $normalized[] = $item;
         }

@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             IdeaGeneratorSeeder::class,
             HookGeneratorSeeder::class,
             KeywordGeneratorSeeder::class,
+            ResumeBuilderSeeder::class,
         ]);
     }
 }

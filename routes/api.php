@@ -78,6 +78,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/send', [MessageController::class, 'sendMessage']);
     });
 
+    Route::get('/message/resume-output/{filename}', [MessageController::class, 'downloadResumeOutput'])
+        ->name('resume-builder.download')
+        ->middleware(['signed', 'throttle:30,1'])
+        ->withoutMiddleware(ApiKeyMiddleware::class);
+
     Route::prefix('deposit')->middleware(['auth:sanctum', 'throttle:15,1'])->group(function () {
         Route::post('/pay', [DepositController::class, 'create']);
     });

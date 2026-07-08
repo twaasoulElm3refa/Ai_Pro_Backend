@@ -179,6 +179,17 @@
 
                                     <div class="ai-response-content" v-html="formatMessage(getMessageText(message))"></div>
 
+                                    <div v-if="getMessageDownloadUrl(message)" class="ai-download-section">
+                                        <a
+                                            :href="getMessageDownloadUrl(message)"
+                                            target="_blank"
+                                            rel="noopener"
+                                        >
+                                            <i class="bi bi-download"></i>
+                                            {{ labels.downloadFile }}
+                                        </a>
+                                    </div>
+
                                     <div
                                         v-if="message.results[0]?.meta?.ai_likelihood_score !== undefined"
                                         class="ai-score-box"
@@ -343,6 +354,114 @@
                                         <input v-model="toolState.include_domain_ideas" type="checkbox">
                                         <span>{{ labels.includeDomainIdeas }}</span>
                                     </label>
+                                </div>
+                            </fieldset>
+                        </template>
+
+                        <template v-else-if="isResumeBuilder">
+                            <div class="options-basic-grid">
+                                <label>
+                                    <span>{{ labels.targetRole }}</span>
+                                    <input v-model="toolState.target_role" type="text">
+                                </label>
+
+                                <label>
+                                    <span>{{ labels.candidateName }}</span>
+                                    <input v-model="toolState.candidate_name" type="text">
+                                </label>
+
+                                <label>
+                                    <span>{{ labels.language }}</span>
+                                    <select v-model="toolState.language">
+                                        <option>Auto Detect</option>
+                                        <option>Arabic</option>
+                                        <option>English</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    <span>{{ labels.tone }}</span>
+                                    <select v-model="toolState.tone">
+                                        <option>Professional</option>
+                                        <option>Formal</option>
+                                        <option>Confident</option>
+                                        <option>Friendly</option>
+                                        <option>Modern</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    <span>{{ labels.experienceLevel }}</span>
+                                    <select v-model="toolState.experience_level">
+                                        <option>Entry</option>
+                                        <option>Junior</option>
+                                        <option>Mid-level</option>
+                                        <option>Senior</option>
+                                        <option>Lead</option>
+                                        <option>Executive</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    <span>{{ labels.resumeStyle }}</span>
+                                    <select v-model="toolState.resume_style">
+                                        <option>ATS-friendly modern</option>
+                                        <option>Classic professional</option>
+                                        <option>Creative modern</option>
+                                        <option>Minimal clean</option>
+                                        <option>Executive</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    <span>{{ labels.outputFormat }}</span>
+                                    <select v-model="toolState.output_format">
+                                        <option>docx</option>
+                                        <option>pdf</option>
+                                        <option>text</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <fieldset class="option-card checkbox-field">
+                                <legend>{{ labels.sectionsToInclude }}</legend>
+                                <div class="checkbox-options-list">
+                                    <label
+                                        v-for="section in resumeSectionChoices"
+                                        :key="section"
+                                        class="checkbox-option"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :checked="toolState.sections_to_include.includes(section)"
+                                            @change="toggleResumeSection(section)"
+                                        >
+                                        <span>{{ section }}</span>
+                                    </label>
+                                </div>
+                            </fieldset>
+
+                            <fieldset class="option-card checkbox-field">
+                                <legend>{{ labels.resumeFile }}</legend>
+                                <div class="resume-file-panel">
+                                    <label class="resume-file-button">
+                                        <input
+                                            ref="resumeFileInputRef"
+                                            type="file"
+                                            accept=".pdf,.doc,.docx"
+                                            @change="handleResumeFileChange"
+                                        >
+                                        <i class="bi bi-paperclip"></i>
+                                        <span>{{ resumeFile ? labels.replaceFile : labels.uploadResume }}</span>
+                                    </label>
+
+                                    <div v-if="resumeFile" class="resume-file-selected">
+                                        <span>{{ labels.selectedFile }}: {{ resumeFile.name }}</span>
+                                        <button type="button" @click="removeResumeFile">
+                                            <i class="bi bi-x-lg"></i>
+                                            {{ labels.removeFile }}
+                                        </button>
+                                    </div>
                                 </div>
                             </fieldset>
                         </template>
@@ -548,6 +667,15 @@ const CHAT4_TOOLS = {
         subtitle_ar: "تحويل النص إلى صياغة طبيعية وأكثر بشرية",
         subtitle_en: "Rewrite AI-like text into natural human language",
     },
+    19: {
+        sub_tool_id: 19,
+        tool_key: "resume_builder",
+        model_key: "resume_builder",
+        title_ar: "Ù…Ù†Ø´Ø¦ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+        title_en: "Resume Builder",
+        subtitle_ar: "ØªØ­Ø³ÙŠÙ† ÙˆØ¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø¨Ø§Ø­ØªØ±Ø§ÙÙŠØ©",
+        subtitle_en: "Build or improve resumes with ATS-friendly structure",
+    },
     20: {
         sub_tool_id: 20,
         tool_key: "business_name_generator",
@@ -562,7 +690,9 @@ const CHAT4_TOOLS = {
 const CHAT4_SUB_TOOL_IDS = Object.keys(CHAT4_TOOLS).map(Number);
 const DETECTOR_SUB_TOOL_ID = 17;
 const HUMANIZER_SUB_TOOL_ID = 18;
+const RESUME_BUILDER_SUB_TOOL_ID = 19;
 const BUSINESS_NAME_SUB_TOOL_ID = 20;
+const RESUME_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 const route = useRoute();
 const router = useRouter();
@@ -596,6 +726,8 @@ const messagesContainer = ref(null);
 const textareaRef = ref(null);
 const copiedKey = ref("");
 const optionsPanelRef = ref(null);
+const resumeFile = ref(null);
+const resumeFileInputRef = ref(null);
 
 const activeSubToolId = computed(() => {
     const candidates = [
@@ -636,9 +768,10 @@ const openSidebar = () => {
 
 const activeToolConfig = computed(() => CHAT4_TOOLS[activeSubToolId.value] || CHAT4_TOOLS[DETECTOR_SUB_TOOL_ID]);
 const isHumanizer = computed(() => Number(activeSubToolId.value) === HUMANIZER_SUB_TOOL_ID);
+const isResumeBuilder = computed(() => Number(activeSubToolId.value) === RESUME_BUILDER_SUB_TOOL_ID);
 const isBusinessNameTool = computed(() => Number(activeSubToolId.value) === BUSINESS_NAME_SUB_TOOL_ID);
 
-const labels = computed(() => isArabic.value ? {
+const baseLabels = computed(() => isArabic.value ? {
     title: activeToolConfig.value.title_ar,
     subtitle: activeToolConfig.value.subtitle_ar,
     newChat: "محادثة جديدة",
@@ -786,11 +919,79 @@ const labels = computed(() => isArabic.value ? {
             : "Could not analyze the content right now. Please try again.",
 });
 
-const examplePrompt = computed(() => isBusinessNameTool.value
+const labels = computed(() => {
+    const base = baseLabels.value;
+
+    if (!isResumeBuilder.value) {
+        return base;
+    }
+
+    const resumeLabels = isArabic.value ? {
+        welcome: "Ø§Ø±ÙØ¹ Ø³ÙŠØ±ØªÙƒ Ø§Ù„Ø°Ø§ØªÙŠØ© Ø£Ùˆ Ø§ÙƒØªØ¨ Ø·Ù„Ø¨Ùƒ Ù„Ø¥Ù†Ø´Ø§Ø¡ Ø³ÙŠØ±Ø© Ø§Ø­ØªØ±Ø§ÙÙŠØ© Ù…Ù†Ø§Ø³Ø¨Ø© Ù„Ù„ÙˆØ¸ÙŠÙØ© Ø§Ù„Ù…Ø³ØªÙ‡Ø¯ÙØ©.",
+        placeholder: "Ø§ÙƒØªØ¨ Ø·Ù„Ø¨Ùƒ Ù„ØªØ­Ø³ÙŠÙ† Ø£Ùˆ Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©...",
+        options: "Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+        aiResponseTitle: "Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ù…Ø­Ø³Ù†Ø©",
+        targetRole: "Ø§Ù„ÙˆØ¸ÙŠÙØ© Ø§Ù„Ù…Ø³ØªÙ‡Ø¯ÙØ©",
+        candidateName: "Ø§Ø³Ù… Ø§Ù„Ù…Ø±Ø´Ø­",
+        experienceLevel: "Ù…Ø³ØªÙˆÙ‰ Ø§Ù„Ø®Ø¨Ø±Ø©",
+        resumeStyle: "Ø£Ø³Ù„ÙˆØ¨ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+        outputFormat: "ØµÙŠØºØ© Ø§Ù„Ø¥Ø®Ø±Ø§Ø¬",
+        sectionsToInclude: "Ø§Ù„Ø£Ù‚Ø³Ø§Ù… Ø§Ù„Ù…Ø·Ù„ÙˆØ¨Ø©",
+        resumeFile: "Ù…Ù„Ù Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+        uploadResume: "Ø±ÙØ¹ Ù…Ù„Ù Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+        replaceFile: "Ø§Ø³ØªØ¨Ø¯Ø§Ù„ Ø§Ù„Ù…Ù„Ù",
+        selectedFile: "Ø§Ù„Ù…Ù„Ù Ø§Ù„Ù…Ø®ØªØ§Ø±",
+        removeFile: "Ø­Ø°Ù Ø§Ù„Ù…Ù„Ù",
+        fileRequired: "ÙŠØ±Ø¬Ù‰ Ø±ÙØ¹ Ù…Ù„Ù Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø£ÙˆÙ„Ø§Ù‹",
+        resumeBuilderOptions: "Ø®ÙŠØ§Ø±Ø§Øª Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+        resumeBuilderResultTitle: "Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ù…Ø­Ø³Ù†Ø©",
+        downloadFile: "ØªÙ†Ø²ÙŠÙ„ Ø§Ù„Ù…Ù„Ù",
+        invalidFileType: "ÙŠØ±Ø¬Ù‰ Ø±ÙØ¹ Ù…Ù„Ù PDF Ø£Ùˆ DOC Ø£Ùˆ DOCX.",
+        fileTooLarge: "Ø­Ø¬Ù… Ø§Ù„Ù…Ù„Ù ÙŠØ¬Ø¨ Ø£Ù„Ø§ ÙŠØªØ¬Ø§ÙˆØ² 10MB.",
+        targetRoleRequired: "ÙŠØ±Ø¬Ù‰ Ø¥Ø¯Ø®Ø§Ù„ Ø§Ù„ÙˆØ¸ÙŠÙØ© Ø§Ù„Ù…Ø³ØªÙ‡Ø¯ÙØ©.",
+        genericError: "ØªØ¹Ø°Ø± ØªØ­Ø³ÙŠÙ† Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ø¢Ù†. ÙŠØ±Ø¬Ù‰ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.",
+    } : {
+        welcome: "Upload an existing resume to improve it, or describe the role and we will build an ATS-friendly resume from scratch.",
+        placeholder: "Describe how you want to build or improve the resume...",
+        options: "Resume builder options",
+        aiResponseTitle: "Improved resume",
+        targetRole: "Target role",
+        candidateName: "Candidate name",
+        experienceLevel: "Experience level",
+        resumeStyle: "Resume style",
+        outputFormat: "Output format",
+        sectionsToInclude: "Sections to include",
+        resumeFile: "Resume file",
+        uploadResume: "Upload resume file",
+        replaceFile: "Replace file",
+        selectedFile: "Selected file",
+        removeFile: "Remove file",
+        fileRequired: "Please upload a resume file first.",
+        resumeBuilderOptions: "Resume builder options",
+        resumeBuilderResultTitle: "Improved resume",
+        downloadFile: "Download file",
+        invalidFileType: "Please upload a PDF, DOC, or DOCX file.",
+        fileTooLarge: "File size must be 10MB or less.",
+        targetRoleRequired: "Please enter the target role.",
+        genericError: "Could not improve the resume right now. Please try again.",
+    };
+
+    return {
+        ...base,
+        ...resumeLabels,
+    };
+});
+
+const baseExamplePrompt = computed(() => isBusinessNameTool.value
     ? "Generate 10 Arabic business names for a startup that sells AI tools for marketers"
     : isHumanizer.value
         ? "Humanize this text in Arabic: الذكاء الاصطناعي يقوم بتحسين عمليات إنشاء المحتوى بطريقة فعالة للغاية."
         : "Analyze this text and tell me if it sounds AI-written: Artificial intelligence is transforming the way businesses create content and communicate with customers."
+);
+
+const examplePrompt = computed(() => isResumeBuilder.value
+    ? "Improve this resume for a Senior Laravel Developer role and make it ATS-friendly."
+    : baseExamplePrompt.value
 );
 
 const detectorExtraOptionChoices = [
@@ -816,9 +1017,30 @@ const businessNameExtraOptionChoices = [
     "Domain-friendly",
     "Avoid hard pronunciation",
 ];
+const resumeSectionChoices = [
+    "Summary",
+    "Skills",
+    "Experience",
+    "Education",
+    "Certifications",
+    "Projects",
+    "Languages",
+];
+const resumeExtraOptionChoices = [
+    "Improve clarity",
+    "Use strong action verbs",
+    "Keep it honest",
+    "Do not invent experience",
+    "Make it ATS-friendly",
+    "Fix grammar",
+    "Improve formatting",
+    "Highlight achievements",
+    "Quantify impact where possible",
+];
 
 const extraOptionChoices = computed(() => {
     if (isBusinessNameTool.value) return businessNameExtraOptionChoices;
+    if (isResumeBuilder.value) return resumeExtraOptionChoices;
     if (isHumanizer.value) return humanizerExtraOptionChoices;
     return detectorExtraOptionChoices;
 });
@@ -870,8 +1092,37 @@ function createBusinessNameState() {
     };
 }
 
+function createResumeBuilderState() {
+    return {
+        target_role: "Senior Laravel Developer",
+        candidate_name: null,
+        language: "English",
+        tone: "Professional",
+        experience_level: "Senior",
+        resume_style: "ATS-friendly modern",
+        output_format: "docx",
+        sections_to_include: [
+            "Summary",
+            "Skills",
+            "Experience",
+            "Education",
+            "Certifications",
+            "Projects",
+            "Languages",
+        ],
+        extra_options: [
+            "Improve clarity",
+            "Use strong action verbs",
+            "Keep it honest",
+            "Do not invent experience",
+        ],
+        last_output: null,
+    };
+}
+
 function createDefaultStateForTool(subToolId) {
     if (Number(subToolId) === HUMANIZER_SUB_TOOL_ID) return createHumanizerState();
+    if (Number(subToolId) === RESUME_BUILDER_SUB_TOOL_ID) return createResumeBuilderState();
     if (Number(subToolId) === BUSINESS_NAME_SUB_TOOL_ID) return createBusinessNameState();
     return createDetectorState();
 }
@@ -895,12 +1146,18 @@ const optionsSummary = computed(() => {
             .join(" / ");
     }
 
+    if (isResumeBuilder.value) {
+        return [state.language, state.tone, state.experience_level, state.output_format]
+            .filter(Boolean)
+            .join(" / ");
+    }
+
     return [state.language, state.analysis_depth, state.detection_focus]
         .filter(Boolean)
         .join(" / ");
 });
 
-const typingText = computed(() => {
+const baseTypingText = computed(() => {
     if (isBusinessNameTool.value) {
         return isArabic.value ? "جاري الكتابة" : "Generating business names";
     }
@@ -911,6 +1168,11 @@ const typingText = computed(() => {
 
     return isArabic.value ? "جاري الكتابة" : "Analyzing content";
 });
+
+const typingText = computed(() => isResumeBuilder.value
+    ? (isArabic.value ? "Ø¬Ø§Ø±ÙŠ ØªØ­Ø³ÙŠÙ† Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©" : "Improving resume")
+    : baseTypingText.value
+);
 
 useSeoMeta({
     title: computed(() => `${pageTitle.value} | Ai Pro`),
@@ -999,7 +1261,18 @@ function getMessageText(message) {
     return String(message?.content || "");
 }
 
+function getMessageDownloadUrl(message) {
+    const result = Array.isArray(message?.results) ? message.results[0] : null;
+    const meta = result?.meta && typeof result.meta === "object" ? result.meta : {};
+
+    return String(meta.download_url || meta.file_url || "").trim();
+}
+
 function getResultTitle(subToolId = activeSubToolId.value) {
+    if (Number(subToolId) === RESUME_BUILDER_SUB_TOOL_ID) {
+        return isArabic.value ? "Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ© Ø§Ù„Ù…Ø­Ø³Ù†Ø©" : "Improved resume";
+    }
+
     if (Number(subToolId) === BUSINESS_NAME_SUB_TOOL_ID) {
         return isArabic.value ? "أسماء المشاريع المقترحة" : "Suggested business names";
     }
@@ -1062,6 +1335,18 @@ function cleanErrorMessage(error) {
         return isArabic.value
             ? "يرجى تسجيل الدخول أولاً للمتابعة."
             : "Please sign in first to continue.";
+    }
+
+    if (isResumeBuilder.value) {
+        const errors = error?.response?.data?.errors;
+        const firstFieldError = errors && typeof errors === "object"
+            ? Object.values(errors).flat().find(Boolean)
+            : null;
+        const serverMessage = firstFieldError || raw;
+
+        if (serverMessage) {
+            return String(serverMessage);
+        }
     }
 
     if (text.includes("422") || lower.includes("validation")) {
@@ -1252,7 +1537,53 @@ function buildBusinessNameState(userMessage, currentState = {}) {
     };
 }
 
+function extractResumeTargetRole(userMessage) {
+    const text = String(userMessage || "").trim();
+    const patterns = [
+        /(?:for|as)\s+(?:a\s+|an\s+)?([^.,\n]+?)\s+(?:role|position|job)/i,
+        /(?:role|position|job):\s*([^.\n]+)/i,
+        /target role:\s*([^.\n]+)/i,
+        /resume\s+for\s+(?:a\s+|an\s+)?([^.,\n]+)/i,
+        /cv\s+for\s+(?:a\s+|an\s+)?([^.,\n]+)/i,
+        /Ø§Ù„ÙˆØ¸ÙŠÙØ©:\s*([^.\n]+)/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match?.[1]) return match[1].trim();
+    }
+
+    return "";
+}
+
+function buildResumeBuilderState(userMessage, currentState = {}) {
+    const text = String(userMessage || "").trim();
+    const extractedRole = extractResumeTargetRole(text);
+    const defaults = createResumeBuilderState();
+
+    return {
+        target_role: extractedRole || currentState.target_role || defaults.target_role,
+        candidate_name: currentState.candidate_name || null,
+        language: currentState.language || defaults.language,
+        tone: currentState.tone || defaults.tone,
+        experience_level: currentState.experience_level || defaults.experience_level,
+        resume_style: currentState.resume_style || defaults.resume_style,
+        output_format: currentState.output_format || defaults.output_format,
+        sections_to_include: Array.isArray(currentState.sections_to_include) && currentState.sections_to_include.length
+            ? currentState.sections_to_include
+            : defaults.sections_to_include,
+        extra_options: Array.isArray(currentState.extra_options) && currentState.extra_options.length
+            ? currentState.extra_options
+            : defaults.extra_options,
+        last_output: null,
+    };
+}
+
 function buildChat4ToolState(subToolId, userMessage, currentState = {}) {
+    if (Number(subToolId) === RESUME_BUILDER_SUB_TOOL_ID) {
+        return buildResumeBuilderState(userMessage, currentState);
+    }
+
     if (Number(subToolId) === BUSINESS_NAME_SUB_TOOL_ID) {
         return buildBusinessNameState(userMessage, currentState);
     }
@@ -1265,7 +1596,7 @@ function buildChat4ToolState(subToolId, userMessage, currentState = {}) {
 }
 
 function getStateSeedText(state = toolState.value) {
-    return String(state?.content || state?.business_idea || "");
+    return String(state?.content || state?.business_idea || state?.target_role || "");
 }
 
 function buildChat4Payload(messageText, conversation) {
@@ -1290,6 +1621,28 @@ function buildChat4Payload(messageText, conversation) {
         debug: false,
         idempotency_key: createIdempotencyKey(),
     };
+}
+
+function buildResumeBuilderFormData(messageText, conversation, payload) {
+    const formData = new FormData();
+
+    formData.append("conversation_uuid", String(payload.conversation_uuid || conversation?.uuid || ""));
+    formData.append("user_id", payload.user_id === null || payload.user_id === undefined ? "" : String(payload.user_id));
+    formData.append("sub_tool_id", String(payload.sub_tool_id));
+    formData.append("user_message", messageText);
+    formData.append("state", JSON.stringify(payload.state || {}));
+    formData.append("debug", payload.debug ? "1" : "0");
+    formData.append("idempotency_key", String(payload.idempotency_key || ""));
+    formData.append("tool", String(payload.tool || ""));
+    formData.append("tool_key", String(payload.tool_key || ""));
+    formData.append("model_key", String(payload.model_key || ""));
+    formData.append("content", String(payload.content || messageText || ""));
+
+    if (resumeFile.value) {
+        formData.append("file", resumeFile.value);
+    }
+
+    return formData;
 }
 
 function normalizeResultText(value) {
@@ -1326,6 +1679,11 @@ function normalizeResultText(value) {
 
 function normalizeChat4Response(response) {
     const results = Array.isArray(response?.results) ? response.results : [];
+    const responseMeta = {
+        download_url: response?.download_url || response?.meta?.download_url || null,
+        file_url: response?.file_url || response?.meta?.file_url || null,
+        output_format: response?.output_format || response?.meta?.output_format || null,
+    };
 
     if (results.length) {
         return results.map((item, index) => ({
@@ -1333,8 +1691,11 @@ function normalizeChat4Response(response) {
             text: normalizeResultText(item.text || item.name || item.content || item.output || ""),
             title: item.title || null,
             subject: item.subject || null,
-            meta: item.meta && typeof item.meta === "object" ? item.meta : {},
-        })).filter((item) => item.text.trim());
+            meta: {
+                ...Object.fromEntries(Object.entries(responseMeta).filter(([, value]) => value)),
+                ...(item.meta && typeof item.meta === "object" ? item.meta : {}),
+            },
+        })).filter((item) => item.text.trim() || item.meta.download_url || item.meta.file_url);
     }
 
     if (response?.state?.last_output) {
@@ -1347,7 +1708,7 @@ function normalizeChat4Response(response) {
                 text,
                 title: null,
                 subject: null,
-                meta: {},
+                meta: Object.fromEntries(Object.entries(responseMeta).filter(([, value]) => value)),
             }));
     }
 
@@ -1358,7 +1719,7 @@ const unwrapApiData = (response) => response?.data || response || {};
 
 const normalizeStateFromResponse = (state = {}, subToolId = activeSubToolId.value) => buildChat4ToolState(
     subToolId,
-    state.business_idea || state.content || "",
+    state.business_idea || state.content || state.target_role || "",
     {
         ...createDefaultStateForTool(subToolId),
         ...(state && typeof state === "object" ? state : {}),
@@ -1413,6 +1774,9 @@ const restoreState = (uuid = route.params.uuid || "draft") => {
         stored || createDefaultStateForTool(activeSubToolId.value),
         activeSubToolId.value
     );
+    if (isResumeBuilder.value) {
+        removeResumeFile();
+    }
 };
 
 const hydrateStateFromMessages = (rows = []) => {
@@ -1549,6 +1913,12 @@ const sendMessage = async () => {
     const text = String(userMessage.value || "").trim();
     if (!text || isSending.value || isAssistantTyping.value) return;
 
+    const resumeValidationMessage = validateResumeBuilderBeforeSend(text);
+    if (resumeValidationMessage) {
+        errorMessage.value = resumeValidationMessage;
+        return;
+    }
+
     errorMessage.value = "";
     isSending.value = true;
 
@@ -1572,7 +1942,9 @@ const sendMessage = async () => {
         persistState(conversation.uuid);
         await scrollToBottom();
 
-        const response = await chatServices.sendMessage(payload);
+        const response = isResumeBuilder.value
+            ? await chatServices.sendMessageFormData(buildResumeBuilderFormData(text, conversation, payload))
+            : await chatServices.sendMessage(payload);
         const directResponse = unwrapApiData(response);
         const results = normalizeChat4Response(directResponse);
 
@@ -1642,6 +2014,7 @@ const startNewChat = async () => {
         ];
         messages.value = [];
         toolState.value = createDefaultStateForTool(activeSubToolId.value);
+        removeResumeFile();
         persistState(conversation.uuid);
         sidebarOpen.value = false;
 
@@ -1679,6 +2052,7 @@ const deleteConversation = async (conversation) => {
             activeConversation.value = null;
             messages.value = [];
             toolState.value = createDefaultStateForTool(activeSubToolId.value);
+            removeResumeFile();
             await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat4`);
         }
     } finally {
@@ -1704,6 +2078,77 @@ const toggleExtraOption = (option) => {
         : [...selected, option];
 };
 
+const toggleResumeSection = (section) => {
+    const selected = Array.isArray(toolState.value.sections_to_include)
+        ? toolState.value.sections_to_include
+        : [];
+
+    toolState.value.sections_to_include = selected.includes(section)
+        ? selected.filter((item) => item !== section)
+        : [...selected, section];
+};
+
+const clearResumeFileInput = () => {
+    if (resumeFileInputRef.value) {
+        resumeFileInputRef.value.value = "";
+    }
+};
+
+const validateResumeFile = (file) => {
+    if (!file) return "";
+
+    const extension = String(file.name || "").split(".").pop()?.toLowerCase();
+    if (!["pdf", "doc", "docx"].includes(extension)) {
+        return labels.value.invalidFileType;
+    }
+
+    if (Number(file.size || 0) > RESUME_MAX_FILE_SIZE_BYTES) {
+        return labels.value.fileTooLarge;
+    }
+
+    return "";
+};
+
+const handleResumeFileChange = (event) => {
+    const file = event?.target?.files?.[0] || null;
+    const validationMessage = validateResumeFile(file);
+
+    if (validationMessage) {
+        errorMessage.value = validationMessage;
+        resumeFile.value = null;
+        clearResumeFileInput();
+        return;
+    }
+
+    resumeFile.value = file;
+    errorMessage.value = "";
+};
+
+const removeResumeFile = () => {
+    resumeFile.value = null;
+    clearResumeFileInput();
+};
+
+const isImproveResumeRequest = (messageText) => {
+    const text = String(messageText || "").toLowerCase();
+    return /\b(improve|enhance|rewrite|optimi[sz]e|fix|update|review|polish)\b/.test(text)
+        && /\b(resume|cv|curriculum vitae)\b/.test(text);
+};
+
+const validateResumeBuilderBeforeSend = (messageText) => {
+    if (!isResumeBuilder.value) return "";
+
+    if (!String(toolState.value.target_role || "").trim()) {
+        return labels.value.targetRoleRequired;
+    }
+
+    if (!resumeFile.value && isImproveResumeRequest(messageText)) {
+        return labels.value.fileRequired;
+    }
+
+    return validateResumeFile(resumeFile.value);
+};
+
 const applyOptions = () => {
     toolState.value = buildChat4ToolState(activeSubToolId.value, getStateSeedText(toolState.value), toolState.value);
     persistState();
@@ -1715,6 +2160,9 @@ const applyOptions = () => {
 
 const resetOptions = () => {
     toolState.value = createDefaultStateForTool(activeSubToolId.value);
+    if (isResumeBuilder.value) {
+        removeResumeFile();
+    }
     persistState();
 };
 
@@ -2367,6 +2815,23 @@ button:disabled {
     line-height: 1.75;
 }
 
+.ai-download-section {
+    padding: 0 16px 16px;
+}
+
+.ai-download-section a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid #cfe3ef;
+    border-radius: 8px;
+    color: #fff;
+    background: var(--blue);
+    font-size: 12px;
+    font-weight: 800;
+}
+
 .business-result-list {
     display: grid;
     gap: 12px;
@@ -2664,6 +3129,56 @@ button:disabled {
 .checkbox-option span {
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.resume-file-panel {
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.resume-file-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 40px;
+    padding: 9px 12px;
+    border: 1px solid rgba(18, 63, 109, 0.14);
+    border-radius: 10px;
+    color: var(--navy);
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.resume-file-button input {
+    display: none;
+}
+
+.resume-file-selected {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    color: var(--navy);
+    font-size: 12px;
+}
+
+.resume-file-selected button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #f1b9b9;
+    border-radius: 8px;
+    color: #8b2525;
+    background: #fff4f4;
+    font-size: 11px;
+    font-weight: 800;
 }
 
 .options-actions {

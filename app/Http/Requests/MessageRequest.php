@@ -13,6 +13,7 @@ class MessageRequest extends FormRequest
 {
     private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
     private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
+    private const RESUME_BUILDER_SUB_TOOL_ID = 19;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
@@ -136,6 +137,10 @@ class MessageRequest extends FormRequest
 
         $subToolId = (int) $this->input('sub_tool_id');
 
+        if ($this->isResumeBuilderRequest()) {
+            return array_merge($rules, $this->resumeBuilderRules());
+        }
+
         if (in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)) {
             return array_merge($rules, $this->chat3SeoStateRules());
         }
@@ -183,6 +188,7 @@ class MessageRequest extends FormRequest
         }
 
         $this->normalizeChat3SeoStateForValidation();
+        $this->normalizeResumeBuilderStateForValidation();
     }
 
     private function normalizeMessageTextFields(): void
@@ -265,6 +271,35 @@ class MessageRequest extends FormRequest
         $this->merge(['state' => $state]);
     }
 
+    private function normalizeResumeBuilderStateForValidation(): void
+    {
+        if (! $this->isResumeBuilderRequest()) {
+            return;
+        }
+
+        $state = $this->input('state');
+
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+        }
+
+        $this->merge([
+            'sub_tool_id' => self::RESUME_BUILDER_SUB_TOOL_ID,
+            'state' => is_array($state) ? $state : [],
+        ]);
+    }
+
+    private function isResumeBuilderRequest(): bool
+    {
+        $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
+        $modelKey = strtolower(trim((string) $this->input('model_key')));
+
+        return (int) $this->input('sub_tool_id') === self::RESUME_BUILDER_SUB_TOOL_ID
+            || $toolKey === 'resume_builder'
+            || $modelKey === 'resume_builder';
+    }
+
     private function firstFilledScalar(array $keys): ?string
     {
         foreach ($keys as $key) {
@@ -304,6 +339,28 @@ class MessageRequest extends FormRequest
         }
 
         return max(1, min($max, (int) $value));
+    }
+
+    private function resumeBuilderRules(): array
+    {
+        return [
+            'sub_tool_id' => ['required', 'integer', 'in:'.self::RESUME_BUILDER_SUB_TOOL_ID],
+            'user_message' => ['required', 'string', 'max:5000'],
+            'state' => ['required', 'array'],
+            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
+            'state.target_role' => ['required', 'string', 'max:255'],
+            'state.candidate_name' => ['nullable', 'string', 'max:255'],
+            'state.language' => ['required', 'string', 'max:80'],
+            'state.tone' => ['required', 'string', 'max:80'],
+            'state.experience_level' => ['required', 'string', 'max:80'],
+            'state.resume_style' => ['required', 'string', 'max:120'],
+            'state.output_format' => ['required', 'string', 'in:docx,pdf,text'],
+            'state.sections_to_include' => ['required', 'array', 'min:1'],
+            'state.sections_to_include.*' => ['string', 'max:100'],
+            'state.extra_options' => ['nullable', 'array'],
+            'state.extra_options.*' => ['string', 'max:150'],
+            'state.last_output' => ['nullable', 'string', 'max:100000'],
+        ];
     }
 
     private function legacyStateRules(): array

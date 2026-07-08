@@ -18,12 +18,15 @@ use App\Services\ChatSeoToolService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
 use App\Services\ProductDescriptionGeneratorService;
+use App\Services\ResumeBuilderService;
 use App\Services\ScriptGeneratorService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class MessageController extends Controller
@@ -59,9 +62,10 @@ class MessageController extends Controller
         MessageRequest $request,
         AiArabicWriterService $writerService,
         EmailWriterService $emailWriterService,
-        ScriptGeneratorService $scriptGeneratorService,
-        ProductDescriptionGeneratorService $productDescriptionGeneratorService,
-        ChatSeoToolService $chatSeoToolService
+            ScriptGeneratorService $scriptGeneratorService,
+            ProductDescriptionGeneratorService $productDescriptionGeneratorService,
+            ChatSeoToolService $chatSeoToolService,
+            ResumeBuilderService $resumeBuilderService
     )
     {
         Log::info('Message send request received', [
@@ -131,6 +135,18 @@ class MessageController extends Controller
                 return $this->validationError([
                     'user_message' => ['Message content is required.'],
                 ], 'Invalid message data.');
+            }
+
+            if ($subToolId === ResumeBuilderService::SUB_TOOL_ID) {
+                return $this->success(
+                    $resumeBuilderService->handle(
+                        $conversation,
+                        $data,
+                        $request->file('file'),
+                        $userId
+                    ),
+                    'Resume Builder Response Ready.'
+                );
             }
 
             if ($isChatSeoTool) {
@@ -261,6 +277,11 @@ class MessageController extends Controller
             return $this->aiProviderErrorResponse($th);
         } catch (ValidationException $th) {
             return $this->validationError($th->errors(), 'Invalid SEO tool payload.');
+        } catch (HttpExceptionInterface $th) {
+            return $this->error(
+                $th->getMessage() ?: 'Unsupported file type.',
+                $th->getStatusCode()
+            );
         } catch (Throwable $th) {
             Log::error('Send message failed.', [
                 'message' => $th->getMessage(),
@@ -281,6 +302,28 @@ class MessageController extends Controller
 
             return $this->error('Sorry, I could not generate a response right now.');
         }
+    }
+
+    public function downloadResumeOutput(string $filename)
+    {
+        if (! preg_match('/^[A-Za-z0-9-]+\.(docx|pdf)$/', $filename)) {
+            abort(404);
+        }
+
+        $path = 'resume_outputs/'.$filename;
+
+        if (! Storage::disk('local')->exists($path)) {
+            abort(404);
+        }
+
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $contentType = $extension === 'pdf'
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+        return Storage::disk('local')->download($path, $filename, [
+            'Content-Type' => $contentType,
+        ]);
     }
 
     protected function handleTextSummarizerFlow(
