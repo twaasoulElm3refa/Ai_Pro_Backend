@@ -1338,6 +1338,18 @@ function resolveDownloadUrl(url) {
         return value;
     }
 
+    const aiArabicBase =
+        import.meta.env.VITE_AIARABIC_PUBLIC_BASE_URL
+        || "https://api.aiarabic.com";
+
+    if (value.startsWith("/tasks/resume-builder/download/")) {
+        return `${String(aiArabicBase).replace(/\/$/, "")}${value}`;
+    }
+
+    if (value.startsWith("tasks/resume-builder/download/")) {
+        return `${String(aiArabicBase).replace(/\/$/, "")}/${value}`;
+    }
+
     const apiBase =
         import.meta.env.VITE_API_BASE_URL
         || import.meta.env.VITE_API_URL
@@ -1371,6 +1383,10 @@ async function getDownloadErrorMessage(response) {
             );
         }
 
+        if (contentType.includes("text/html")) {
+            return `Download URL is invalid or route not found: ${fallback}`;
+        }
+
         const text = await response.text();
 
         return String(
@@ -1388,10 +1404,18 @@ async function downloadResumeFile(message) {
     if (!url) return;
 
     try {
-        const token = localStorage.getItem("auth_token");
-        const response = await fetch(url, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        const headers = {
+            Accept: "application/json",
+        };
+
+        if (!url.includes("api.aiarabic.com/tasks/resume-builder/download/")) {
+            const token = localStorage.getItem("auth_token");
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+        }
+
+        const response = await fetch(url, { headers });
 
         if (!response.ok) {
             throw new Error(await getDownloadErrorMessage(response));

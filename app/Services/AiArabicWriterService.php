@@ -27,7 +27,10 @@ class AiArabicWriterService
 
     public function __construct()
     {
-        $this->url = (string) config('services.aiarabic.url', 'https://api.aiarabic.com');
+        $this->url = (string) config(
+            'services.aiarabic.url',
+            config('services.aiarabic.base_url', 'https://api.aiarabic.com')
+        );
         $this->apiKey = (string) config('services.aiarabic.key', 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy');
     }
 

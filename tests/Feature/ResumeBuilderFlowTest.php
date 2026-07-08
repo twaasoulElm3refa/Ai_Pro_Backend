@@ -6,7 +6,6 @@ use App\Models\Conversation;
 use App\Models\CostLogger;
 use App\Models\MainTools;
 use App\Models\Message;
-use App\Models\ResumeGeneratedFile;
 use App\Models\SubTools;
 use App\Models\User;
 use App\Models\Wallet;
@@ -47,6 +46,7 @@ class ResumeBuilderFlowTest extends TestCase
         $state = $this->resumeState(['output_format' => 'docx']);
         $upload = $this->docxUpload('resume.docx', 'Jane Doe Senior Laravel Developer');
         $requestId = (string) Str::uuid();
+        $providerFileId = (string) Str::uuid();
         $writer = Mockery::mock(AiArabicWriterService::class);
         $writer->shouldReceive('generateResumeBuilderReplyWithUsage')
             ->once()
@@ -87,10 +87,10 @@ class ResumeBuilderFlowTest extends TestCase
                     'meta' => [],
                 ]],
                 'file' => [
-                    'file_id' => (string) Str::uuid(),
+                    'file_id' => $providerFileId,
                     'filename' => 'Jane_Doe_resume.docx',
                     'content_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'download_url' => '/tasks/resume-builder/download/provider-file-id',
+                    'download_url' => "/tasks/resume-builder/download/{$providerFileId}",
                 ],
                 'request_id' => $requestId,
                 'usage' => [
@@ -140,10 +140,17 @@ class ResumeBuilderFlowTest extends TestCase
             ->assertJsonPath('data.cost.total_cost', 0.0016955);
 
         $this->assertNotEmpty($response->json('data.results.0.meta.download_url'));
-        $this->assertStringContainsString('/tasks/resume-builder/download/', $response->json('data.results.0.meta.download_url'));
+        $this->assertSame(
+            "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}",
+            $response->json('data.results.0.meta.download_url')
+        );
+        $this->assertSame(
+            "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}",
+            $response->json('data.file.download_url')
+        );
         $this->assertCount(0, Storage::disk('local')->files('resume_uploads'));
-        $this->assertCount(1, Storage::disk('local')->files('resume_outputs'));
-        $this->assertDatabaseCount('resume_generated_files', 1);
+        $this->assertCount(0, Storage::disk('local')->files('resume_outputs'));
+        $this->assertDatabaseCount('resume_generated_files', 0);
 
         $assistant = Message::query()
             ->where('conversation_id', $conversation->id)
@@ -156,7 +163,14 @@ class ResumeBuilderFlowTest extends TestCase
         $this->assertSame($requestId, $assistant->metadata['request_id']);
         $this->assertSame(5191, $assistant->metadata['usage']['total_tokens']);
         $this->assertSame('Jane_Doe_resume.docx', $assistant->metadata['file']['filename']);
-        $this->assertArrayHasKey('download_url', $assistant->metadata['normalized_results'][0]['meta']);
+        $this->assertSame(
+            "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}",
+            $assistant->metadata['file']['download_url']
+        );
+        $this->assertSame(
+            "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}",
+            $assistant->metadata['normalized_results'][0]['meta']['download_url']
+        );
         $this->assertArrayNotHasKey('body', $assistant->metadata['request_payload']);
         $this->assertArrayNotHasKey('path', $assistant->metadata['request_payload']['uploaded_file']);
 
@@ -168,23 +182,15 @@ class ResumeBuilderFlowTest extends TestCase
         $this->assertSame(5191, (int) $cost->total_tokens);
         $this->assertEqualsWithDelta(0.0016955, (float) $cost->total_cost, 0.00000001);
 
-        $generatedFile = ResumeGeneratedFile::firstOrFail();
-        $this->assertSame($user->id, (int) $generatedFile->user_id);
-        $this->assertSame($conversation->uuid, $generatedFile->conversation_uuid);
-        $this->assertSame($assistant->id, (int) $generatedFile->message_id);
-        $this->assertSame('Jane_Doe_resume.docx', $generatedFile->filename);
-
-        $this->withHeaders($this->apiHeaders())
-            ->get("/api/v1/tasks/resume-builder/download/{$generatedFile->file_id}")
-            ->assertOk()
-            ->assertDownload('Jane_Doe_resume.docx');
-
         $history = $this->withHeaders($this->apiHeaders())
             ->getJson("/api/v1/conversation/{$conversation->uuid}");
         $history->assertOk()
             ->assertJsonPath('data.message.1.metadata.file.filename', 'Jane_Doe_resume.docx')
+            ->assertJsonPath('data.message.1.metadata.file.download_url', "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}")
             ->assertJsonPath('data.message.1.metadata.normalized_results.0.meta.filename', 'Jane_Doe_resume.docx')
-            ->assertJsonPath('data.message.1.file.filename', 'Jane_Doe_resume.docx');
+            ->assertJsonPath('data.message.1.metadata.normalized_results.0.meta.download_url', "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}")
+            ->assertJsonPath('data.message.1.file.filename', 'Jane_Doe_resume.docx')
+            ->assertJsonPath('data.message.1.file.download_url', "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}");
     }
 
     public function test_resume_builder_accepts_file_only_and_prevents_duplicate_deduction(): void

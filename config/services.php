@@ -28,7 +28,9 @@ return [
         'vector_size' => env('QDRANT_VECTOR_SIZE', 1536),
     ],
     'aiarabic' => [
-        'url' => env('AIARABIC_WRITER_URL', 'https://api.aiarabic.com'),
+        'base_url' => env('AIARABIC_BASE_URL', 'https://api.aiarabic.com'),
+        'url' => env('AIARABIC_WRITER_URL', env('AIARABIC_BASE_URL', 'https://api.aiarabic.com')),
+        'public_base_url' => env('AIARABIC_PUBLIC_BASE_URL', 'https://api.aiarabic.com'),
         'key' => env('AIARABIC_INTERNAL_API_KEY', 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy'),
         'inject_qdrant_context' => env('AIARABIC_INJECT_QDRANT_CONTEXT', false),
         'conversation_token_limit' => env('AI_CONVERSATION_TOKEN_LIMIT', 7000),

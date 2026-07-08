@@ -138,8 +138,11 @@ class ResumeBuilderService
 
         $resumeText = $this->resultsText($normalizedResults);
         $providerFile = $this->normalizeProviderFile($providerResponse['file'] ?? data_get($providerResponse, 'raw.file'));
-        $generatedOutput = $this->generateOutput($resumeText, $state, $providerFile);
-        $fileMetadata = $this->publicFileMetadata($generatedOutput);
+        $providerFileMetadata = $this->publicFileMetadata($providerFile);
+        $generatedOutput = $providerFileMetadata !== [] ? [] : $this->generateOutput($resumeText, $state, $providerFile);
+        $fileMetadata = $providerFileMetadata !== []
+            ? $providerFileMetadata
+            : $this->publicFileMetadata($generatedOutput);
         $normalizedResults = $this->mergeFileMetadataIntoResults(
             $normalizedResults,
             $fileMetadata,
@@ -657,8 +660,8 @@ class ResumeBuilderService
             'file_id' => $this->toNullableString($file['file_id'] ?? null),
             'filename' => $this->sanitizeFilename($file['filename'] ?? null),
             'content_type' => $this->toNullableString($file['content_type'] ?? null),
-            'download_url' => $this->toNullableString($file['download_url'] ?? null),
-            'file_url' => $this->toNullableString($file['file_url'] ?? null),
+            'download_url' => $this->normalizeResumeDownloadUrl($this->toNullableString($file['download_url'] ?? null)),
+            'file_url' => $this->normalizeResumeDownloadUrl($this->toNullableString($file['file_url'] ?? null)),
         ];
     }
 
@@ -668,12 +671,20 @@ class ResumeBuilderService
             return [];
         }
 
+        $fileId = $this->toNullableString($generatedOutput['file_id'] ?? null);
+        $downloadUrl = $this->normalizeResumeDownloadUrl($this->toNullableString($generatedOutput['download_url'] ?? null));
+        $fileUrl = $this->normalizeResumeDownloadUrl($this->toNullableString($generatedOutput['file_url'] ?? null));
+
+        if (! $downloadUrl && $fileId) {
+            $downloadUrl = $this->normalizeResumeDownloadUrl("/tasks/resume-builder/download/{$fileId}");
+        }
+
         return [
-            'file_id' => $generatedOutput['file_id'],
+            'file_id' => $fileId,
             'filename' => $generatedOutput['filename'] ?? null,
             'content_type' => $generatedOutput['content_type'] ?? null,
-            'download_url' => $generatedOutput['download_url'] ?? null,
-            'file_url' => $generatedOutput['file_url'] ?? null,
+            'download_url' => $downloadUrl,
+            'file_url' => $fileUrl ?: $downloadUrl,
             'output_format' => $generatedOutput['output_format'] ?? null,
         ];
     }
@@ -688,6 +699,7 @@ class ResumeBuilderService
 
         return array_values(array_map(function (array $result) use ($file, $extraMeta, $outputFormat): array {
             $meta = is_array($result['meta'] ?? null) ? $result['meta'] : [];
+            $meta = $this->normalizeResultFileMeta($meta);
             $fallbackFileMeta = array_filter([
                 'file_id' => $file['file_id'] ?? null,
                 'download_url' => $file['download_url'] ?? null,
@@ -724,7 +736,46 @@ class ResumeBuilderService
 
     private function downloadUrlForFileId(string $fileId): string
     {
-        return "/tasks/resume-builder/download/{$fileId}";
+        return $this->normalizeResumeDownloadUrl("/tasks/resume-builder/download/{$fileId}")
+            ?: "/tasks/resume-builder/download/{$fileId}";
+    }
+
+    private function normalizeResultFileMeta(array $meta): array
+    {
+        if (isset($meta['download_url'])) {
+            $meta['download_url'] = $this->normalizeResumeDownloadUrl($this->toNullableString($meta['download_url']));
+        }
+
+        if (isset($meta['file_url'])) {
+            $meta['file_url'] = $this->normalizeResumeDownloadUrl($this->toNullableString($meta['file_url']));
+        }
+
+        return $meta;
+    }
+
+    private function normalizeResumeDownloadUrl(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        $url = trim($url);
+
+        if (preg_match('/^https?:\/\//i', $url) === 1) {
+            return $url;
+        }
+
+        $base = rtrim((string) config('services.aiarabic.public_base_url', 'https://api.aiarabic.com'), '/');
+
+        if (str_starts_with($url, '/tasks/resume-builder/download/')) {
+            return $base.$url;
+        }
+
+        if (str_starts_with($url, 'tasks/resume-builder/download/')) {
+            return $base.'/'.$url;
+        }
+
+        return $url;
     }
 
     private function generatePdfFallbackMessage(): string
