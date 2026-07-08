@@ -205,6 +205,36 @@
                                 </div>
                             </template>
 
+                            <div
+                                v-else-if="message.role === 'user' && getMessageUploadedFile(message)"
+                                class="user-message-stack"
+                            >
+                                <div
+                                    v-if="getMessageUploadedFile(message)"
+                                    class="user-uploaded-file-card"
+                                >
+                                    <span class="user-uploaded-file-icon">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </span>
+
+                                    <span class="user-uploaded-file-info">
+                                        <strong>{{ getMessageUploadedFile(message).filename || getMessageUploadedFile(message).name }}</strong>
+                                        <small>
+                                            {{ getMessageUploadedFile(message).label || 'Document' }}
+                                            <template v-if="formatFileSize(getMessageUploadedFile(message).size)">
+                                                · {{ formatFileSize(getMessageUploadedFile(message).size) }}
+                                            </template>
+                                        </small>
+                                    </span>
+                                </div>
+
+                                <div
+                                    v-if="message.content"
+                                    class="message-content"
+                                    v-html="formatMessage(message.content)"
+                                ></div>
+                            </div>
+
                             <div v-else-if="message.content" class="message-content"
                                 v-html="formatMessage(message.content)"></div>
                         </div>
@@ -1194,6 +1224,74 @@ const metadataFrom = (message = {}) => {
     return {};
 };
 
+function createUploadedFileMeta(file) {
+    if (!file) return null;
+
+    const name = String(file.name || "").trim();
+    const extension = name.includes(".")
+        ? name.split(".").pop().toLowerCase()
+        : "";
+
+    return {
+        name,
+        filename: name,
+        size: Number(file.size || 0),
+        mime_type: file.type || "application/octet-stream",
+        extension,
+        label: "Document",
+    };
+}
+
+function getMessageUploadedFile(message) {
+    const meta = message?.metadata && typeof message.metadata === "object"
+        ? message.metadata
+        : {};
+    const subToolId = Number(meta.sub_tool_id || message?.sub_tool_id || 0);
+
+    if (subToolId !== RESUME_BUILDER_SUB_TOOL_ID) {
+        return null;
+    }
+
+    const uploadedFile =
+        meta.uploaded_file
+        || meta.file_upload
+        || meta.user_file
+        || null;
+
+    if (!uploadedFile || typeof uploadedFile !== "object" || uploadedFile.uploaded === false) {
+        return null;
+    }
+
+    const name = String(
+        uploadedFile.filename
+        || uploadedFile.name
+        || uploadedFile.original_filename
+        || ""
+    ).trim();
+
+    if (!name) {
+        return null;
+    }
+
+    return {
+        ...uploadedFile,
+        name,
+        filename: name,
+        label: uploadedFile.label || "Document",
+    };
+}
+
+function formatFileSize(bytes) {
+    const size = Number(bytes || 0);
+
+    if (!size) return "";
+
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function getMessageToolId(message) {
     return Number(
         message?.metadata?.sub_tool_id
@@ -2079,6 +2177,10 @@ const sendMessage = async () => {
         return;
     }
 
+    const uploadedFileMeta = isResumeBuilder.value && resumeFile.value
+        ? createUploadedFileMeta(resumeFile.value)
+        : null;
+
     errorMessage.value = "";
     isSending.value = true;
 
@@ -2104,6 +2206,7 @@ const sendMessage = async () => {
                 sub_tool_id: payload.sub_tool_id,
                 idempotency_key: payload.idempotency_key,
                 optimistic: true,
+                uploaded_file: uploadedFileMeta,
             },
             created_at: new Date().toISOString(),
         }));
@@ -2870,6 +2973,64 @@ button:disabled {
     color: #fff;
     border-color: transparent;
     background: linear-gradient(145deg, var(--navy), var(--blue));
+}
+
+.user-message-stack {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+}
+
+[dir="rtl"] .user-message-stack {
+    justify-items: start;
+}
+
+.user-uploaded-file-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(360px, 76vw);
+    padding: 10px 12px;
+    border: 1px solid #d8e6f7;
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--ink);
+    box-shadow: 0 10px 24px rgba(18, 63, 109, 0.08);
+}
+
+.user-uploaded-file-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border-radius: 10px;
+    color: #ffffff;
+    background: linear-gradient(145deg, var(--navy), var(--blue));
+}
+
+.user-uploaded-file-info {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    text-align: start;
+}
+
+.user-uploaded-file-info strong {
+    max-width: 260px;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-uploaded-file-info small {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.3;
 }
 
 .message-content :deep(p) {

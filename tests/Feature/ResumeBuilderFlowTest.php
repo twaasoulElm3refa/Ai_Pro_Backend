@@ -174,6 +174,17 @@ class ResumeBuilderFlowTest extends TestCase
         $this->assertArrayNotHasKey('body', $assistant->metadata['request_payload']);
         $this->assertArrayNotHasKey('path', $assistant->metadata['request_payload']['uploaded_file']);
 
+        $userMessage = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('role', 'user')
+            ->firstOrFail();
+        $this->assertSame('resume.docx', $userMessage->metadata['uploaded_file']['filename']);
+        $this->assertSame('resume.docx', $userMessage->metadata['uploaded_file']['name']);
+        $this->assertSame('resume.docx', $userMessage->metadata['uploaded_file']['original_filename']);
+        $this->assertSame('docx', $userMessage->metadata['uploaded_file']['extension']);
+        $this->assertSame('Document', $userMessage->metadata['uploaded_file']['label']);
+        $this->assertArrayNotHasKey('path', $userMessage->metadata['uploaded_file']);
+
         $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
         $this->assertSame(0, (int) $wallet->balance);
         $this->assertSame(4191, (int) $wallet->payback_balance);
@@ -185,12 +196,17 @@ class ResumeBuilderFlowTest extends TestCase
         $history = $this->withHeaders($this->apiHeaders())
             ->getJson("/api/v1/conversation/{$conversation->uuid}");
         $history->assertOk()
+            ->assertJsonPath('data.message.0.metadata.uploaded_file.filename', 'resume.docx')
+            ->assertJsonPath('data.message.0.metadata.uploaded_file.name', 'resume.docx')
+            ->assertJsonPath('data.message.0.metadata.uploaded_file.label', 'Document')
             ->assertJsonPath('data.message.1.metadata.file.filename', 'Jane_Doe_resume.docx')
             ->assertJsonPath('data.message.1.metadata.file.download_url', "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}")
             ->assertJsonPath('data.message.1.metadata.normalized_results.0.meta.filename', 'Jane_Doe_resume.docx')
             ->assertJsonPath('data.message.1.metadata.normalized_results.0.meta.download_url', "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}")
             ->assertJsonPath('data.message.1.file.filename', 'Jane_Doe_resume.docx')
             ->assertJsonPath('data.message.1.file.download_url', "https://api.aiarabic.com/tasks/resume-builder/download/{$providerFileId}");
+
+        $this->assertArrayNotHasKey('path', $history->json('data.message.0.metadata.uploaded_file'));
     }
 
     public function test_resume_builder_accepts_file_only_and_prevents_duplicate_deduction(): void

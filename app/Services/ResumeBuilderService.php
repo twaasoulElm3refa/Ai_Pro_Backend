@@ -352,9 +352,12 @@ class ResumeBuilderService
             return [
                 'metadata' => [
                     'original_filename' => null,
+                    'filename' => null,
+                    'name' => null,
                     'mime_type' => null,
                     'extension' => null,
                     'size' => null,
+                    'label' => 'Document',
                     'uploaded' => false,
                 ],
             ];
@@ -368,12 +371,17 @@ class ResumeBuilderService
             ]);
         }
 
+        $originalFilename = $this->sanitizeFilename($file->getClientOriginalName());
+
         return [
             'metadata' => [
-                'original_filename' => $this->sanitizeFilename($file->getClientOriginalName()),
+                'original_filename' => $originalFilename,
+                'filename' => $originalFilename,
+                'name' => $originalFilename,
                 'mime_type' => $file->getClientMimeType(),
                 'extension' => $extension,
                 'size' => $file->getSize(),
+                'label' => 'Document',
                 'uploaded' => true,
             ],
         ];
