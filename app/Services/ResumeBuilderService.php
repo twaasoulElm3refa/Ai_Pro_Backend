@@ -14,6 +14,7 @@ use Dompdf\Options as DompdfOptions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -87,7 +88,24 @@ class ResumeBuilderService
         }
 
         $conversation->loadMissing('user.wallet', 'subTool');
-        $uploadInfo = $this->summarizeUpload($file);
+        $reusedGeneratedFile = null;
+        $fileForAi = $file;
+
+        if ($fileForAi) {
+            $state['previous_generated_file'] = null;
+        } elseif (is_array($state['previous_generated_file'] ?? null)) {
+            $reusedGeneratedFile = $this->fetchPreviousGeneratedResumeFile($state['previous_generated_file']);
+
+            if (! $reusedGeneratedFile) {
+                throw ValidationException::withMessages([
+                    'previous_generated_file' => ['Could not reuse the previous generated resume file. Please upload the file again.'],
+                ]);
+            }
+
+            $fileForAi = $this->uploadedFileFromReusedGeneratedFile($reusedGeneratedFile);
+        }
+
+        $uploadInfo = $this->summarizeUpload($fileForAi);
         $requestPayload = $this->requestPayload(
             $conversation,
             $state,
@@ -98,7 +116,13 @@ class ResumeBuilderService
         );
         $endpoint = $this->resolveEndpoint($conversation);
         $providerFields = $this->providerFields($requestPayload);
-        $providerResponse = $this->writerService->generateResumeBuilderReplyWithUsage($providerFields, $file, $endpoint);
+
+        try {
+            $providerResponse = $this->writerService->generateResumeBuilderReplyWithUsage($providerFields, $fileForAi, $endpoint);
+        } finally {
+            $this->cleanupReusedGeneratedFile($reusedGeneratedFile);
+        }
+
         $providerResponse = is_array($providerResponse)
             ? $providerResponse
             : ['reply' => (string) $providerResponse];
@@ -158,6 +182,7 @@ class ResumeBuilderService
             : (is_array(data_get($providerResponse, 'raw.state')) ? data_get($providerResponse, 'raw.state') : []);
         $responseState = $this->normalizeState(array_replace($state, $providerState));
         $responseState['last_output'] = $this->toNullableString($providerState['last_output'] ?? null) ?: $resumeText;
+        $responseState['previous_generated_file'] = $this->stateGeneratedFileMetadata($fileMetadata);
         $usage = $this->normalizeUsage($providerResponse['usage'] ?? data_get($providerResponse, 'raw.usage', []));
         $cost = $this->normalizeCost($providerResponse['cost'] ?? data_get($providerResponse, 'raw.cost', []));
         $tokensToDeduct = (int) ($usage['total_tokens'] ?? 0);
@@ -577,6 +602,7 @@ class ResumeBuilderService
             'sections_to_include' => ['Summary', 'Skills', 'Experience', 'Education', 'Certifications', 'Projects', 'Languages'],
             'extra_options' => ['Improve clarity', 'Use strong action verbs', 'Keep it honest', 'Do not invent experience'],
             'last_output' => null,
+            'previous_generated_file' => null,
         ];
 
         $merged = array_replace($base, $state);
@@ -591,8 +617,146 @@ class ResumeBuilderService
         $merged['sections_to_include'] = $this->normalizeStringList($merged['sections_to_include'] ?? []) ?: $base['sections_to_include'];
         $merged['extra_options'] = $this->normalizeStringList($merged['extra_options'] ?? []) ?: $base['extra_options'];
         $merged['last_output'] = $this->toNullableString($merged['last_output'] ?? null);
+        $merged['previous_generated_file'] = $this->normalizePreviousGeneratedFile($merged['previous_generated_file'] ?? null);
 
         return $merged;
+    }
+
+    private function normalizePreviousGeneratedFile(mixed $file): ?array
+    {
+        if (! is_array($file)) {
+            return null;
+        }
+
+        $fileId = $this->toNullableString($file['file_id'] ?? null);
+        $downloadUrl = $this->normalizeResumeDownloadUrl($this->toNullableString($file['download_url'] ?? null));
+
+        if (! $fileId && ! $downloadUrl) {
+            return null;
+        }
+
+        return array_filter([
+            'file_id' => $fileId,
+            'download_url' => $downloadUrl,
+            'filename' => $this->sanitizeFilename($file['filename'] ?? null) ?: 'resume.docx',
+            'content_type' => $this->toNullableString($file['content_type'] ?? null),
+            'source' => $this->toNullableString($file['source'] ?? null) ?: 'assistant_generated_file',
+        ], fn ($value): bool => $value !== null && $value !== '');
+    }
+
+    private function stateGeneratedFileMetadata(array $file): ?array
+    {
+        if ($file === []) {
+            return null;
+        }
+
+        return $this->normalizePreviousGeneratedFile([
+            'file_id' => $file['file_id'] ?? null,
+            'download_url' => $file['download_url'] ?? $file['file_url'] ?? null,
+            'filename' => $file['filename'] ?? null,
+            'content_type' => $file['content_type'] ?? null,
+            'source' => 'assistant_generated_file',
+        ]);
+    }
+
+    private function fetchPreviousGeneratedResumeFile(array $previousGeneratedFile): ?array
+    {
+        $previousGeneratedFile = $this->normalizePreviousGeneratedFile($previousGeneratedFile);
+
+        if (! $previousGeneratedFile) {
+            return null;
+        }
+
+        $downloadUrl = $previousGeneratedFile['download_url'] ?? null;
+        $fileId = $previousGeneratedFile['file_id'] ?? null;
+        $filename = $previousGeneratedFile['filename'] ?? 'resume.docx';
+
+        if (! $downloadUrl && $fileId) {
+            $base = rtrim((string) config('services.aiarabic.public_base_url', 'https://api.aiarabic.com'), '/');
+            $downloadUrl = "{$base}/tasks/resume-builder/download/{$fileId}";
+        }
+
+        if (! $downloadUrl) {
+            return null;
+        }
+
+        $headers = ['Accept' => 'application/octet-stream'];
+        $internalApiKey = (string) (
+            config('services.aiarabic.internal_api_key')
+            ?: config('services.aiarabic.key', '')
+        );
+
+        if ($internalApiKey !== '') {
+            $headers['x-internal-api-key'] = $internalApiKey;
+        }
+
+        $response = Http::timeout(120)
+            ->withHeaders($headers)
+            ->get($downloadUrl);
+
+        if (! $response->successful()) {
+            Log::warning('Failed to fetch previous generated resume file', [
+                'status' => $response->status(),
+                'body_preview' => mb_substr($response->body(), 0, 500),
+                'download_url' => $downloadUrl,
+                'file_id' => $fileId,
+            ]);
+
+            return null;
+        }
+
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION) ?: 'docx');
+        if (! in_array($extension, ['pdf', 'doc', 'docx'], true)) {
+            $extension = 'docx';
+        }
+
+        $safeTempName = 'resume_reuse_'.Str::uuid().'.'.$extension;
+        $tempPath = storage_path('app/tmp/'.$safeTempName);
+
+        if (! is_dir(dirname($tempPath))) {
+            mkdir(dirname($tempPath), 0775, true);
+        }
+
+        if (file_put_contents($tempPath, $response->body()) === false) {
+            return null;
+        }
+
+        return [
+            'path' => $tempPath,
+            'filename' => $this->sanitizeFilename($filename) ?: "resume.{$extension}",
+            'content_type' => $previousGeneratedFile['content_type']
+                ?? $response->header('Content-Type')
+                ?? $this->contentTypeForResumeExtension($extension),
+        ];
+    }
+
+    private function uploadedFileFromReusedGeneratedFile(array $reusedFile): UploadedFile
+    {
+        return new UploadedFile(
+            $reusedFile['path'],
+            $reusedFile['filename'] ?? basename($reusedFile['path']),
+            $reusedFile['content_type'] ?? 'application/octet-stream',
+            null,
+            true
+        );
+    }
+
+    private function cleanupReusedGeneratedFile(?array $reusedFile): void
+    {
+        $path = $reusedFile['path'] ?? null;
+
+        if (is_string($path) && $path !== '' && file_exists($path)) {
+            @unlink($path);
+        }
+    }
+
+    private function contentTypeForResumeExtension(string $extension): string
+    {
+        return match (strtolower($extension)) {
+            'pdf' => 'application/pdf',
+            'doc' => 'application/msword',
+            default => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        };
     }
 
     private function normalizeResults(mixed $providerResponse, string $rawOutput): array

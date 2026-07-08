@@ -330,6 +330,124 @@ class ResumeBuilderFlowTest extends TestCase
             ->assertJsonPath('data.state.last_output', 'Updated frontend resume from previous output.');
     }
 
+    public function test_resume_builder_reuses_previous_generated_file_for_edit_request(): void
+    {
+        Storage::fake('local');
+        config([
+            'services.aiarabic.internal_api_key' => 'testing-internal-key',
+            'services.aiarabic.key' => null,
+        ]);
+        [$user, $conversation] = $this->makeContext(19, 'Resume Builder', 'resume-builder', 'tasks/resume-builder/chat');
+        Sanctum::actingAs($user);
+
+        $downloadUrl = 'https://api.aiarabic.test/tasks/resume-builder/download/provider-file-id';
+        Http::fake([
+            $downloadUrl => Http::response('previous generated docx bytes', 200, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ]),
+        ]);
+
+        $state = $this->resumeState([
+            'last_output' => 'Previous generated resume text.',
+            'previous_generated_file' => [
+                'file_id' => 'provider-file-id',
+                'download_url' => $downloadUrl,
+                'filename' => 'previous_resume.docx',
+                'content_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'source' => 'assistant_generated_file',
+            ],
+        ]);
+
+        $writer = Mockery::mock(AiArabicWriterService::class);
+        $writer->shouldReceive('generateResumeBuilderReplyWithUsage')
+            ->once()
+            ->withArgs(function (array $fields, UploadedFile $file): bool {
+                $decodedState = json_decode($fields['state'] ?? '', true);
+
+                return $file->getClientOriginalName() === 'previous_resume.docx'
+                    && $file->getClientMimeType() === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    && str_contains($fields['user_message'] ?? '', 'Make this resume front end developer mid level.')
+                    && ($decodedState['previous_generated_file']['file_id'] ?? null) === 'provider-file-id';
+            })
+            ->andReturn([
+                'results' => [[
+                    'id' => 1,
+                    'text' => 'Updated resume using previous generated file.',
+                    'title' => 'Resume Preview',
+                    'meta' => [],
+                ]],
+                'file' => [
+                    'file_id' => 'new-provider-file-id',
+                    'filename' => 'updated_resume.docx',
+                    'content_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'download_url' => '/tasks/resume-builder/download/new-provider-file-id',
+                ],
+                'usage' => ['total_tokens' => 0],
+                'cost' => ['total_cost' => 0, 'currency' => 'USD'],
+                'model_key' => 'resume_builder',
+            ]);
+        $this->app->instance(AiArabicWriterService::class, $writer);
+
+        $this->withHeaders($this->apiHeaders())->post('/api/v1/message/send', [
+            'sub_tool_id' => 19,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => 'Make this resume front end developer mid level.',
+            'content' => 'Make this resume front end developer mid level.',
+            'tool_key' => 'resume_builder',
+            'model_key' => 'resume_builder',
+            'state' => json_encode($state),
+            'idempotency_key' => (string) Str::uuid(),
+        ])->assertOk()
+            ->assertJsonPath('data.results.0.text', 'Updated resume using previous generated file.')
+            ->assertJsonPath('data.state.previous_generated_file.file_id', 'new-provider-file-id')
+            ->assertJsonPath('data.file.filename', 'updated_resume.docx');
+
+        Http::assertSent(fn (Request $request): bool =>
+            $request->url() === $downloadUrl
+            && $request->hasHeader('x-internal-api-key', 'testing-internal-key')
+        );
+    }
+
+    public function test_resume_builder_returns_clean_error_when_previous_generated_file_fetch_fails(): void
+    {
+        Storage::fake('local');
+        config([
+            'services.aiarabic.internal_api_key' => 'testing-internal-key',
+            'services.aiarabic.key' => null,
+        ]);
+        [$user, $conversation] = $this->makeContext(19, 'Resume Builder', 'resume-builder', 'tasks/resume-builder/chat');
+        Sanctum::actingAs($user);
+
+        $downloadUrl = 'https://api.aiarabic.test/tasks/resume-builder/download/missing-file-id';
+        Http::fake([
+            $downloadUrl => Http::response(['message' => 'Missing file'], 404),
+        ]);
+
+        $writer = Mockery::mock(AiArabicWriterService::class);
+        $writer->shouldNotReceive('generateResumeBuilderReplyWithUsage');
+        $this->app->instance(AiArabicWriterService::class, $writer);
+
+        $this->withHeaders($this->apiHeaders())->post('/api/v1/message/send', [
+            'sub_tool_id' => 19,
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => 'Make this resume front end developer mid level.',
+            'content' => 'Make this resume front end developer mid level.',
+            'tool_key' => 'resume_builder',
+            'model_key' => 'resume_builder',
+            'state' => json_encode($this->resumeState([
+                'last_output' => 'Previous generated resume text.',
+                'previous_generated_file' => [
+                    'file_id' => 'missing-file-id',
+                    'download_url' => $downloadUrl,
+                    'filename' => 'missing_resume.docx',
+                    'source' => 'assistant_generated_file',
+                ],
+            ])),
+            'idempotency_key' => (string) Str::uuid(),
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'Could not reuse the previous generated resume file. Please upload the file again.');
+    }
+
     public function test_resume_builder_forwards_doc_upload_to_ai_service(): void
     {
         Storage::fake('local');
@@ -413,6 +531,7 @@ class ResumeBuilderFlowTest extends TestCase
     {
         config([
             'services.aiarabic.url' => 'https://api.aiarabic.test',
+            'services.aiarabic.internal_api_key' => 'testing-internal-key',
             'services.aiarabic.key' => 'testing-internal-key',
         ]);
 
@@ -478,6 +597,7 @@ class ResumeBuilderFlowTest extends TestCase
     {
         config([
             'services.aiarabic.url' => 'https://api.aiarabic.test',
+            'services.aiarabic.internal_api_key' => 'testing-internal-key',
             'services.aiarabic.key' => 'testing-internal-key',
         ]);
 
@@ -636,6 +756,7 @@ class ResumeBuilderFlowTest extends TestCase
             'sections_to_include' => ['Summary', 'Skills', 'Experience', 'Education'],
             'extra_options' => ['Improve clarity', 'Use strong action verbs', 'Keep it honest', 'Do not invent experience'],
             'last_output' => null,
+            'previous_generated_file' => null,
         ], $overrides);
     }
 

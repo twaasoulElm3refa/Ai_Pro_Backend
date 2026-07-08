@@ -1138,6 +1138,7 @@ function createResumeBuilderState() {
             "Do not invent experience",
         ],
         last_output: null,
+        previous_generated_file: null,
     };
 }
 
@@ -1155,7 +1156,13 @@ const canSendMessage = computed(() => {
     const hasText = Boolean(String(userMessage.value || "").trim());
 
     if (isResumeBuilder.value) {
-        return hasText || Boolean(resumeFile.value);
+        const hasPreviousOutput = Boolean(String(toolState.value.last_output || "").trim());
+        const hasPreviousGeneratedFile = Boolean(
+            toolState.value.previous_generated_file?.file_id
+            || toolState.value.previous_generated_file?.download_url
+        );
+
+        return hasText || Boolean(resumeFile.value) || hasPreviousOutput || hasPreviousGeneratedFile;
     }
 
     return hasText;
@@ -1353,7 +1360,6 @@ function getResultCopyText(item, toolId = activeSubToolId.value) {
 function getMessageText(message) {
     if (message?.results?.length) {
         const toolId = getMessageToolId(message);
-
         return message.results
             .map((item) => getResultCopyText(item, toolId))
             .filter(Boolean)
@@ -1385,6 +1391,30 @@ function getMessageFilename(message) {
     const file = messageMeta.file && typeof messageMeta.file === "object" ? messageMeta.file : {};
 
     return String(meta.filename || file.filename || "").trim();
+}
+
+function getGeneratedResumeFileMeta(message) {
+    const result = Array.isArray(message?.results) ? message.results[0] : null;
+    const resultMeta = result?.meta && typeof result.meta === "object" ? result.meta : {};
+    const messageMeta = message?.metadata && typeof message.metadata === "object" ? message.metadata : {};
+    const file = messageMeta.file && typeof messageMeta.file === "object" ? messageMeta.file : {};
+
+    const fileId = String(resultMeta.file_id || file.file_id || "").trim();
+    const downloadUrl = String(resultMeta.download_url || resultMeta.file_url || file.download_url || file.file_url || "").trim();
+    const filename = String(resultMeta.filename || file.filename || "resume.docx").trim();
+    const contentType = String(resultMeta.content_type || file.content_type || "").trim();
+
+    if (!fileId && !downloadUrl) {
+        return null;
+    }
+
+    return {
+        file_id: fileId,
+        download_url: downloadUrl,
+        filename,
+        content_type: contentType,
+        source: "assistant_generated_file",
+    };
 }
 
 function resolveDownloadUrl(url) {
@@ -1465,16 +1495,10 @@ async function downloadResumeFile(message) {
             Accept: "application/json",
         };
 
-        const isAiArabicResumeDownload = url.includes("api.aiarabic.com/tasks/resume-builder/download/");
+        const token = localStorage.getItem("auth_token");
 
-        if (isAiArabicResumeDownload) {
-            headers["x-internal-api-key"] = 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy';
-        } else {
-            const token = localStorage.getItem("auth_token");
-
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
         }
 
         const response = await fetch(url, { headers });
@@ -1786,6 +1810,7 @@ function buildResumeBuilderState(userMessage, currentState = {}) {
             ? currentState.extra_options
             : defaults.extra_options,
         last_output: currentState.last_output || null,
+        previous_generated_file: currentState.previous_generated_file || null,
     };
 }
 
@@ -2185,11 +2210,15 @@ const ensureConversation = async () => {
 const sendMessage = async () => {
     const text = String(userMessage.value || "").trim();
     const hasPreviousResumeOutput = isResumeBuilder.value && Boolean(String(toolState.value.last_output || "").trim());
+    const hasPreviousGeneratedFile = isResumeBuilder.value && Boolean(
+        toolState.value.previous_generated_file?.file_id
+        || toolState.value.previous_generated_file?.download_url
+    );
     let optimisticUserKey = "";
 
     if (isSending.value || isAssistantTyping.value) return;
     if (!text && !isResumeBuilder.value) return;
-    if (isResumeBuilder.value && !text && !resumeFile.value && !hasPreviousResumeOutput) return;
+    if (isResumeBuilder.value && !text && !resumeFile.value && !hasPreviousResumeOutput && !hasPreviousGeneratedFile) return;
 
     const finalText = text || `Improve this resume for ${toolState.value.target_role || "the target role"}.`;
     const resumeValidationMessage = validateResumeBuilderBeforeSend(finalText);
@@ -2201,7 +2230,7 @@ const sendMessage = async () => {
     const uploadedFileMeta = isResumeBuilder.value && resumeFile.value
         ? createUploadedFileMeta(resumeFile.value)
         : null;
-    const editingPreviousOutput = isResumeBuilder.value && Boolean(String(toolState.value.last_output || "").trim());
+    const editingPreviousOutput = isResumeBuilder.value && (hasPreviousResumeOutput || hasPreviousGeneratedFile);
 
     errorMessage.value = "";
     isSending.value = true;
@@ -2443,6 +2472,11 @@ const handleResumeFileChange = (event) => {
     }
 
     resumeFile.value = file;
+
+    if (file && isResumeBuilder.value) {
+        toolState.value.previous_generated_file = null;
+    }
+
     errorMessage.value = "";
 };
 
@@ -2465,8 +2499,12 @@ const validateResumeBuilderBeforeSend = (messageText) => {
     }
 
     const hasPreviousOutput = Boolean(String(toolState.value.last_output || "").trim());
+    const hasPreviousGeneratedFile = Boolean(
+        toolState.value.previous_generated_file?.file_id
+        || toolState.value.previous_generated_file?.download_url
+    );
 
-    if (!hasPreviousOutput && !resumeFile.value && isImproveResumeRequest(messageText)) {
+    if (!hasPreviousOutput && !hasPreviousGeneratedFile && !resumeFile.value && isImproveResumeRequest(messageText)) {
         return labels.value.fileRequired;
     }
 
@@ -2477,6 +2515,7 @@ async function editResumeResponse(message) {
     if (!isResumeBuilderMessage(message)) return;
 
     const previousOutput = getMessageText(message);
+    const generatedFile = getGeneratedResumeFileMeta(message);
     const meta = message?.metadata && typeof message.metadata === "object"
         ? message.metadata
         : {};
@@ -2486,6 +2525,7 @@ async function editResumeResponse(message) {
         ...createDefaultStateForTool(RESUME_BUILDER_SUB_TOOL_ID),
         ...responseState,
         last_output: previousOutput,
+        previous_generated_file: generatedFile,
     });
 
     persistState(activeConversation.value?.uuid || route.params.uuid || "draft");
@@ -2525,6 +2565,7 @@ const resetOptions = () => {
     toolState.value = createDefaultStateForTool(activeSubToolId.value);
     if (isResumeBuilder.value) {
         removeResumeFile();
+        toolState.value.previous_generated_file = null;
     }
     persistState();
 };

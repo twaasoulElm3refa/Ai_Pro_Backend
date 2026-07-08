@@ -31,7 +31,10 @@ class AiArabicWriterService
             'services.aiarabic.url',
             config('services.aiarabic.base_url', 'https://api.aiarabic.com')
         );
-        $this->apiKey = (string) config('services.aiarabic.key', 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy');
+        $this->apiKey = (string) (
+            config('services.aiarabic.internal_api_key')
+            ?: config('services.aiarabic.key', '')
+        );
     }
 
     public function generateReply(array $payload, ?string $endpoint = null): string

@@ -362,6 +362,12 @@ class MessageRequest extends FormRequest
             'state.extra_options' => ['nullable', 'array'],
             'state.extra_options.*' => ['string', 'max:150'],
             'state.last_output' => ['nullable', 'string', 'max:100000'],
+            'state.previous_generated_file' => ['nullable', 'array'],
+            'state.previous_generated_file.file_id' => ['nullable', 'string', 'max:255'],
+            'state.previous_generated_file.download_url' => ['nullable', 'string', 'max:2048'],
+            'state.previous_generated_file.filename' => ['nullable', 'string', 'max:255'],
+            'state.previous_generated_file.content_type' => ['nullable', 'string', 'max:255'],
+            'state.previous_generated_file.source' => ['nullable', 'string', 'max:80'],
         ];
     }
 

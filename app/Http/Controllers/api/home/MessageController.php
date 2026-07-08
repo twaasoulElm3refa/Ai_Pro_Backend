@@ -278,7 +278,13 @@ class MessageController extends Controller
         } catch (AiServiceException $th) {
             return $this->aiProviderErrorResponse($th);
         } catch (ValidationException $th) {
-            return $this->validationError($th->errors(), 'Invalid SEO tool payload.');
+            $errors = $th->errors();
+
+            if (isset($errors['previous_generated_file'][0])) {
+                return $this->validationError($errors, (string) $errors['previous_generated_file'][0]);
+            }
+
+            return $this->validationError($errors, 'Invalid SEO tool payload.');
         } catch (HttpExceptionInterface $th) {
             return $this->error(
                 $th->getMessage() ?: 'Unsupported file type.',
