@@ -186,6 +186,8 @@ const ctaIconClass = computed(() =>
     border-radius: 999px;
     filter: blur(10px);
     pointer-events: none;
+    opacity: 0.9;
+    will-change: transform;
 }
 
 .footer-glow-one {
@@ -194,6 +196,7 @@ const ctaIconClass = computed(() =>
     top: -210px;
     inset-inline-end: -150px;
     background: radial-gradient(circle, rgba(43, 166, 222, 0.20), transparent 68%);
+    animation: footerGlowFloatOne 9s ease-in-out infinite alternate;
 }
 
 .footer-glow-two {
@@ -202,6 +205,7 @@ const ctaIconClass = computed(() =>
     bottom: -180px;
     inset-inline-start: -140px;
     background: radial-gradient(circle, rgba(21, 70, 119, 0.14), transparent 70%);
+    animation: footerGlowFloatTwo 11s ease-in-out infinite alternate;
 }
 
 .footer-container {
@@ -214,6 +218,7 @@ const ctaIconClass = computed(() =>
 .footer-panel {
     position: relative;
     overflow: hidden;
+    isolation: isolate;
     background: rgba(255, 255, 255, 0.82);
     border: 1px solid rgba(21, 70, 119, 0.12);
     border-radius: 32px;
@@ -222,16 +227,49 @@ const ctaIconClass = computed(() =>
         0 22px 60px rgba(21, 70, 119, 0.10),
         inset 0 1px 0 rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    animation: footerPanelReveal 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .footer-panel::before {
     content: "";
     position: absolute;
     inset: 0;
+    z-index: 0;
     background:
         radial-gradient(circle at 82% 14%, rgba(43, 166, 222, 0.11), transparent 30%),
         radial-gradient(circle at 14% 82%, rgba(21, 70, 119, 0.08), transparent 32%);
     pointer-events: none;
+    animation: footerPanelGlowMove 10s ease-in-out infinite alternate;
+}
+
+.footer-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    padding: 2px;
+    border-radius: inherit;
+    background:
+        conic-gradient(
+            from 0deg,
+            transparent 0deg,
+            rgba(43, 166, 222, 0.12) 38deg,
+            rgba(43, 166, 222, 0.95) 76deg,
+            rgba(255, 255, 255, 0.95) 112deg,
+            rgba(21, 70, 119, 0.90) 156deg,
+            rgba(43, 166, 222, 0.18) 208deg,
+            transparent 260deg,
+            rgba(43, 166, 222, 0.70) 320deg,
+            transparent 360deg
+        );
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: footerBorderSpin 6.5s linear infinite;
 }
 
 /* BRAND */
@@ -255,6 +293,8 @@ const ctaIconClass = computed(() =>
 }
 
 .brand-mark {
+    position: relative;
+    isolation: isolate;
     width: 78px;
     height: 78px;
     display: grid;
@@ -266,6 +306,19 @@ const ctaIconClass = computed(() =>
         0 20px 38px rgba(21, 70, 119, 0.20),
         inset 0 1px 0 rgba(255, 255, 255, 0.28);
     flex-shrink: 0;
+    animation: footerBrandFloat 4.8s ease-in-out infinite;
+}
+
+.brand-mark::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    z-index: -1;
+    border-radius: 28px;
+    border: 1px solid rgba(43, 166, 222, 0.24);
+    opacity: 0;
+    transform: scale(0.92);
+    animation: footerBrandPulse 2.8s ease-in-out infinite;
 }
 
 .brand-mark img {
@@ -275,6 +328,8 @@ const ctaIconClass = computed(() =>
     background: rgba(255, 255, 255, 0.92);
     border-radius: 16px;
     padding: 5px;
+    position: relative;
+    z-index: 1;
 }
 
 .brand-title {
@@ -315,6 +370,7 @@ const ctaIconClass = computed(() =>
     font-size: 12px;
     font-weight: 900;
     white-space: nowrap;
+    animation: footerBadgeGlow 3.2s ease-in-out infinite;
 }
 
 .footer-cta-badge i {
@@ -322,6 +378,8 @@ const ctaIconClass = computed(() =>
 }
 
 .footer-cta-btn {
+    position: relative;
+    overflow: hidden;
     min-height: 42px;
     padding: 0 18px;
     border-radius: 999px;
@@ -339,6 +397,23 @@ const ctaIconClass = computed(() =>
         transform 0.22s ease,
         background 0.22s ease,
         box-shadow 0.22s ease;
+}
+
+.footer-cta-btn::before {
+    content: "";
+    position: absolute;
+    top: -60%;
+    bottom: -60%;
+    width: 34px;
+    inset-inline-start: -55px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.52), transparent);
+    transform: rotate(24deg);
+    transition: inset-inline-start 0.55s ease;
+    pointer-events: none;
+}
+
+.footer-cta-btn:hover::before {
+    inset-inline-start: calc(100% + 55px);
 }
 
 .footer-cta-btn i {
@@ -361,10 +436,37 @@ const ctaIconClass = computed(() =>
 }
 
 .footer-col {
+    position: relative;
+    overflow: hidden;
     padding: 22px;
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.58);
     border: 1px solid rgba(21, 70, 119, 0.08);
+    animation: footerCardReveal 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition:
+        transform 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        background 0.25s ease;
+}
+
+.footer-col:nth-child(1) {
+    animation-delay: 0.12s;
+}
+
+.footer-col:nth-child(2) {
+    animation-delay: 0.22s;
+}
+
+.footer-col:nth-child(3) {
+    animation-delay: 0.32s;
+}
+
+.footer-col:not(.footer-highlight):hover {
+    transform: translateY(-4px);
+    border-color: rgba(43, 166, 222, 0.24);
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 16px 34px rgba(21, 70, 119, 0.08);
 }
 
 .footer-col h3 {
@@ -428,12 +530,36 @@ const ctaIconClass = computed(() =>
 
 /* HIGHLIGHT */
 .footer-highlight {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     background:
         radial-gradient(circle at 20% 10%, rgba(43, 166, 222, 0.16), transparent 36%),
         linear-gradient(135deg, rgba(21, 70, 119, 0.96), rgba(43, 166, 222, 0.88));
     color: #ffffff;
     border: none;
     box-shadow: 0 18px 40px rgba(21, 70, 119, 0.18);
+}
+
+.footer-highlight::before {
+    content: "";
+    position: absolute;
+    top: -90px;
+    inset-inline-start: -120px;
+    width: 170px;
+    height: 340px;
+    z-index: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.20), transparent);
+    transform: rotate(22deg);
+    pointer-events: none;
+    animation: footerHighlightSweep 5.6s ease-in-out infinite;
+}
+
+.footer-highlight h3,
+.footer-highlight p,
+.footer-mini-stats {
+    position: relative;
+    z-index: 1;
 }
 
 .footer-highlight h3 {
@@ -464,6 +590,16 @@ const ctaIconClass = computed(() =>
     display: flex;
     flex-direction: column;
     justify-content: center;
+    transition:
+        transform 0.22s ease,
+        background 0.22s ease,
+        border-color 0.22s ease;
+}
+
+.footer-mini-stats div:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.17);
+    border-color: rgba(255, 255, 255, 0.30);
 }
 
 .footer-mini-stats strong {
@@ -523,6 +659,123 @@ const ctaIconClass = computed(() =>
 .legal-links a:hover {
     color: #ffffff;
     background: #154677;
+}
+
+
+@keyframes footerPanelReveal {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.985);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes footerBorderSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes footerPanelGlowMove {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    100% {
+        transform: translate3d(10px, -8px, 0) scale(1.02);
+    }
+}
+
+@keyframes footerGlowFloatOne {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    100% {
+        transform: translate3d(-18px, 18px, 0) scale(1.05);
+    }
+}
+
+@keyframes footerGlowFloatTwo {
+    0% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    100% {
+        transform: translate3d(18px, -14px, 0) scale(1.04);
+    }
+}
+
+@keyframes footerBrandFloat {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes footerBrandPulse {
+    0%,
+    100% {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+
+    45% {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes footerBadgeGlow {
+    0%,
+    100% {
+        box-shadow: 0 0 0 rgba(43, 166, 222, 0);
+    }
+
+    50% {
+        box-shadow: 0 0 0 6px rgba(43, 166, 222, 0.09);
+    }
+}
+
+@keyframes footerCardReveal {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes footerHighlightSweep {
+    0% {
+        inset-inline-start: -160px;
+        opacity: 0;
+    }
+
+    22% {
+        opacity: 0.95;
+    }
+
+    55% {
+        inset-inline-start: calc(100% + 80px);
+        opacity: 0;
+    }
+
+    100% {
+        inset-inline-start: calc(100% + 80px);
+        opacity: 0;
+    }
 }
 
 /* RESPONSIVE */
@@ -596,4 +849,16 @@ const ctaIconClass = computed(() =>
         text-align: center;
     }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .site-footer *,
+    .site-footer *::before,
+    .site-footer *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
 </style>
