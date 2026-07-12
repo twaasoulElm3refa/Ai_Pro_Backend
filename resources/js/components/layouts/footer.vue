@@ -22,9 +22,17 @@ const ctaIconClass = computed(() =>
     <footer class="site-footer" :dir="footerDir">
         <div class="footer-bg-glow footer-glow-one"></div>
         <div class="footer-bg-glow footer-glow-two"></div>
+        <div class="footer-bg-glow footer-glow-three"></div>
 
         <div class="footer-container">
             <div class="footer-panel">
+                <!-- MOVING BORDER RUNNER -->
+                <div class="footer-border-line" aria-hidden="true">
+                    <span class="footer-border-runner footer-border-runner-one"></span>
+                    <span class="footer-border-runner footer-border-runner-two"></span>
+                    <span class="footer-border-dot footer-border-dot-one"></span>
+                    <span class="footer-border-dot footer-border-dot-two"></span>
+                </div>
 
                 <!-- BRAND / CTA -->
                 <div class="footer-brand-area">
@@ -55,7 +63,7 @@ const ctaIconClass = computed(() =>
                         </span>
 
                         <router-link :to="localizedPath()" class="footer-cta-btn">
-                            {{ t("user.footer.ctaButton") }}
+                            <span>{{ t("user.footer.ctaButton") }}</span>
                             <i :class="ctaIconClass"></i>
                         </router-link>
                     </div>
@@ -164,7 +172,6 @@ const ctaIconClass = computed(() =>
                         <a href="#">{{ t("user.footer.copyrightRights") }}</a>
                     </div>
                 </div>
-
             </div>
         </div>
     </footer>
@@ -175,6 +182,7 @@ const ctaIconClass = computed(() =>
     position: relative;
     overflow: hidden;
     background:
+        radial-gradient(circle at 50% 0%, rgba(43, 166, 222, 0.14), transparent 34%),
         linear-gradient(180deg, #f4f8fb 0%, #eaf4fb 48%, #dcebf5 100%);
     color: #154677;
     padding: 76px 18px 28px;
@@ -186,7 +194,6 @@ const ctaIconClass = computed(() =>
     border-radius: 999px;
     filter: blur(10px);
     pointer-events: none;
-    opacity: 0.9;
     will-change: transform;
 }
 
@@ -196,7 +203,7 @@ const ctaIconClass = computed(() =>
     top: -210px;
     inset-inline-end: -150px;
     background: radial-gradient(circle, rgba(43, 166, 222, 0.20), transparent 68%);
-    animation: footerGlowFloatOne 9s ease-in-out infinite alternate;
+    animation: footerGlowFloatOne 10s ease-in-out infinite alternate;
 }
 
 .footer-glow-two {
@@ -205,7 +212,16 @@ const ctaIconClass = computed(() =>
     bottom: -180px;
     inset-inline-start: -140px;
     background: radial-gradient(circle, rgba(21, 70, 119, 0.14), transparent 70%);
-    animation: footerGlowFloatTwo 11s ease-in-out infinite alternate;
+    animation: footerGlowFloatTwo 12s ease-in-out infinite alternate;
+}
+
+.footer-glow-three {
+    width: 250px;
+    height: 250px;
+    top: 42%;
+    inset-inline-start: 48%;
+    background: radial-gradient(circle, rgba(43, 166, 222, 0.08), transparent 72%);
+    animation: footerGlowFloatThree 14s ease-in-out infinite alternate;
 }
 
 .footer-container {
@@ -219,8 +235,10 @@ const ctaIconClass = computed(() =>
     position: relative;
     overflow: hidden;
     isolation: isolate;
-    background: rgba(255, 255, 255, 0.82);
-    border: 1px solid rgba(21, 70, 119, 0.12);
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.86)) padding-box,
+        linear-gradient(135deg, rgba(21, 70, 119, 0.14), rgba(43, 166, 222, 0.18), rgba(21, 70, 119, 0.10)) border-box;
+    border: 1px solid transparent;
     border-radius: 32px;
     padding: 34px;
     box-shadow:
@@ -228,7 +246,7 @@ const ctaIconClass = computed(() =>
         inset 0 1px 0 rgba(255, 255, 255, 0.75);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    animation: footerPanelReveal 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: footerPanelEnter 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .footer-panel::before {
@@ -240,36 +258,90 @@ const ctaIconClass = computed(() =>
         radial-gradient(circle at 82% 14%, rgba(43, 166, 222, 0.11), transparent 30%),
         radial-gradient(circle at 14% 82%, rgba(21, 70, 119, 0.08), transparent 32%);
     pointer-events: none;
-    animation: footerPanelGlowMove 10s ease-in-out infinite alternate;
+    animation: footerSoftBgShift 12s ease-in-out infinite alternate;
 }
 
-.footer-panel::after {
-    content: "";
+/* BORDER THAT LOOKS LIKE A LIGHT WALKING ON THE FOOTER BORDER */
+.footer-border-line {
     position: absolute;
     inset: 0;
     z-index: 1;
-    padding: 2px;
     border-radius: inherit;
-    background:
-        conic-gradient(
-            from 0deg,
-            transparent 0deg,
-            rgba(43, 166, 222, 0.12) 38deg,
-            rgba(43, 166, 222, 0.95) 76deg,
-            rgba(255, 255, 255, 0.95) 112deg,
-            rgba(21, 70, 119, 0.90) 156deg,
-            rgba(43, 166, 222, 0.18) 208deg,
-            transparent 260deg,
-            rgba(43, 166, 222, 0.70) 320deg,
-            transparent 360deg
-        );
-    -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
+    border: 1px solid rgba(21, 70, 119, 0.12);
     pointer-events: none;
-    animation: footerBorderSpin 6.5s linear infinite;
+    overflow: hidden;
+}
+
+.footer-border-line::before {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    border-radius: calc(32px - 1px);
+    border: 1px solid rgba(255, 255, 255, 0.54);
+    pointer-events: none;
+}
+
+.footer-border-runner,
+.footer-border-dot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    will-change: left, top, transform, opacity;
+}
+
+.footer-border-runner {
+    width: clamp(110px, 12vw, 190px);
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(43, 166, 222, 0.10) 10%,
+        rgba(43, 166, 222, 0.92) 38%,
+        rgba(255, 255, 255, 1) 50%,
+        rgba(21, 70, 119, 0.92) 62%,
+        rgba(43, 166, 222, 0.14) 90%,
+        transparent 100%
+    );
+    box-shadow:
+        0 0 10px rgba(43, 166, 222, 0.55),
+        0 0 20px rgba(43, 166, 222, 0.34),
+        0 0 36px rgba(21, 70, 119, 0.22);
+    opacity: 0.95;
+    animation: footerBorderWalk 6.8s linear infinite;
+}
+
+.footer-border-runner-two {
+    animation-delay: -3.4s;
+    opacity: 0.52;
+    width: clamp(74px, 8vw, 126px);
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(43, 166, 222, 0.04) 12%,
+        rgba(43, 166, 222, 0.68) 44%,
+        rgba(255, 255, 255, 0.82) 50%,
+        rgba(43, 166, 222, 0.58) 58%,
+        transparent 100%
+    );
+}
+
+.footer-border-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow:
+        0 0 8px rgba(255, 255, 255, 0.92),
+        0 0 18px rgba(43, 166, 222, 0.72),
+        0 0 30px rgba(43, 166, 222, 0.38);
+    animation: footerBorderDotWalk 6.8s linear infinite;
+}
+
+.footer-border-dot-two {
+    animation-delay: -3.4s;
+    opacity: 0.65;
 }
 
 /* BRAND */
@@ -283,6 +355,7 @@ const ctaIconClass = computed(() =>
     padding-bottom: 30px;
     margin-bottom: 30px;
     border-bottom: 1px solid rgba(21, 70, 119, 0.10);
+    animation: footerFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
 }
 
 .footer-brand-main {
@@ -293,8 +366,6 @@ const ctaIconClass = computed(() =>
 }
 
 .brand-mark {
-    position: relative;
-    isolation: isolate;
     width: 78px;
     height: 78px;
     display: grid;
@@ -306,19 +377,7 @@ const ctaIconClass = computed(() =>
         0 20px 38px rgba(21, 70, 119, 0.20),
         inset 0 1px 0 rgba(255, 255, 255, 0.28);
     flex-shrink: 0;
-    animation: footerBrandFloat 4.8s ease-in-out infinite;
-}
-
-.brand-mark::after {
-    content: "";
-    position: absolute;
-    inset: -6px;
-    z-index: -1;
-    border-radius: 28px;
-    border: 1px solid rgba(43, 166, 222, 0.24);
-    opacity: 0;
-    transform: scale(0.92);
-    animation: footerBrandPulse 2.8s ease-in-out infinite;
+    animation: brandMarkFloat 4.2s ease-in-out infinite alternate;
 }
 
 .brand-mark img {
@@ -328,8 +387,6 @@ const ctaIconClass = computed(() =>
     background: rgba(255, 255, 255, 0.92);
     border-radius: 16px;
     padding: 5px;
-    position: relative;
-    z-index: 1;
 }
 
 .brand-title {
@@ -370,11 +427,11 @@ const ctaIconClass = computed(() =>
     font-size: 12px;
     font-weight: 900;
     white-space: nowrap;
-    animation: footerBadgeGlow 3.2s ease-in-out infinite;
 }
 
 .footer-cta-badge i {
     color: #2ba6de;
+    animation: footerStarPulse 1.8s ease-in-out infinite alternate;
 }
 
 .footer-cta-btn {
@@ -402,28 +459,43 @@ const ctaIconClass = computed(() =>
 .footer-cta-btn::before {
     content: "";
     position: absolute;
-    top: -60%;
-    bottom: -60%;
-    width: 34px;
-    inset-inline-start: -55px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.52), transparent);
-    transform: rotate(24deg);
-    transition: inset-inline-start 0.55s ease;
+    top: -35%;
+    bottom: -35%;
+    left: -70%;
+    width: 45%;
+    transform: rotate(18deg);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.46), transparent);
+    transition: left 0.55s ease;
     pointer-events: none;
 }
 
-.footer-cta-btn:hover::before {
-    inset-inline-start: calc(100% + 55px);
+.footer-cta-btn span,
+.footer-cta-btn i {
+    position: relative;
+    z-index: 1;
 }
 
 .footer-cta-btn i {
     font-size: 20px;
+    transition: transform 0.22s ease;
 }
 
 .footer-cta-btn:hover {
     background: #2ba6de;
     transform: translateY(-2px);
     box-shadow: 0 18px 34px rgba(43, 166, 222, 0.24);
+}
+
+.footer-cta-btn:hover::before {
+    left: 125%;
+}
+
+.site-footer[dir="rtl"] .footer-cta-btn:hover i {
+    transform: translateX(-3px);
+}
+
+.site-footer[dir="ltr"] .footer-cta-btn:hover i {
+    transform: translateX(3px);
 }
 
 /* LINKS */
@@ -442,34 +514,50 @@ const ctaIconClass = computed(() =>
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.58);
     border: 1px solid rgba(21, 70, 119, 0.08);
-    animation: footerCardReveal 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
     transition:
-        transform 0.25s ease,
-        border-color 0.25s ease,
-        box-shadow 0.25s ease,
-        background 0.25s ease;
+        transform 0.24s ease,
+        border-color 0.24s ease,
+        box-shadow 0.24s ease,
+        background 0.24s ease;
+    animation: footerFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .footer-col:nth-child(1) {
-    animation-delay: 0.12s;
-}
-
-.footer-col:nth-child(2) {
     animation-delay: 0.22s;
 }
 
-.footer-col:nth-child(3) {
+.footer-col:nth-child(2) {
     animation-delay: 0.32s;
+}
+
+.footer-col:nth-child(3) {
+    animation-delay: 0.42s;
+}
+
+.footer-col:not(.footer-highlight)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 82% 12%, rgba(43, 166, 222, 0.10), transparent 34%);
+    opacity: 0;
+    transition: opacity 0.24s ease;
+    pointer-events: none;
 }
 
 .footer-col:not(.footer-highlight):hover {
     transform: translateY(-4px);
     border-color: rgba(43, 166, 222, 0.24);
-    background: rgba(255, 255, 255, 0.78);
+    background: rgba(255, 255, 255, 0.76);
     box-shadow: 0 16px 34px rgba(21, 70, 119, 0.08);
 }
 
+.footer-col:not(.footer-highlight):hover::before {
+    opacity: 1;
+}
+
 .footer-col h3 {
+    position: relative;
+    z-index: 1;
     margin: 0 0 16px;
     font-size: 1rem;
     font-weight: 950;
@@ -477,6 +565,8 @@ const ctaIconClass = computed(() =>
 }
 
 .footer-col ul {
+    position: relative;
+    z-index: 1;
     list-style: none;
     padding: 0;
     margin: 0;
@@ -510,7 +600,8 @@ const ctaIconClass = computed(() =>
     font-size: 14px;
     transition:
         background 0.2s ease,
-        color 0.2s ease;
+        color 0.2s ease,
+        transform 0.2s ease;
 }
 
 .site-footer[dir="rtl"] .footer-col ul li a:hover {
@@ -526,13 +617,11 @@ const ctaIconClass = computed(() =>
 .footer-col ul li a:hover i {
     background: #154677;
     color: #ffffff;
+    transform: scale(1.06) rotate(-4deg);
 }
 
 /* HIGHLIGHT */
 .footer-highlight {
-    position: relative;
-    overflow: hidden;
-    isolation: isolate;
     background:
         radial-gradient(circle at 20% 10%, rgba(43, 166, 222, 0.16), transparent 36%),
         linear-gradient(135deg, rgba(21, 70, 119, 0.96), rgba(43, 166, 222, 0.88));
@@ -544,22 +633,11 @@ const ctaIconClass = computed(() =>
 .footer-highlight::before {
     content: "";
     position: absolute;
-    top: -90px;
-    inset-inline-start: -120px;
-    width: 170px;
-    height: 340px;
-    z-index: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.20), transparent);
-    transform: rotate(22deg);
+    inset: -40%;
+    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+    transform: translateX(-55%) rotate(8deg);
+    animation: highlightShine 5s ease-in-out infinite;
     pointer-events: none;
-    animation: footerHighlightSweep 5.6s ease-in-out infinite;
-}
-
-.footer-highlight h3,
-.footer-highlight p,
-.footer-mini-stats {
-    position: relative;
-    z-index: 1;
 }
 
 .footer-highlight h3 {
@@ -567,6 +645,8 @@ const ctaIconClass = computed(() =>
 }
 
 .footer-highlight p {
+    position: relative;
+    z-index: 1;
     margin: 0;
     color: rgba(255, 255, 255, 0.84);
     line-height: 1.8;
@@ -575,6 +655,8 @@ const ctaIconClass = computed(() =>
 }
 
 .footer-mini-stats {
+    position: relative;
+    z-index: 1;
     margin-top: 22px;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -598,7 +680,7 @@ const ctaIconClass = computed(() =>
 
 .footer-mini-stats div:hover {
     transform: translateY(-3px);
-    background: rgba(255, 255, 255, 0.17);
+    background: rgba(255, 255, 255, 0.18);
     border-color: rgba(255, 255, 255, 0.30);
 }
 
@@ -628,6 +710,7 @@ const ctaIconClass = computed(() =>
     justify-content: space-between;
     align-items: center;
     gap: 16px;
+    animation: footerFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.52s both;
 }
 
 .copyright {
@@ -653,19 +736,111 @@ const ctaIconClass = computed(() =>
     background: rgba(21, 70, 119, 0.04);
     transition:
         color 0.2s ease,
-        background 0.2s ease;
+        background 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .legal-links a:hover {
     color: #ffffff;
     background: #154677;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(21, 70, 119, 0.12);
 }
 
+/* ANIMATIONS */
+@keyframes footerBorderWalk {
+    0% {
+        left: -190px;
+        top: 0;
+        transform: translateY(-50%) rotate(0deg);
+    }
 
-@keyframes footerPanelReveal {
+    24.99% {
+        left: 100%;
+        top: 0;
+        transform: translateY(-50%) rotate(0deg);
+    }
+
+    25% {
+        left: 100%;
+        top: 0;
+        transform: translate(-50%, 0) rotate(90deg);
+    }
+
+    49.99% {
+        left: 100%;
+        top: 100%;
+        transform: translate(-50%, -100%) rotate(90deg);
+    }
+
+    50% {
+        left: 100%;
+        top: 100%;
+        transform: translate(-100%, -50%) rotate(180deg);
+    }
+
+    74.99% {
+        left: 0;
+        top: 100%;
+        transform: translate(0, -50%) rotate(180deg);
+    }
+
+    75% {
+        left: 0;
+        top: 100%;
+        transform: translate(-50%, -100%) rotate(270deg);
+    }
+
+    99.99% {
+        left: 0;
+        top: 0;
+        transform: translate(-50%, 0) rotate(270deg);
+    }
+
+    100% {
+        left: -190px;
+        top: 0;
+        transform: translateY(-50%) rotate(0deg);
+    }
+}
+
+@keyframes footerBorderDotWalk {
+    0% {
+        left: -10px;
+        top: 0;
+        transform: translate(-50%, -50%);
+    }
+
+    25% {
+        left: 100%;
+        top: 0;
+        transform: translate(-50%, -50%);
+    }
+
+    50% {
+        left: 100%;
+        top: 100%;
+        transform: translate(-50%, -50%);
+    }
+
+    75% {
+        left: 0;
+        top: 100%;
+        transform: translate(-50%, -50%);
+    }
+
+    100% {
+        left: 0;
+        top: 0;
+        transform: translate(-50%, -50%);
+    }
+}
+
+@keyframes footerPanelEnter {
     from {
         opacity: 0;
-        transform: translateY(24px) scale(0.985);
+        transform: translateY(22px) scale(0.985);
     }
 
     to {
@@ -674,78 +849,7 @@ const ctaIconClass = computed(() =>
     }
 }
 
-@keyframes footerBorderSpin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes footerPanelGlowMove {
-    0% {
-        transform: translate3d(0, 0, 0) scale(1);
-    }
-
-    100% {
-        transform: translate3d(10px, -8px, 0) scale(1.02);
-    }
-}
-
-@keyframes footerGlowFloatOne {
-    0% {
-        transform: translate3d(0, 0, 0) scale(1);
-    }
-
-    100% {
-        transform: translate3d(-18px, 18px, 0) scale(1.05);
-    }
-}
-
-@keyframes footerGlowFloatTwo {
-    0% {
-        transform: translate3d(0, 0, 0) scale(1);
-    }
-
-    100% {
-        transform: translate3d(18px, -14px, 0) scale(1.04);
-    }
-}
-
-@keyframes footerBrandFloat {
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-5px);
-    }
-}
-
-@keyframes footerBrandPulse {
-    0%,
-    100% {
-        opacity: 0;
-        transform: scale(0.92);
-    }
-
-    45% {
-        opacity: 1;
-        transform: scale(1.04);
-    }
-}
-
-@keyframes footerBadgeGlow {
-    0%,
-    100% {
-        box-shadow: 0 0 0 rgba(43, 166, 222, 0);
-    }
-
-    50% {
-        box-shadow: 0 0 0 6px rgba(43, 166, 222, 0.09);
-    }
-}
-
-@keyframes footerCardReveal {
+@keyframes footerFadeUp {
     from {
         opacity: 0;
         transform: translateY(18px);
@@ -757,23 +861,79 @@ const ctaIconClass = computed(() =>
     }
 }
 
-@keyframes footerHighlightSweep {
-    0% {
-        inset-inline-start: -160px;
+@keyframes footerGlowFloatOne {
+    from {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    to {
+        transform: translate3d(-18px, 16px, 0) scale(1.05);
+    }
+}
+
+@keyframes footerGlowFloatTwo {
+    from {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    to {
+        transform: translate3d(20px, -14px, 0) scale(1.07);
+    }
+}
+
+@keyframes footerGlowFloatThree {
+    from {
+        transform: translate3d(-8px, 8px, 0) scale(1);
+    }
+
+    to {
+        transform: translate3d(14px, -10px, 0) scale(1.08);
+    }
+}
+
+@keyframes footerSoftBgShift {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        transform: translate3d(8px, -8px, 0);
+    }
+}
+
+@keyframes brandMarkFloat {
+    from {
+        transform: translateY(0);
+    }
+
+    to {
+        transform: translateY(-4px);
+    }
+}
+
+@keyframes footerStarPulse {
+    from {
+        transform: scale(1) rotate(0deg);
+    }
+
+    to {
+        transform: scale(1.12) rotate(7deg);
+    }
+}
+
+@keyframes highlightShine {
+    0%,
+    62% {
+        transform: translateX(-58%) rotate(8deg);
         opacity: 0;
     }
 
-    22% {
-        opacity: 0.95;
-    }
-
-    55% {
-        inset-inline-start: calc(100% + 80px);
-        opacity: 0;
+    72% {
+        opacity: 1;
     }
 
     100% {
-        inset-inline-start: calc(100% + 80px);
+        transform: translateX(58%) rotate(8deg);
         opacity: 0;
     }
 }
@@ -802,6 +962,19 @@ const ctaIconClass = computed(() =>
     .footer-panel {
         padding: 22px;
         border-radius: 26px;
+    }
+
+    .footer-border-line::before {
+        border-radius: calc(26px - 1px);
+    }
+
+    .footer-border-runner {
+        width: 96px;
+        height: 2.5px;
+    }
+
+    .footer-border-runner-two {
+        width: 70px;
     }
 
     .footer-brand-main {
@@ -860,5 +1033,4 @@ const ctaIconClass = computed(() =>
         scroll-behavior: auto !important;
     }
 }
-
 </style>
