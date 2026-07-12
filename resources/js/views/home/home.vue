@@ -1588,4 +1588,244 @@ const toggleFaq = (index) => {
         font-size: 13px;
     }
 }
+
+/* =========================
+   PREMIUM MOTION
+========================= */
+@keyframes premiumFadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(22px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes softBlobMove {
+    from {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    to {
+        transform: translate3d(8px, -8px, 0) scale(1.025);
+    }
+}
+
+@keyframes premiumIconFloat {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0);
+    }
+
+    50% {
+        transform: translate3d(0, -3px, 0);
+    }
+}
+
+.tools-panel {
+    animation: premiumFadeUp 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tools-panel::before {
+    animation: softBlobMove 10s ease-in-out infinite alternate;
+    will-change: transform;
+}
+
+.tools-panel::after {
+    animation: softBlobMove 12s ease-in-out -3s infinite alternate-reverse;
+    will-change: transform;
+}
+
+.popular-subtools-section {
+    animation: premiumFadeUp 0.58s 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.popular-subtool-card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    animation: premiumFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.25s ease,
+        box-shadow 0.28s ease;
+}
+
+.popular-subtool-card:nth-child(1) { animation-delay: 0.24s; }
+.popular-subtool-card:nth-child(2) { animation-delay: 0.30s; }
+.popular-subtool-card:nth-child(3) { animation-delay: 0.36s; }
+.popular-subtool-card:nth-child(4) { animation-delay: 0.42s; }
+.popular-subtool-card:nth-child(5) { animation-delay: 0.48s; }
+.popular-subtool-card:nth-child(6) { animation-delay: 0.54s; }
+
+.popular-subtool-card::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    top: -35%;
+    bottom: -35%;
+    left: -75%;
+    width: 42%;
+    background: linear-gradient(
+        110deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.18) 28%,
+        rgba(43, 166, 222, 0.15) 50%,
+        rgba(255, 255, 255, 0.34) 72%,
+        transparent 100%
+    );
+    transform: skewX(-16deg);
+    transition: left 0.68s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+}
+
+.popular-subtool-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.popular-subtool-card:not(.popular-subtool-skeleton):hover,
+.popular-subtool-card:not(.popular-subtool-skeleton):focus-visible {
+    transform: translateY(-6px) scale(1.015);
+    border-color: #2ba6de;
+    box-shadow: 0 20px 42px rgba(21, 70, 119, 0.16);
+}
+
+.popular-subtool-card:not(.popular-subtool-skeleton):hover::before,
+.popular-subtool-card:not(.popular-subtool-skeleton):focus-visible::before {
+    left: 135%;
+}
+
+.popular-subtool-icon {
+    animation: premiumIconFloat 3.4s ease-in-out infinite;
+    transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.28s ease;
+    will-change: transform;
+}
+
+.popular-subtool-card:nth-child(2n) .popular-subtool-icon { animation-delay: -0.8s; }
+.popular-subtool-card:nth-child(3n) .popular-subtool-icon { animation-delay: -1.6s; }
+.popular-subtool-card:nth-child(4n) .popular-subtool-icon { animation-delay: -2.4s; }
+
+.popular-subtool-card:not(.popular-subtool-skeleton):hover .popular-subtool-icon,
+.popular-subtool-card:not(.popular-subtool-skeleton):focus-visible .popular-subtool-icon {
+    animation-play-state: paused;
+    transform: translateY(-2px) scale(1.08) rotate(2deg);
+    box-shadow:
+        0 12px 26px rgba(43, 166, 222, 0.20),
+        0 0 0 7px rgba(43, 166, 222, 0.07);
+}
+
+.tools-layout > .tool-card {
+    animation: premiumFadeUp 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tools-layout > .tool-card:nth-child(1) { animation-delay: 0.08s; }
+.tools-layout > .tool-card:nth-child(2) { animation-delay: 0.14s; }
+.tools-layout > .tool-card:nth-child(3) { animation-delay: 0.20s; }
+.tools-layout > .tool-card:nth-child(4) { animation-delay: 0.26s; }
+.tools-layout > .tool-card:nth-child(5) { animation-delay: 0.32s; }
+.tools-layout > .tool-card:nth-child(6) { animation-delay: 0.38s; }
+.tools-layout > .tool-card:nth-child(n + 7) { animation-delay: 0.44s; }
+
+.tool-card::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: -40%;
+    bottom: -40%;
+    left: -65%;
+    width: 32%;
+    background: linear-gradient(
+        110deg,
+        transparent,
+        rgba(255, 255, 255, 0.34),
+        rgba(43, 166, 222, 0.10),
+        transparent
+    );
+    transform: skewX(-18deg);
+    transition: left 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+}
+
+.tool-card > * {
+    z-index: 2;
+}
+
+.tool-card:hover::after,
+.tool-card:focus-visible::after {
+    left: 135%;
+}
+
+.tool-card:focus-visible {
+    transform: translateY(-6px);
+    border-color: #2ba6de;
+    box-shadow: 0 22px 48px rgba(21, 70, 119, 0.13);
+    outline: 3px solid rgba(43, 166, 222, 0.18);
+    outline-offset: 3px;
+}
+
+.tool-spark {
+    animation: premiumIconFloat 3.2s ease-in-out infinite;
+    will-change: transform;
+}
+
+.tool-spark.spark-two {
+    animation-delay: -1.45s;
+}
+
+.faq-section {
+    animation: premiumFadeUp 0.62s 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.faq-item.active {
+    border-color: rgba(43, 166, 222, 0.58);
+    box-shadow:
+        0 20px 46px rgba(21, 70, 119, 0.13),
+        0 0 0 1px rgba(43, 166, 222, 0.08);
+}
+
+.faq-question:focus-visible {
+    outline: 3px solid rgba(43, 166, 222, 0.20);
+    outline-offset: -3px;
+}
+
+.faq-question i {
+    transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.faq-item.active .faq-question i {
+    transform: rotate(180deg);
+    box-shadow: 0 8px 18px rgba(43, 166, 222, 0.16);
+}
+
+.faq-slide-enter-active,
+.faq-slide-leave-active {
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.faq-slide-enter-from,
+.faq-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
 </style>
