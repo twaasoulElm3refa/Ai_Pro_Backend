@@ -131,6 +131,45 @@
             </div>
         </div>
     </section>
+
+    <!-- FAQ SECTION -->
+    <section class="faq-section">
+        <div class="faq-header">
+            <span class="faq-eyebrow">
+                <i class="bi bi-question-circle"></i>
+                {{ isArabic ? "الأسئلة الشائعة" : "FAQ" }}
+            </span>
+
+            <h2>
+                {{ isArabic ? "كل ما تحتاج معرفته قبل استخدام الأدوات" : "Everything you need to know before using the tools" }}
+            </h2>
+
+            <p>
+                {{
+                    isArabic
+                        ? "إجابات سريعة تساعدك على فهم طريقة استخدام أدوات الذكاء الاصطناعي والاستفادة منها بشكل أفضل."
+                        : "Quick answers to help you understand how to use the AI tools and get better results."
+                }}
+            </p>
+        </div>
+
+        <div class="faq-list">
+            <article v-for="(faq, index) in faqs" :key="index" class="faq-item"
+                :class="{ active: activeFaqIndex === index }">
+                <button type="button" class="faq-question" @click="toggleFaq(index)">
+                    <span>{{ faq.question }}</span>
+
+                    <i class="bi" :class="activeFaqIndex === index ? 'bi-dash-lg' : 'bi-plus-lg'"></i>
+                </button>
+
+                <Transition name="faq-slide">
+                    <div v-if="activeFaqIndex === index" class="faq-answer">
+                        <p>{{ faq.answer }}</p>
+                    </div>
+                </Transition>
+            </article>
+        </div>
+    </section>
 </template>
 
 <script setup>
@@ -334,6 +373,62 @@ watch(
         await Promise.all([fetchTools(), fetchRandomSubTools()]);
     }
 );
+
+const activeFaqIndex = ref(0);
+
+const faqs = computed(() => {
+    if (isArabic.value) {
+        return [
+            {
+                question: "ما هي أدوات الذكاء الاصطناعي المتاحة في الموقع؟",
+                answer: "يوفر الموقع مجموعة من الأدوات الذكية التي تساعدك في كتابة النصوص، إعادة الصياغة، التلخيص، إنشاء الأفكار، كتابة المحتوى، وتجهيز نصوص أكثر احترافية في وقت أقل.",
+            },
+            {
+                question: "هل أحتاج إلى خبرة تقنية لاستخدام الأدوات؟",
+                answer: "لا، تم تصميم الأدوات لتكون سهلة وواضحة. كل ما عليك هو اختيار الأداة المناسبة، كتابة المطلوب، ثم الحصول على نتيجة منظمة يمكنك تعديلها أو استخدامها مباشرة.",
+            },
+            {
+                question: "هل يمكن استخدام الأدوات لإنشاء محتوى عربي؟",
+                answer: "نعم، تدعم الأدوات المحتوى العربي وتساعدك على إنتاج نصوص مناسبة للسياق العربي سواء للمقالات، السوشيال ميديا، الرسائل، الوصف، أو الأفكار التسويقية.",
+            },
+            {
+                question: "هل النتائج جاهزة للنشر مباشرة؟",
+                answer: "النتائج تكون جاهزة كنقطة بداية قوية، ويمكنك مراجعتها وتعديلها بما يناسب أسلوبك أو هوية مشروعك قبل النشر النهائي.",
+            },
+            {
+                question: "هل يتم حفظ المحادثات أو النتائج؟",
+                answer: "يعتمد ذلك على طريقة إعداد كل أداة داخل النظام. بعض الأدوات قد تتيح الرجوع للمحادثات أو النتائج السابقة عند تسجيل الدخول.",
+            },
+        ];
+    }
+
+    return [
+        {
+            question: "What AI tools are available on the website?",
+            answer: "The platform provides smart tools for writing, rewriting, summarizing, generating ideas, creating content, and improving text quality in less time.",
+        },
+        {
+            question: "Do I need technical experience to use the tools?",
+            answer: "No. The tools are designed to be simple and clear. Choose the tool, write your request, and get an organized result that you can edit or use.",
+        },
+        {
+            question: "Can I create Arabic content with these tools?",
+            answer: "Yes. The tools support Arabic content and can help create articles, social media posts, messages, descriptions, and marketing ideas.",
+        },
+        {
+            question: "Are the results ready to publish?",
+            answer: "The results are a strong starting point. You can review and adjust them to match your style or brand before publishing.",
+        },
+        {
+            question: "Are conversations or results saved?",
+            answer: "This depends on how each tool is configured. Some tools may allow logged-in users to access previous chats or generated results.",
+        },
+    ];
+});
+
+const toggleFaq = (index) => {
+    activeFaqIndex.value = activeFaqIndex.value === index ? null : index;
+};
 </script>
 
 <style scoped>
