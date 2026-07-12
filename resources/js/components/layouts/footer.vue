@@ -16,6 +16,11 @@ const localizedPath = (path = "") => {
 const ctaIconClass = computed(() =>
     footerDir.value === "rtl" ? "bi bi-arrow-left-short" : "bi bi-arrow-right-short"
 );
+
+const whatsappUrl = "https://wa.me/";
+const telegramUrl = "https://t.me/";
+const xUrl = "https://x.com/";
+const instagramUrl = "https://www.instagram.com/";
 </script>
 
 <template>
@@ -162,15 +167,68 @@ const ctaIconClass = computed(() =>
 
                 <!-- BOTTOM -->
                 <div class="footer-bottom">
-                    <p class="copyright">
-                        {{ t("user.footer.copyright") }}
-                    </p>
-
                     <div class="legal-links">
                         <a href="#">{{ t("user.footer.privacyPolicy") }}</a>
                         <a href="#">{{ t("user.footer.termsOfService") }}</a>
                         <a href="#">{{ t("user.footer.copyrightRights") }}</a>
                     </div>
+
+                    <div
+                        class="footer-social-center"
+                        :aria-label="footerDir === 'rtl' ? 'روابط الموقع والتواصل الاجتماعي' : 'Website and social links'"
+                    >
+                        <router-link
+                            :to="localizedPath()"
+                            class="footer-social-link"
+                            :aria-label="footerDir === 'rtl' ? 'الموقع الأصلي' : 'Original website'"
+                        >
+                            <i class="bi bi-house-door"></i>
+                        </router-link>
+
+                        <a
+                            :href="whatsappUrl"
+                            class="footer-social-link"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'واتساب' : 'WhatsApp'"
+                        >
+                            <i class="bi bi-whatsapp"></i>
+                        </a>
+
+                        <a
+                            :href="telegramUrl"
+                            class="footer-social-link"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'تليجرام' : 'Telegram'"
+                        >
+                            <i class="bi bi-telegram"></i>
+                        </a>
+
+                        <a
+                            :href="xUrl"
+                            class="footer-social-link"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'منصة إكس' : 'X'"
+                        >
+                            <i class="bi bi-twitter-x"></i>
+                        </a>
+
+                        <a
+                            :href="instagramUrl"
+                            class="footer-social-link"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'إنستجرام' : 'Instagram'"
+                        >
+                            <i class="bi bi-instagram"></i>
+                        </a>
+                    </div>
+
+                    <p class="copyright">
+                        {{ t("user.footer.copyright") }}
+                    </p>
                 </div>
             </div>
         </div>
@@ -705,22 +763,151 @@ const ctaIconClass = computed(() =>
     border-top: 1px solid rgba(21, 70, 119, 0.10);
     margin-top: 30px;
     padding-top: 22px;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    gap: 16px;
+    gap: 18px;
+    direction: ltr;
     animation: footerFadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.52s both;
 }
 
+.footer-social-center {
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+}
+
+.footer-social-link {
+    position: relative;
+    overflow: hidden;
+    width: 62px;
+    height: 62px;
+    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #154677;
+    text-decoration: none;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(236, 247, 254, 0.72));
+    border: 1px solid rgba(43, 166, 222, 0.24);
+    box-shadow:
+        0 14px 30px rgba(21, 70, 119, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    transition:
+        transform 0.24s ease,
+        color 0.24s ease,
+        border-color 0.24s ease,
+        box-shadow 0.24s ease,
+        background 0.24s ease;
+    animation: socialIconPop 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.footer-social-link:nth-child(1) {
+    animation-delay: 0.62s;
+}
+
+.footer-social-link:nth-child(2) {
+    animation-delay: 0.70s;
+}
+
+.footer-social-link:nth-child(3) {
+    animation-delay: 0.78s;
+}
+
+.footer-social-link:nth-child(4) {
+    animation-delay: 0.86s;
+}
+
+.footer-social-link:nth-child(5) {
+    animation-delay: 0.94s;
+}
+
+.footer-social-link::before {
+    content: "";
+    position: absolute;
+    inset: -35%;
+    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.72) 50%, transparent 65%);
+    transform: translateX(-120%) rotate(18deg);
+    transition: transform 0.58s ease;
+    pointer-events: none;
+}
+
+.footer-social-link::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 14px;
+    background: radial-gradient(circle, rgba(43, 166, 222, 0.16), transparent 68%);
+    opacity: 0;
+    transform: scale(0.86);
+    transition:
+        opacity 0.24s ease,
+        transform 0.24s ease;
+    pointer-events: none;
+}
+
+.footer-social-link i {
+    position: relative;
+    z-index: 1;
+    font-size: 24px;
+    line-height: 1;
+    transition: transform 0.24s ease;
+}
+
+.footer-social-link:hover,
+.footer-social-link:focus-visible {
+    color: #2ba6de;
+    transform: translateY(-5px) scale(1.035);
+    border-color: rgba(43, 166, 222, 0.48);
+    background:
+        linear-gradient(180deg, #ffffff, rgba(230, 247, 255, 0.96));
+    box-shadow:
+        0 20px 38px rgba(43, 166, 222, 0.18),
+        0 0 0 5px rgba(43, 166, 222, 0.07),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+    outline: none;
+}
+
+.footer-social-link:hover::before,
+.footer-social-link:focus-visible::before {
+    transform: translateX(120%) rotate(18deg);
+}
+
+.footer-social-link:hover::after,
+.footer-social-link:focus-visible::after {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.footer-social-link:hover i,
+.footer-social-link:focus-visible i {
+    transform: scale(1.08) rotate(-3deg);
+}
+
 .copyright {
+    justify-self: end;
     margin: 0;
     font-size: 0.875rem;
     color: #5f7288;
     font-weight: 700;
+    text-align: end;
+}
+
+.site-footer[dir="rtl"] .copyright,
+.site-footer[dir="rtl"] .legal-links {
+    direction: rtl;
+}
+
+.site-footer[dir="ltr"] .copyright,
+.site-footer[dir="ltr"] .legal-links {
+    direction: ltr;
 }
 
 .legal-links {
+    justify-self: start;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -938,6 +1125,18 @@ const ctaIconClass = computed(() =>
     }
 }
 
+@keyframes socialIconPop {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.86);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 /* RESPONSIVE */
 @media (max-width: 980px) {
     .footer-brand-area {
@@ -1009,16 +1208,40 @@ const ctaIconClass = computed(() =>
     }
 
     .footer-bottom {
-        align-items: flex-start;
-        flex-direction: column;
+        grid-template-columns: 1fr;
+        gap: 18px;
+        justify-items: stretch;
+    }
+
+    .footer-social-center {
+        order: -1;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .footer-social-link {
+        width: 50px;
+        height: 50px;
+        border-radius: 16px;
+    }
+
+    .footer-social-link i {
+        font-size: 20px;
     }
 
     .legal-links {
         width: 100%;
+        justify-self: stretch;
     }
 
     .legal-links a {
         flex: 1;
+        text-align: center;
+    }
+
+    .copyright {
+        justify-self: stretch;
+        width: 100%;
         text-align: center;
     }
 }

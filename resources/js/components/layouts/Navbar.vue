@@ -584,7 +584,7 @@ const logout = async () => {
     try {
         await api.post("/users/logout");
     } catch {
-        // Ignore logout request errors and continue local cleanup.
+        // Ignore logout errors in navbar.
     }
 
     localStorage.removeItem("user_role");
