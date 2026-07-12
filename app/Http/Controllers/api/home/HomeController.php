@@ -99,5 +99,23 @@ class HomeController extends Controller
         }
     }
 
+    public function randomSubTools()
+    {
+        try {
+            $locale = app()->getLocale();
+            $tools = Cache::tags(['subtools'])->remember(
+                "subtools:random:{$locale}",
+                now()->addHour(),
+                fn () => $this->subToolRepository->randomSubTools()
+            );
+            return $this->success($tools, 'Tools fetched successfully.');
+        } catch (\Throwable $th) {
+            Log::error('Tool Index Error', [
+                'error' => $th->getMessage(),
+            ]);
+            return $this->error('Something went wrong.');
+        }
+    }
+
 
 }

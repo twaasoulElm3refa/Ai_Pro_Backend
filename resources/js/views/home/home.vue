@@ -30,6 +30,46 @@
                     </div>
                 </div>
 
+                <!-- POPULAR SUBTOOLS -->
+                <section
+                    v-if="subToolsLoading || randomSubTools.length"
+                    class="popular-subtools-section"
+                    :aria-busy="subToolsLoading"
+                >
+                    <div class="popular-subtools-head">
+                        <h3>{{ popularSubToolsTitle }}</h3>
+                        <p>{{ popularSubToolsDescription }}</p>
+                    </div>
+
+                    <div v-if="subToolsLoading" class="popular-subtools-grid">
+                        <div
+                            v-for="item in subToolsSkeletonCount"
+                            :key="item"
+                            class="popular-subtool-card popular-subtool-skeleton"
+                            aria-hidden="true"
+                        >
+                            <span class="popular-subtool-icon skeleton-popular-icon"></span>
+                            <span class="skeleton-line skeleton-popular-name"></span>
+                        </div>
+                    </div>
+
+                    <div v-else class="popular-subtools-grid">
+                        <button
+                            v-for="subTool in randomSubTools"
+                            :key="subTool.id || `${subTool.parent_slug || 'subtool'}-${subTool.slug}`"
+                            type="button"
+                            class="popular-subtool-card"
+                            :aria-label="subTool.title"
+                            @click="goToSubTool(subTool)"
+                        >
+                            <span class="popular-subtool-icon">
+                                <i :class="subTool.icon"></i>
+                            </span>
+                            <span class="popular-subtool-name">{{ subTool.title }}</span>
+                        </button>
+                    </div>
+                </section>
+
                 <!-- LOADING -->
                 <div v-if="loading" class="tools-layout">
                     <div v-for="item in skeletonCount" :key="item" class="tool-card tool-skeleton">
@@ -134,11 +174,24 @@ const { t, locale } = useI18n();
 const loading = ref(true);
 const tools = ref([]);
 const skeletonCount = 4;
+const subToolsLoading = ref(true);
+const randomSubTools = ref([]);
+const subToolsSkeletonCount = 6;
 
 const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
 
 const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
+);
+
+const popularSubToolsTitle = computed(() =>
+    isArabic.value ? "أدوات شائعة" : "Popular Tools"
+);
+
+const popularSubToolsDescription = computed(() =>
+    isArabic.value
+        ? "اكتشف أدوات فرعية تساعدك على إنجاز مهامك بسرعة."
+        : "Discover focused tools that help you complete tasks faster."
 );
 
 const seoTitle = computed(() =>
@@ -171,6 +224,70 @@ const normalizeTool = (tool) => {
     };
 };
 
+const subToolFallbackIcons = [
+    "bi-stars",
+    "bi-magic",
+    "bi-pencil-square",
+    "bi-chat-dots",
+    "bi-file-text",
+    "bi-lightning-charge",
+    "bi-robot",
+];
+
+const normalizeSubToolIcon = (icon, subTool) => {
+    const fallbackIndex = Math.abs(Number(subTool?.id) || String(subTool?.slug || "").length);
+    const selectedIcon = icon || subToolFallbackIcons[fallbackIndex % subToolFallbackIcons.length];
+    const classes = String(selectedIcon).trim().split(/\s+/).filter(Boolean);
+
+    if (!classes.some((className) => className === "bi")) classes.unshift("bi");
+    return classes;
+};
+
+const normalizeSubTool = (subTool = {}) => {
+    const translation = subTool.translation || subTool.translations?.[0] || {};
+
+    return {
+        ...subTool,
+        id: subTool.id,
+        slug: subTool.slug,
+        full_slug: subTool.full_slug,
+        url: subTool.url,
+        parent_slug: subTool.parent_slug || subTool.tool?.slug || subTool.parent?.slug,
+        title:
+            translation.name ||
+            subTool.name ||
+            subTool.title ||
+            subTool.label ||
+            subTool.slug ||
+            "",
+        description: translation.description || subTool.description || "",
+        icon: normalizeSubToolIcon(
+            subTool.icon || subTool.icon_class || subTool.bootstrap_icon,
+            subTool
+        ),
+        is_active: subTool.is_active !== false,
+    };
+};
+
+const extractSubTools = (response) => {
+    const candidates = [
+        response?.data?.data?.subtools,
+        response?.data?.data?.sub_tools,
+        response?.data?.data?.items,
+        response?.data?.subtools,
+        response?.data?.sub_tools,
+        response?.data?.random_subtools,
+        response?.data?.data,
+        response?.data,
+        response?.subtools,
+        response?.sub_tools,
+        response?.random_subtools,
+        response,
+    ];
+
+    return candidates.find(Array.isArray) || [];
+};
+
 const fetchTools = async () => {
     locale.value = homeService.getLang();
     loading.value = true;
@@ -187,17 +304,41 @@ const fetchTools = async () => {
     }
 };
 
+const fetchRandomSubTools = async () => {
+    subToolsLoading.value = true;
+
+    try {
+        const response = await homeService.fetchRandomSubTools();
+        randomSubTools.value = extractSubTools(response).map(normalizeSubTool);
+    } catch {
+        randomSubTools.value = [];
+    } finally {
+        subToolsLoading.value = false;
+    }
+};
+
 const goToTool = (slug) => {
     router.push(`/${homeService.getLang()}/tool/${slug}`);
 };
 
+const goToSubTool = (subTool) => {
+    if (subTool?.url) return router.push(subTool.url);
+
+    const lang = homeService.getLang();
+    if (subTool?.full_slug) return router.push(`/${lang}/tool/${subTool.full_slug}`);
+    if (subTool?.parent_slug && subTool?.slug) {
+        return router.push(`/${lang}/tool/${subTool.parent_slug}/${subTool.slug}`);
+    }
+    if (subTool?.slug) return router.push(`/${lang}/tool/${subTool.slug}`);
+};
+
 const handleLangChanged = async () => {
     locale.value = homeService.getLang();
-    await fetchTools();
+    await Promise.all([fetchTools(), fetchRandomSubTools()]);
 };
 
 onMounted(async () => {
-    await fetchTools();
+    await Promise.all([fetchTools(), fetchRandomSubTools()]);
     window.addEventListener("lang-changed", handleLangChanged);
 });
 
@@ -209,7 +350,8 @@ watch(
     () => route.params.lang,
     async (nextLang, prevLang) => {
         if (!nextLang || nextLang === prevLang) return;
-        await fetchTools();
+        locale.value = String(nextLang);
+        await Promise.all([fetchTools(), fetchRandomSubTools()]);
     }
 );
 </script>
@@ -637,6 +779,114 @@ watch(
     text-transform: uppercase;
 }
 
+.popular-subtools-section {
+    position: relative;
+    z-index: 2;
+    margin-bottom: 32px;
+    padding: 26px 24px;
+    border: 1px solid rgba(21, 70, 119, 0.10);
+    border-radius: 26px;
+    background: linear-gradient(135deg, rgba(21, 70, 119, 0.04), rgba(43, 166, 222, 0.08));
+}
+
+.popular-subtools-head {
+    margin-bottom: 20px;
+}
+
+.popular-subtools-head h3 {
+    margin: 0;
+    color: #154677;
+    font-size: 23px;
+    line-height: 1.3;
+    font-weight: 950;
+}
+
+.popular-subtools-head p {
+    margin: 7px 0 0;
+    color: #5b6f84;
+    font-size: 14px;
+    line-height: 1.7;
+    font-weight: 600;
+}
+
+.popular-subtools-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.popular-subtool-card {
+    min-width: 0;
+    min-height: 132px;
+    padding: 18px 12px;
+    border: 1px solid rgba(21, 70, 119, 0.10);
+    border-radius: 22px;
+    background: #ffffff;
+    color: #154677;
+    box-shadow: 0 10px 26px rgba(21, 70, 119, 0.07);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font: inherit;
+    cursor: pointer;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.popular-subtool-card:not(.popular-subtool-skeleton):hover,
+.popular-subtool-card:not(.popular-subtool-skeleton):focus-visible {
+    transform: translateY(-5px);
+    border-color: #2ba6de;
+    box-shadow: 0 17px 34px rgba(21, 70, 119, 0.12);
+    outline: none;
+}
+
+.popular-subtool-icon {
+    width: 58px;
+    height: 58px;
+    flex: 0 0 58px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(21, 70, 119, 0.10), rgba(43, 166, 222, 0.18));
+    color: #154677;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 25px;
+}
+
+.popular-subtool-name {
+    color: #154677;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1.5;
+    text-align: center;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.popular-subtool-skeleton {
+    cursor: default;
+    pointer-events: none;
+}
+
+.skeleton-popular-icon,
+.skeleton-popular-name {
+    animation: skeletonPulse 1.25s ease-in-out infinite;
+}
+
+.skeleton-popular-icon {
+    background: #e5edf4;
+}
+
+.skeleton-popular-name {
+    width: 72%;
+    height: 12px;
+    margin: 0;
+}
+
 .tools-layout {
     position: relative;
     z-index: 2;
@@ -935,6 +1185,12 @@ watch(
     }
 }
 
+@media (max-width: 1200px) {
+    .popular-subtools-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 900px) {
     .tools-panel {
         padding: 30px 20px;
@@ -1009,6 +1265,27 @@ watch(
 
     .tools-panel {
         padding: 24px 16px;
+    }
+
+    .popular-subtools-section {
+        padding: 22px 16px;
+        margin-inline: -4px;
+        overflow: hidden;
+    }
+
+    .popular-subtools-grid {
+        display: flex;
+        gap: 12px;
+        margin-inline: -16px;
+        padding: 2px 16px 12px;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        scrollbar-width: thin;
+    }
+
+    .popular-subtool-card {
+        flex: 0 0 138px;
+        scroll-snap-align: start;
     }
 
     .tools-title {

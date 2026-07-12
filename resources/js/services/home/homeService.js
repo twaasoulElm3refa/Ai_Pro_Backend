@@ -148,6 +148,13 @@ const homeService = {
         });
     },
 
+    async fetchRandomSubTools() {
+        return cached(buildKey("home:subtools:random"), async () => {
+            const response = await api.get("/tools/random/subtools");
+            return unwrap(response);
+        });
+    },
+
     async showTool(slug) {
         return cached(buildKey(`home:tools:${slug}`), async () => {
             const response = await api.get(`/tools/${slug}`);

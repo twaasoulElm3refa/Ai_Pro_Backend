@@ -12,6 +12,11 @@ class SubToolRepository implements SubToolInterface
             ->paginate(10);
         return $tools;
     }
+    public function randomSubTools()
+    {
+        $tools = SubTools::with('translation')->inRandomOrder()->limit(6)->get();
+        return $tools;
+    }
 
     public function show($id)
     {
