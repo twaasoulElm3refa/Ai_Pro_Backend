@@ -1914,5 +1914,218 @@ onBeforeUnmount(() => {
         font-size: 8px;
     }
 }
-</style>
 
+/* =========================
+   PREMIUM NAVBAR MOTION
+========================= */
+@keyframes nbNavEnter {
+    from {
+        opacity: 0;
+        transform: translateY(-18px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes nbSocialEnter {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.82);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes nbDividerEnter {
+    from {
+        opacity: 0;
+        transform: scaleY(0.4);
+    }
+
+    to {
+        opacity: 0.72;
+        transform: scaleY(1);
+    }
+}
+
+@keyframes nbHeroFadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes nbVideoCardEnter {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.96) rotate(-2deg);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(-2deg);
+    }
+}
+
+@keyframes nbVideoCardEnterMobile {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.96) rotate(-1.2deg);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(-1.2deg);
+    }
+}
+
+@keyframes nbOverlayDrift {
+    from {
+        transform: translate3d(-4px, 3px, 0) scale(1.015);
+    }
+
+    to {
+        transform: translate3d(4px, -5px, 0) scale(1.025);
+    }
+}
+
+.nb-inner {
+    animation: nbNavEnter 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.nb-social-link {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    animation: nbSocialEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.nb-social-link:nth-of-type(1) { animation-delay: 0.25s; }
+.nb-social-link:nth-of-type(2) { animation-delay: 0.36s; }
+.nb-social-link:nth-of-type(3) { animation-delay: 0.47s; }
+
+.nb-social-link::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    top: -30%;
+    bottom: -30%;
+    left: -78%;
+    width: 46%;
+    background: linear-gradient(
+        110deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.24) 30%,
+        rgba(43, 166, 222, 0.18) 52%,
+        rgba(255, 255, 255, 0.42) 72%,
+        transparent 100%
+    );
+    transform: skewX(-16deg);
+    transition: left 0.58s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+}
+
+.nb-social-link svg {
+    position: relative;
+    z-index: 1;
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nb-social-link:hover,
+.nb-social-link:focus-visible {
+    color: var(--ai-light);
+    transform: translateY(-4px) scale(1.08);
+    border-color: rgba(43, 166, 222, 0.48);
+    background: linear-gradient(180deg, #ffffff, rgba(232, 247, 255, 0.98));
+    box-shadow:
+        0 19px 38px rgba(43, 166, 222, 0.22),
+        0 0 0 6px rgba(43, 166, 222, 0.06),
+        inset 0 1px 0 #ffffff;
+}
+
+.nb-social-link:focus-visible {
+    outline: 3px solid rgba(43, 166, 222, 0.24);
+    outline-offset: 3px;
+}
+
+.nb-social-link:hover::before,
+.nb-social-link:focus-visible::before {
+    left: 132%;
+}
+
+.nb-social-link:hover svg,
+.nb-social-link:focus-visible svg {
+    transform: rotate(3deg) scale(1.04);
+}
+
+.nb-social-divider {
+    opacity: 0.72;
+    transform-origin: center;
+    animation: nbDividerEnter 0.46s 0.54s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    transition:
+        opacity 0.25s ease,
+        filter 0.25s ease;
+}
+
+.nb-social-center:hover .nb-social-divider {
+    opacity: 1;
+    filter: drop-shadow(0 0 5px rgba(43, 166, 222, 0.40));
+}
+
+.nb-hero-badge,
+.nb-hero-copy h1,
+.nb-hero-copy p,
+.nb-hero-actions,
+.nb-hero-note {
+    animation: nbHeroFadeUp 0.62s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.nb-hero-badge { animation-delay: 0.18s; }
+.nb-hero-copy h1 { animation-delay: 0.28s; }
+.nb-hero-copy p { animation-delay: 0.38s; }
+.nb-hero-actions { animation-delay: 0.48s; }
+.nb-hero-note { animation-delay: 0.58s; }
+
+.nb-video-card {
+    animation: nbVideoCardEnter 0.8s 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.nb-hero-overlay {
+    inset: -8px;
+    animation: nbOverlayDrift 12s ease-in-out infinite alternate;
+    will-change: transform;
+}
+
+@media (max-width: 640px) {
+    .nb-video-card {
+        animation-name: nbVideoCardEnterMobile;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nb-inner,
+    .nb-social-link,
+    .nb-social-divider,
+    .nb-hero-badge,
+    .nb-hero-copy h1,
+    .nb-hero-copy p,
+    .nb-hero-actions,
+    .nb-hero-note,
+    .nb-video-card,
+    .nb-hero-overlay {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+</style>
