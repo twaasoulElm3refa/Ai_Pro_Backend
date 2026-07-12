@@ -1,20 +1,10 @@
 <template>
-    <header
-        class="nb-hero"
-        :class="{ 'nb-hero-compact': hideHeader }"
-        :dir="currentDir"
-    >
+    <header class="nb-hero" :class="{ 'nb-hero-compact': hideHeader }" :dir="currentDir">
         <!-- SEO / LAZY HERO IMAGE -->
         <template v-if="!hideHeader">
-            <img
-                class="nb-hero-bg"
-                :src="heroBackground"
-                :alt="isArabic ? 'خلفية ذكاء اصطناعي لأدوات AiPro' : 'AI tools background for AiPro'"
-                loading="lazy"
-                decoding="async"
-                width="1920"
-                height="900"
-            />
+            <img class="nb-hero-bg" :src="heroBackground"
+                :alt="isArabic ? 'خلفية ذكاء اصطناعي لأدوات AiPro' : 'AI tools background for AiPro'" loading="lazy"
+                decoding="async" width="1920" height="900" />
 
             <div class="nb-hero-overlay"></div>
         </template>
@@ -23,53 +13,70 @@
             <div class="nb-inner">
                 <!-- LOGO + LINKS -->
                 <div class="nb-brand-zone">
-                    <a
-                        class="nb-logo"
-                        :href="homeUrl"
-                        :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'"
-                    >
+                    <a class="nb-logo" :href="homeUrl" :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'">
                         <div class="nb-logo-mark">
-                            <img
-                                src="/images/Ai_logo.png"
-                                alt="AiPro Logo"
-                                width="42"
-                                height="42"
-                                fetchpriority="high"
-                                decoding="async"
-                            />
+                            <img src="/images/Ai_logo.png" alt="AiPro Logo" width="42" height="42" fetchpriority="high"
+                                decoding="async" />
                         </div>
                     </a>
 
-                    <button
-                        type="button"
-                        class="nb-links-toggle"
-                        :class="{ active: navLinksOpen }"
+                    <button type="button" class="nb-links-toggle" :class="{ active: navLinksOpen }"
                         :aria-expanded="navLinksOpen"
                         :aria-label="isArabic ? 'فتح روابط التنقل' : 'Open navigation links'"
-                        @click.stop="toggleNavLinks"
-                    >
+                        @click.stop="toggleNavLinks">
                         <span></span>
                         <span></span>
                         <span></span>
                     </button>
 
-                    <nav
-                        class="nb-center-links"
-                        :class="{ open: navLinksOpen }"
-                        :aria-label="isArabic ? 'روابط التنقل الرئيسية' : 'Main navigation links'"
-                    >
+                    <nav class="nb-center-links" :class="{ open: navLinksOpen }"
+                        :aria-label="isArabic ? 'روابط التنقل الرئيسية' : 'Main navigation links'">
                         <a :href="homeUrl" class="nb-nav-link">
                             <span>{{ t("navbar.home") }}</span>
                         </a>
-
-                        <!-- <a :href="toolsUrl" class="nb-nav-link">
-                            <span>{{ isArabic ? "الأدوات" : "Tools" }}</span>
-                        </a>
-
-                        <a :href="contactUrl" class="nb-nav-link">
-                            <span>{{ isArabic ? "تواصل معنا" : "Contact Us" }}</span>
-                        </a> -->
                     </nav>
+                </div>
+
+                <div class="nb-social-center" :aria-label="isArabic ? 'روابط التواصل والمصدر' : 'Social and source links'">
+                    <a
+                        :href="whatsappUrl"
+                        class="nb-social-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :aria-label="isArabic ? 'واتساب' : 'WhatsApp'"
+                    >
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M13.601 2.326A7.85 7.85 0 0 0 8.002 0C3.582 0 0 3.58 0 7.998c0 1.41.37 2.78 1.073 3.99L0 16l4.12-1.082a7.94 7.94 0 0 0 3.882.99h.004c4.417 0 7.998-3.58 7.998-7.998a7.95 7.95 0 0 0-2.403-5.584ZM8.006 14.55h-.003a6.61 6.61 0 0 1-3.37-.922l-.242-.144-2.445.641.653-2.384-.158-.244a6.55 6.55 0 0 1-1.006-3.499c0-3.612 2.94-6.552 6.555-6.552a6.51 6.51 0 0 1 4.64 1.925 6.51 6.51 0 0 1 1.93 4.638c0 3.613-2.94 6.54-6.554 6.54Zm3.594-4.904c-.197-.099-1.166-.575-1.347-.64-.18-.066-.312-.099-.443.099-.131.197-.509.64-.624.772-.115.131-.23.148-.427.05-.197-.1-.833-.307-1.587-.98-.586-.522-.982-1.168-1.097-1.365-.115-.197-.012-.304.087-.402.089-.089.197-.23.296-.345.099-.115.131-.197.197-.328.066-.132.033-.247-.016-.346-.05-.098-.443-1.068-.607-1.462-.16-.384-.322-.332-.443-.338l-.378-.007a.73.73 0 0 0-.526.247c-.18.197-.69.673-.69 1.64 0 .966.707 1.9.805 2.03.099.132 1.39 2.122 3.368 2.975.471.203.838.324 1.124.414.472.15.902.129 1.242.078.379-.057 1.166-.476 1.33-.936.164-.46.164-.854.115-.936-.05-.082-.18-.131-.377-.23Z" />
+                        </svg>
+                    </a>
+
+                    <span class="nb-social-divider"></span>
+
+                    <a
+                        :href="originalNewsUrl"
+                        class="nb-social-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :aria-label="isArabic ? 'الموقع الإخباري الأصلي' : 'Original news website'"
+                    >
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M0 2.5A1.5 1.5 0 0 1 1.5 1h11A1.5 1.5 0 0 1 14 2.5v.4h.5A1.5 1.5 0 0 1 16 4.4v8.1a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5v-10Zm1.5-.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-10a.5.5 0 0 0-.5-.5h-11Zm12.5 1.9v8.6a1.49 1.49 0 0 1-.085.5h.585a.5.5 0 0 0 .5-.5V4.4a.5.5 0 0 0-.5-.5H14ZM2 3h10v2H2V3Zm0 3h4v6H2V6Zm5 0h5v1H7V6Zm0 2h5v1H7V8Zm0 2h5v1H7v-1Z" />
+                        </svg>
+                    </a>
+
+                    <span class="nb-social-divider"></span>
+
+                    <a
+                        :href="twitterUrl"
+                        class="nb-social-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :aria-label="isArabic ? 'منصة إكس' : 'X / Twitter'"
+                    >
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.6.75Zm-.86 13.028h1.36L4.323 2.145H2.865l8.875 11.633Z" />
+                        </svg>
+                    </a>
                 </div>
 
                 <div class="nb-actions">
@@ -82,20 +89,14 @@
                         </button>
 
                         <div v-if="langDropdownOpen" class="nb-lang-dropdown">
-                            <button
-                                v-for="language in languages"
-                                :key="language.code"
-                                type="button"
-                                class="nb-lang-item"
-                                :class="{ active: language.code === currentLocale }"
-                                @click="changeLanguage(language.code)"
-                            >
+                            <button v-for="language in languages" :key="language.code" type="button"
+                                class="nb-lang-item" :class="{ active: language.code === currentLocale }"
+                                @click="changeLanguage(language.code)">
                                 <span>{{ language.nativeName }}</span>
                                 <small>{{ language.label }}</small>
                             </button>
                         </div>
                     </div>
-
 
                     <template v-if="isLoggedIn">
                         <button class="nb-wallet-btn" type="button" @click="goToWallet" :title="t('navbar.wallet')">
@@ -134,12 +135,8 @@
                                 <a :href="profileUrl" class="nb-dd-item">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                                         <circle cx="12" cy="8" r="4" stroke="#154677" stroke-width="1.6" />
-                                        <path
-                                            d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
-                                            stroke="#154677"
-                                            stroke-width="1.6"
-                                            stroke-linecap="round"
-                                        />
+                                        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#154677" stroke-width="1.6"
+                                            stroke-linecap="round" />
                                     </svg>
 
                                     {{ t("navbar.profile") }}
@@ -149,28 +146,12 @@
 
                                 <button class="nb-dd-item danger" type="button" @click="logout">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                        <path
-                                            d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-                                            stroke="#154677"
-                                            stroke-width="1.6"
-                                            stroke-linecap="round"
-                                        />
-                                        <polyline
-                                            points="16 17 21 12 16 7"
-                                            stroke="#154677"
-                                            stroke-width="1.6"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        />
-                                        <line
-                                            x1="21"
-                                            y1="12"
-                                            x2="9"
-                                            y2="12"
-                                            stroke="#154677"
-                                            stroke-width="1.6"
-                                            stroke-linecap="round"
-                                        />
+                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#154677"
+                                            stroke-width="1.6" stroke-linecap="round" />
+                                        <polyline points="16 17 21 12 16 7" stroke="#154677" stroke-width="1.6"
+                                            stroke-linecap="round" stroke-linejoin="round" />
+                                        <line x1="21" y1="12" x2="9" y2="12" stroke="#154677" stroke-width="1.6"
+                                            stroke-linecap="round" />
                                     </svg>
 
                                     {{ t("navbar.logout") }}
@@ -182,28 +163,12 @@
                     <template v-else>
                         <a :href="authUrl" class="nb-login-btn">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                                <path
-                                    d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
-                                    stroke="white"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                />
-                                <polyline
-                                    points="10 17 15 12 10 7"
-                                    stroke="white"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-                                <line
-                                    x1="15"
-                                    y1="12"
-                                    x2="3"
-                                    y2="12"
-                                    stroke="white"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                />
+                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" stroke="white" stroke-width="1.8"
+                                    stroke-linecap="round" />
+                                <polyline points="10 17 15 12 10 7" stroke="white" stroke-width="1.8"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <line x1="15" y1="12" x2="3" y2="12" stroke="white" stroke-width="1.8"
+                                    stroke-linecap="round" />
                             </svg>
 
                             {{ t("navbar.login") }}
@@ -217,31 +182,64 @@
             <div class="nb-hero-copy">
                 <span class="nb-hero-badge">
                     <i class="bi bi-stars"></i>
-                    {{ isArabic ? "منصة أدوات ذكاء اصطناعي" : "AI Tools Platform" }}
+                    {{ isArabic ? "محتوى ذكي يوفر عليك الوقت" : "Smart content that saves time" }}
                 </span>
 
                 <h1>
-                    {{ isArabic ? "أدوات ذكية لإنجاز أسرع" : "Smart AI Tools for Faster Work" }}
+                    <span>
+                        {{ isArabic ? "خلّي محتواك يفتح لك" : "Let your content open" }}
+                    </span>
+
+                    <strong>
+                        {{ isArabic ? "أبواب الفرص" : "new opportunities" }}
+                    </strong>
                 </h1>
 
                 <p>
                     {{
                         isArabic
-                            ? "اكتب، لخص، حرّر، ونظّم مهامك من مكان واحد بتجربة بسيطة وسريعة."
-                            : "Write, summarize, edit, and organize your tasks from one simple workspace."
+                            ? "من فكرة بسيطة إلى محتوى جاهز يجذب الانتباه ويقنع الجمهور بخطوات ذكية وسريعة."
+                            : "From a simple idea to ready-to-use content that attracts attention and helps your audience take action."
                     }}
                 </p>
 
                 <div class="nb-hero-actions">
                     <a :href="toolsUrl" class="nb-primary-cta">
-                        {{ isArabic ? "استكشف الأدوات" : "Explore Tools" }}
+                        <span>{{ isArabic ? "جرّب الأدوات الآن" : "Try Tools Now" }}</span>
+                        <i class="bi bi-arrow-left-short" v-if="isArabic"></i>
+                        <i class="bi bi-arrow-right-short" v-else></i>
                     </a>
 
                     <a :href="authUrl" class="nb-secondary-cta">
-                        {{ isArabic ? "ابدأ الآن" : "Get Started" }}
+                        {{ isArabic ? "لدي حساب بالفعل" : "I already have an account" }}
                     </a>
                 </div>
+
+                <div class="nb-hero-note">
+                    <strong>{{ isArabic ? "ابدأ مجانًا" : "Start free" }}</strong>
+                    <span>{{ isArabic ? "واكتب أول محتوى لك خلال دقائق." : "and create your first content in minutes."
+                        }}</span>
+                </div>
             </div>
+
+            <div class="nb-hero-visual" aria-hidden="true">
+                <div class="nb-video-card" ref="heroVideoCardRef">
+                    <video
+                        v-if="shouldLoadHeroVideo"
+                        class="nb-hero-video"
+                        :src="heroVideo"
+                        autoplay
+                        muted
+                        loop
+                        playsinline
+                        preload="none"
+                        @loadeddata="heroVideoReady = true"
+                    ></video>
+
+                    <div v-else class="nb-video-placeholder"></div>
+                </div>
+            </div>
+
         </section>
     </header>
 </template>
@@ -264,12 +262,23 @@ const { t, locale } = useI18n();
 const router = useRouter();
 
 const heroBackground = "/images/hero.png";
+const heroVideo = "/images/video.mp4";
+const whatsappUrl = "https://wa.me/";
+const originalNewsUrl = "https://aiarabic.com";
+const twitterUrl = "https://x.com/";
 
 const isLoggedIn = ref(false);
 const WalletBalance = ref(0);
 const dropdownOpen = ref(false);
 const langDropdownOpen = ref(false);
 const navLinksOpen = ref(false);
+
+const heroVideoCardRef = ref(null);
+const shouldLoadHeroVideo = ref(false);
+const heroVideoReady = ref(false);
+
+let heroVideoObserver = null;
+let heroVideoTimer = null;
 
 const PROFILE_CACHE_PREFIX = "navbar_profile_cache_v1";
 const WALLET_CACHE_PREFIX = "navbar_wallet_cache_v1";
@@ -447,6 +456,72 @@ const deferToIdle = (task) => {
     setTimeout(task, 120);
 };
 
+const loadHeroVideo = () => {
+    if (shouldLoadHeroVideo.value) return;
+
+    shouldLoadHeroVideo.value = true;
+
+    if (heroVideoObserver) {
+        heroVideoObserver.disconnect();
+        heroVideoObserver = null;
+    }
+};
+
+const startHeroVideoLazyLoad = () => {
+    if (props.hideHeader || shouldLoadHeroVideo.value) return;
+
+    const target = heroVideoCardRef.value;
+
+    if (!target) {
+        heroVideoTimer = window.setTimeout(startHeroVideoLazyLoad, 300);
+        return;
+    }
+
+    if ("IntersectionObserver" in window) {
+        heroVideoObserver = new IntersectionObserver(
+            (entries) => {
+                const isVisible = entries.some((entry) => entry.isIntersecting);
+
+                if (isVisible) {
+                    loadHeroVideo();
+                }
+            },
+            {
+                root: null,
+                rootMargin: "160px 0px",
+                threshold: 0.05,
+            }
+        );
+
+        heroVideoObserver.observe(target);
+        return;
+    }
+
+    loadHeroVideo();
+};
+
+const scheduleHeroVideoLazyLoad = () => {
+    if (props.hideHeader) return;
+
+    deferToIdle(() => {
+        heroVideoTimer = window.setTimeout(() => {
+            startHeroVideoLazyLoad();
+        }, 1800);
+    });
+};
+
+const cleanupHeroVideoLazyLoad = () => {
+    if (heroVideoTimer) {
+        window.clearTimeout(heroVideoTimer);
+        heroVideoTimer = null;
+    }
+
+    if (heroVideoObserver) {
+        heroVideoObserver.disconnect();
+        heroVideoObserver = null;
+    }
+};
+
 const fetchWallet = async () => {
     if (!localStorage.getItem("auth_token")) return;
 
@@ -566,6 +641,7 @@ onMounted(() => {
     syncHtmlDirection();
 
     refreshUserState();
+    scheduleHeroVideoLazyLoad();
 
     window.addEventListener("login", refreshUserState);
     window.addEventListener("lang-changed", handleLangChanged);
@@ -573,6 +649,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+    cleanupHeroVideoLazyLoad();
+
     window.removeEventListener("login", refreshUserState);
     window.removeEventListener("lang-changed", handleLangChanged);
     document.removeEventListener("click", handleDocumentClick);
@@ -581,16 +659,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .nb-hero {
+    --ai-dark: #154677;
+    --ai-light: #2ba6de;
+
     position: relative;
     min-height: 760px;
     overflow: hidden;
     font-family: "Cairo", sans-serif;
-    background: #154677;
+    background:
+        radial-gradient(circle at 18% 18%, rgba(43, 166, 222, 0.22), transparent 30%),
+        radial-gradient(circle at 80% 18%, rgba(21, 70, 119, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(21, 70, 119, 0.08) 0%, rgba(43, 166, 222, 0.12) 45%, #ffffff 100%);
 }
 
 .nb-hero-compact {
     min-height: 118px;
-    background: #f4f8fb;
+    background:
+        linear-gradient(135deg, rgba(21, 70, 119, 0.08), rgba(43, 166, 222, 0.12)),
+        #f4f8fb;
     overflow: visible;
 }
 
@@ -601,6 +687,8 @@ onBeforeUnmount(() => {
     height: 100%;
     object-fit: cover;
     z-index: 1;
+    opacity: 0.045;
+    filter: blur(1px);
     transform: scale(1.02);
 }
 
@@ -609,10 +697,17 @@ onBeforeUnmount(() => {
     inset: 0;
     z-index: 2;
     background:
-        linear-gradient(180deg, rgba(21, 70, 119, 0.28) 0%, rgba(21, 70, 119, 0.42) 52%, rgba(248, 250, 252, 1) 100%),
-        radial-gradient(circle at 70% 20%, rgba(43, 166, 222, 0.22), transparent 34%);
+        linear-gradient(
+            135deg,
+            rgba(21, 70, 119, 0.12) 0%,
+            rgba(43, 166, 222, 0.14) 40%,
+            rgba(255, 255, 255, 0.94) 100%
+        ),
+        radial-gradient(circle at 74% 22%, rgba(43, 166, 222, 0.20), transparent 36%),
+        radial-gradient(circle at 18% 70%, rgba(21, 70, 119, 0.12), transparent 34%);
 }
 
+/* NAVBAR */
 .nb-shell {
     position: fixed;
     top: 24px;
@@ -626,6 +721,7 @@ onBeforeUnmount(() => {
 }
 
 .nb-inner {
+    position: relative;
     pointer-events: auto;
     min-height: 84px;
     width: 100%;
@@ -639,6 +735,7 @@ onBeforeUnmount(() => {
     box-shadow: 0 20px 55px rgba(15, 23, 42, 0.18);
     border: 1px solid rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 
 /* LOGO + LINKS */
@@ -702,7 +799,7 @@ onBeforeUnmount(() => {
     width: 5px;
     height: 5px;
     border-radius: 999px;
-    background: #2ba6de;
+    background: var(--ai-light);
     opacity: 0.55;
     transform: translateY(-50%);
     pointer-events: none;
@@ -722,7 +819,7 @@ onBeforeUnmount(() => {
     min-height: 38px;
     padding: 0 16px;
     border-radius: 999px;
-    color: #154677;
+    color: var(--ai-dark);
     text-decoration: none;
     font-size: 16px;
     font-weight: 950;
@@ -748,7 +845,7 @@ onBeforeUnmount(() => {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: linear-gradient(135deg, #154677, #2ba6de);
+    background: linear-gradient(135deg, var(--ai-dark), var(--ai-light));
     opacity: 0;
     transform: scale(0.82);
     transition:
@@ -796,7 +893,7 @@ onBeforeUnmount(() => {
     height: 42px;
     border: none;
     border-radius: 14px;
-    background: #154677;
+    background: linear-gradient(135deg, var(--ai-dark), var(--ai-light));
     cursor: pointer;
     align-items: center;
     justify-content: center;
@@ -827,6 +924,75 @@ onBeforeUnmount(() => {
     transform: translateY(-7px) rotate(-45deg);
 }
 
+
+/* CENTER SOCIAL ICONS */
+.nb-social-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 3;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    pointer-events: auto;
+}
+
+.nb-social-link {
+    width: 58px;
+    height: 58px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ai-dark);
+    text-decoration: none;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(239, 247, 253, 0.96));
+    border: 1px solid rgba(21, 70, 119, 0.14);
+    box-shadow:
+        0 12px 26px rgba(21, 70, 119, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    transition:
+        transform 0.22s ease,
+        box-shadow 0.22s ease,
+        color 0.22s ease,
+        border-color 0.22s ease,
+        background 0.22s ease;
+}
+
+.nb-social-link svg {
+    width: 27px;
+    height: 27px;
+    display: block;
+    fill: currentColor;
+}
+
+.nb-social-link:hover {
+    color: var(--ai-light);
+    transform: translateY(-2px);
+    border-color: rgba(43, 166, 222, 0.42);
+    background:
+        linear-gradient(180deg, #ffffff, rgba(232, 247, 255, 0.98));
+    box-shadow:
+        0 18px 34px rgba(43, 166, 222, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.nb-social-divider {
+    width: 1.5px;
+    height: 38px;
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        transparent,
+        rgba(43, 166, 222, 0.72),
+        transparent
+    );
+    flex: 0 0 auto;
+}
+
 /* ACTIONS */
 .nb-actions {
     display: flex;
@@ -853,16 +1019,20 @@ onBeforeUnmount(() => {
     border-radius: 999px;
     white-space: nowrap;
     cursor: pointer;
-    transition: transform 0.2s ease, background-color 0.2s ease;
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease;
 }
 
 .nb-lang-btn i {
-    color: #154677;
+    color: var(--ai-dark);
     font-size: 15px;
 }
 
 .nb-lang-btn:hover {
     background: #f4fbff;
+    color: var(--ai-dark);
     transform: translateY(-1px);
 }
 
@@ -897,7 +1067,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    color: #154677;
+    color: var(--ai-dark);
     font-weight: 800;
     transition: background 0.2s ease;
 }
@@ -928,20 +1098,22 @@ onBeforeUnmount(() => {
     width: 46px;
     height: 46px;
     border-radius: 14px;
-    background: #154677;
+    background: linear-gradient(135deg, var(--ai-dark), var(--ai-light));
     border: 1px solid rgba(21, 70, 119, 0.16);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: 0 12px 24px rgba(21, 70, 119, 0.18);
-    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .nb-wallet-btn:hover {
-    background: #2ba6de;
     transform: translateY(-1px);
-    box-shadow: 0 16px 28px rgba(21, 70, 119, 0.22);
+    box-shadow: 0 16px 28px rgba(43, 166, 222, 0.24);
 }
 
 .nb-badge {
@@ -951,7 +1123,7 @@ onBeforeUnmount(() => {
     min-width: 21px;
     height: 21px;
     background: #ffffff;
-    color: #154677;
+    color: var(--ai-dark);
     font-size: 10px;
     font-weight: 900;
     border-radius: 999px;
@@ -959,7 +1131,7 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     padding: 0 5px;
-    border: 2px solid #2ba6de;
+    border: 2px solid var(--ai-light);
 }
 
 .nb-user-btn {
@@ -970,13 +1142,15 @@ onBeforeUnmount(() => {
     border-radius: 999px;
     background: #eef3fa;
     border: 1px solid rgba(21, 70, 119, 0.08);
-    color: #154677;
+    color: var(--ai-dark);
     cursor: pointer;
     font-size: 14px;
     font-weight: 800;
     position: relative;
     white-space: nowrap;
-    transition: transform 0.2s ease, background-color 0.2s ease;
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease;
 }
 
 .nb-user-btn:hover {
@@ -988,7 +1162,7 @@ onBeforeUnmount(() => {
     width: 32px;
     height: 32px;
     border-radius: 999px;
-    background: #154677;
+    background: linear-gradient(135deg, var(--ai-dark), var(--ai-light));
     color: #ffffff;
     font-size: 13px;
     font-weight: 900;
@@ -1034,7 +1208,7 @@ onBeforeUnmount(() => {
 .nb-dd-name {
     font-size: 14px;
     font-weight: 800;
-    color: #154677;
+    color: var(--ai-dark);
 }
 
 .nb-dd-label {
@@ -1049,7 +1223,7 @@ onBeforeUnmount(() => {
     gap: 10px;
     padding: 12px 18px;
     font-size: 13px;
-    color: #154677;
+    color: var(--ai-dark);
     text-decoration: none;
     font-weight: 600;
     cursor: pointer;
@@ -1057,19 +1231,23 @@ onBeforeUnmount(() => {
     background: none;
     width: 100%;
     text-align: right;
-    transition: background 0.2s ease;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
 }
 
 .nb-dd-item:hover {
     background: #f4fbff;
+    color: var(--ai-light);
 }
 
 .nb-dd-item.danger {
-    color: #154677;
+    color: var(--ai-dark);
 }
 
 .nb-dd-item.danger:hover {
     background: rgba(43, 166, 222, 0.1);
+    color: var(--ai-light);
 }
 
 .nb-dd-sep {
@@ -1084,79 +1262,105 @@ onBeforeUnmount(() => {
     gap: 8px;
     padding: 11px 18px;
     border-radius: 999px;
-    background: #154677;
+    background: linear-gradient(135deg, var(--ai-dark), var(--ai-light));
     color: #ffffff;
     font-size: 14px;
     font-weight: 900;
     text-decoration: none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background-color 0.2s ease;
     white-space: nowrap;
     box-shadow: 0 12px 24px rgba(21, 70, 119, 0.18);
 }
 
 .nb-login-btn:hover {
-    background: #2ba6de;
     transform: translateY(-1px);
-    box-shadow: 0 16px 30px rgba(21, 70, 119, 0.2);
+    box-shadow: 0 16px 30px rgba(43, 166, 222, 0.24);
 }
 
 /* HERO CONTENT */
 .nb-hero-content {
     position: relative;
     z-index: 5;
-    max-width: 1620px;
+    max-width: 1500px;
     margin: 0 auto;
-    padding: 190px 24px 145px;
-    display: flex;
+    padding: 185px 28px 120px;
+    min-height: 760px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(420px, 0.95fr);
     align-items: center;
+    gap: 70px;
 }
 
 .nb-hero-copy {
     width: min(680px, 100%);
-    color: #ffffff;
+    color: #111827;
+}
+
+.nb-hero[dir="rtl"] .nb-hero-copy {
+    text-align: right;
+}
+
+.nb-hero[dir="ltr"] .nb-hero-copy {
+    text-align: left;
 }
 
 .nb-hero-badge {
-    margin-top: 5%;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.94);
-    color: #154677;
-    padding: 8px 15px;
+    background: linear-gradient(135deg, rgba(21, 70, 119, 0.09), rgba(43, 166, 222, 0.12));
+    color: var(--ai-dark);
+    padding: 9px 18px;
     border-radius: 999px;
     font-size: 13px;
     font-weight: 900;
-    box-shadow: 0 12px 25px rgba(15, 23, 42, 0.14);
+    border: 1px solid rgba(43, 166, 222, 0.28);
+    box-shadow: 0 12px 28px rgba(21, 70, 119, 0.10);
 }
 
 .nb-hero-badge i {
-    color: #2ba6de;
+    color: var(--ai-light);
 }
 
 .nb-hero-copy h1 {
-    margin: 22px 0 0;
-    font-size: clamp(36px, 5vw, 74px);
-    line-height: 1.08;
-    font-weight: 900;
-    letter-spacing: -0.04em;
-    text-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+    margin: 26px 0 0;
+    font-size: clamp(44px, 5.4vw, 82px);
+    line-height: 1.05;
+    font-weight: 950;
+    letter-spacing: -0.055em;
+    color: #111827;
+}
+
+.nb-hero-copy h1 span {
+    display: block;
+}
+
+.nb-hero-copy h1 strong {
+    display: block;
+    font-weight: 950;
+    background: linear-gradient(90deg, var(--ai-dark) 0%, var(--ai-light) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
 .nb-hero-copy p {
-    margin: 18px 0 0;
-    max-width: 600px;
-    font-size: 17px;
-    line-height: 1.8;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+    margin: 26px 0 0;
+    max-width: 680px;
+    font-size: 19px;
+    line-height: 2;
+    color: #334155;
+    font-weight: 500;
 }
 
 .nb-hero-actions {
-    margin-top: 28px;
+    margin-top: 34px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
@@ -1165,38 +1369,160 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 46px;
-    padding: 0 22px;
+    min-height: 58px;
+    padding: 0 34px;
     border-radius: 999px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 900;
     text-decoration: none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    transition:
+        transform 0.22s ease,
+        box-shadow 0.22s ease,
+        background 0.22s ease,
+        color 0.22s ease;
 }
 
 .nb-primary-cta {
-    background: #154677;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--ai-dark) 0%, var(--ai-light) 100%);
     color: #ffffff;
-    box-shadow: 0 14px 28px rgba(21, 70, 119, 0.28);
+    box-shadow: 0 20px 42px rgba(21, 70, 119, 0.28);
+}
+
+.nb-primary-cta i {
+    font-size: 24px;
+    line-height: 1;
 }
 
 .nb-primary-cta:hover {
-    background: #2ba6de;
+    background: linear-gradient(135deg, var(--ai-light) 0%, var(--ai-dark) 100%);
+    color: #ffffff;
     transform: translateY(-2px);
+    box-shadow: 0 24px 48px rgba(43, 166, 222, 0.32);
 }
 
 .nb-secondary-cta {
-    background: rgba(255, 255, 255, 0.94);
-    color: #154677;
-    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.16);
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--ai-dark);
+    border: 1px solid rgba(21, 70, 119, 0.20);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
 }
 
 .nb-secondary-cta:hover {
     transform: translateY(-2px);
     background: #ffffff;
+    color: var(--ai-light);
+    box-shadow: 0 20px 38px rgba(21, 70, 119, 0.14);
+}
+
+.nb-hero-note {
+    margin-top: 26px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.nb-hero-note strong {
+    color: var(--ai-light);
+    font-weight: 950;
+}
+
+/* LEFT VISUAL VIDEO */
+.nb-hero-visual {
+    position: relative;
+    min-height: 530px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nb-video-card {
+    position: relative;
+    width: min(720px, 100%);
+    min-height: 420px;
+    border-radius: 26px;
+    background:
+        radial-gradient(circle at 20% 18%, rgba(43, 166, 222, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(21, 70, 119, 0.08), rgba(43, 166, 222, 0.14)),
+        #eaf5fb;
+    box-shadow:
+        0 32px 80px rgba(15, 23, 42, 0.13),
+        0 14px 28px rgba(21, 70, 119, 0.10);
+    border: 1px solid rgba(21, 70, 119, 0.10);
+    transform: rotate(-2deg);
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.nb-hero-video {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center;
+    opacity: 1;
+    background: #eaf5fb;
+}
+
+.nb-video-placeholder {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        radial-gradient(circle at 24% 24%, rgba(43, 166, 222, 0.28), transparent 34%),
+        radial-gradient(circle at 78% 24%, rgba(21, 70, 119, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(228, 245, 255, 0.94));
+}
+
+.nb-video-card::before {
+    content: "";
+    position: absolute;
+    inset: 12px;
+    z-index: 2;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+}
+
+.nb-video-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: 26px;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+        inset 0 -18px 42px rgba(21, 70, 119, 0.10);
+    pointer-events: none;
 }
 
 /* RESPONSIVE */
+
+@media (max-width: 1280px) {
+    .nb-social-center {
+        gap: 13px;
+    }
+
+    .nb-social-link {
+        width: 52px;
+        height: 52px;
+    }
+
+    .nb-social-link svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .nb-social-divider {
+        height: 32px;
+    }
+}
+
 @media (max-width: 1180px) {
     .nb-nav-link {
         font-size: 12px;
@@ -1209,6 +1535,10 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 920px) {
+    .nb-social-center {
+        display: none;
+    }
+
     .nb-shell {
         top: 14px;
         padding: 0 14px;
@@ -1287,7 +1617,31 @@ onBeforeUnmount(() => {
     }
 
     .nb-hero-content {
-        padding: 170px 18px 120px;
+        grid-template-columns: 1fr;
+        gap: 46px;
+        padding: 155px 18px 90px;
+        text-align: center;
+    }
+
+    .nb-hero-copy {
+        margin: 0 auto;
+    }
+
+    .nb-hero-copy p {
+        margin-inline: auto;
+    }
+
+    .nb-hero-actions,
+    .nb-hero-note {
+        justify-content: center;
+    }
+
+    .nb-hero-visual {
+        min-height: 360px;
+    }
+
+    .nb-video-card {
+        width: min(620px, 92vw);
     }
 
     .nb-hero-compact {
@@ -1473,20 +1827,49 @@ onBeforeUnmount(() => {
     }
 
     .nb-hero-content {
-        padding-top: 160px;
+        padding: 135px 16px 70px;
+        gap: 34px;
     }
 
     .nb-hero-copy h1 {
-        font-size: 38px;
+        font-size: 42px;
+        letter-spacing: -0.045em;
     }
 
     .nb-hero-copy p {
         font-size: 15px;
+        line-height: 1.8;
     }
 
     .nb-primary-cta,
     .nb-secondary-cta {
         width: 100%;
+        min-height: 54px;
+    }
+
+    .nb-hero-note {
+        flex-direction: column;
+        gap: 4px;
+        font-size: 13px;
+    }
+
+    .nb-hero-visual {
+        min-height: 310px;
+    }
+
+    .nb-video-card {
+        min-height: 280px;
+        border-radius: 22px;
+        transform: rotate(-1.2deg);
+    }
+
+    .nb-video-card::before {
+        inset: 9px;
+        border-radius: 17px;
+    }
+
+    .nb-video-card::after {
+        border-radius: 22px;
     }
 }
 
@@ -1532,3 +1915,4 @@ onBeforeUnmount(() => {
     }
 }
 </style>
+

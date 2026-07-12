@@ -514,7 +514,7 @@ watch(
 ========================= */
 .home-tools-page {
     background: #f4f8fb;
-    padding: 0 16px 70px;
+    padding: 60px 16px 70px;
     box-sizing: border-box;
 }
 
@@ -1004,7 +1004,7 @@ watch(
     }
 
     .home-tools-page {
-        padding-inline: 10px;
+        padding: 42px 10px 70px;
     }
 
     .tools-panel {
