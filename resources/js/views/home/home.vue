@@ -31,37 +31,25 @@
                 </div>
 
                 <!-- POPULAR SUBTOOLS -->
-                <section
-                    v-if="subToolsLoading || randomSubTools.length"
-                    class="popular-subtools-section"
-                    :aria-busy="subToolsLoading"
-                >
+                <section v-if="subToolsLoading || randomSubTools.length" class="popular-subtools-section"
+                    :aria-busy="subToolsLoading">
                     <div class="popular-subtools-head">
                         <h3>{{ popularSubToolsTitle }}</h3>
                         <p>{{ popularSubToolsDescription }}</p>
                     </div>
 
                     <div v-if="subToolsLoading" class="popular-subtools-grid">
-                        <div
-                            v-for="item in subToolsSkeletonCount"
-                            :key="item"
-                            class="popular-subtool-card popular-subtool-skeleton"
-                            aria-hidden="true"
-                        >
+                        <div v-for="item in subToolsSkeletonCount" :key="item"
+                            class="popular-subtool-card popular-subtool-skeleton" aria-hidden="true">
                             <span class="popular-subtool-icon skeleton-popular-icon"></span>
                             <span class="skeleton-line skeleton-popular-name"></span>
                         </div>
                     </div>
 
                     <div v-else class="popular-subtools-grid">
-                        <button
-                            v-for="subTool in randomSubTools"
-                            :key="subTool.id || `${subTool.parent_slug || 'subtool'}-${subTool.slug}`"
-                            type="button"
-                            class="popular-subtool-card"
-                            :aria-label="subTool.title"
-                            @click="goToSubTool(subTool)"
-                        >
+                        <button v-for="subTool in randomSubTools"
+                            :key="subTool.id || `${subTool.parent_slug || 'subtool'}-${subTool.slug}`" type="button"
+                            class="popular-subtool-card" :aria-label="subTool.title" @click="goToSubTool(subTool)">
                             <span class="popular-subtool-icon">
                                 <i :class="subTool.icon"></i>
                             </span>
@@ -80,24 +68,12 @@
                 </div>
 
                 <!-- TOOLS -->
-                <TransitionGroup
-                    v-else-if="tools.length"
-                    :key="listKey"
-                    name="tool-card"
-                    tag="div"
-                    class="tools-layout"
-                >
-                    <article
-                        v-for="tool in tools"
-                        :key="tool.id"
-                        class="tool-card"
-                        role="button"
-                        tabindex="0"
+                <TransitionGroup v-else-if="tools.length" :key="listKey" name="tool-card" tag="div"
+                    class="tools-layout">
+                    <article v-for="tool in tools" :key="tool.id" class="tool-card" role="button" tabindex="0"
                         :aria-label="t('user.home.openAria', { name: tool.title || tool.slug })"
-                        @click="goToTool(tool.slug)"
-                        @keyup.enter="goToTool(tool.slug)"
-                        @keyup.space.prevent="goToTool(tool.slug)"
-                    >
+                        @click="goToTool(tool.slug)" @keyup.enter="goToTool(tool.slug)"
+                        @keyup.space.prevent="goToTool(tool.slug)">
                         <div class="tool-status" :class="tool.is_active ? 'active' : 'inactive'">
                             {{ tool.is_active ? t("user.home.statusActive") : t("user.home.statusInactive") }}
                         </div>
@@ -131,12 +107,9 @@
                                 {{ tool.slug }}
                             </span>
 
-                            <button
-                                type="button"
-                                class="show-btn"
+                            <button type="button" class="show-btn"
                                 :aria-label="t('user.home.showAria', { name: tool.title || tool.slug })"
-                                @click.stop="goToTool(tool.slug)"
-                            >
+                                @click.stop="goToTool(tool.slug)">
                                 {{ t("user.home.showButton") }}
                                 <i class="bi bi-arrow-right-short"></i>
                             </button>
@@ -322,14 +295,21 @@ const goToTool = (slug) => {
 };
 
 const goToSubTool = (subTool) => {
-    if (subTool?.url) return router.push(subTool.url);
-
+    if (!subTool?.slug) return;
     const lang = homeService.getLang();
-    if (subTool?.full_slug) return router.push(`/${lang}/tool/${subTool.full_slug}`);
-    if (subTool?.parent_slug && subTool?.slug) {
-        return router.push(`/${lang}/tool/${subTool.parent_slug}/${subTool.slug}`);
-    }
-    if (subTool?.slug) return router.push(`/${lang}/tool/${subTool.slug}`);
+    const mainToolId = Number(subTool?.main_tool_id);
+    const chatRouteMap = {
+        1: "chat",
+        2: "chat2",
+        3: "chat3",
+        4: "chat4",
+    };
+    const chatPath = chatRouteMap[mainToolId] || "chat";
+    const uuid = subTool?.uuid || subTool?.chat_uuid || null;
+    const url = uuid
+        ? `/${lang}/subtool/${subTool.slug}/${chatPath}/${uuid}`
+        : `/${lang}/subtool/${subTool.slug}/${chatPath}`;
+    return router.push(url);
 };
 
 const handleLangChanged = async () => {
@@ -387,12 +367,10 @@ watch(
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(
-        135deg,
-        rgba(21, 70, 119, 0.28),
-        rgba(43, 166, 222, 0.22),
-        rgba(21, 70, 119, 0.08)
-    );
+    background: linear-gradient(135deg,
+            rgba(21, 70, 119, 0.28),
+            rgba(43, 166, 222, 0.22),
+            rgba(21, 70, 119, 0.08));
     -webkit-mask:
         linear-gradient(#fff 0 0) content-box,
         linear-gradient(#fff 0 0);
@@ -1150,6 +1128,7 @@ watch(
 }
 
 @keyframes pulse {
+
     0%,
     100% {
         opacity: 1;
