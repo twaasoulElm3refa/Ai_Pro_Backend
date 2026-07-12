@@ -43,14 +43,8 @@ const instagramUrl = "https://www.instagram.com/";
                 <div class="footer-brand-area">
                     <div class="footer-brand-main">
                         <div class="brand-mark">
-                            <img
-                                src="/images/Ai_logo.png"
-                                :alt="t('user.footer.logoAlt')"
-                                width="54"
-                                height="54"
-                                loading="lazy"
-                                decoding="async"
-                            />
+                            <img src="/images/Ai_logo.png" :alt="t('user.footer.logoAlt')" width="54" height="54"
+                                loading="lazy" decoding="async" />
                         </div>
 
                         <div>
@@ -173,55 +167,31 @@ const instagramUrl = "https://www.instagram.com/";
                         <a href="#">{{ t("user.footer.copyrightRights") }}</a>
                     </div>
 
-                    <div
-                        class="footer-social-center"
-                        :aria-label="footerDir === 'rtl' ? 'روابط الموقع والتواصل الاجتماعي' : 'Website and social links'"
-                    >
-                        <router-link
-                            :to="localizedPath()"
-                            class="footer-social-link"
-                            :aria-label="footerDir === 'rtl' ? 'الموقع الأصلي' : 'Original website'"
-                        >
-                            <i class="bi bi-house-door"></i>
-                        </router-link>
-
-                        <a
-                            :href="whatsappUrl"
-                            class="footer-social-link"
-                            target="_blank"
+                    <div class="footer-social-center"
+                        :aria-label="footerDir === 'rtl' ? 'روابط الموقع والتواصل الاجتماعي' : 'Website and social links'">
+                        <a href="https://aiarabic.com" class="footer-social-link" target="_blank"
                             rel="noopener noreferrer"
-                            :aria-label="footerDir === 'rtl' ? 'واتساب' : 'WhatsApp'"
-                        >
+                            :aria-label="footerDir === 'rtl' ? 'الموقع الأصلي' : 'Original website'">
+                            <i class="bi bi-house-door"></i>
+                        </a>
+
+                        <a :href="whatsappUrl" class="footer-social-link" target="_blank" rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'واتساب' : 'WhatsApp'">
                             <i class="bi bi-whatsapp"></i>
                         </a>
 
-                        <a
-                            :href="telegramUrl"
-                            class="footer-social-link"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            :aria-label="footerDir === 'rtl' ? 'تليجرام' : 'Telegram'"
-                        >
+                        <a :href="telegramUrl" class="footer-social-link" target="_blank" rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'تليجرام' : 'Telegram'">
                             <i class="bi bi-telegram"></i>
                         </a>
 
-                        <a
-                            :href="xUrl"
-                            class="footer-social-link"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            :aria-label="footerDir === 'rtl' ? 'منصة إكس' : 'X'"
-                        >
+                        <a :href="xUrl" class="footer-social-link" target="_blank" rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'منصة إكس' : 'X'">
                             <i class="bi bi-twitter-x"></i>
                         </a>
 
-                        <a
-                            :href="instagramUrl"
-                            class="footer-social-link"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            :aria-label="footerDir === 'rtl' ? 'إنستجرام' : 'Instagram'"
-                        >
+                        <a :href="instagramUrl" class="footer-social-link" target="_blank" rel="noopener noreferrer"
+                            :aria-label="footerDir === 'rtl' ? 'إنستجرام' : 'Instagram'">
                             <i class="bi bi-instagram"></i>
                         </a>
                     </div>
@@ -352,16 +322,14 @@ const instagramUrl = "https://www.instagram.com/";
     width: clamp(110px, 12vw, 190px);
     height: 3px;
     border-radius: 999px;
-    background: linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(43, 166, 222, 0.10) 10%,
-        rgba(43, 166, 222, 0.92) 38%,
-        rgba(255, 255, 255, 1) 50%,
-        rgba(21, 70, 119, 0.92) 62%,
-        rgba(43, 166, 222, 0.14) 90%,
-        transparent 100%
-    );
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(43, 166, 222, 0.10) 10%,
+            rgba(43, 166, 222, 0.92) 38%,
+            rgba(255, 255, 255, 1) 50%,
+            rgba(21, 70, 119, 0.92) 62%,
+            rgba(43, 166, 222, 0.14) 90%,
+            transparent 100%);
     box-shadow:
         0 0 10px rgba(43, 166, 222, 0.55),
         0 0 20px rgba(43, 166, 222, 0.34),
@@ -374,15 +342,13 @@ const instagramUrl = "https://www.instagram.com/";
     animation-delay: -3.4s;
     opacity: 0.52;
     width: clamp(74px, 8vw, 126px);
-    background: linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(43, 166, 222, 0.04) 12%,
-        rgba(43, 166, 222, 0.68) 44%,
-        rgba(255, 255, 255, 0.82) 50%,
-        rgba(43, 166, 222, 0.58) 58%,
-        transparent 100%
-    );
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(43, 166, 222, 0.04) 12%,
+            rgba(43, 166, 222, 0.68) 44%,
+            rgba(255, 255, 255, 0.82) 50%,
+            rgba(43, 166, 222, 0.58) 58%,
+            transparent 100%);
 }
 
 .footer-border-dot {
@@ -1109,6 +1075,7 @@ const instagramUrl = "https://www.instagram.com/";
 }
 
 @keyframes highlightShine {
+
     0%,
     62% {
         transform: translateX(-58%) rotate(8deg);
@@ -1247,6 +1214,7 @@ const instagramUrl = "https://www.instagram.com/";
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .site-footer *,
     .site-footer *::before,
     .site-footer *::after {
