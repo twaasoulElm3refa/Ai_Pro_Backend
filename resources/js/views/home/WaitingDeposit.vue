@@ -49,6 +49,8 @@ const checkStatus = async () => {
         const { data } = await axios.get(url, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
+
+        console.log(data);
         // ✅ النجاح
         if (data.status === "completed") {
             clearInterval(interval);
