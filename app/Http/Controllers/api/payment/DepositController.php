@@ -2,123 +2,110 @@
 
 namespace App\Http\Controllers\api\payment;
 
-use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Wallet\StoreDepositRequest;
 use App\Models\Payment;
 use App\Services\PayPalWalletServices;
-use Exception;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DepositController extends Controller
 {
-    use ApiResponse;
+    private const LOCALES = ['ar', 'en', 'ru', 'fr', 'zh'];
 
-    public function __construct(protected PayPalWalletServices $paypal) {}
+    public function __construct(private readonly PayPalWalletServices $paypal) {}
 
-    // POST /api/v1/deposit/pay
-    public function create(Request $request): JsonResponse
+    public function create(StoreDepositRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'amount' => 'required|numeric|min:1',
-            'description' => 'nullable|string|max:255',
-            'idempotency_key' => 'nullable|string|max:64',
-        ]);
-
-        $validated['user_id'] = $request->user()?->id;
-
         try {
-            ['order' => $order, 'approval_url' => $url] = $this->paypal->pay($validated);
+            $result = $this->paypal->pay([
+                ...$request->validated(),
+                'user_id' => (int) $request->user()->id,
+            ]);
 
             return response()->json([
                 'success' => true,
-                'order_id' => $order->id,
-                'approval_url' => $url,
+                'order_id' => $result['order']->id,
+                'status' => $result['order']->status,
+                'amount' => $result['order']->amount,
+                'currency' => $result['order']->currency,
+                'approval_url' => $result['approval_url'],
             ]);
-        } catch (Exception $e) {
+        } catch (DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 409);
+        } catch (Throwable $e) {
+            Log::error('wallet_deposit_create_failed', [
+                'user_id' => $request->user()->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to create payment.',
-            ], 500);
+            ], 502);
         }
     }
 
-    // GET /api/v1/wallet/success?token=xxx
     public function success(Request $request)
     {
-        $token = $request->query('token');
-
-        if (! $token) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Token missing.',
-            ], 400);
+        $lang = $this->locale($request->query('lang'));
+        $token = (string) $request->query('token', '');
+        if ($token === '' || strlen($token) > 64) {
+            return redirect("/{$lang}/failed?error=TOKEN_MISSING");
         }
 
         try {
             $result = $this->paypal->success($token);
-
-            $orderId = $result['order_id'] ?? $result['order']?->id;
-
+            $orderId = $result['order_id'] ?? null;
             if (! $orderId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Order ID missing.',
-                ], 500);
+                throw new DomainException('Local payment ID is missing.');
             }
 
-            return redirect('/en/Deposit/waiting?order_id='.$orderId);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unable to confirm payment.',
-            ], 500);
+            return redirect("/{$lang}/Deposit/waiting?order_id={$orderId}");
+        } catch (Throwable $e) {
+            Log::warning('wallet_return_failed', [
+                'paypal_order_id' => $token,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect("/{$lang}/failed?error=RETURN_INVALID");
         }
     }
 
-    // GET /api/v1/wallet/cancel
-    public function cancel(): JsonResponse
+    public function cancel(Request $request)
     {
-        try {
-            return response()->json($this->paypal->cancel());
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        $lang = $this->locale($request->query('lang'));
+
+        return redirect("/{$lang}/deposit/cancel");
     }
 
-    // GET /api/v1/wallet/order-status/{id}
-    public function orderStatus(Request $request, $id): JsonResponse
+    public function orderStatus(Request $request, int $id): JsonResponse
     {
-        $order = Payment::where('id', $id)
+        $order = Payment::query()
+            ->select(['id', 'user_id', 'type', 'status', 'amount', 'currency', 'paid_at'])
+            ->whereKey($id)
             ->where('user_id', $request->user()->id)
+            ->where('type', 'wallet_deposit')
             ->first();
 
         if (! $order) {
-            return response()->json([
-                'status' => 'not_found',
-            ], 404);
+            return response()->json(['status' => 'not_found'], 404);
         }
-        $this->clearWalletCache($order->user_id);
 
         return response()->json([
+            'order_id' => $order->id,
             'status' => $order->status,
             'amount' => $order->amount,
-            'order_id' => $order->id,
+            'currency' => $order->currency,
+            'paid_at' => $order->paid_at?->toISOString(),
         ]);
     }
 
-    private function clearWalletCache($userId)
+    private function locale(mixed $locale): string
     {
-        Cache::tags(['wallet', 'transactions', "user_{$userId}"])->flush();
-    }
-
-    public function clearUserProfileCache($id): void
-    {
-        $cacheKey = 'user_profile_'.$id;
-        Cache::tags(['user_profile', 'user_'.$id])->forget($cacheKey);
+        return in_array($locale, self::LOCALES, true) ? $locale : 'en';
     }
 }

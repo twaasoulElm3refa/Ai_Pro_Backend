@@ -28,5 +28,9 @@ return [
     'timeout' => env('PAYPAL_TIMEOUT', 30), // Total request timeout in seconds.
     'connect_timeout' => env('PAYPAL_CONNECT_TIMEOUT', 10), // Connection timeout in seconds.
     'max_retries' => env('PAYPAL_MAX_RETRIES', 2), // Retries on 5xx / connection errors (0 to disable). Uses exponential backoff.
-    'webhook_id' => env('PAYPAL_CHECKOUT_WEBHOOK_ID', '0SB049434S340663L'),
+    // PAYPAL_CHECKOUT_WEBHOOK_ID remains as a compatibility fallback only.
+    'webhook_id' => env('PAYPAL_WEBHOOK_ID', env('PAYPAL_CHECKOUT_WEBHOOK_ID')),
+    'verify_webhook' => filter_var(env('PAYPAL_VERIFY_WEBHOOK', true), FILTER_VALIDATE_BOOL),
+    'merchant_id' => env('PAYPAL_MERCHANT_ID'),
+    'reconciliation_age_minutes' => (int) env('PAYPAL_RECONCILIATION_AGE_MINUTES', 10),
 ];

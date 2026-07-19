@@ -9,8 +9,17 @@ class Wallet extends Model
 {
     use SoftDeletes;
 
-    protected $table ='wallets';
+    protected $table = 'wallets';
     protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return [
+            'balance' => 'integer',
+            'payback_balance' => 'integer',
+            'is_active' => 'boolean',
+        ];
+    }
 
     public function user()
     {

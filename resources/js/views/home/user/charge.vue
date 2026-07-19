@@ -67,36 +67,12 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRoute } from "vue-router"
+import { useRouter } from "vue-router"
 import { useI18n } from "vue-i18n"
-import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
 import useSeoMeta from "@/composables/useSeoMeta"
 import homeService from "@/services/home/homeService"
-
-/* =========================
-   Axios Instance (with token)
-========================= */
-const api = axios.create({
-    baseURL: "https://pro.aiarabic.com/api",
-    headers: {
-        Accept: "application/json",
-    }
-})
-
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem("auth_token")
-    const Api_key = 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy'
-    config.headers["Accept-Language"] = homeService.getLang();
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-    }
-    if (Api_key) {
-        config.headers['x-api-key'] = Api_key
-    }
-
-    return config
-})
+import api from "@/services/ApiClient"
 
 /* =========================
    Props
@@ -104,13 +80,16 @@ api.interceptors.request.use((config) => {
 const props = defineProps({
     wallet: { type: Object, default: null },
 })
-const route = useRoute()
+const router = useRouter()
 const { t, locale } = useI18n()
 
 /* =========================
    State
 ========================= */
-const idempotencyKey = ref(uuidv4())
+const IDEMPOTENCY_STORAGE_KEY = 'wallet_deposit_idempotency_key'
+const persistedKey = sessionStorage.getItem(IDEMPOTENCY_STORAGE_KEY)
+const idempotencyKey = ref(persistedKey || uuidv4())
+sessionStorage.setItem(IDEMPOTENCY_STORAGE_KEY, idempotencyKey.value)
 
 const presets = [10, 25, 50, 100]
 const selectedPreset = ref(null)
@@ -148,7 +127,9 @@ function selectPreset(val) {
 ========================= */
 const amountError = computed(() => {
     if (!form.value.amount) return ''
-    if (form.value.amount < 1) return t("user.charge.amountError")
+    const value = Number(form.value.amount)
+    if (!Number.isFinite(value) || value < 1 || value > 999999.99) return t("user.charge.amountError")
+    if (!/^\d+(?:\.\d{1,2})?$/.test(String(form.value.amount))) return t("user.charge.amountError")
     return ''
 })
 
@@ -160,22 +141,37 @@ const isValid = computed(() => {
    Submit Payment
 ========================= */
 async function handlePay() {
-    if (!isValid.value) return
+    if (!isValid.value || loading.value) return
 
     loading.value = true
     serverError.value = ''
 
     try {
-        const { data } = await api.post('/v1/deposit/pay', {
-            amount: Number(form.value.amount).toFixed(2),
+        const { data } = await api.post('/deposit/pay', {
+            amount: String(form.value.amount),
             description: form.value.description || t("user.charge.defaultDescription"),
             idempotency_key: idempotencyKey.value,
+            locale: homeService.getLang(),
         })
 
-        // redirect to PayPal approval
         if (data?.approval_url) {
-            window.location.href = data.approval_url
+            sessionStorage.removeItem(IDEMPOTENCY_STORAGE_KEY)
+            window.location.assign(data.approval_url)
+            return
         }
+
+        if (!data?.order_id) {
+            throw new Error('Missing local payment ID')
+        }
+
+        if (data.status === 'completed') {
+            sessionStorage.removeItem(IDEMPOTENCY_STORAGE_KEY)
+            await router.replace(`/${homeService.getLang()}/deposit/success?order_id=${data.order_id}`)
+            return
+        }
+
+        sessionStorage.removeItem(IDEMPOTENCY_STORAGE_KEY)
+        await router.replace(`/${homeService.getLang()}/Deposit/waiting?order_id=${data.order_id}`)
 
     } catch (err) {
         serverError.value =
@@ -355,5 +351,3 @@ hr {
     margin-top: 6px;
 }
 </style>
-
-

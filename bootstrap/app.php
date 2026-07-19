@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\AiServiceException;
+use App\Console\Commands\ReconcilePayPalWalletPayments;
 use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\ApiKeyMiddleware;
 use App\Http\Middleware\Utf8JsonResponse;
@@ -17,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        ReconcilePayPalWalletPayments::class,
+    ])
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->api(ApiKeyMiddleware::class);
         $middleware->api(AcceptLanguage::class);

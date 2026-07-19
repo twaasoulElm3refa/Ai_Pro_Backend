@@ -1,0 +1,1845 @@
+AI PRO - WALLET DEPOSIT FULL AUDIT
+==================================
+
+تاريخ المراجعة: 2026-07-19
+نطاق المراجعة: تدفق شحن المحفظة عبر PayPal Checkout وWebhooks من الراوت حتى الواجهة.
+نوع العمل: مراجعة Read-only. لم يُعدّل أي ملف تطبيقي. جميع الأكواد في القسم 14 مقترحات غير مطبقة.
+
+الملفات التي فُحصت فعلياً
+-------------------------
+- routes/api.php
+- bootstrap/app.php
+- app/Http/Controllers/api/payment/DepositController.php
+- app/Http/Controllers/api/webhook/WebhookController.php
+- app/Services/PayPalWalletServices.php
+- app/Services/PayPalServices.php (بقدر اشتراكه في WebhookController)
+- app/Interfaces/PaymentInterface.php
+- app/Models/Payment.php
+- app/Models/Wallet.php
+- app/Models/WalletTransaction.php
+- كل migrations الخاصة بـ payments وwallets وwallet_transactions، مع فحص schema الفعلي في SQLite
+- config/paypal.php, config/mail.php, config/queue.php, config/sanctum.php, config/services.php
+- app/Http/Middleware/ApiKeyMiddleware.php وbootstrap/app.php
+- app/Mail/DepositSuccessMail.php وDepositFailMail.php والقوالب الخاصة بهما
+- resources/js/views/home/user/charge.vue
+- resources/js/views/home/WaitingDeposit.vue
+- resources/js/views/home/successDeposit.vue
+- resources/js/views/home/failedDeposit.vue
+- resources/js/router/index.js وresources/js/services/ApiClient.js
+- composer.json/composer.lock وpackage.json و.env/.env.example بطريقة لا تعرض الأسرار
+- tests/ بالكامل بحثاً عن اختبارات الإيداع/PayPal/Webhook
+
+حقائق البيئة الحالية (القيم السرية حُجبت)
+-----------------------------------------
+- APP_ENV=local
+- APP_URL=http://127.0.0.1:8000
+- DB_CONNECTION=sqlite
+- CACHE_STORE=redis, QUEUE_CONNECTION=redis, queue after_commit=false
+- PAYPAL_MODE=sandbox، وبيانات Sandbox موجودة، وبيانات Live placeholders، وPAYPAL_LIVE_APP_ID غير موجود.
+- PAYPAL_CURRENCY=USD
+- الكود يقرأ PAYPAL_CHECKOUT_WEBHOOK_ID؛ المتغير PAYPAL_WEBHOOK_ID غير موجود.
+- MAIL_MAILER=smtp مع smtp.gmail.com:587. متغيرات Mailgun موجودة، لكن Mailgun ليس mailer الحالي.
+- srmklive/paypal مثبت بالإصدار 3.1.1.
+- symfony/mailgun-mailer وsymfony/http-client غير مثبتين؛ يلزمان عند التحويل الفعلي إلى Mailgun.
+- جميع migrations الحالية Ran. schema الفعلي لا يحتوي wallet_credited.
+
+المراجع الرسمية المستخدمة للتحقق
+----------------------------------
+- PayPal Orders v2: https://developer.paypal.com/docs/api/orders/v2/
+- PayPal idempotency: https://developer.paypal.com/api/rest/reference/idempotency/
+- PayPal webhook integration/signature: https://developer.paypal.com/api/rest/webhooks/rest/
+- PayPal webhook overview: https://developer.paypal.com/api/rest/webhooks/
+- PayPal checkout webhooks: https://developer.paypal.com/payment-methods/webhooks
+
+
+1. Executive Summary
+====================
+
+الحكم النهائي: التدفق الحالي غير جاهز للإنتاج المالي بصورته الحالية.
+
+الراوتات الأساسية موجودة، وملكية order-status محمية جيداً بـ auth:sanctum وuser_id، وتوجد unique constraints مفيدة على payments.idempotency_key وpayments.paypal_order_id وpayments.transaction_id. كما أن شحن المحفظة وتحديث Payment وإنشاء WalletTransaction موجودة في DB::transaction واحدة، وهذا أساس جيد.
+
+لكن توجد فجوات تمنع اعتبار الرصيد آمناً:
+
+1) توقيع Webhook يُتخطى بالكامل عندما يكون PAYPAL_MODE=sandbox، بينما البيئة الحالية Sandbox. أي طلب يستطيع محاكاة PAYMENT.CAPTURE.COMPLETED وشحن الرصيد إذا عرف PayPal Order ID أو custom_id.
+2) قبل الشحن لا يتم التحقق من status داخل resource ولا amount ولا currency ولا custom_id ولا reference_id ولا payee/merchant_id.
+3) Payment لا يعرّف cast لـ gateway_response رغم حفظ arrays فيه؛ هذا قد ينتج Array to string conversion أو بيانات JSON غير صالحة وفشل التدفق.
+4) استجابة capturePaymentOrder هي Order representation، لكن الكود يمررها كأنها Capture resource؛ لذلك transaction_id قد يصبح PayPal Order ID بدلاً من Capture ID الحقيقي.
+5) لا يرسل PayPal-Request-Id عند create/capture، فتكرار CHECKOUT.ORDER.APPROVED أو timeout غير محمي بطبقة idempotency لدى PayPal.
+6) لا يوجد unique على wallet_transactions.payment_id، ولا سجل فريد لـ webhook event id، ولا wallet_credited فعلياً.
+7) البريد يُدفع إلى Redis داخل transaction مع after_commit=false؛ فشل enqueue قد يعمل rollback للدفع، والعكس: قد يبدأ البريد قبل commit أو يُرسل ثم يفشل commit.
+8) balance وpoints حقول 32-bit integer. مع amount * 1,000,000 يحدث overflow بعد نحو 4,294.96 USD في unsigned wallet.balance، رغم أن payments.amount يسمح نظرياً حتى 999,999.99.
+9) polling لا ينتهي فعلياً عند pending/approved لأن return يسبق فحص MAX_ATTEMPTS، وقد تتداخل طلبات setInterval.
+10) APP_URL محلي بينما الواجهة تستخدم production host ثابتاً؛ return_url وcancel_url الناتجان حالياً محليان، وWebhook لا يستطيع الوصول إلى localhost.
+
+مصدر الحقيقة النهائي ليس success redirect. المصدر الصحيح هو حالة Capture=COMPLETED التي وصلت من PayPal عبر استجابة server-to-server موثقة أو Webhook صحيح التوقيع، بعد مطابقة الهوية والمبلغ والعملة والمستفيد. Webhook وسيلة إشعار؛ الحقيقة هي Capture الموثق نفسه. يجب اعتماد أول قناة موثوقة تؤكد COMPLETED، ثم جعل القناة الأخرى idempotent.
+
+التوصية: عدم تفعيل Live قبل تطبيق إصلاحات Critical/High، إضافة الاختبارات المالية والتزامن، وتشغيل reconciliation للطلبات approved/pending.
+
+
+2. Routes Map
+===============
+
+المسار الفعلي كله تحت /api/v1 بسبب Route::prefix('v1') في routes/api.php:28.
+
+1) POST /api/v1/deposit/pay
+   - routes/api.php:92-94
+   - middleware: api group (ApiKeyMiddleware + AcceptLanguage + Utf8JsonResponse)، auth:sanctum، throttle:15,1.
+   - handler: DepositController@create.
+   - يحتاج Bearer token صحيحاً وX-API-KEY حالياً.
+
+2) GET /api/v1/wallet/success
+   - routes/api.php:95
+   - public، throttle:30,1، مستثنى من ApiKeyMiddleware.
+   - handler: DepositController@success.
+   - PayPal يضيف token إلى query string.
+
+3) GET /api/v1/wallet/cancel
+   - routes/api.php:96
+   - public، throttle:30,1، مستثنى من ApiKeyMiddleware.
+   - handler: DepositController@cancel.
+   - يعيد JSON حالياً ولا يعيد المستخدم إلى صفحة Vue.
+
+4) POST /api/v1/paypal/webhook
+   - routes/api.php:97
+   - public، throttle:60,1، مستثنى من ApiKeyMiddleware.
+   - لا يحتاج CSRF لأنه API route.
+   - handler: WebhookController@handle.
+
+5) GET /api/v1/wallet/order-status/{id}
+   - routes/api.php:98-100
+   - auth:sanctum، throttle:30,1، مستثنى من ApiKeyMiddleware.
+   - handler: DepositController@orderStatus.
+   - يقيّد Payment بـ id وuser_id؛ لا يستطيع المستخدم رؤية طلب مستخدم آخر.
+
+ملاحظات Middleware:
+- استثناء webhook/success/cancel من ApiKey صحيح لأن PayPal والمتصفح لا يملكان المفتاح.
+- استثناء order-status من ApiKey مقبول لأن Sanctum يحميه.
+- API key مكتوب في JavaScript، لذلك لا يمكن اعتباره سراً أو طبقة أمان للواجهة العامة.
+- throttle المبني على IP للـ webhook قد يجمع عدة تسليمات PayPal تحت IP واحد؛ 60/دقيقة قد يسبب 429 في الضغط. يلزم limiter مخصص أوسع مع signature وevent-id idempotency.
+
+
+3. Complete Wallet Deposit Flow
+================================
+
+التدفق الحالي كما ينفذه الكود:
+
+1) charge.vue ينشئ UUID في idempotencyKey، يقرأ auth_token من localStorage، ويرسل:
+   POST https://pro.aiarabic.com/api/v1/deposit/pay
+   { amount, description, idempotency_key }
+
+2) DepositController@create يتحقق inline من amount numeric|min:1، description<=255، وidempotency_key اختياري.
+
+3) يضيف user_id ثم يستدعي PayPalWalletServices@pay.
+
+4) constructor للخدمة يطلب PayPal access token فوراً، حتى قبل أن تحتاج الميثود اتصالاً فعلياً.
+
+5) pay يحسب idempotency hash. إذا لم يرسل العميل key، يدمج user+amount+تاريخ اليوم، ما يعيد استخدام أي شحنة حقيقية ثانية بنفس المبلغ في نفس اليوم.
+
+6) يبحث عن pending/approved موجود. إذا كان له paypal_order_id، يستدعي showOrderDetails ويستخرج approve link.
+
+7) وإلا يبدأ DB::transaction، يقفل Payment الموجود بـ lockForUpdate أو ينشئ Payment pending.
+
+8) داخل transaction نفسها يتصل بـ PayPal createOrder، ويضع:
+   - intent=CAPTURE
+   - reference_id = local payment id
+   - custom_id = wallet_topup:{local payment id}
+   - currency/value من Payment
+   - return_url/cancel_url من APP_URL
+
+9) يحفظ paypal_order_id وgateway_response، ويعيد approval_url للواجهة.
+
+10) charge.vue يحول window.location إلى approval_url.
+
+11) بعد موافقة المستخدم، PayPal يعيده إلى /wallet/success?token=PAYPAL_ORDER_ID.
+
+12) DepositController@success يستدعي service@success. الخدمة لا تسأل PayPal عن حالة الطلب؛ يكفي أن token يطابق صفاً محلياً، فتغيّر pending إلى approved.
+
+13) controller يحول المستخدم دائماً إلى /en/Deposit/waiting?order_id=LOCAL_ID.
+
+14) WaitingDeposit.vue يبدأ GET order-status فوراً ثم كل 5 ثوانٍ.
+
+15) عند CHECKOUT.ORDER.APPROVED، WebhookController يستخرج resource.id، يحدد Payment ونوعه، ثم PayPalWalletServices@onOrderApproved ينفذ capturePaymentOrder.
+
+16) إذا كانت استجابة Order capture ذات status=COMPLETED، يمرر الاستجابة كلها إلى onCaptureCompleted.
+
+17) PAYMENT.CAPTURE.COMPLETED المنفصل يمر أيضاً إلى onCaptureCompleted، ولكن كـ Capture resource.
+
+18) onCaptureCompleted يقفل Payment، يفحص type وwallet_credited/status، ينشئ/يجلب Wallet، يحسب points=amount*1,000,000، يزيد balance، يحدّث Payment completed، ينشئ WalletTransaction، ويعمل queue للبريد؛ كل ذلك داخل transaction.
+
+19) polling يرى completed، يمسح interval، وينقل المستخدم إلى /{lang}/deposit/success.
+
+ترتيب الأحداث ليس مضموناً:
+- webhook قبل redirect: Payment قد ينتقل pending -> completed مباشرة، ثم success يرى completed.
+- redirect قبل webhook: pending -> approved -> completed لاحقاً.
+- المستخدم لا يرجع: يمكن أن يكتمل بالدفع وwebhook وحدهما.
+- غياب CHECKOUT.ORDER.APPROVED مع وجود Capture completed: حدث completed يجب أن يكفي إذا كان صحيح التوقيع ومطابقاً.
+
+
+4. Controller Analysis
+=======================
+
+DepositController@create (lines 21-45)
+- صحيح: auth على الراوت؛ user_id يأتي من authenticated user؛ response يعيد local order_id وليس PayPal ID.
+- خطأ: validation inline؛ لا يوجد FormRequest. العبارة المطلوبة: غير موجود أو لم يتم العثور عليه.
+- خطأ: idempotency_key اختياري، ولا يوجد payload-conflict check.
+- خطأ: يسمح بأكثر من منزلتين عشريتين وdescription حتى 255 بينما PayPal Purchase Unit description حدها 127.
+- خطأ: catch يخفي الاستثناء بلا Log، ويحول conflict/validation/gateway errors كلها إلى 500.
+
+DepositController@success (lines 48-78)
+- لا يتحقق من PayPal status أو amount/currency/custom_id.
+- token وحده يجعل الحالة approved؛ redirect ليس دليلاً على الموافقة.
+- اللغة hard-coded إلى en.
+- الأخطاء ترجع JSON في browser flow بدلاً من failed page.
+
+DepositController@cancel (lines 81-91)
+- يرجع JSON في صفحة المتصفح.
+- لا توجد صفحة cancel مستقلة في router: غير موجود أو لم يتم العثور عليه.
+- Payment يظل pending، وقد يعاد استخدامه لاحقاً.
+
+DepositController@orderStatus (lines 94-112)
+- حماية IDOR صحيحة: where id + where user_id.
+- query جديد يقرأ آخر committed state؛ fresh() غير ضروري هنا.
+- لا يقيّد type=wallet_deposit.
+- يعيد status/amount/order_id فقط؛ currency وpaid_at غير موجودين.
+- لا يسرب gateway_response أو payer_email أو paypal_order_id؛ هذه نقطة جيدة.
+- يمسح wallet/transaction caches في كل poll حتى pending، ما يزيد الحمل ويخفي مسؤولية invalidation داخل مسار commit.
+
+Resources/Transformers للإيداع
+- غير موجود أو لم يتم العثور عليه. الردود مكتوبة يدوياً.
+
+
+5. Service Analysis
+====================
+
+PayPalWalletServices::__construct (22-27)
+- يجلب access token eagerly. WebhookController يحقن خدمتي PayPal، لذلك قد يحدث اتصالان OAuth قبل معالجة body.
+- الأفضل lazy provider أو verifier مستقل.
+
+pay (29-111)
+- unique DB موجود على idempotency_key وpaypal_order_id.
+- pre-check ثم lockForUpdate محاولة جيدة، لكن lock على صف غير موجود لا يضمن منع insert race على كل قواعد البيانات؛ unique هو آخر دفاع.
+- نفس idempotency key مع مبلغ مختلف يعيد الطلب القديم بدلاً من 409.
+- fallback اليومي يمنع شحنتين مقصودتين بنفس المبلغ في اليوم.
+- reuse لـ approved/completed/failed قد يبحث عن approve link لم يعد موجوداً.
+- PayPal createOrder واستدعاء showOrderDetails يحدثان أحياناً داخل DB transaction؛ الشبكة تطيل القفل، وrollback لا يستطيع حذف Order الذي أُنشئ خارج DB.
+- لا يوجد PayPal-Request-Id رغم دعم package الحالي withIdempotencyKey().
+
+success (113-144)
+- DB lock جيد.
+- completed idempotent.
+- pending -> approved غير موثق من PayPal.
+- approved حالة مؤقتة فقط؛ لا تشحن الرصيد.
+
+handleWebhook (146-161)
+- event allowlist داخل match جيد.
+- لا يوجد حفظ payload event ID أو event processing status.
+
+onOrderApproved (163-220)
+- resource.id هو PayPal Order ID الصحيح لـ CHECKOUT.ORDER.APPROVED.
+- يتحقق من type.
+- لا يقفل Payment قبل capture ولا يستخدم PayPal-Request-Id.
+- لا يتحقق من status=APPROVED أو purchase_units fields.
+- لا يغيّر local status إلى approved من webhook.
+- عند COMPLETED يمرر Order response إلى handler يتوقع Capture resource.
+
+onCaptureCompleted (222-356)
+- related_ids.order_id هو المسار الأساسي الصحيح لحدث Capture.
+- supplementary_data.related_ids.paypal_order_id ليس حقلاً موثقاً هنا؛ fallback غير موثوق.
+- custom_id مفيد، لكن يجب مطابقته لا استخدامه فقط للبحث.
+- لا يفحص resource.status=COMPLETED.
+- لا يفحص amount/currency/payee/reference/custom.
+- wallet_credited غير موجود في schema ولا يتم تعيينه.
+- DB transaction تشمل الرصيد وPayment وWalletTransaction؛ rollback المالي جيد من حيث التجميع.
+- firstOrCreate لا يرى soft-deleted wallet؛ unique(user_id) يمنع إنشاء صف بديل.
+- Wallet نفسه غير مقفول، فتزامن شحنتين مختلفتين للمستخدم قد يجعل balance_before/after غير صحيحين رغم atomic increment.
+- Laravel 12 يزيد قيمة model في الذاكرة عند increment، لذلك balance_after صحيح في المسار المنفرد، لكنه ليس مضموناً عند شحنتين متزامنتين بلا wallet lock.
+- gateway_response array بلا cast.
+- transaction_id خاطئ عند تمرير Order response، لأنه يأخذ resource.id (Order ID).
+- email queue داخل transaction.
+
+onCaptureDeclined (358-429)
+- related_ids.order_id صحيح.
+- related_ids.paypal_order_id وinvoice_id كـ PayPal Order ID غير صحيحين/غير موثقين.
+- لا يتحقق من status/amount/currency/custom/payee.
+- البريد داخل transaction، وmail_sent يعني queued لا sent.
+
+
+6. Webhook Events Flow
+=======================
+
+CHECKOUT.ORDER.APPROVED
+- Order ID الصحيح: resource.id.
+- local id يجب أن يطابق purchase_units[0].reference_id.
+- custom_id يجب أن يساوي wallet_topup:{Payment.id}.
+- يجب التحقق من status=APPROVED والمبلغ والعملة والمستفيد قبل capture.
+- current controller extraction صحيح لهذا الحدث.
+
+PAYMENT.CAPTURE.COMPLETED
+- Capture ID الصحيح: resource.id.
+- Order ID الصحيح: resource.supplementary_data.related_ids.order_id.
+- custom_id المتوقع موجود على Capture resource عند تمريره من purchase unit، ويجب مطابقته.
+- reference_id ليس مساراً أساسياً موثقاً داخل Capture webhook resource؛ يظهر في parent purchase unit داخل Order/capture response. لا يجوز افتراض وجوده في الحدث.
+- يجب التحقق من resource.status=COMPLETED وresource.amount.value/currency_code وresource.payee.merchant_id.
+
+PAYMENT.CAPTURE.DECLINED
+- Capture ID: resource.id.
+- Order ID: resource.supplementary_data.related_ids.order_id.
+- invoice_id ليس Order ID.
+- يجب ألا يحول طلب completed إلى failed؛ الكود الحالي يمنع ذلك جيداً.
+
+Webhook مكرر
+- controller الحالي يعالجه مجدداً.
+- completed duplicate غالباً يتوقف عند status=completed، لكن لا يوجد event-id dedupe.
+- approved duplicate يعيد capture API بلا PayPal-Request-Id وقد يفشل 422.
+
+عدم العثور على الطلب
+- controller يعيد 200 ignored؛ PayPal يتوقف عن retry، وقد يُفقد حدث مالي.
+- الصحيح للأحداث المدعومة: تسجيل event وإرجاع 5xx/503 مؤقتاً أو وضعه في durable queue/reconciliation.
+
+بقاء approved
+- يحدث إذا وصل redirect ولم يصل approved webhook/capture completed، أو فشل capture.
+- لا توجد reconciliation job تفحص approved القديمة: غير موجود أو لم يتم العثور عليه.
+
+
+7. Database and Transaction Analysis
+=====================================
+
+المعاملات الحالية:
+
+أ) PayPalWalletServices@pay، lines 49-110
+- داخل transaction: البحث/القفل، إنشاء Payment، أحياناً showOrderDetails، createOrder، حفظ PayPal ID/response.
+- rollback: أي exception من PayPal، approval link، Payment update، أو commit.
+- المشكلة: PayPal Order خارجي لا يتراجع مع DB rollback.
+
+ب) PayPalWalletServices@success، lines 115-143
+- قفل Payment وتغيير pending -> approved.
+- rollback عند missing row أو invalid status أو DB exception.
+
+ج) onCaptureCompleted، lines 237-355
+- البحث والقفل، Wallet create، increment، Payment update، WalletTransaction create، Redis queue، mail_sent update.
+- فشل WalletTransaction يعمل rollback للرصيد وPayment، وهذه نتيجة صحيحة.
+- فشل enqueue للبريد يعمل rollback للدفع، وهذه نتيجة غير صحيحة.
+- قبول Redis للـ job ثم فشل commit قد يرسل بريد نجاح بلا رصيد.
+
+د) onCaptureDeclined، lines 374-424
+- قفل Payment، failed update، enqueue fail mail، mail_sent.
+- فشل enqueue يلغي failed update.
+
+ملاحظات schema الفعلي:
+- payments.idempotency_key unique: موجود.
+- payments.paypal_order_id unique: موجود.
+- payments.transaction_id unique: موجود ويمنع Capture ID نفسه بين دفعتين إذا خُزن Capture ID الحقيقي.
+- wallet_transactions.payment_id unique: غير موجود أو لم يتم العثور عليه.
+- payments.wallet_credited أو wallet_credited_at: غير موجود أو لم يتم العثور عليه.
+- wallet.balance unsignedInteger؛ wallet_transactions points/balances integer.
+- DB_CONNECTION الحالي SQLite؛ lockForUpdate لا يوفر row-level locking الحقيقي في SQLite، لذا اختبارات التزامن على هذه البيئة لا تثبت سلوك MySQL/PostgreSQL.
+
+Rollback بعد Capture خارجي
+- إذا PayPal أكمل Capture ثم فشل WalletTransaction، DB ترجع كما كانت لكن المال دُفع.
+- يجب أن يعيد Webhook أو reconciliation عملية finalization فقط، لا Capture جديداً؛ يتطلب Capture ID صحيحاً وPayPal idempotency.
+
+
+8. Idempotency and Duplicate Protection
+========================================
+
+الموجود:
+- frontend UUID لكل mount.
+- hash user+key.
+- unique idempotency_key.
+- unique paypal_order_id.
+- unique transaction_id.
+- Payment lockForUpdate في finalization.
+- status completed guard.
+
+الناقص:
+- idempotency_key required.
+- payload hash ومقارنة amount/currency/user/type عند إعادة key.
+- PayPal-Request-Id لـ createOrder وcapturePaymentOrder.
+- unique wallet_transactions.payment_id.
+- wallet_credited_at داخل نفس transaction.
+- unique webhook event ID وسجل processed/failed.
+- wallet row lock.
+- reconciliation للـ captured-but-not-credited.
+
+الضمان الصحيح متعدد الطبقات:
+1) client idempotency UUID + payload hash.
+2) DB unique payment idempotency.
+3) PayPal-Request-Id ثابت لكل operation: wallet-create-{payment_id} وwallet-capture-{payment_id}.
+4) verified event.id unique.
+5) lock Payment ثم wallet.
+6) capture ID unique.
+7) wallet_transactions.payment_id unique.
+8) wallet_credited_at + completed يتمان مع الرصيد وtransaction في commit واحدة.
+
+
+9. Security Review
+===================
+
+Critical: Sandbox signature bypass
+- WebhookController:37-73 يتحقق فقط إذا mode !== sandbox.
+- يجب التحقق في Sandbox وLive. Sandbox ليس إذناً لتجاوز authentication.
+- PayPal simulator حالة خاصة؛ postback verification لا يدعم mock، ويمكن اختبار local verification مع webhook ID=WEBHOOK_ID في test-only environment، لا bypass عام.
+
+Headers المطلوبة
+- PAYPAL-TRANSMISSION-ID
+- PAYPAL-TRANSMISSION-TIME
+- PAYPAL-CERT-URL
+- PAYPAL-AUTH-ALGO
+- PAYPAL-TRANSMISSION-SIG
+- يجب رفض الناقص قبل dispatch.
+
+Webhook ID
+- config يستخدم PAYPAL_CHECKOUT_WEBHOOK_ID مع default ID حقيقي ثابت؛ default خطر.
+- يلزم Sandbox Webhook ID وLive Webhook ID منفصلان ومن نفس App/URL.
+- PAYPAL_WEBHOOK_ID بالاسم المطلوب غير مستخدم حالياً.
+
+IP
+- الكود يسجل IP فقط ولا يعتمد عليه، وهذا صحيح.
+- لا ينبغي allowlist IP بدلاً من signature لأن نطاقات PayPal قد تتغير.
+
+فحوص ما قبل الشحن الحالية
+- amount match: غير موجود.
+- currency match: غير موجود.
+- Capture status COMPLETED: غير موجود في webhook path.
+- custom_id match: يُستخدم fallback للبحث فقط، وليس assertion.
+- type wallet_deposit: موجود.
+- paypal_order_id match: lookup موجود، لكن fallback custom لا يعيد assertion صارماً.
+- Capture ID unused: unique DB موجود، لكن response-shape bug قد يخزن Order ID.
+- owner: Payment.user_id يستخدم للمحفظة، وorder-status يقيّد المستخدم؛ يجب أيضاً رفض user_id null ومطابقة custom/ref.
+- beneficiary/payee merchant: غير موجود أو لم يتم العثور عليه.
+
+Sanctum وIDOR
+- create/order-status محميان بـ auth:sanctum.
+- orderStatus يمنع قراءة طلب مستخدم آخر.
+- routes Vue نفسها لا تحمل requiresAuth meta، لكن هذا client UX فقط؛ API ما زال محمياً.
+
+
+10. Frontend Polling Review
+============================
+
+charge.vue
+- يرسل auth_token الصحيح المستخدم في بقية المشروع.
+- يرسل UUID idempotency صحيحاً عادةً.
+- baseURL وX-API-KEY ثابتان في source، بدلاً من shared ApiClient/env.
+- لا يرسل locale، لذلك backend يعيد en.
+- إذا أعاد backend approved بلا approve link، لا يوجد branch للانتظار.
+- UUID يضيع عند refresh بعد timeout قبل استلام response؛ sessionStorage أفضل.
+
+WaitingDeposit.vue
+- يقرأ local order_id الصحيح من query.
+- يطلب كل 5 ثوانٍ عبر setInterval.
+- يتوقف عند completed وfailed.
+- approved يعامل مؤقتاً، وهذا صحيح.
+- MAX_ATTEMPTS لا يعمل عند pending/approved/not_found لأن line 69-71 تعمل return قبل line 74.
+- catch لا يفحص MAX_ATTEMPTS أيضاً.
+- setInterval قد يبدأ request ثانياً قبل انتهاء السابق.
+- interval يُنظف في onUnmounted، وهذه نقطة صحيحة.
+- URL production ثابت.
+- 404 not_found يدخل catch بسبب Axios، فلا يصل branch data.status=not_found.
+- failed redirect موجود /{lang}/failed؛ success موجود /{lang}/deposit/success.
+- timeout حالياً قد لا يحدث إطلاقاً.
+
+successDeposit.vue
+- يعرض route.query.token، لكن WaitingDeposit لا يمرره.
+- fallback Date.now يعرض Transaction ID مختلقاً؛ يجب عرض local order ID الحقيقي أو Capture ID مصرح به.
+
+failedDeposit.vue
+- retry يذهب إلى /{lang}/cart، ولا يوجد route بهذا المسار: غير موجود أو لم يتم العثور عليه.
+- cancel page مستقلة: غير موجود أو لم يتم العثور عليه.
+
+
+11. Email and Queue Review
+===========================
+
+DepositSuccessMail وDepositFailMail
+- موجودان ويطبقان ShouldQueue.
+- القوالب موجودة.
+- current queue=redis وafter_commit=false.
+- mailer الحالي SMTP/Gmail، وليس Mailgun.
+- Mailgun config موجود في services.php ومتغيراته موجودة، لكن packages المطلوبة غير مثبتة.
+
+هل فشل البريد يلغي الدفع؟
+- فشل التسليم لاحقاً داخل queue worker لا يلغي الدفع، لأن DB commit سبق job execution غالباً.
+- لكن فشل dispatch/enqueue إلى Redis يحدث داخل DB transaction حالياً، فيمكن أن يلغي الرصيد وPayment.
+- وبسبب after_commit=false يمكن للـ job أن يبدأ قبل commit.
+- mail_sent=true يعني queued فقط، وليس delivered؛ إذا فشل worker يظل true.
+
+التصميم الصحيح
+- dedicated mail Job يُdispatch بـ afterCommit.
+- الـ Job يرسل فعلياً ثم يضبط mail_sent/mail_sent_at بعد النجاح.
+- فشل البريد يُعاد بمحاولات queue ولا يلمس transaction المالية.
+- job uniqueness يمنع تكرار البريد عند webhook مكرر.
+
+
+12. Bugs Found
+===============
+
+صيغة كل بند: [Severity] file :: method/lines — السبب؛ التأثير؛ الإصلاح.
+
+01. [Critical] WebhookController.php :: handle 37-73 — تخطي signature في Sandbox؛ تزوير completed وشحن رصيد؛ تحقق دائماً في Sandbox وLive.
+02. [Critical] PayPalWalletServices.php :: onCaptureCompleted 222-355 — لا فحص status/amount/currency/custom/payee؛ شحن حدث غير مطابق؛ assertions صارمة قبل transaction.
+03. [High] Payment.php :: model — لا cast لـ gateway_response؛ array persistence قد يفشل/يفسد JSON؛ أضف casts array وdecimal/datetime/boolean.
+04. [High] PayPalWalletServices.php :: onOrderApproved 201-212 — Order capture response يعامل Capture resource؛ transaction_id خاطئ والبحث هش؛ استخرج purchase_units[0].payments.captures[0].
+05. [High] PayPalWalletServices.php :: pay/onOrderApproved — لا PayPal-Request-Id؛ retries غير idempotent؛ استخدم withIdempotencyKey بقيم ثابتة لكل payment/operation.
+06. [High] PayPalWalletServices.php :: pay 31-38 — نفس key مع payload مختلف لا يعطي conflict؛ قد يدفع المستخدم مبلغاً غير المتوقع؛ payload_hash و409.
+07. [Medium] PayPalWalletServices.php :: pay 33 — fallback user+amount+day؛ يمنع شحنة ثانية مقصودة؛ اجعل UUID مطلوباً.
+08. [High] PayPalWalletServices.php :: pay 49-110 — اتصال PayPal داخل DB transaction؛ locks طويلة وorphan Order عند rollback؛ افصل local create عن API مع idempotency خارجي.
+09. [High] PayPalWalletServices.php :: onCaptureCompleted — wallet_credited غير موجود ولا يُكتب؛ guard وهمي جزئياً؛ أضف wallet_credited_at أو اعتمد transaction unique موثقاً.
+10. [High] wallet_transactions migration — payment_id غير unique؛ طبقة duplicate protection ناقصة؛ unique(payment_id).
+11. [High] PayPalWalletServices.php :: onCaptureCompleted — Wallet غير مقفول؛ balance_before/after خاطئان مع شحنتين متزامنتين؛ lockForUpdate على wallet.
+12. [High] wallet migrations + points calculation — 32-bit integer overflow؛ فشل أو رصيد خاطئ بعد ~4294 USD؛ unsignedBigInteger وفحص overflow.
+13. [Medium] PayPalWalletServices.php:311 — float multiplication؛ rounding؛ حوّل decimal string إلى integer points دون float.
+14. [High] PayPalWalletServices.php:339-353,406-421 — queue داخل transaction وafter_commit=false؛ rollback مالي بسبب البريد أو بريد قبل commit؛ dedicated afterCommit job.
+15. [Medium] نفس الموضع — mail_sent يضبط عند queue لا send؛ فقد retry؛ اضبطه بعد نجاح النقل في job.
+16. [High] WebhookController.php:77-93 — missing order يرجع 200 ignored؛ فقد event؛ durable event record و503/reconciliation.
+17. [High] WebhookController.php — لا unique event.id؛ إعادة معالجة webhook؛ جدول paypal_webhook_events.
+18. [High] PayPalWalletServices.php :: success — redirect token يغيّر approved بلا PayPal query؛ حالة زائفة؛ showOrderDetails/assert أو لا تغيّر الحالة.
+19. [Medium] PayPalWalletServices.php:224-227,360-364 — fallbacks paypal_order_id/invoice_id غير صحيحة؛ ربط event قد يفشل؛ استخدم related_ids.order_id وcustom_id فقط كهوية محلية.
+20. [Medium] WebhookController.php:128 — default resource.id لكل event؛ قد يربط نوعاً غير مدعوم؛ allowlist قبل lookup.
+21. [High] PayPalWalletServices.php :: onOrderApproved — duplicate approved يعيد Capture بلا reconcile؛ 422 بعد capture قد يترك الرصيد؛ PayPal idempotency + showOrderDetails recovery.
+22. [Medium] PayPalWalletServices.php :: getApprovalUrl/reuse — approved/completed غالباً بلا approve link؛ create يعيد 500؛ branch حسب PayPal/local status.
+23. [Medium] PayPalWalletServices.php::__construct + WebhookController::__construct — OAuth eager ومكرر؛ فشل الشبكة يمنع حتى parse؛ lazy provider/injection حسب النوع.
+24. [Medium] PayPalWalletServices.php :: Wallet::firstOrCreate — soft-deleted wallet يصطدم unique user_id؛ استخدم withTrashed واسترجعها أو سياسة صريحة.
+25. [Medium] DepositController.php:23-27 — amount يقبل >2 decimals وdescription 255؛ gateway rounding/error؛ FormRequest decimal وmax:127.
+26. [Medium] DepositController.php:39-44 — لا logging ولا error taxonomy؛ تشخيص ضعيف؛ Log مع IDs وإرجاع 409/502 المناسب.
+27. [Low] DepositController.php :: orderStatus — currency/paid_at غائبان؛ polling response ناقص؛ أعد الحقول المحددة فقط.
+28. [Medium] DepositController.php:105-116 — cache flush في كل poll؛ ضغط Redis/DB؛ invalidate once after commit.
+29. [High] WaitingDeposit.vue:69-77 — MAX_ATTEMPTS unreachable للحالات المؤقتة؛ انتظار لا نهائي؛ افحص الحد قبل scheduling.
+30. [Medium] WaitingDeposit.vue:92 — overlapping setInterval؛ ضغط/races؛ sequential setTimeout + AbortController/isChecking.
+31. [High] charge.vue/WaitingDeposit.vue + .env — production URL ثابت مقابل APP_URL localhost؛ callbacks غير متناسقة؛ VITE_API_BASE_URL وAPP_URL HTTPS عامان متطابقان.
+32. [Medium] DepositController.php:71 — hard-coded en؛ لغة خاطئة؛ مرر locale موثوقاً في return_url.
+33. [Medium] DepositController@cancel — JSON في browser؛ UX مكسور؛ redirect إلى cancel/failed route.
+34. [Medium] successDeposit.vue:86-88 — Transaction ID مختلق بـ Date.now؛ معلومات مضللة؛ مرر local order ID الحقيقي.
+35. [Medium] failedDeposit.vue:125-127 — /cart غير موجود؛ retry مكسور؛ استخدم named charge-wallet مع wallet UUID أو wallet page.
+36. [High] config/paypal.php:31 — default webhook ID ثابت وعدم فصل sandbox/live؛ verification بمشروع خاطئ؛ no default وIDs منفصلة.
+37. [High] config/paypal.php/.env — expected merchant ID غير موجود؛ لا تحقق للمستفيد؛ أضف merchant_id لكل mode وطابق payee.merchant_id.
+38. [Medium] .env.example — مفاتيح PayPal غير موثقة؛ نشر ناقص؛ أضف كل المتغيرات بلا أسرار.
+39. [High] tests — لا اختبارات deposit/paypal/webhook؛ تغييرات مالية بلا regression safety؛ أضف Feature/Unit/concurrency tests.
+40. [Medium] routes/api.php:97 — throttle 60/IP قد يرفض burst مشروع؛ تأخير finalization؛ limiter خاص وتتبّع 429.
+41. [Low] Payment model relation — walletTransaction اسم مفرد لكنه hasMany؛ التباس؛ سمّه walletTransactions أو hasOne مع unique.
+42. [Medium] current SQLite — lockForUpdate غير فعّال كقفل صف؛ نتائج concurrency مضللة؛ اختبر على نفس engine المستخدم في production.
+43. [Medium] points policy — amount*1,000,000 يظهر فقط هنا ولا config/وثيقة؛ تغيير السعر صعب؛ config ثابت وتخزين points على Payment. استخدام النقاط نفسه يبدو مقصوداً لأن الواجهة تعرض points وتخصم token counts، لكن النسبة التجارية غير موثقة.
+44. [Low] ProfileController:58/70 (ملاحظة مرتبطة بوحدة النقاط) — يزيد 10,000 ويسجل claim amount=1,000,000؛ مؤشر تناقض في scale خارج مسار PayPal؛ راجعه منفصلاً.
+45. [High] PayPalServices.php:119,210 + Payment.php — الخدمة المشتركة تستدعي $order->isCompleted() بينما Payment لا يعرّف الميثود؛ أحداث checkout غير الخاصة بالمحفظة قد تنهار بـ Error عبر نفس Webhook endpoint؛ أضف ميثود موحدة أو استبدل الاستدعاء بفحص status مع اختبار مستقل. هذا لا يغيّر فرع wallet_deposit مباشرة، لكنه خطر تشغيلي في الراوت المشترك.
+
+
+13. Recommended Fixes
+======================
+
+أولوية P0 قبل أي Live payment:
+1) signature verification دائماً وإزالة hard-coded webhook default.
+2) فحص COMPLETED + amount + currency + custom_id + order_id + payee merchant.
+3) إصلاح capture response extraction وgateway_response cast.
+4) PayPal-Request-Id للإنشاء والـ capture.
+5) unique payment_id للـ wallet transaction + wallet_credited_at + event-id table.
+6) فصل البريد after commit.
+7) تحويل balance/points إلى BIGINT وتجنب float.
+
+أولوية P1:
+8) FormRequest وpayload hash وrequired UUID.
+9) wallet lock وsoft-delete policy.
+10) reconciliation command/job للـ approved أو PayPal-completed غير المشحونة.
+11) sequential polling والـ timeout.
+12) توحيد URLs عبر env وتصحيح cancel/language/pages.
+
+أولوية P2:
+13) Resources، status enum/check، metrics/alerts، cleanup للطلبات المنتهية.
+14) Mail delivery state أدق من boolean.
+
+تعريف الحالات المقترح:
+- pending: Payment محلي وPayPal Order CREATED؛ لا موافقة ولا رصيد.
+- approved: PayPal نفسه أعاد Order status APPROVED أو وصل verified CHECKOUT.ORDER.APPROVED؛ مؤقت، لا رصيد.
+- completed: Capture موثق status=COMPLETED وتم commit للرصيد وWalletTransaction وwallet_credited_at.
+- failed: Capture موثق DECLINED/FAILED أو terminal gateway failure وفق policy؛ لا رصيد.
+- not_found: قيمة API synthetic فقط؛ ليست status مخزنة.
+
+
+14. Full Corrected Code
+========================
+
+مهم: هذا القسم مقترح غير مطبق. يحتاج مراجعة أسماء جداول الإنتاج وعمل backup وdata preflight قبل migrations.
+
+14.1 FormRequest جديد: app/Http/Requests/Wallet/StoreDepositRequest.php
+------------------------------------------------------------------------
+<?php
+
+namespace App\Http\Requests\Wallet;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreDepositRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user() !== null;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'description' => is_string($this->description) ? trim($this->description) : $this->description,
+            'idempotency_key' => is_string($this->idempotency_key) ? trim($this->idempotency_key) : $this->idempotency_key,
+            'locale' => strtolower((string) ($this->locale ?: 'en')),
+        ]);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'amount' => ['bail', 'required', 'numeric', 'decimal:0,2', 'min:1', 'max:999999.99'],
+            'description' => ['nullable', 'string', 'max:127'],
+            'idempotency_key' => ['required', 'uuid'],
+            'locale' => ['required', Rule::in(['ar', 'en', 'ru', 'fr', 'zh'])],
+        ];
+    }
+}
+
+14.2 Payment model مصحح: app/Models/Payment.php
+------------------------------------------------
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Payment extends Model
+{
+    protected $fillable = [
+        'user_id', 'payment_method', 'type', 'transaction_id', 'status',
+        'currency', 'payment_status', 'amount', 'points', 'paypal_order_id',
+        'description', 'idempotency_key', 'payload_hash', 'payer_email',
+        'mail_sent', 'mail_sent_at', 'gateway_response', 'paid_at',
+        'wallet_credited_at',
+    ];
+
+    protected $hidden = ['gateway_response', 'payer_email', 'payload_hash'];
+
+    protected function casts(): array
+    {
+        return [
+            'amount' => 'decimal:2',
+            'points' => 'integer',
+            'mail_sent' => 'boolean',
+            'gateway_response' => 'array',
+            'paid_at' => 'datetime',
+            'mail_sent_at' => 'datetime',
+            'wallet_credited_at' => 'datetime',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function walletTransaction(): HasOne
+    {
+        return $this->hasOne(WalletTransaction::class);
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->status === 'completed';
+    }
+}
+
+14.3 Webhook event model: app/Models/PaypalWebhookEvent.php
+-----------------------------------------------------------
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class PaypalWebhookEvent extends Model
+{
+    protected $fillable = [
+        'event_id', 'event_type', 'paypal_order_id', 'status',
+        'payload', 'attempts', 'last_error', 'processed_at',
+    ];
+
+    protected function casts(): array
+    {
+        return ['payload' => 'array', 'processed_at' => 'datetime'];
+    }
+}
+
+14.4 Integrity migration مقترحة
+---------------------------------
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void
+    {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->unsignedBigInteger('points')->nullable()->after('amount');
+            $table->char('payload_hash', 64)->nullable()->after('idempotency_key');
+            $table->timestamp('wallet_credited_at')->nullable()->after('paid_at');
+            $table->timestamp('mail_sent_at')->nullable()->after('mail_sent');
+        });
+
+        Schema::table('wallets', function (Blueprint $table) {
+            $table->unsignedBigInteger('balance')->default(0)->change();
+            $table->unsignedBigInteger('payback_balance')->default(0)->change();
+        });
+
+        Schema::table('wallet_transactions', function (Blueprint $table) {
+            $table->unsignedBigInteger('points')->default(0)->change();
+            $table->unsignedBigInteger('balance_before')->default(0)->change();
+            $table->unsignedBigInteger('balance_after')->default(0)->change();
+            $table->unique('payment_id', 'wallet_transactions_payment_unique');
+        });
+
+        Schema::create('paypal_webhook_events', function (Blueprint $table) {
+            $table->id();
+            $table->string('event_id')->unique();
+            $table->string('event_type');
+            $table->string('paypal_order_id')->nullable()->index();
+            $table->string('status')->default('received')->index();
+            $table->json('payload');
+            $table->unsignedInteger('attempts')->default(0);
+            $table->text('last_error')->nullable();
+            $table->timestamp('processed_at')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('paypal_webhook_events');
+        Schema::table('wallet_transactions', function (Blueprint $table) {
+            $table->dropUnique('wallet_transactions_payment_unique');
+        });
+        Schema::table('payments', function (Blueprint $table) {
+            $table->dropColumn(['points', 'payload_hash', 'wallet_credited_at', 'mail_sent_at']);
+        });
+    }
+};
+
+تنبيه migration: قبل unique(payment_id)، نفّذ query لاكتشاف duplicates ولا تحذفها آلياً. down لا يعيد BIGINT إلى INT عمداً لتجنب destructive overflow.
+
+14.5 PayPal config مصحح: config/paypal.php (الجزء الإضافي/المستبدل)
+----------------------------------------------------------------------------
+<?php
+
+$mode = env('PAYPAL_MODE', 'sandbox');
+
+return [
+    'mode' => $mode,
+    'sandbox' => [
+        'client_id' => env('PAYPAL_SANDBOX_CLIENT_ID', ''),
+        'client_secret' => env('PAYPAL_SANDBOX_CLIENT_SECRET', ''),
+        'app_id' => 'APP-80W284485P519543T',
+    ],
+    'live' => [
+        'client_id' => env('PAYPAL_LIVE_CLIENT_ID', ''),
+        'client_secret' => env('PAYPAL_LIVE_CLIENT_SECRET', ''),
+        'app_id' => env('PAYPAL_LIVE_APP_ID', ''),
+    ],
+    'currency' => env('PAYPAL_CURRENCY', 'USD'),
+    'payment_action' => env('PAYPAL_PAYMENT_ACTION', 'Sale'),
+    'notify_url' => env('PAYPAL_NOTIFY_URL', ''),
+    'locale' => env('PAYPAL_LOCALE', 'en_US'),
+    'validate_ssl' => true,
+    'timeout' => (int) env('PAYPAL_TIMEOUT', 30),
+    'connect_timeout' => (int) env('PAYPAL_CONNECT_TIMEOUT', 10),
+    'max_retries' => (int) env('PAYPAL_MAX_RETRIES', 2),
+    'webhook_id' => $mode === 'live'
+        ? env('PAYPAL_LIVE_WEBHOOK_ID')
+        : env('PAYPAL_SANDBOX_WEBHOOK_ID'),
+    'merchant_id' => $mode === 'live'
+        ? env('PAYPAL_LIVE_MERCHANT_ID')
+        : env('PAYPAL_SANDBOX_MERCHANT_ID'),
+];
+
+.env.example additions:
+PAYPAL_MODE=sandbox
+PAYPAL_CURRENCY=USD
+PAYPAL_SANDBOX_CLIENT_ID=
+PAYPAL_SANDBOX_CLIENT_SECRET=
+PAYPAL_SANDBOX_WEBHOOK_ID=
+PAYPAL_SANDBOX_MERCHANT_ID=
+PAYPAL_LIVE_CLIENT_ID=
+PAYPAL_LIVE_CLIENT_SECRET=
+PAYPAL_LIVE_APP_ID=
+PAYPAL_LIVE_WEBHOOK_ID=
+PAYPAL_LIVE_MERCHANT_ID=
+PAYPAL_TIMEOUT=30
+PAYPAL_CONNECT_TIMEOUT=10
+PAYPAL_MAX_RETRIES=2
+
+config/wallet.php المقترح:
+<?php
+return [
+    'points_per_usd' => (int) env('WALLET_POINTS_PER_USD', 1_000_000),
+];
+
+.env.example:
+WALLET_POINTS_PER_USD=1000000
+
+14.6 DepositController مصحح بالكامل
+------------------------------------
+<?php
+
+namespace App\Http\Controllers\api\payment;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Wallet\StoreDepositRequest;
+use App\Models\Payment;
+use App\Services\PayPalWalletServices;
+use DomainException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
+
+class DepositController extends Controller
+{
+    public function __construct(private readonly PayPalWalletServices $paypal) {}
+
+    public function create(StoreDepositRequest $request): JsonResponse
+    {
+        try {
+            $result = $this->paypal->pay([
+                ...$request->validated(),
+                'user_id' => (int) $request->user()->getKey(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'order_id' => $result['order']->id,
+                'status' => $result['order']->status,
+                'amount' => $result['order']->amount,
+                'currency' => $result['order']->currency,
+                'approval_url' => $result['approval_url'],
+            ]);
+        } catch (DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 409);
+        } catch (Throwable $e) {
+            Log::error('Wallet deposit creation failed', [
+                'user_id' => $request->user()->id,
+                'idempotency_key' => $request->string('idempotency_key')->toString(),
+                'exception' => $e,
+            ]);
+            return response()->json(['success' => false, 'message' => 'Unable to create payment.'], 502);
+        }
+    }
+
+    public function success(Request $request)
+    {
+        $lang = in_array($request->query('lang'), ['ar', 'en', 'ru', 'fr', 'zh'], true)
+            ? $request->query('lang') : 'en';
+        $token = (string) $request->query('token', '');
+        if ($token === '' || strlen($token) > 64) {
+            return redirect("/{$lang}/failed?error=TOKEN_MISSING");
+        }
+
+        try {
+            $order = $this->paypal->success($token);
+            return redirect("/{$lang}/Deposit/waiting?order_id={$order->id}");
+        } catch (Throwable $e) {
+            Log::error('Wallet PayPal return validation failed', [
+                'token' => $request->query('token'),
+                'exception' => $e,
+            ]);
+            return redirect("/{$lang}/failed?error=PAYPAL_RETURN_INVALID");
+        }
+    }
+
+    public function cancel(Request $request)
+    {
+        $lang = in_array($request->query('lang'), ['ar', 'en', 'ru', 'fr', 'zh'], true)
+            ? $request->query('lang') : 'en';
+        return redirect("/{$lang}/failed?error=CANCELLED");
+    }
+
+    public function orderStatus(Request $request, int $id): JsonResponse
+    {
+        $order = Payment::query()
+            ->select(['id', 'user_id', 'type', 'status', 'amount', 'currency', 'paid_at'])
+            ->whereKey($id)
+            ->where('user_id', $request->user()->id)
+            ->where('type', 'wallet_deposit')
+            ->first();
+
+        if (! $order) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        return response()->json([
+            'order_id' => $order->id,
+            'status' => $order->status,
+            'amount' => $order->amount,
+            'currency' => $order->currency,
+            'paid_at' => $order->paid_at?->toISOString(),
+        ]);
+    }
+}
+
+14.7 PayPalWalletServices مصحح (تنفيذ مرجعي كامل للمنطق المالي)
+------------------------------------------------------------------
+<?php
+
+namespace App\Services;
+
+use App\Jobs\SendDepositFailedMail;
+use App\Jobs\SendDepositSuccessMail;
+use App\Models\Payment;
+use App\Models\Wallet;
+use App\Models\WalletTransaction;
+use Carbon\CarbonImmutable;
+use DomainException;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use RuntimeException;
+use Srmklive\PayPal\Services\PayPal as PayPalClient;
+use Throwable;
+
+class PayPalWalletServices
+{
+    private ?PayPalClient $client = null;
+
+    private function provider(): PayPalClient
+    {
+        if ($this->client) {
+            return $this->client;
+        }
+        $this->client = new PayPalClient;
+        $this->client->setApiCredentials(config('paypal'));
+        $this->client->getAccessToken();
+        $this->client->setRequestHeader('Prefer', 'return=representation');
+        return $this->client;
+    }
+
+    public function pay(array $data): array
+    {
+        $amount = $this->money((string) $data['amount']);
+        $currency = strtoupper((string) config('paypal.currency', 'USD'));
+        $key = hash('sha256', $data['user_id'].'|'.$data['idempotency_key']);
+        $payloadHash = hash('sha256', json_encode([
+            'user_id' => (int) $data['user_id'],
+            'amount' => $amount,
+            'currency' => $currency,
+            'type' => 'wallet_deposit',
+        ], JSON_THROW_ON_ERROR));
+
+        $order = $this->getOrCreateLocalPayment($data, $key, $payloadHash, $amount, $currency);
+        $this->assertIdempotentPayload($order, $payloadHash);
+
+        if ($order->status === 'completed') {
+            return ['order' => $order, 'approval_url' => null];
+        }
+        if ($order->status === 'failed') {
+            throw new DomainException('This idempotency key belongs to a failed payment. Use a new key.');
+        }
+
+        if ($order->paypal_order_id) {
+            return $this->resumeExistingOrder($order);
+        }
+
+        $paypalOrder = $this->provider()
+            ->withIdempotencyKey('wallet-create-'.$order->id)
+            ->createOrder([
+                'intent' => 'CAPTURE',
+                'application_context' => [
+                    'return_url' => route('wallet.success', ['lang' => $data['locale']]),
+                    'cancel_url' => route('wallet.cancel', ['lang' => $data['locale'], 'order_id' => $order->id]),
+                ],
+                'purchase_units' => [[
+                    'reference_id' => (string) $order->id,
+                    'custom_id' => 'wallet_topup:'.$order->id,
+                    'amount' => ['currency_code' => $currency, 'value' => $amount],
+                    'description' => $order->description,
+                ]],
+            ]);
+
+        if (! isset($paypalOrder['id']) || ($paypalOrder['status'] ?? null) !== 'CREATED') {
+            throw new RuntimeException('PayPal did not create the order.');
+        }
+        $this->assertOrderResource($order, $paypalOrder, ['CREATED']);
+
+        $order = DB::transaction(function () use ($order, $paypalOrder) {
+            $locked = Payment::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($locked->paypal_order_id && $locked->paypal_order_id !== $paypalOrder['id']) {
+                throw new RuntimeException('Conflicting PayPal order IDs.');
+            }
+            $locked->update([
+                'paypal_order_id' => $paypalOrder['id'],
+                'gateway_response' => $paypalOrder,
+            ]);
+            return $locked->fresh();
+        }, 3);
+
+        return ['order' => $order, 'approval_url' => $this->approvalUrl($paypalOrder)];
+    }
+
+    private function getOrCreateLocalPayment(
+        array $data,
+        string $key,
+        string $payloadHash,
+        string $amount,
+        string $currency
+    ): Payment {
+        try {
+            return DB::transaction(function () use ($data, $key, $payloadHash, $amount, $currency) {
+                $existing = Payment::where('idempotency_key', $key)->lockForUpdate()->first();
+                if ($existing) {
+                    return $existing;
+                }
+                return Payment::create([
+                    'idempotency_key' => $key,
+                    'payload_hash' => $payloadHash,
+                    'user_id' => (int) $data['user_id'],
+                    'amount' => $amount,
+                    'points' => $this->amountToPoints($amount),
+                    'currency' => $currency,
+                    'description' => $data['description'] ?: 'Wallet Deposit',
+                    'type' => 'wallet_deposit',
+                    'status' => 'pending',
+                    'payment_method' => 'paypal',
+                ]);
+            }, 3);
+        } catch (UniqueConstraintViolationException $e) {
+            return Payment::where('idempotency_key', $key)->firstOrFail();
+        }
+    }
+
+    private function assertIdempotentPayload(Payment $order, string $payloadHash): void
+    {
+        if (! $order->payload_hash || ! hash_equals($order->payload_hash, $payloadHash)) {
+            throw new DomainException('The idempotency key was already used with different payment data.');
+        }
+    }
+
+    private function resumeExistingOrder(Payment $order): array
+    {
+        $details = $this->provider()->showOrderDetails($order->paypal_order_id);
+        $this->assertOrderResource($order, $details, ['CREATED', 'APPROVED', 'COMPLETED']);
+        $status = $details['status'];
+        if ($status === 'CREATED') {
+            return ['order' => $order, 'approval_url' => $this->approvalUrl($details)];
+        }
+        if ($status === 'APPROVED') {
+            $this->markApproved($order->id);
+            $this->captureApprovedPayment($order->fresh());
+        } else {
+            $this->finalizeOrderResponse($order, $details);
+        }
+        return ['order' => $order->fresh(), 'approval_url' => null];
+    }
+
+    public function success(string $paypalOrderId): Payment
+    {
+        $order = Payment::where('paypal_order_id', $paypalOrderId)
+            ->where('type', 'wallet_deposit')->firstOrFail();
+        if ($order->status === 'completed') {
+            return $order;
+        }
+
+        $details = $this->provider()->showOrderDetails($paypalOrderId);
+        $this->assertOrderResource($order, $details, ['APPROVED', 'COMPLETED']);
+        if ($details['status'] === 'APPROVED') {
+            $this->markApproved($order->id);
+            $this->captureApprovedPayment($order->fresh());
+        } else {
+            $this->finalizeOrderResponse($order, $details);
+        }
+        return $order->fresh();
+    }
+
+    public function handleWebhook(array $payload): void
+    {
+        $resource = $payload['resource'] ?? [];
+        match ($payload['event_type'] ?? '') {
+            'CHECKOUT.ORDER.APPROVED' => $this->onOrderApproved($resource),
+            'PAYMENT.CAPTURE.COMPLETED' => $this->finalizeCaptureResource($resource),
+            'PAYMENT.CAPTURE.DECLINED' => $this->onCaptureDeclined($resource),
+            default => null,
+        };
+    }
+
+    private function onOrderApproved(array $resource): void
+    {
+        $paypalOrderId = $resource['id'] ?? null;
+        if (! $paypalOrderId) {
+            throw new RuntimeException('Approved event is missing the PayPal order ID.');
+        }
+        $order = Payment::where('paypal_order_id', $paypalOrderId)
+            ->where('type', 'wallet_deposit')->firstOrFail();
+        $this->assertOrderResource($order, $resource, ['APPROVED']);
+        $this->markApproved($order->id);
+        $this->captureApprovedPayment($order->fresh());
+    }
+
+    private function markApproved(int $paymentId): void
+    {
+        DB::transaction(function () use ($paymentId) {
+            $order = Payment::whereKey($paymentId)->lockForUpdate()->firstOrFail();
+            if ($order->status === 'pending') {
+                $order->update(['status' => 'approved']);
+            }
+        }, 3);
+    }
+
+    private function captureApprovedPayment(Payment $order): void
+    {
+        if ($order->status === 'completed') {
+            $this->queueSuccessMail($order);
+            return;
+        }
+        try {
+            $response = $this->provider()
+                ->withIdempotencyKey('wallet-capture-'.$order->id)
+                ->capturePaymentOrder($order->paypal_order_id);
+        } catch (Throwable $e) {
+            $details = $this->provider()->showOrderDetails($order->paypal_order_id);
+            if (($details['status'] ?? null) !== 'COMPLETED') {
+                throw $e;
+            }
+            $response = $details;
+        }
+
+        if (($response['status'] ?? null) === 'COMPLETED') {
+            $this->finalizeOrderResponse($order, $response);
+            return;
+        }
+        if (($response['status'] ?? null) !== 'APPROVED') {
+            throw new RuntimeException('Capture returned a non-recoverable status.');
+        }
+    }
+
+    private function finalizeOrderResponse(Payment $order, array $response): void
+    {
+        $unit = $response['purchase_units'][0] ?? [];
+        $capture = $unit['payments']['captures'][0] ?? null;
+        if (! is_array($capture)) {
+            throw new RuntimeException('Completed PayPal order has no capture resource.');
+        }
+        $capture['supplementary_data']['related_ids']['order_id'] ??= $response['id'] ?? null;
+        $capture['custom_id'] ??= $unit['custom_id'] ?? null;
+        $capture['payee'] ??= $unit['payee'] ?? null;
+        $this->finalizeCaptureResource($capture, $unit['reference_id'] ?? null);
+    }
+
+    private function finalizeCaptureResource(array $resource, ?string $referenceId = null): void
+    {
+        $paypalOrderId = $resource['supplementary_data']['related_ids']['order_id'] ?? null;
+        $captureId = $resource['id'] ?? null;
+        $customId = $resource['custom_id'] ?? null;
+        if (! $captureId || ! $paypalOrderId) {
+            throw new RuntimeException('Capture is missing capture/order identifiers.');
+        }
+
+        $order = Payment::where('paypal_order_id', $paypalOrderId)
+            ->where('type', 'wallet_deposit')->firstOrFail();
+        $this->assertCaptureResource($order, $resource, $referenceId);
+
+        $order = DB::transaction(function () use ($order, $resource, $captureId) {
+            $locked = Payment::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status === 'completed' || $locked->wallet_credited_at) {
+                if ($locked->transaction_id !== $captureId || ! $locked->walletTransaction()->exists()) {
+                    throw new RuntimeException('Completed payment has inconsistent capture/ledger data.');
+                }
+                return $locked;
+            }
+
+            $captureOwner = Payment::where('transaction_id', $captureId)
+                ->whereKeyNot($locked->id)->exists();
+            if ($captureOwner) {
+                throw new RuntimeException('Capture ID was already used by another payment.');
+            }
+
+            Wallet::query()->insertOrIgnore([
+                'user_id' => $locked->user_id,
+                'uuid' => (string) Str::uuid(),
+                'balance' => 0,
+                'payback_balance' => 0,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $wallet = Wallet::withTrashed()->where('user_id', $locked->user_id)
+                ->lockForUpdate()->firstOrFail();
+            if ($wallet->trashed()) {
+                $wallet->restore();
+            }
+
+            $points = (int) $locked->points;
+            $before = (int) $wallet->balance;
+            if ($points <= 0 || $before > PHP_INT_MAX - $points) {
+                throw new RuntimeException('Wallet points overflow.');
+            }
+            $after = $before + $points;
+            $wallet->forceFill(['balance' => $after])->save();
+
+            WalletTransaction::create([
+                'user_id' => $locked->user_id,
+                'wallet_id' => $wallet->id,
+                'payment_id' => $locked->id,
+                'points' => $points,
+                'type' => 'credit',
+                'description' => 'PayPal wallet deposit',
+                'balance_before' => $before,
+                'balance_after' => $after,
+                'slug' => $locked->idempotency_key,
+            ]);
+
+            $locked->update([
+                'status' => 'completed',
+                'transaction_id' => $captureId,
+                'gateway_response' => $resource,
+                'paid_at' => isset($resource['update_time'])
+                    ? CarbonImmutable::parse($resource['update_time']) : now(),
+                'wallet_credited_at' => now(),
+                'mail_sent' => false,
+                'mail_sent_at' => null,
+            ]);
+            return $locked->fresh();
+        }, 3);
+
+        DB::afterCommit(function () use ($order) {
+            Cache::tags(['wallet', 'transactions', "user_{$order->user_id}"])->flush();
+        });
+        $this->queueSuccessMail($order);
+    }
+
+    private function onCaptureDeclined(array $resource): void
+    {
+        if (($resource['status'] ?? null) !== 'DECLINED') {
+            throw new RuntimeException('Declined event resource is not DECLINED.');
+        }
+        $paypalOrderId = $resource['supplementary_data']['related_ids']['order_id'] ?? null;
+        $order = Payment::where('paypal_order_id', $paypalOrderId)
+            ->where('type', 'wallet_deposit')->firstOrFail();
+        $this->assertCaptureIdentityAndMoney($order, $resource, null);
+
+        $order = DB::transaction(function () use ($order, $resource) {
+            $locked = Payment::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== 'completed') {
+                $locked->update(['status' => 'failed', 'gateway_response' => $resource]);
+            }
+            return $locked->fresh();
+        }, 3);
+        if ($order->status === 'failed' && ! $order->mail_sent) {
+            SendDepositFailedMail::dispatch($order->id)->afterCommit();
+        }
+    }
+
+    private function assertOrderResource(Payment $order, array $resource, array $statuses): void
+    {
+        if (($resource['id'] ?? null) && $order->paypal_order_id
+            && $resource['id'] !== $order->paypal_order_id) {
+            throw new RuntimeException('PayPal order ID mismatch.');
+        }
+        if (! in_array($resource['status'] ?? null, $statuses, true)) {
+            throw new RuntimeException('Unexpected PayPal order status.');
+        }
+        $unit = $resource['purchase_units'][0] ?? [];
+        if (($unit['reference_id'] ?? null) !== (string) $order->id
+            || ($unit['custom_id'] ?? null) !== 'wallet_topup:'.$order->id) {
+            throw new RuntimeException('PayPal order reference/custom ID mismatch.');
+        }
+        $this->assertMoneyAndMerchant($order, $unit['amount'] ?? [], $unit['payee'] ?? []);
+    }
+
+    private function assertCaptureResource(Payment $order, array $resource, ?string $referenceId): void
+    {
+        if (($resource['status'] ?? null) !== 'COMPLETED') {
+            throw new RuntimeException('Capture is not COMPLETED.');
+        }
+        $this->assertCaptureIdentityAndMoney($order, $resource, $referenceId);
+    }
+
+    private function assertCaptureIdentityAndMoney(Payment $order, array $resource, ?string $referenceId): void
+    {
+        $relatedOrderId = $resource['supplementary_data']['related_ids']['order_id'] ?? null;
+        if ($relatedOrderId !== $order->paypal_order_id
+            || ($resource['custom_id'] ?? null) !== 'wallet_topup:'.$order->id
+            || ($referenceId !== null && $referenceId !== (string) $order->id)
+            || $order->type !== 'wallet_deposit'
+            || ! $order->user_id) {
+            throw new RuntimeException('Capture identity mismatch.');
+        }
+        $this->assertMoneyAndMerchant($order, $resource['amount'] ?? [], $resource['payee'] ?? []);
+    }
+
+    private function assertMoneyAndMerchant(Payment $order, array $amount, array $payee): void
+    {
+        if ($this->money((string) ($amount['value'] ?? '')) !== $this->money((string) $order->amount)
+            || strtoupper((string) ($amount['currency_code'] ?? '')) !== strtoupper($order->currency)) {
+            throw new RuntimeException('PayPal amount/currency mismatch.');
+        }
+        $expectedMerchant = (string) config('paypal.merchant_id');
+        if ($expectedMerchant === '' || ($payee['merchant_id'] ?? null) !== $expectedMerchant) {
+            throw new RuntimeException('PayPal beneficiary merchant mismatch or not configured.');
+        }
+    }
+
+    private function queueSuccessMail(Payment $order): void
+    {
+        if (! $order->mail_sent) {
+            SendDepositSuccessMail::dispatch($order->id)->afterCommit();
+        }
+    }
+
+    private function approvalUrl(array $order): string
+    {
+        $link = collect($order['links'] ?? [])->firstWhere('rel', 'approve');
+        $url = is_array($link) ? ($link['href'] ?? null) : null;
+        if (! is_string($url) || $url === '') {
+            throw new RuntimeException('PayPal approval URL is missing.');
+        }
+        return $url;
+    }
+
+    private function money(string $value): string
+    {
+        if (! preg_match('/^\d+(?:\.\d{1,2})?$/', $value)) {
+            throw new RuntimeException('Invalid money format.');
+        }
+        [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '');
+        $whole = ltrim($whole, '0');
+        $whole = $whole === '' ? '0' : $whole;
+        return $whole.'.'.str_pad($fraction, 2, '0');
+    }
+
+    private function amountToPoints(string $amount): int
+    {
+        [$whole, $cents] = explode('.', $this->money($amount));
+        $pointsPerUsd = (int) config('wallet.points_per_usd', 1_000_000);
+        if ($pointsPerUsd <= 0 || $pointsPerUsd % 100 !== 0) {
+            throw new RuntimeException('WALLET_POINTS_PER_USD must be positive and divisible by 100.');
+        }
+        return ((int) $whole * $pointsPerUsd) + ((int) $cents * intdiv($pointsPerUsd, 100));
+    }
+}
+
+ملاحظة على الكود المرجعي: strict merchant assertion يتطلب إعداد merchant_id فعلياً. إذا كانت بعض PayPal responses لا تضمّن payee، يجب جلب Order details من PayPal ومطابقة payee هناك؛ لا يجوز تخطي الفحص.
+
+14.8 WebhookController مصحح بالكامل
+------------------------------------
+<?php
+
+namespace App\Http\Controllers\api\webhook;
+
+use App\Http\Controllers\Controller;
+use App\Models\Payment;
+use App\Models\PaypalWebhookEvent;
+use App\Services\PayPalServices;
+use App\Services\PayPalWalletServices;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Srmklive\PayPal\Services\PayPal as PayPalClient;
+use Throwable;
+
+class WebhookController extends Controller
+{
+    private const TYPES = [
+        'CHECKOUT.ORDER.APPROVED',
+        'PAYMENT.CAPTURE.COMPLETED',
+        'PAYMENT.CAPTURE.DECLINED',
+    ];
+
+    public function handle(Request $request)
+    {
+        $body = $request->getContent();
+        $event = json_decode($body, true);
+        if (! is_array($event)) {
+            return response()->json(['error' => 'invalid_json'], 400);
+        }
+
+        $required = [
+            'PAYPAL-TRANSMISSION-ID', 'PAYPAL-TRANSMISSION-TIME',
+            'PAYPAL-CERT-URL', 'PAYPAL-AUTH-ALGO', 'PAYPAL-TRANSMISSION-SIG',
+        ];
+        foreach ($required as $header) {
+            if (! $request->hasHeader($header) || $request->header($header) === '') {
+                return response()->json(['error' => 'missing_signature_headers'], 400);
+            }
+        }
+        if (! config('paypal.webhook_id')) {
+            return response()->json(['error' => 'webhook_not_configured'], 500);
+        }
+
+        try {
+            $provider = new PayPalClient;
+            $provider->setApiCredentials(config('paypal'));
+            $provider->getAccessToken();
+            $verification = $provider->verifyWebHook([
+                'transmission_id' => $request->header('PAYPAL-TRANSMISSION-ID'),
+                'transmission_time' => $request->header('PAYPAL-TRANSMISSION-TIME'),
+                'cert_url' => $request->header('PAYPAL-CERT-URL'),
+                'auth_algo' => $request->header('PAYPAL-AUTH-ALGO'),
+                'transmission_sig' => $request->header('PAYPAL-TRANSMISSION-SIG'),
+                'webhook_id' => config('paypal.webhook_id'),
+                'webhook_event' => json_decode($body),
+            ]);
+            if (($verification['verification_status'] ?? null) !== 'SUCCESS') {
+                return response()->json(['error' => 'invalid_signature'], 400);
+            }
+        } catch (Throwable $e) {
+            Log::error('PayPal webhook verification unavailable', ['exception' => $e]);
+            return response()->json(['error' => 'verification_unavailable'], 503);
+        }
+
+        $eventId = $event['id'] ?? null;
+        $eventType = $event['event_type'] ?? null;
+        if (! is_string($eventId) || ! in_array($eventType, self::TYPES, true)) {
+            return response()->json(['status' => 'ignored'], 200);
+        }
+        $paypalOrderId = $this->extractPaypalOrderId($event);
+        if (! $paypalOrderId) {
+            return response()->json(['error' => 'missing_order_id'], 422);
+        }
+
+        $record = PaypalWebhookEvent::firstOrCreate(
+            ['event_id' => $eventId],
+            ['event_type' => $eventType, 'paypal_order_id' => $paypalOrderId,
+             'status' => 'received', 'payload' => $event]
+        );
+        $claim = DB::transaction(function () use ($record) {
+            $locked = PaypalWebhookEvent::whereKey($record->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status === 'processed') {
+                return 'duplicate';
+            }
+            if ($locked->status === 'processing' && $locked->updated_at->gt(now()->subMinutes(5))) {
+                return 'busy';
+            }
+            $locked->update(['status' => 'processing', 'attempts' => $locked->attempts + 1, 'last_error' => null]);
+            return 'claimed';
+        });
+        if ($claim === 'duplicate') {
+            return response()->json(['status' => 'duplicate'], 200);
+        }
+        if ($claim === 'busy') {
+            return response()->json(['status' => 'processing'], 503);
+        }
+
+        try {
+            $payment = Payment::where('paypal_order_id', $paypalOrderId)->first();
+            if (! $payment) {
+                throw new \RuntimeException('Payment not found yet.');
+            }
+            if ($payment->type === 'wallet_deposit') {
+                app(PayPalWalletServices::class)->handleWebhook($event);
+            } else {
+                app(PayPalServices::class)->handleWebhook($event);
+            }
+            $record->update(['status' => 'processed', 'processed_at' => now()]);
+            return response()->json(['status' => 'ok'], 200);
+        } catch (Throwable $e) {
+            $record->update(['status' => 'failed', 'last_error' => mb_substr($e->getMessage(), 0, 2000)]);
+            Log::error('PayPal webhook processing failed', [
+                'event_id' => $eventId, 'event_type' => $eventType,
+                'paypal_order_id' => $paypalOrderId, 'exception' => $e,
+            ]);
+            return response()->json(['error' => 'processing_failed'], 503);
+        }
+    }
+
+    private function extractPaypalOrderId(array $event): ?string
+    {
+        $resource = $event['resource'] ?? [];
+        return match ($event['event_type'] ?? null) {
+            'CHECKOUT.ORDER.APPROVED' => $resource['id'] ?? null,
+            'PAYMENT.CAPTURE.COMPLETED', 'PAYMENT.CAPTURE.DECLINED'
+                => $resource['supplementary_data']['related_ids']['order_id'] ?? null,
+            default => null,
+        };
+    }
+}
+
+14.9 Email Jobs بعد Commit
+---------------------------
+<?php
+// app/Jobs/SendDepositSuccessMail.php
+
+namespace App\Jobs;
+
+use App\Mail\DepositSuccessMail;
+use App\Models\Payment;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Mail\Mailer;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+
+class SendDepositSuccessMail implements ShouldQueue, ShouldBeUnique
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    public int $tries = 5;
+    public array $backoff = [60, 300, 900, 3600];
+    public int $uniqueFor = 7200;
+
+    public function __construct(public int $paymentId) {}
+    public function uniqueId(): string { return 'deposit-success:'.$this->paymentId; }
+
+    public function handle(Mailer $mailer): void
+    {
+        $payment = Payment::with('user')->findOrFail($this->paymentId);
+        if ($payment->status !== 'completed' || $payment->mail_sent) return;
+        (new DepositSuccessMail($payment->amount, $payment->user->name))
+            ->to($payment->user->email)->send($mailer);
+        $payment->update(['mail_sent' => true, 'mail_sent_at' => now()]);
+    }
+}
+
+<?php
+// app/Jobs/SendDepositFailedMail.php
+
+namespace App\Jobs;
+
+use App\Mail\DepositFailMail;
+use App\Models\Payment;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Mail\Mailer;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+
+class SendDepositFailedMail implements ShouldQueue, ShouldBeUnique
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    public int $tries = 5;
+    public array $backoff = [60, 300, 900, 3600];
+    public int $uniqueFor = 7200;
+
+    public function __construct(public int $paymentId) {}
+    public function uniqueId(): string { return 'deposit-failed:'.$this->paymentId; }
+
+    public function handle(Mailer $mailer): void
+    {
+        $payment = Payment::with('user')->findOrFail($this->paymentId);
+        if ($payment->status !== 'failed' || $payment->mail_sent) return;
+        (new DepositFailMail($payment->amount, $payment->user->name))
+            ->to($payment->user->email)->send($mailer);
+        $payment->update(['mail_sent' => true, 'mail_sent_at' => now()]);
+    }
+}
+
+مهم: استدعاء ->send($mailer) هنا هو إرسال متزامن داخل الـ Job نفسه، فلا ينشئ Job بريد ثانياً رغم Implements ShouldQueue على Mailable. ويمكن بدلاً منه إزالة ShouldQueue من Mailables وجعل هذين الـ Jobs هما طبقة الانتظار الوحيدة.
+
+14.10 charge.vue: استبدال script setup
+---------------------------------------
+<script setup>
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import { v4 as uuidv4 } from 'uuid'
+import api from '@/services/ApiClient'
+import homeService from '@/services/home/homeService'
+
+const props = defineProps({ wallet: { type: Object, default: null } })
+const router = useRouter()
+const { t } = useI18n()
+const storageKey = 'wallet_deposit_idempotency_key'
+const idempotencyKey = ref(sessionStorage.getItem(storageKey) || uuidv4())
+sessionStorage.setItem(storageKey, idempotencyKey.value)
+
+const presets = [10, 25, 50, 100]
+const selectedPreset = ref(null)
+const loading = ref(false)
+const serverError = ref('')
+const form = ref({ amount: '', description: '' })
+
+const amountError = computed(() => {
+    const value = Number(form.value.amount)
+    if (!form.value.amount) return ''
+    if (!Number.isFinite(value) || value < 1 || value > 999999.99) return t('user.charge.amountError')
+    if (!/^\d+(\.\d{1,2})?$/.test(String(form.value.amount))) return t('user.charge.amountError')
+    return ''
+})
+const isValid = computed(() => form.value.amount !== '' && !amountError.value)
+
+function selectPreset(value) {
+    selectedPreset.value = value
+    form.value.amount = value
+}
+
+async function handlePay() {
+    if (!isValid.value || loading.value) return
+    loading.value = true
+    serverError.value = ''
+    try {
+        const { data } = await api.post('/deposit/pay', {
+            amount: String(form.value.amount),
+            description: form.value.description || t('user.charge.defaultDescription'),
+            idempotency_key: idempotencyKey.value,
+            locale: homeService.getLang(),
+        })
+        if (!data?.order_id) throw new Error('Missing order_id')
+        if (data.approval_url) {
+            sessionStorage.removeItem(storageKey)
+            window.location.assign(data.approval_url)
+            return
+        }
+        if (data.status === 'completed') {
+            sessionStorage.removeItem(storageKey)
+            await router.replace(`/${homeService.getLang()}/deposit/success?order_id=${data.order_id}`)
+            return
+        }
+        await router.replace(`/${homeService.getLang()}/Deposit/waiting?order_id=${data.order_id}`)
+    } catch (error) {
+        serverError.value = error.response?.data?.message || t('user.charge.genericError')
+    } finally {
+        loading.value = false
+    }
+}
+</script>
+
+14.11 WaitingDeposit.vue: استبدال script setup
+------------------------------------------------
+<script setup>
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import api from '@/services/ApiClient'
+import homeService from '@/services/home/homeService'
+
+const route = useRoute()
+const router = useRouter()
+const { locale } = useI18n()
+const orderId = String(route.query.order_id || '')
+const attempts = ref(0)
+const MAX_ATTEMPTS = 30
+const POLL_DELAY_MS = 5000
+let timer = null
+let controller = null
+let stopped = false
+let isChecking = false
+
+const currentLang = () => homeService.getLang()
+
+function stop() {
+    stopped = true
+    if (timer) clearTimeout(timer)
+    timer = null
+    controller?.abort()
+}
+
+async function finish(path) {
+    stop()
+    await router.replace(path)
+}
+
+function schedule() {
+    if (!stopped) timer = setTimeout(checkStatus, POLL_DELAY_MS)
+}
+
+async function checkStatus() {
+    if (stopped || isChecking) return
+    if (attempts.value >= MAX_ATTEMPTS) {
+        await finish(`/${currentLang()}/failed?error=POLL_TIMEOUT`)
+        return
+    }
+    isChecking = true
+    attempts.value += 1
+    controller = new AbortController()
+    try {
+        const { data } = await api.get(`/wallet/order-status/${encodeURIComponent(orderId)}`, {
+            signal: controller.signal,
+        })
+        if (data.status === 'completed') {
+            await finish(`/${currentLang()}/deposit/success?order_id=${data.order_id}`)
+            return
+        }
+        if (data.status === 'failed') {
+            await finish(`/${currentLang()}/failed?error=PAYMENT_FAILED`)
+            return
+        }
+        if (!['pending', 'approved'].includes(data.status)) {
+            await finish(`/${currentLang()}/failed?error=UNKNOWN_STATUS`)
+            return
+        }
+    } catch (error) {
+        if (error.name === 'CanceledError') return
+        if (error.response?.status === 401) {
+            await finish(`/${currentLang()}/auth`)
+            return
+        }
+        if (error.response?.status === 404 && attempts.value >= 3) {
+            await finish(`/${currentLang()}/failed?error=ORDER_NOT_FOUND`)
+            return
+        }
+    } finally {
+        isChecking = false
+        if (!stopped) schedule()
+    }
+}
+
+onMounted(() => {
+    locale.value = currentLang()
+    if (!/^\d+$/.test(orderId)) {
+        finish(`/${currentLang()}/failed?error=ORDER_ID_MISSING`)
+        return
+    }
+    checkStatus()
+})
+
+onUnmounted(stop)
+</script>
+
+14.12 Routes المقترحة
+----------------------
+Route::prefix('deposit')->middleware(['auth:sanctum', 'throttle:15,1'])->group(function () {
+    Route::post('/pay', [DepositController::class, 'create']);
+});
+Route::get('/wallet/success', [DepositController::class, 'success'])
+    ->name('wallet.success')->middleware('throttle:30,1')->withoutMiddleware(ApiKeyMiddleware::class);
+Route::get('/wallet/cancel', [DepositController::class, 'cancel'])
+    ->name('wallet.cancel')->middleware('throttle:30,1')->withoutMiddleware(ApiKeyMiddleware::class);
+Route::post('/paypal/webhook', [WebhookController::class, 'handle'])
+    ->name('paypal.webhook')->middleware('throttle:300,1')->withoutMiddleware(ApiKeyMiddleware::class);
+Route::get('/wallet/order-status/{id}', [DepositController::class, 'orderStatus'])
+    ->whereNumber('id')->middleware(['auth:sanctum', 'throttle:30,1'])
+    ->withoutMiddleware(ApiKeyMiddleware::class);
+
+ملاحظة: رفع 60 إلى 300 مثال تشغيلي وليس رقماً تجارياً نهائياً؛ اضبطه من metrics وحجم webhooks، ويفضل RateLimiter مخصص.
+
+
+15. Final End-to-End Flow
+==========================
+
+User
+→ POST /api/v1/deposit/pay مع Bearer token وUUID وamount مضبوط
+→ StoreDepositRequest يثبت decimal/locale/description
+→ DepositController@create
+→ PayPalWalletServices@pay
+→ Payment pending + points + payload_hash داخل transaction قصيرة
+→ PayPal createOrder خارج transaction مع PayPal-Request-Id ثابت
+→ reference_id/custom_id/amount/currency محفوظون ومطابقون
+→ paypal_order_id وgateway_response محفوظان بـ JSON cast
+→ approval_url returned
+→ User approves payment
+→ قد يصل /wallet/success أو CHECKOUT.ORDER.APPROVED أولاً
+→ كل قناة تتحقق server-to-server من Order APPROVED
+→ capturePaymentOrder مع PayPal-Request-Id ثابت
+→ Capture response أو verified PAYMENT.CAPTURE.COMPLETED
+→ تحقق COMPLETED + order id + capture id + custom id + reference عند توفره + amount + currency + merchant
+→ DB transaction: lock Payment ثم Wallet
+→ رفض Capture ID مستخدم
+→ Wallet balance updated as BIGINT
+→ WalletTransaction unique(payment_id) created
+→ Payment status=completed + transaction_id=Capture ID + wallet_credited_at
+→ Commit
+→ cache invalidation وmail job afterCommit
+→ Webhook event marked processed
+→ Frontend sequential polling receives completed
+→ Redirect to success page with real local order_id
+
+إذا فشل WalletTransaction
+→ transaction rollback؛ لا رصيد ولا completed محلياً
+→ Webhook يرجع 503؛ event status=failed
+→ PayPal/reconciliation يعيد finalization بنفس Capture، ولا يعمل Capture جديداً.
+
+إذا فشل البريد
+→ payment والرصيد يظلان committed
+→ Job retries؛ mail_sent يبقى false حتى نجاح النقل.
+
+
+16. Testing Checklist
+======================
+
+اختبارات آلية مطلوبة (حالياً غير موجودة):
+
+[ ] إنشاء طلب دفع جديد: 201/200، pending، amount/currency/points صحيحة، PayPal create مرة واحدة.
+[ ] إعادة استخدام طلب pending بنفس UUID ونفس payload: نفس local/payment PayPal IDs.
+[ ] نفس UUID مع مبلغ مختلف: 409 ولا استدعاء PayPal.
+[ ] CHECKOUT.ORDER.APPROVED صحيح: status approved ثم capture request id ثابت.
+[ ] PAYMENT.CAPTURE.COMPLETED صحيح: رصيد مرة واحدة، ledger مرة واحدة، completed.
+[ ] Webhook مكرر بنفس event.id: 200 duplicate، لا service processing جديد.
+[ ] Capture مكرر بـ event IDs مختلفة: لا زيادة ثانية ولا WalletTransaction ثانية.
+[ ] approved webhooks متزامنان: PayPal-Request-Id نفسه، رصيد مرة واحدة.
+[ ] مبلغ غير مطابق: 4xx/503 حسب policy، لا رصيد، event failed/alert.
+[ ] عملة غير مطابقة: لا رصيد.
+[ ] merchant_id غير مطابق أو مفقود: لا رصيد.
+[ ] custom_id غير مطابق: لا رصيد.
+[ ] reference_id غير مطابق في Order response: لا capture.
+[ ] paypal_order_id غير مطابق: لا رصيد.
+[ ] Capture status=PENDING: لا completed ولا رصيد.
+[ ] Capture status=DECLINED: failed ولا رصيد.
+[ ] Capture ID مستخدم من Payment آخر: رفض وalert.
+[ ] طلب مستخدم آخر إلى order-status: 404، دون تسريب وجود الطلب.
+[ ] order-status يعيد order_id/status/amount/currency/paid_at فقط.
+[ ] فشل البريد SMTP: completed والرصيد ثابتان، job retries، mail_sent=false.
+[ ] فشل Redis enqueue بعد commit: الدفع لا يعمل rollback، Webhook retry يستطيع إعادة dispatch.
+[ ] فشل WalletTransaction insert: rollback wallet/payment، ثم retry ينجح من نفس Capture.
+[ ] commit/DB deadlock: retry transaction ولا double credit.
+[ ] soft-deleted wallet: policy المتفق عليها restore أو رفض واضح، دون unique crash.
+[ ] شحنتان مختلفتان متزامنتان لنفس wallet: balance_before/after متسلسلان وصحيحان.
+[ ] حدود BIGINT وmax amount، وعدم استخدام float rounding.
+[ ] الدفع يكتمل بدون رجوع المستخدم إلى success URL: webhook يكمل والرصيد صحيح.
+[ ] webhook قبل redirect: redirect يرى completed ولا يعيد الشحن.
+[ ] redirect قبل webhook: approved مؤقتاً ثم completed.
+[ ] Sandbox event بتوقيع صحيح: يقبل.
+[ ] Sandbox event بلا/بتوقيع خاطئ: يرفض، بعكس السلوك الحالي.
+[ ] Live event بتوقيع صحيح وLive webhook ID: يقبل.
+[ ] Live event موقّع لـ Sandbox webhook ID: يرفض.
+[ ] missing signature headers: 400.
+[ ] PayPal verification API timeout: 503 ولا processing.
+[ ] polling يصل completed ويتوقف.
+[ ] polling يصل failed ويتوقف.
+[ ] polling pending/approved ينتهي بعد MAX_ATTEMPTS.
+[ ] polling لا يرسل طلبين متداخلين عند response أبطأ من 5 ثوانٍ.
+[ ] unmount يعمل abort/clearTimeout.
+[ ] cancel يعيد لصفحة مفهومة ولا يعرض JSON.
+[ ] success page لا تعرض Date.now كمعرف عملية.
+
+أدوات الاختبار:
+- Http::fake أو mock لـ PayPalClient على حدود الخدمة.
+- payload fixtures حقيقية البنية من Sandbox بعد إخفاء PII.
+- MySQL/PostgreSQL integration suite للتزامن؛ SQLite وحده غير كافٍ لـ lockForUpdate.
+- PayPal Sandbox end-to-end وتوقيع حقيقي، مع simulator test منفصل وفق قيوده الرسمية.
+
+
+17. Production Deployment Checklist
+=====================================
+
+[ ] لا deploy قبل backup للـ payments/wallets/wallet_transactions.
+[ ] استعلام duplicates على wallet_transactions.payment_id قبل إضافة unique.
+[ ] استعلام transaction_id values الحالية وتحديد إن كانت Order IDs مخزنة بدلاً من Capture IDs؛ لا تصلحها بالتخمين.
+[ ] backfill payload_hash/points فقط من بيانات يمكن إثباتها، واترك غير القابل للإثبات للمراجعة.
+[ ] طبّق BIGINT migrations في staging على نسخة حجم مماثل.
+[ ] استخدم DB production يدعم row locks واختبر isolation/deadlocks.
+[ ] APP_ENV=production وAPP_DEBUG=false.
+[ ] APP_URL=https://public-production-host بدون localhost.
+[ ] VITE_API_BASE_URL يطابق نفس البيئة؛ أزل production URLs من source.
+[ ] PAYPAL_MODE=live فقط بعد نجاح Sandbox checklist.
+[ ] Live client ID/secret/app ID صحيحة وليست placeholders.
+[ ] PAYPAL_LIVE_WEBHOOK_ID مأخوذ من نفس Live app ونفس listener URL.
+[ ] Sandbox وLive webhook IDs منفصلان.
+[ ] merchant ID الصحيح لكل بيئة مضبوط ومختبر ضد payee.merchant_id.
+[ ] webhook URL عام HTTPS:443 وشهادته صالحة.
+[ ] لا يوجد signature bypass في أي environment.
+[ ] اشتراكات webhook تشمل CHECKOUT.ORDER.APPROVED وPAYMENT.CAPTURE.COMPLETED وPAYMENT.CAPTURE.DECLINED، ويفضل PENDING/REVERSED وفق policy.
+[ ] Redis persistent/HA حسب متطلبات العمل، وqueue worker تحت Supervisor/systemd.
+[ ] workers بعد deploy: queue:restart.
+[ ] إذا SMTP: credentials/app-password وSPF/DKIM/DMARC واختبار delivery.
+[ ] إذا Mailgun: composer require symfony/mailgun-mailer symfony/http-client، ثم MAIL_MAILER=mailgun واختبار domain/region.
+[ ] failed_jobs monitoring وalerts.
+[ ] alerts لـ amount mismatch، currency mismatch، merchant mismatch، unknown capture، webhook verification failures، approved age، capture-without-credit.
+[ ] reconciliation scheduled job للـ pending/approved القديمة ولـ PayPal completed غير المشحونة.
+[ ] webhook event retention/PII policy؛ لا تسجل payload حساساً بلا تشفير/مدة احتفاظ.
+[ ] log redaction للأسرار وpayer data.
+[ ] metrics لـ create/capture latency، 429، 5xx، duplicate rate، time-to-credit.
+[ ] config:cache وroute:cache بعد ضبط env، ثم smoke test.
+[ ] اختبر rollback والبريد والتزامن على staging.
+[ ] نفّذ Live low-value controlled transaction ثم طابق PayPal dashboard وPayment وWalletTransaction والرصيد.
+[ ] وثّق رسمياً أن 1 USD = 1,000,000 points أو عدّل النسبة قبل الإطلاق؛ لا تتركها magic number.
+
+نهاية التقرير.

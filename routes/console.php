@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=120')
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('payments:reconcile-paypal-wallet')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();

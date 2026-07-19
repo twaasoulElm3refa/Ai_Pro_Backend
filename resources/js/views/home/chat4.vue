@@ -1429,7 +1429,7 @@ function resolveDownloadUrl(url) {
     const apiBase =
         import.meta.env.VITE_API_BASE_URL
         || import.meta.env.VITE_API_URL
-        || "https://pro.aiarabic.com/api/v1";
+        || "/api/v1";
 
     return `${String(apiBase).replace(/\/$/, "")}/${value.replace(/^\//, "")}`;
 }
@@ -1487,7 +1487,8 @@ async function downloadResumeFile(message) {
         const isAiArabicResumeDownload = url.includes("api.aiarabic.com/tasks/resume-builder/download/");
 
         if (isAiArabicResumeDownload) {
-            headers["x-internal-api-key"] = 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy';
+            const internalApiKey = import.meta.env.VITE_INTERNAL_API_KEY || "";
+            if (internalApiKey) headers["x-internal-api-key"] = internalApiKey;
         } else {
             const token = localStorage.getItem("auth_token");
 

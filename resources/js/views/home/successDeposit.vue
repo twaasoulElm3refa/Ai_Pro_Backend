@@ -84,7 +84,7 @@ export default {
 
     computed: {
         transactionId() {
-            return this.$route.query.token || this.$t("user.deposit.success.fallbackTransactionId", { id: Date.now() });
+            return this.$route.query.order_id || "-";
         },
     },
 
