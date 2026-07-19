@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use RuntimeException;
 
 return new class extends Migration
 {
@@ -19,7 +18,8 @@ return new class extends Migration
         if (! Schema::hasColumn('payments', 'wallet_credited')) {
             Schema::table('payments', function (Blueprint $table) {
                 $table->boolean('wallet_credited')
-                    ->default(false);
+                    ->default(false)
+                    ->after('mail_sent');
             });
         }
 
@@ -42,10 +42,10 @@ return new class extends Migration
         |--------------------------------------------------------------------------
         | Wallets
         |--------------------------------------------------------------------------
-        | Signed BIGINT لتجنب فشل الـmigration لو فيه أرصدة سالبة قديمة.
         */
 
         Schema::table('wallets', function (Blueprint $table) {
+            // Signed BIGINT حتى لا تفشل بسبب أرصدة سالبة قديمة.
             $table->bigInteger('balance')
                 ->default(0)
                 ->change();
@@ -77,7 +77,7 @@ return new class extends Migration
 
         /*
         |--------------------------------------------------------------------------
-        | Unique indexes
+        | Unique Indexes
         |--------------------------------------------------------------------------
         */
 
@@ -86,7 +86,7 @@ return new class extends Migration
             'wallet_transactions_payment_id_unique'
         )) {
             if ($this->hasDuplicates('wallet_transactions', 'payment_id')) {
-                throw new RuntimeException(
+                throw new \RuntimeException(
                     'Duplicate payment_id values exist in wallet_transactions.'
                 );
             }
@@ -104,7 +104,7 @@ return new class extends Migration
             'wallet_transactions_slug_unique'
         )) {
             if ($this->hasDuplicates('wallet_transactions', 'slug')) {
-                throw new RuntimeException(
+                throw new \RuntimeException(
                     'Duplicate slug values exist in wallet_transactions.'
                 );
             }
@@ -156,10 +156,13 @@ return new class extends Migration
     {
         Schema::dropIfExists('paypal_webhook_events');
 
-        if ($this->indexExists(
-            'wallet_transactions',
-            'wallet_transactions_payment_id_unique'
-        )) {
+        if (
+            Schema::hasTable('wallet_transactions')
+            && $this->indexExists(
+                'wallet_transactions',
+                'wallet_transactions_payment_id_unique'
+            )
+        ) {
             Schema::table('wallet_transactions', function (Blueprint $table) {
                 $table->dropUnique(
                     'wallet_transactions_payment_id_unique'
@@ -167,10 +170,13 @@ return new class extends Migration
             });
         }
 
-        if ($this->indexExists(
-            'wallet_transactions',
-            'wallet_transactions_slug_unique'
-        )) {
+        if (
+            Schema::hasTable('wallet_transactions')
+            && $this->indexExists(
+                'wallet_transactions',
+                'wallet_transactions_slug_unique'
+            )
+        ) {
             Schema::table('wallet_transactions', function (Blueprint $table) {
                 $table->dropUnique(
                     'wallet_transactions_slug_unique'
@@ -178,7 +184,10 @@ return new class extends Migration
             });
         }
 
-        if (Schema::hasColumn('payments', 'wallet_credited')) {
+        if (
+            Schema::hasTable('payments')
+            && Schema::hasColumn('payments', 'wallet_credited')
+        ) {
             Schema::table('payments', function (Blueprint $table) {
                 $table->dropColumn('wallet_credited');
             });
