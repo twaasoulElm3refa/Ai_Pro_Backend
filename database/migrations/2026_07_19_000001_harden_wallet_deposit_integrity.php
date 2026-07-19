@@ -30,8 +30,8 @@ return new class extends Migration
 
         Schema::table('wallet_transactions', function (Blueprint $table) {
             $table->unsignedBigInteger('points')->default(0)->change();
-            $table->unsignedBigInteger('balance_before')->default(0)->change();
-            $table->unsignedBigInteger('balance_after')->default(0)->change();
+            $table->bigInteger('balance_before')->default(0)->change();
+            $table->bigInteger('balance_after')->default(0)->change();
             $table->unique('payment_id', 'wallet_transactions_payment_id_unique');
             $table->unique('slug', 'wallet_transactions_slug_unique');
         });
