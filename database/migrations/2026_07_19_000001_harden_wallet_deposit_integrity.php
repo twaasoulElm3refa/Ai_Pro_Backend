@@ -4,14 +4,24 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('payments', function (Blueprint $table) {
-            $table->boolean('wallet_credited')->default(false)->after('mail_sent');
-        });
+        /*
+        |--------------------------------------------------------------------------
+        | Payments
+        |--------------------------------------------------------------------------
+        */
+
+        if (! Schema::hasColumn('payments', 'wallet_credited')) {
+            Schema::table('payments', function (Blueprint $table) {
+                $table->boolean('wallet_credited')
+                    ->default(false);
+            });
+        }
 
         DB::table('payments')
             ->where('type', 'wallet_deposit')
@@ -19,48 +29,182 @@ return new class extends Migration
             ->whereExists(function ($query) {
                 $query->selectRaw('1')
                     ->from('wallet_transactions')
-                    ->whereColumn('wallet_transactions.payment_id', 'payments.id');
+                    ->whereColumn(
+                        'wallet_transactions.payment_id',
+                        'payments.id'
+                    );
             })
-            ->update(['wallet_credited' => true]);
+            ->update([
+                'wallet_credited' => true,
+            ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Wallets
+        |--------------------------------------------------------------------------
+        | Signed BIGINT لتجنب فشل الـmigration لو فيه أرصدة سالبة قديمة.
+        */
 
         Schema::table('wallets', function (Blueprint $table) {
-            $table->unsignedBigInteger('balance')->default(0)->change();
-            $table->unsignedBigInteger('payback_balance')->default(0)->change();
+            $table->bigInteger('balance')
+                ->default(0)
+                ->change();
+
+            $table->bigInteger('payback_balance')
+                ->default(0)
+                ->change();
         });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Wallet Transactions
+        |--------------------------------------------------------------------------
+        */
 
         Schema::table('wallet_transactions', function (Blueprint $table) {
-            $table->unsignedBigInteger('points')->default(0)->change();
-            $table->bigInteger('balance_before')->default(0)->change();
-            $table->bigInteger('balance_after')->default(0)->change();
-            $table->unique('payment_id', 'wallet_transactions_payment_id_unique');
-            $table->unique('slug', 'wallet_transactions_slug_unique');
+            $table->bigInteger('points')
+                ->default(0)
+                ->change();
+
+            $table->bigInteger('balance_before')
+                ->default(0)
+                ->change();
+
+            $table->bigInteger('balance_after')
+                ->default(0)
+                ->change();
         });
 
-        Schema::create('paypal_webhook_events', function (Blueprint $table) {
-            $table->id();
-            $table->string('event_id')->unique();
-            $table->string('event_type');
-            $table->string('paypal_order_id')->nullable()->index();
-            $table->string('capture_id')->nullable()->index();
-            $table->json('payload');
-            $table->string('status')->default('received')->index();
-            $table->text('error_message')->nullable();
-            $table->timestamp('processed_at')->nullable();
-            $table->timestamps();
-        });
+        /*
+        |--------------------------------------------------------------------------
+        | Unique indexes
+        |--------------------------------------------------------------------------
+        */
+
+        if (! $this->indexExists(
+            'wallet_transactions',
+            'wallet_transactions_payment_id_unique'
+        )) {
+            if ($this->hasDuplicates('wallet_transactions', 'payment_id')) {
+                throw new RuntimeException(
+                    'Duplicate payment_id values exist in wallet_transactions.'
+                );
+            }
+
+            Schema::table('wallet_transactions', function (Blueprint $table) {
+                $table->unique(
+                    'payment_id',
+                    'wallet_transactions_payment_id_unique'
+                );
+            });
+        }
+
+        if (! $this->indexExists(
+            'wallet_transactions',
+            'wallet_transactions_slug_unique'
+        )) {
+            if ($this->hasDuplicates('wallet_transactions', 'slug')) {
+                throw new RuntimeException(
+                    'Duplicate slug values exist in wallet_transactions.'
+                );
+            }
+
+            Schema::table('wallet_transactions', function (Blueprint $table) {
+                $table->unique(
+                    'slug',
+                    'wallet_transactions_slug_unique'
+                );
+            });
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PayPal Webhook Events
+        |--------------------------------------------------------------------------
+        */
+
+        if (! Schema::hasTable('paypal_webhook_events')) {
+            Schema::create('paypal_webhook_events', function (Blueprint $table) {
+                $table->id();
+
+                $table->string('event_id')->unique();
+                $table->string('event_type');
+
+                $table->string('paypal_order_id')
+                    ->nullable()
+                    ->index();
+
+                $table->string('capture_id')
+                    ->nullable()
+                    ->index();
+
+                $table->json('payload');
+
+                $table->string('status')
+                    ->default('received')
+                    ->index();
+
+                $table->text('error_message')->nullable();
+                $table->timestamp('processed_at')->nullable();
+
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void
     {
         Schema::dropIfExists('paypal_webhook_events');
 
-        Schema::table('wallet_transactions', function (Blueprint $table) {
-            $table->dropUnique('wallet_transactions_payment_id_unique');
-            $table->dropUnique('wallet_transactions_slug_unique');
-        });
+        if ($this->indexExists(
+            'wallet_transactions',
+            'wallet_transactions_payment_id_unique'
+        )) {
+            Schema::table('wallet_transactions', function (Blueprint $table) {
+                $table->dropUnique(
+                    'wallet_transactions_payment_id_unique'
+                );
+            });
+        }
 
-        Schema::table('payments', function (Blueprint $table) {
-            $table->dropColumn('wallet_credited');
-        });
+        if ($this->indexExists(
+            'wallet_transactions',
+            'wallet_transactions_slug_unique'
+        )) {
+            Schema::table('wallet_transactions', function (Blueprint $table) {
+                $table->dropUnique(
+                    'wallet_transactions_slug_unique'
+                );
+            });
+        }
+
+        if (Schema::hasColumn('payments', 'wallet_credited')) {
+            Schema::table('payments', function (Blueprint $table) {
+                $table->dropColumn('wallet_credited');
+            });
+        }
+    }
+
+    private function indexExists(string $table, string $index): bool
+    {
+        return DB::table('information_schema.statistics')
+            ->where('table_schema', DB::getDatabaseName())
+            ->where('table_name', $table)
+            ->where('index_name', $index)
+            ->exists();
+    }
+
+    private function hasDuplicates(string $table, string $column): bool
+    {
+        $result = DB::selectOne(
+            "SELECT `{$column}`, COUNT(*) AS duplicate_count
+             FROM `{$table}`
+             WHERE `{$column}` IS NOT NULL
+             GROUP BY `{$column}`
+             HAVING COUNT(*) > 1
+             LIMIT 1"
+        );
+
+        return $result !== null;
     }
 };
