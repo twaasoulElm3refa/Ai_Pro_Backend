@@ -1,6 +1,9 @@
 import axios from "axios";
 import toastr from "toastr";
 
+const ADMIN_API_BASE_URL = import.meta.env.VITE_API_ROOT_URL || "/api";
+const PUBLIC_API_KEY = import.meta.env.VITE_API_KEY || "";
+
 toastr.options = {
     closeButton: true,
     progressBar: true,
@@ -11,10 +14,10 @@ toastr.options = {
 let redirectingToLogin = false;
 
 const api = axios.create({
-    baseURL: "https://pro.aiarabic.com/api",
+    baseURL: ADMIN_API_BASE_URL,
     headers: {
         Accept: "application/json",
-        'x-api-key': 'L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy'
+        ...(PUBLIC_API_KEY ? { 'x-api-key': PUBLIC_API_KEY } : {})
     },
 });
 

@@ -1,0 +1,209 @@
+AI PRO - WALLET DEPOSIT HARDENING REPORT
+Date: 2026-07-19
+Branch: codex/wallet-deposit-hardening
+
+1) Executive summary
+====================
+The PayPal wallet-deposit flow was rebuilt around one authoritative completion path:
+PayPal verified capture COMPLETED -> validate all payment identity fields -> one locked DB transaction -> credit wallet once -> create one ledger row -> mark payment completed -> queue email after commit.
+
+The browser return URL is no longer a source of truth. It only moves a pending payment to approved and redirects to the waiting page. Completion can occur through a verified webhook, the capture response for CHECKOUT.ORDER.APPROVED, or the reconciliation command; all three call finalizeCompletedWalletCapture().
+
+No .env secret was displayed, changed, or committed. Hard-coded frontend API URL/key values were removed. The pre-existing untracked AI_PRO_WALLET_DEPOSIT_FULL_AUDIT.txt was preserved unchanged.
+
+2) Problems fixed and why
+=========================
+- Webhook authenticity: PayPal signature verification is enabled by default, requires all five PayPal signature headers plus PAYPAL_WEBHOOK_ID, and accepts only SUCCESS. Disabling verification is allowed only in local/testing; production fails closed.
+- Webhook idempotency: paypal_webhook_events records event_id (unique), type, order/capture IDs, payload, processing state, errors, and processed_at. Repeated processed events return HTTP 200 without repeating financial work.
+- Financial validation: status, event path, PayPal order ID, real capture ID, custom_id, optional reference_id, exact integer-minor-unit amount, currency, configured merchant ID, wallet_deposit type, and an existing owner are validated before credit.
+- Capture identity: Order Capture and Capture Webhook response shapes are both supported; transaction_id stores the PayPal Capture ID, never the Order ID.
+- Atomicity/concurrency: Payment and Wallet use lockForUpdate inside a retrying DB transaction. Wallet credit, WalletTransaction creation, and Payment completion commit or roll back together.
+- Database guarantees: unique capture ID, payment ledger row, ledger slug, and webhook event ID prevent duplicate credit even under retries/concurrency. Wallet/ledger numeric columns were widened to unsigned BIGINT.
+- Existing data safety: completed wallet payments are backfilled to wallet_credited=true only when a matching ledger row already exists.
+- Email safety: success/failure mail is handled by unique queue jobs after commit. mail_sent changes only after the mailer succeeds. Mail failure is logged/retried and never reverts a completed payment.
+- Idempotent creation/capture: client UUIDs are scoped to the user and persisted in sessionStorage across a lost response. Deterministic PayPal-Request-Id values are used for create and capture calls. A semantic duplicate APPROVED event cannot capture a completed payment again.
+- Wallet arithmetic: no float is used. USD is converted to integer cents, then points using WALLET_POINTS_PER_USD (currently intended scale: 1 USD = 1,000,000 points), with configuration and overflow checks. balance_after is taken after refresh().
+- Status privacy: orderStatus is authenticated, owner-scoped, wallet-deposit scoped, and returns only order_id/status/amount/currency/paid_at.
+- Frontend lifecycle: approved is transient, only completed is success, polling is sequential setTimeout-based, overlapping requests are blocked, AbortController handles unmount, and polling stops on completed/failed/timeout/error. 401/403/404/429/5xx have explicit behavior and navigation uses router.replace(). Timeout is not presented as a final payment failure.
+- Reconciliation: payments:reconcile-paypal-wallet checks old pending/approved deposits against PayPal and reuses the same finalizer. It is scheduled every five minutes without overlap.
+- Observability: webhook_received, webhook_verified, webhook_duplicate, payment_validation_failed, wallet_credit_started, wallet_credit_committed, email_queued, email_failed, reconciliation_started, and reconciliation_completed are emitted without credentials/tokens/card data.
+
+3) Files changed or added
+=========================
+Configuration/runtime:
+- .env.example
+- bootstrap/app.php
+- config/paypal.php
+- config/queue.php
+- config/wallet.php (new)
+- package.json
+- routes/api.php
+- routes/console.php
+
+Backend:
+- app/Console/Commands/ReconcilePayPalWalletPayments.php (new)
+- app/Http/Controllers/api/payment/DepositController.php
+- app/Http/Controllers/api/webhook/WebhookController.php
+- app/Http/Requests/Wallet/StoreDepositRequest.php (new)
+- app/Jobs/SendDepositFailedMailJob.php (new)
+- app/Jobs/SendDepositSuccessMailJob.php (new)
+- app/Mail/DepositFailMail.php
+- app/Mail/DepositSuccessMail.php
+- app/Models/Payment.php
+- app/Models/PaypalWebhookEvent.php (new)
+- app/Models/Wallet.php
+- app/Models/WalletTransaction.php
+- app/Services/PayPalClientFactory.php (new)
+- app/Services/PayPalWalletServices.php
+
+Frontend:
+- resources/js/router/index.js
+- resources/js/services/AdminApiClient.js
+- resources/js/services/ApiClient.js
+- resources/js/views/home/CancelledDeposit.vue (new)
+- resources/js/views/home/WaitingDeposit.vue
+- resources/js/views/home/chat4.vue
+- resources/js/views/home/failedDeposit.vue
+- resources/js/views/home/successDeposit.vue
+- resources/js/views/home/user/charge.vue
+
+Tests:
+- tests/Feature/PayPalWalletReconciliationTest.php (new)
+- tests/Feature/PayPalWalletWebhookTest.php (new)
+- tests/Feature/WalletDepositEmailJobTest.php (new)
+- tests/Feature/WalletDepositEndpointsTest.php (new)
+- tests/Feature/WalletDepositServiceTest.php (new)
+- tests/Frontend/wallet-deposit-flow.test.mjs (new)
+
+Report:
+- AI_PRO_WALLET_DEPOSIT_FIX_REPORT.txt (new)
+
+4) New migration
+================
+- database/migrations/2026_07_19_000001_harden_wallet_deposit_integrity.php
+
+It adds payments.wallet_credited, widens wallet balance/ledger amount columns, adds unique wallet transaction constraints, backfills trustworthy completed deposits, and creates paypal_webhook_events.
+
+Preflight on the development DB before migration:
+- duplicate wallet_transactions.payment_id groups: 0
+- duplicate wallet_transactions.slug groups: 0
+- legacy completed wallet deposits: 0
+
+Migration result: successful, local batch 3.
+
+5) Commands executed and results
+================================
+- git switch -c codex/wallet-deposit-hardening: successful.
+- PHP lint on every changed/new PHP file: successful.
+- php artisan optimize:clear: successful.
+- php artisan migrate --force: successful.
+- php artisan migrate:status: hardening migration is Ran.
+- php artisan route:list (filtered and full verification): deposit/pay, wallet success/cancel/status, and paypal/webhook are registered with their existing names/paths.
+- php artisan schedule:list: queue worker every minute and PayPal reconciliation every five minutes are registered.
+- php artisan payments:reconcile-paypal-wallet --minutes=10 --limit=10: successful; inspected 0 on the current development data.
+- npm run test:frontend: 23 passed, 0 failed.
+- Focused wallet/payment Laravel suite: 30 passed, 129 assertions, 0 failed.
+- npm run build: successful; Vite transformed 299 modules.
+- php artisan test (whole repository): 96 passed and 12 failed, 769 assertions total.
+- git diff --check: successful (only Git line-ending notices for two pre-existing CRLF Vue files).
+- hard-coded secret/production API pattern scan excluding .env/vendor/build/audit: no match.
+
+Focused coverage includes new/pending/approved reuse, PayPal create idempotency, approved capture, both capture response shapes, completed/declined events, invalid/missing signature data, Sandbox and Live verification behavior, missing webhook ID, local-only verification bypass, duplicate event/capture/semantic approval, amount/currency/merchant/custom/reference mismatches, missing payment, IDOR, redirect ordering, ledger rollback, email failure isolation, after-commit queueing, reconciliation without browser return, and frontend polling invariants.
+
+6) Whole-suite failures that remain
+===================================
+The 12 whole-suite failures are outside the wallet/PayPal changes and were isolated:
+- Chat2PromptGeneratorPageTest: one stale frontend source-string expectation.
+- PromptEnhancerToolTest: one stale frontend source-string expectation.
+- ChatMessageIdempotencyTest: one test fixture reaches GenerateAssistantReplyJob without a sub-tool endpoint.
+- GenerateAssistantReplyCostFlowTest: six tests reach GenerateAssistantReplyJob without a sub-tool endpoint (one resulting mock expectation is consequently unmet).
+- MessageSendErrorHandlingTest: three tests omit the API key and receive 401 before their expected 200/500/422 responses.
+
+These files and the underlying chat/AI implementation were not modified for this payment task. All payment-focused suites pass. This is the reason the repository-wide command does not have a zero exit status; it is not being reported as fully green.
+
+Build also reports non-fatal pre-existing warnings: stale Browserslist data and two runtime-resolved static assets (/fonts/the-year-of-the-camel-thin.otf and /images/ai-hero-bg.webp).
+
+7) New/required environment settings (no secret values)
+========================================================
+PAYPAL_MODE=sandbox|live
+PAYPAL_CURRENCY=USD
+PAYPAL_SANDBOX_CLIENT_ID=<secret; configure outside Git>
+PAYPAL_SANDBOX_CLIENT_SECRET=<secret; configure outside Git>
+PAYPAL_LIVE_CLIENT_ID=<secret; configure outside Git>
+PAYPAL_LIVE_CLIENT_SECRET=<secret; configure outside Git>
+PAYPAL_LIVE_APP_ID=<provider value>
+PAYPAL_WEBHOOK_ID=<mode-specific webhook ID>
+PAYPAL_VERIFY_WEBHOOK=true
+PAYPAL_MERCHANT_ID=<mode-specific receiving merchant/account ID>
+PAYPAL_RECONCILIATION_AGE_MINUTES=10
+WALLET_POINTS_PER_USD=1000000
+QUEUE_AFTER_COMMIT=false
+VITE_API_BASE_URL=/api/v1
+VITE_API_ROOT_URL=/api
+VITE_API_KEY=<public build-time API key only if current middleware requires it>
+VITE_INTERNAL_API_KEY=<public build-time value only if that frontend path requires it>
+VITE_WALLET_POLL_INTERVAL_MS=5000
+VITE_WALLET_POLL_TIMEOUT_MS=150000
+
+Important current-state check (values were not exposed):
+- PayPal mode: sandbox.
+- Webhook verification: enabled.
+- Webhook ID: configured.
+- PAYPAL_MERCHANT_ID: NOT configured.
+- Mail: configured SMTP (Mailgun packages are not needed for the current mailer).
+- Queue: Redis; finance jobs explicitly request after-commit dispatch.
+- VITE_API_KEY / VITE_INTERNAL_API_KEY: not configured in the current local environment.
+
+PAYPAL_MERCHANT_ID is mandatory for financial validation. Until the correct Sandbox merchant ID is configured, completion deliberately fails closed and does not credit a wallet. Do not copy the Sandbox merchant/webhook IDs into Live.
+
+VITE_* values are embedded into browser assets and are never secrets. The existing API-key middleware should not be treated as a security boundary; authenticated financial routes still rely on Sanctum ownership and throttling.
+
+After changing environment values run:
+php artisan optimize:clear
+npm run build
+
+8) Manual Sandbox verification
+==============================
+1. Configure Sandbox client credentials, the Sandbox webhook ID, the exact receiving Sandbox merchant ID, PAYPAL_VERIFY_WEBHOOK=true, an HTTPS APP_URL reachable by PayPal, and the required public VITE build values. Do not commit them.
+2. In the PayPal Sandbox app, set the webhook URL to:
+   https://<host>/api/v1/paypal/webhook
+   Subscribe to CHECKOUT.ORDER.APPROVED, PAYMENT.CAPTURE.COMPLETED, and PAYMENT.CAPTURE.DECLINED.
+3. Run php artisan optimize:clear, php artisan migrate --force, npm run build.
+4. Ensure the scheduler and Redis queue worker are running. The current scheduler starts a stop-when-empty worker every minute and reconciliation every five minutes.
+5. Sign in as a normal user, create a small deposit, approve with a Sandbox buyer, and verify the waiting page does not treat approved as completed.
+6. Verify exactly one Payment becomes completed with wallet_credited=true, a real Capture ID in transaction_id, paid_at set, one WalletTransaction, and one wallet increment.
+7. Resend the same webhook from PayPal and confirm HTTP 200 plus no second ledger row/increment.
+8. Test cancel, browser close/no return, delayed webhook, and temporary queue/mail outage. Browser close must still complete via webhook/reconciliation; mail failure must leave payment completed.
+9. Inspect only sanitized log context for the event names listed above. Never log credentials, access tokens, raw authorization headers, or card data.
+
+Automated tests use PayPal/Mail/Queue mocks and intentionally make no real PayPal call.
+
+9) Live transition checklist
+============================
+1. Back up the database and deploy this branch to staging first.
+2. Configure Live client credentials, Live app ID, a newly-created Live webhook ID, the exact Live merchant ID, PAYPAL_MODE=live, and PAYPAL_VERIFY_WEBHOOK=true through the secret manager/environment.
+3. Use a public HTTPS APP_URL and create the Live webhook with the same three event types. Never reuse Sandbox IDs.
+4. Verify API-key/public VITE deployment values without treating browser-visible values as secrets.
+5. Run composer install --no-dev --optimize-autoloader, npm install (or npm ci when the lock policy allows), npm run build, php artisan optimize:clear, and php artisan migrate --force.
+6. Start/verify Redis, queue workers, and the Laravel scheduler before accepting payments.
+7. Run the focused payment tests in the release pipeline and perform one low-value controlled Live payment.
+8. Confirm database invariants and sanitized logs, then monitor webhook failures/reconciliation/email queues closely during rollout.
+
+10) Rollback plan
+=================
+1. Stop new wallet deposits and pause the reconciliation schedule/queue consumers for this feature.
+2. Preserve a DB backup and export paypal_webhook_events plus affected payments/wallet_transactions before any schema rollback; do not delete financial audit data casually.
+3. Roll back application/frontend code to the previous release and rebuild assets.
+4. If schema rollback is truly required and no new release depends on it, run:
+   php artisan migrate:rollback --step=1
+   This drops paypal_webhook_events, wallet_credited, and the two new wallet transaction unique indexes. It intentionally does not shrink BIGINT columns because narrowing balances can overflow or lose data.
+5. Re-enable traffic only after reconciling all PayPal captures created during the rollout window. Never manually decrement credited wallets without an audited compensating transaction.
+6. Keep webhook verification enabled during rollback. If the old application cannot safely process events, temporarily pause the PayPal webhook/feature and reconcile before resuming.
+
+11) Required manual actions
+===========================
+- Configure the correct PAYPAL_MERCHANT_ID for Sandbox now; it is currently absent and the code intentionally fails closed.
+- Configure any browser-public VITE API values required by the existing API-key middleware, then rebuild. Do not put a genuine private secret into VITE_*.
+- Keep the scheduler and Redis queue worker running.
+- Perform the manual Sandbox scenario above because automated tests do not contact real PayPal.
+- Address the 12 unrelated chat/AI test failures separately if a completely green repository-wide suite is required.

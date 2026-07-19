@@ -96,6 +96,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/wallet/cancel',  [DepositController::class, 'cancel'])->name('wallet.cancel')->middleware('throttle:30,1')->withoutMiddleware(ApiKeyMiddleware::class);
     Route::post('/paypal/webhook', [WebhookController::class, 'handle'])->name('paypal.webhook')->middleware('throttle:60,1')->withoutMiddleware(ApiKeyMiddleware::class);
     Route::get('/wallet/order-status/{id}', [DepositController::class, 'orderStatus'])
+        ->whereNumber('id')
         ->middleware(['auth:sanctum', 'throttle:30,1'])
         ->withoutMiddleware(ApiKeyMiddleware::class);
 });

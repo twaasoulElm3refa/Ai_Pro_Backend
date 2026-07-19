@@ -18,6 +18,7 @@ const charge = () => import("../views/home/user/charge.vue");
 const WaitingDeposit = () => import("../views/home/WaitingDeposit.vue");
 const success = () => import("../views/home/successDeposit.vue");
 const failed = () => import("../views/home/failedDeposit.vue");
+const cancelled = () => import("../views/home/CancelledDeposit.vue");
 
 const adminMeta = {
     hideNavbar: true,
@@ -87,6 +88,11 @@ const routes = [
     {
         path: "/:lang/deposit/success",
         component: success,
+        meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
+    },
+    {
+        path: "/:lang/deposit/cancel",
+        component: cancelled,
         meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
     },
     {

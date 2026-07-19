@@ -8,8 +8,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class WalletTransaction extends Model
 {
     use SoftDeletes;
-    protected $table='wallet_transactions';
+
+    protected $table = 'wallet_transactions';
     protected $guarded = [];
+
+    protected function casts(): array
+    {
+        return [
+            'points' => 'integer',
+            'balance_before' => 'integer',
+            'balance_after' => 'integer',
+        ];
+    }
 
     public function user()
     {

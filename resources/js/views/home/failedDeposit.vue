@@ -123,7 +123,7 @@ export default {
 
   methods: {
     retryPayment() {
-      this.$router.push(`/${homeService.getLang()}/cart`);
+      this.$router.push(`/${homeService.getLang()}/wallet`);
     },
 
     contactSupport() {

@@ -2,6 +2,9 @@ import axios from "axios";
 import toastr from "toastr";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+const PUBLIC_API_KEY = import.meta.env.VITE_API_KEY || "";
+
 let fingerprintPromise = null;
 
 const LANG_KEY = "lang";
@@ -45,11 +48,11 @@ toastr.options = {
 };
 
 const api = axios.create({
-    baseURL: "https://pro.aiarabic.com/api/v1",
+    baseURL: API_BASE_URL,
     headers: {
         Accept: "application/json",
         "Accept-Language": getLang(),
-        "x-api-key": "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy",
+        ...(PUBLIC_API_KEY ? { "x-api-key": PUBLIC_API_KEY } : {}),
     },
 });
 
@@ -188,7 +191,7 @@ api.interceptors.response.use(
 export const redirectToGoogleLogin = () => {
     localStorage.removeItem("auth_token");
 
-    window.location.href = "https://pro.aiarabic.com/api/v1/users/google-login";
+    window.location.href = `${API_BASE_URL}/users/google-login`;
 };
 
 export default api;
