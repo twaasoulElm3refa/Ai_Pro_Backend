@@ -126,7 +126,6 @@
                     <summary>
                         <span><i class="bi bi-sliders"></i> {{ labels.options }}</span>
                         <span class="options-panel-meta">
-                            <span class="options-summary">{{ optionsSummary }}</span>
                             <i class="bi bi-chevron-down options-chevron" aria-hidden="true"></i>
                         </span>
                     </summary>

@@ -273,7 +273,6 @@
                             {{ labels.options }}
                         </span>
                         <span class="options-panel-meta">
-                            <span class="options-summary">{{ optionsSummary }}</span>
                             <i class="bi bi-chevron-down options-chevron" aria-hidden="true"></i>
                         </span>
                     </summary>
@@ -281,6 +280,11 @@
                     <form class="options-form" @submit.prevent="applyOptions">
                         <template v-if="isBusinessNameTool">
                             <div class="options-basic-grid">
+                                <label class="wide">
+                                    <span>{{ isArabic ? "فكرة المشروع" : "Business idea" }}</span>
+                                    <textarea v-model="toolState.business_idea" rows="3"></textarea>
+                                </label>
+
                                 <label>
                                     <span>{{ labels.language }}</span>
                                     <select v-model="toolState.language">
@@ -362,6 +366,11 @@
 
                         <template v-else-if="isResumeBuilder">
                             <div class="options-basic-grid">
+                                <label class="wide">
+                                    <span>{{ isArabic ? "نص السيرة الذاتية" : "Resume text" }}</span>
+                                    <textarea v-model="toolState.resume_text" rows="3"></textarea>
+                                </label>
+
                                 <label>
                                     <span>{{ labels.targetRole }}</span>
                                     <input v-model="toolState.target_role" type="text">
@@ -461,6 +470,11 @@
 
                         <template v-else-if="isHumanizer">
                             <div class="options-basic-grid">
+                                <label class="wide">
+                                    <span>{{ isArabic ? "النص" : "Text" }}</span>
+                                    <textarea v-model="toolState.content" rows="3"></textarea>
+                                </label>
+
                                 <label>
                                     <span>{{ labels.language }}</span>
                                     <select v-model="toolState.language">
@@ -524,6 +538,11 @@
 
                         <template v-else>
                             <div class="options-basic-grid">
+                                <label class="wide">
+                                    <span>{{ isArabic ? "النص" : "Text" }}</span>
+                                    <textarea v-model="toolState.content" rows="3"></textarea>
+                                </label>
+
                                 <label>
                                     <span>{{ labels.language }}</span>
                                     <select v-model="toolState.language">
@@ -1104,6 +1123,7 @@ function createBusinessNameState() {
 
 function createResumeBuilderState() {
     return {
+        resume_text: null,
         target_role: "Senior Laravel Developer",
         candidate_name: null,
         language: "English",
@@ -1792,6 +1812,9 @@ function buildResumeBuilderState(userMessage, currentState = {}) {
     const defaults = createResumeBuilderState();
 
     return {
+        resume_text: currentState.resume_text
+            ? String(currentState.resume_text).trim()
+            : null,
         target_role: String(currentState.target_role || defaults.target_role || "").trim(),
         candidate_name: currentState.candidate_name
             ? String(currentState.candidate_name).trim()
@@ -1838,6 +1861,7 @@ function buildChat4UserMessage(state = toolState.value) {
 
     if (isResumeBuilder.value) {
         const targetRole = String(state?.target_role || "").trim();
+        const resumeText = String(state?.resume_text || "").trim();
         const hasPreviousOutput = Boolean(String(state?.last_output || "").trim());
         const hasPreviousGeneratedFile = Boolean(
             state?.previous_generated_file?.file_id
@@ -1845,6 +1869,7 @@ function buildChat4UserMessage(state = toolState.value) {
         );
 
         if (!targetRole) return "";
+        if (resumeText) return `Improve this resume for ${targetRole}:\n\n${resumeText}`;
 
         return hasPreviousOutput || hasPreviousGeneratedFile || resumeFile.value
             ? `Improve this resume for ${targetRole}.`
@@ -2561,12 +2586,13 @@ const validateResumeBuilderBeforeSend = (messageText) => {
     }
 
     const hasPreviousOutput = Boolean(String(toolState.value.last_output || "").trim());
+    const hasResumeText = Boolean(String(toolState.value.resume_text || "").trim());
     const hasPreviousGeneratedFile = Boolean(
         toolState.value.previous_generated_file?.file_id
         || toolState.value.previous_generated_file?.download_url
     );
 
-    if (!hasPreviousOutput && !hasPreviousGeneratedFile && !resumeFile.value && isImproveResumeRequest(messageText)) {
+    if (!hasPreviousOutput && !hasPreviousGeneratedFile && !resumeFile.value && !hasResumeText && isImproveResumeRequest(messageText)) {
         return labels.value.fileRequired;
     }
 
