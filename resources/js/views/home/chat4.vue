@@ -2042,19 +2042,51 @@ const mapMessage = (message = {}, index = 0) => {
     };
 };
 
+const cleanConversationTitleSource = (value = "") => String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const titleFromFirstUserMessage = (value = "") => cleanConversationTitleSource(value)
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(" ");
+
 const formatConversation = (conversation = {}) => {
     const uuid = conversation.uuid || conversation.conversation_uuid || "";
     const firstUserMessage = Array.isArray(conversation.message)
         ? conversation.message.find((item) => item.role === "user")?.content
-        : "";
+        : conversation.first_user_message_content || "";
+    const firstUserTitle = titleFromFirstUserMessage(firstUserMessage);
 
     return {
         ...conversation,
         uuid,
         user_id: conversation.user_id || null,
         sub_tool_id: Number(conversation.sub_tool_id || DETECTOR_SUB_TOOL_ID),
-        title: conversation.title || firstUserMessage || pageTitle.value,
+        title: firstUserTitle || conversation.title || pageTitle.value,
     };
+};
+
+const updateConversationTitleFromFirstUserMessage = (conversation, content) => {
+    const title = titleFromFirstUserMessage(content);
+    if (!conversation?.uuid || !title) return;
+
+    const updated = {
+        ...conversation,
+        title,
+    };
+
+    activeConversation.value = updated;
+    const existingIndex = conversations.value.findIndex((item) => item.uuid === conversation.uuid);
+
+    if (existingIndex >= 0) {
+        conversations.value[existingIndex] = {
+            ...conversations.value[existingIndex],
+            title,
+        };
+    }
 };
 
 const stateStorageKey = (uuid = activeConversation.value?.uuid || route.params.uuid || "draft") =>
@@ -2239,6 +2271,7 @@ const sendMessage = async () => {
 
         const payload = buildChat4Payload(finalText, conversation);
         optimisticUserKey = createLocalKey();
+        const isFirstUserMessage = !messages.value.some((message) => message.role === "user");
 
         if (isResumeBuilder.value) {
             removeResumeBuilderFailedAttempts();
@@ -2260,6 +2293,9 @@ const sendMessage = async () => {
             },
             created_at: new Date().toISOString(),
         }));
+        if (isFirstUserMessage) {
+            updateConversationTitleFromFirstUserMessage(conversation, finalText);
+        }
 
         toolState.value = payload.state;
         isAssistantTyping.value = true;

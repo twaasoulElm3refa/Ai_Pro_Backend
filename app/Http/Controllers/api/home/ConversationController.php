@@ -21,6 +21,8 @@ class ConversationController extends Controller
 {
     use ApiResponse;
 
+    private const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20];
+
     private $conversation;
 
     private $subToolRepository;
@@ -77,6 +79,7 @@ class ConversationController extends Controller
             }
 
             $conversation->setRelation('message', collect($this->messageCache->toResponseMessages($messages)));
+            $this->applyChat4ConversationTitle($conversation);
             $conversation->setAttribute('usage_summary', $usageSummary);
 
             if ($usageSummary['total_tokens'] >= 20000) {
@@ -282,6 +285,35 @@ class ConversationController extends Controller
 
             return $this->error('Something went wrong');
         }
+    }
+
+    protected function applyChat4ConversationTitle(Conversation $conversation): void
+    {
+        if (! in_array((int) $conversation->sub_tool_id, self::CHAT4_SUB_TOOL_IDS, true)) {
+            return;
+        }
+
+        $firstUserMessage = $conversation->message
+            ->first(fn ($message) => data_get($message, 'role') === 'user');
+        $content = data_get($firstUserMessage, 'content', '');
+        $title = $this->conversationTitleFromMessage($content);
+
+        if ($title !== '') {
+            $conversation->setAttribute('title', $title);
+        }
+    }
+
+    protected function conversationTitleFromMessage(?string $content): string
+    {
+        $clean = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $content)) ?? '');
+
+        if ($clean === '') {
+            return '';
+        }
+
+        $words = preg_split('/\s+/u', $clean, 5, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode(' ', array_slice($words, 0, 4));
     }
 
     protected function userFromStreamToken(Request $request)

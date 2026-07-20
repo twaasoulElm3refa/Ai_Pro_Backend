@@ -8,9 +8,24 @@ use Illuminate\Support\Facades\Log;
 
 class ConversationRepository implements ConversationInterface
 {
+    protected const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20];
+
     protected function clearCache($userId)
     {
         Cache::tags(['conversations', "user_{$userId}"])->flush();
+    }
+
+    protected function conversationTitleFromMessage(?string $content): string
+    {
+        $clean = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $content)) ?? '');
+
+        if ($clean === '') {
+            return '';
+        }
+
+        $words = preg_split('/\s+/u', $clean, 5, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode(' ', array_slice($words, 0, 4));
     }
 
     public function index()
@@ -32,10 +47,19 @@ class ConversationRepository implements ConversationInterface
                         ->latest()
                         ->get()
                         ->map(function ($conversation) {
+                            $firstUserMessageContent = optional($conversation->firstUserMessage)->content;
                             $conversation->setAttribute(
                                 'first_user_message_content',
-                                optional($conversation->firstUserMessage)->content
+                                $firstUserMessageContent
                             );
+
+                            if (in_array((int) $conversation->sub_tool_id, self::CHAT4_SUB_TOOL_IDS, true)) {
+                                $firstUserTitle = $this->conversationTitleFromMessage($firstUserMessageContent);
+
+                                if ($firstUserTitle !== '') {
+                                    $conversation->setAttribute('title', $firstUserTitle);
+                                }
+                            }
 
                             return $conversation->makeHidden('firstUserMessage');
                         });
