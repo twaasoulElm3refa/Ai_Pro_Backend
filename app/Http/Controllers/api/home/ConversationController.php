@@ -79,7 +79,7 @@ class ConversationController extends Controller
             $conversation->setRelation('message', collect($this->messageCache->toResponseMessages($messages)));
             $conversation->setAttribute('usage_summary', $usageSummary);
 
-            if ($usageSummary['total_tokens'] >= 10000) {
+            if ($usageSummary['total_tokens'] >= 20000) {
                 return $this->success($conversation, 'Limit Exceeded');
             }
 

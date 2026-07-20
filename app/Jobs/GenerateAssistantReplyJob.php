@@ -159,11 +159,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            $userWordsCount = $this->countWords($userMessage->content);
-            $userLanguage = $this->detectLanguage($userMessage->content);
-            $userTokenMultiplier = $this->tokenMultiplierByLanguage($userLanguage);
-            $inputTokens = (int) ceil($userWordsCount * $userTokenMultiplier);
-
             $userMessageMetadata = is_array($userMessage->metadata ?? null) ? $userMessage->metadata : [];
             $jobState = is_array($this->state)
                 ? $this->state
@@ -329,42 +324,9 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
 
                 $isError = $responseIsError;
 
-                /*
-                 |--------------------------------------------------------------------------
-                 | Normalize Provider Tokens
-                 |--------------------------------------------------------------------------
-                 | المهم هنا:
-                 | لو الـ API رجّع input_tokens/output_tokens/total_tokens، نخزنهم كما هم.
-                 | التقدير يستخدم فقط لو الـ provider مرجعش القيمة.
-                 */
-                $estimatedOutputTokens = $this->estimateOutputTokens($content);
-
-                $providerInputTokens = $usage['input_tokens']
-                    ?? $usage['input_token']
-                    ?? $usage['prompt_tokens']
-                    ?? null;
-
-                $providerOutputTokens = $usage['output_tokens']
-                    ?? $usage['output_token']
-                    ?? $usage['completion_tokens']
-                    ?? null;
-
-                $providerTotalTokens = $usage['total_tokens']
-                    ?? $usage['total_token']
-                    ?? null;
-
-                $inputTokens = is_numeric($providerInputTokens)
-                    ? (int) $providerInputTokens
-                    : (int) $inputTokens;
-
-                $outputTokens = is_numeric($providerOutputTokens)
-                    ? (int) $providerOutputTokens
-                    : (int) $estimatedOutputTokens;
-
-                $totalTokens = is_numeric($providerTotalTokens)
-                    ? (int) $providerTotalTokens
-                    : ((int) $inputTokens + (int) $outputTokens);
-
+                $inputTokens = is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : 0;
+                $outputTokens = is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : 0;
+                $totalTokens = is_numeric($usage['total_tokens'] ?? null) ? (int) $usage['total_tokens'] : 0;
 
                 /*
                  |--------------------------------------------------------------------------
@@ -702,90 +664,6 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'created_at' => optional($message->created_at)->toISOString() ?? now()->toISOString(),
             ]
         );
-    }
-
-    protected function countWords(?string $text): int
-    {
-        $text = trim((string) $text);
-
-        if ($text === '') {
-            return 0;
-        }
-
-        $language = $this->detectLanguage($text);
-
-        if ($language === 'chinese') {
-            preg_match_all('/\p{Han}/u', $text, $matches);
-
-            return count($matches[0] ?? []);
-        }
-
-        preg_match_all('/[\p{Arabic}\p{L}\p{N}]+/u', $text, $matches);
-
-        return count($matches[0] ?? []);
-    }
-
-    protected function detectLanguage(?string $text): string
-    {
-        $text = trim((string) $text);
-
-        if ($text === '') {
-            return 'unknown';
-        }
-
-        $patterns = [
-            'arabic' => '/\p{Arabic}/u',
-            'chinese' => '/\p{Han}/u',
-            'russian' => '/\p{Cyrillic}/u',
-            'latin' => '/\p{Latin}/u',
-        ];
-
-        $scores = [];
-
-        foreach ($patterns as $language => $pattern) {
-            preg_match_all($pattern, $text, $matches);
-            $scores[$language] = count($matches[0] ?? []);
-        }
-
-        arsort($scores);
-
-        $topLanguage = array_key_first($scores);
-        $topScore = $scores[$topLanguage] ?? 0;
-
-        if ($topScore <= 0) {
-            return 'unknown';
-        }
-
-        if ($topLanguage === 'latin') {
-            if (preg_match('/[àâçéèêëîïôûùüÿñæœ]/iu', $text)) {
-                return 'french';
-            }
-
-            return 'english';
-        }
-
-        return $topLanguage;
-    }
-
-    protected function tokenMultiplierByLanguage(string $language): float
-    {
-        return match ($language) {
-            'arabic' => 2.2,
-            'chinese' => 2.5,
-            'russian' => 1.5,
-            'french' => 1.3,
-            'english' => 1.2,
-            default => 2.0,
-        };
-    }
-
-    protected function estimateOutputTokens(string $content): int
-    {
-        $aiWordsCount = $this->countWords($content);
-        $aiLanguage = $this->detectLanguage($content);
-        $aiTokenMultiplier = $this->tokenMultiplierByLanguage($aiLanguage);
-
-        return (int) ceil($aiWordsCount * $aiTokenMultiplier);
     }
 
     public function clearProfileCache($userId = null): void

@@ -788,9 +788,7 @@ PROMPT;
         return [
             'input_tokens' => $input,
             'output_tokens' => $output,
-            'total_tokens' => is_numeric($usage['total_tokens'] ?? null)
-                ? (int) $usage['total_tokens']
-                : $input + $output,
+            'total_tokens' => is_numeric($usage['total_tokens'] ?? null) ? (int) $usage['total_tokens'] : 0,
         ];
     }
 

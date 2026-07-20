@@ -613,7 +613,7 @@ class MessageController extends Controller
                 'sub_tool_id' => self::TEXT_SUMMARIZER_SUB_TOOL_ID,
                 'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
                 'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
-                'total_tokens' => (int) ($usage['total_tokens'] ?? (($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0))),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
                 'input_cost' => (float) ($cost['input_cost'] ?? 0),
                 'output_cost' => (float) ($cost['output_cost'] ?? 0),
                 'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
@@ -1226,7 +1226,7 @@ PROMPT;
                 'sub_tool_id' => self::HEADLINE_GENERATOR_SUB_TOOL_ID,
                 'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
                 'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
-                'total_tokens' => (int) ($usage['total_tokens'] ?? (($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0))),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
                 'input_cost' => (float) ($cost['input_cost'] ?? 0),
                 'output_cost' => (float) ($cost['output_cost'] ?? 0),
                 'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
@@ -2268,7 +2268,7 @@ PROMPT;
                 'sub_tool_id' => self::PARAPHRASER_SUB_TOOL_ID,
                 'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
                 'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
-                'total_tokens' => (int) ($usage['total_tokens'] ?? (($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0))),
+                'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
                 'input_cost' => (float) ($cost['input_cost'] ?? 0),
                 'output_cost' => (float) ($cost['output_cost'] ?? 0),
                 'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
@@ -2750,10 +2750,7 @@ PROMPT;
         return [
             'input_tokens' => is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : 0,
             'output_tokens' => is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : 0,
-            'total_tokens' => is_numeric($usage['total_tokens'] ?? null)
-                ? (int) $usage['total_tokens']
-                : ((is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : 0)
-                    + (is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : 0)),
+            'total_tokens' => is_numeric($usage['total_tokens'] ?? null) ? (int) $usage['total_tokens'] : 0,
         ];
     }
 
@@ -2761,13 +2758,7 @@ PROMPT;
     {
         $usage = is_array($aiResponse['usage'] ?? null) ? $aiResponse['usage'] : [];
 
-        $total = (int) ($usage['total_tokens'] ?? 0);
-
-        if ($total > 0) {
-            return $total;
-        }
-
-        return (int) ($usage['input_tokens'] ?? 0) + (int) ($usage['output_tokens'] ?? 0);
+        return (int) ($usage['total_tokens'] ?? 0);
     }
 
     private function deductWalletTokens(User $user, int $tokens, ?string $reason = null): array

@@ -1224,7 +1224,7 @@ PROMPT,
         $usage = is_array($usage) ? $usage : [];
         $input = (int) ($usage['input_tokens'] ?? 0);
         $output = (int) ($usage['output_tokens'] ?? 0);
-        $total = (int) ($usage['total_tokens'] ?? ($input + $output));
+        $total = (int) ($usage['total_tokens'] ?? 0);
 
         return [
             'input_tokens' => $input,
