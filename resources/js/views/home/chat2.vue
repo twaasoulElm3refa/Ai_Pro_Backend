@@ -161,7 +161,10 @@
                 <details ref="optionsPanel" class="options-panel">
                     <summary>
                         <span><i class="bi bi-sliders"></i> {{ copy.options }}</span>
-                        <span class="options-summary">{{ optionsSummary }}</span>
+                        <span class="options-panel-meta">
+                            <span class="options-summary">{{ optionsSummary }}</span>
+                            <i class="bi bi-chevron-down options-chevron" aria-hidden="true"></i>
+                        </span>
                     </summary>
 
                     <div v-if="editingToolResponse" class="options-editing">
@@ -226,7 +229,7 @@
                     <button
                         type="button"
                         class="send-button"
-                        :disabled="sendDisabled || !userMessage.trim()"
+                        :disabled="sendDisabled || !canSendMessage"
                         :aria-label="copy.send"
                         @click="sendMessage"
                     >
@@ -714,6 +717,29 @@ const optionsSummary = computed(() => {
 
     return count ? `${count}` : copy.value.defaultValue;
 });
+
+const resolvePromptStateMessage = (
+    state = promptState.value,
+    subToolId = activeSubToolId.value,
+    typedText = userMessage.value
+) => {
+    const typed = String(typedText || "").trim();
+    if (typed) return typed;
+
+    const source = isPlainObject(state) ? state : {};
+    const preferredKeys = {
+        [PROMPT_ENHANCER_SUB_TOOL_ID]: ["original_prompt"],
+        [IDEA_GENERATOR_SUB_TOOL_ID]: ["topic"],
+        [HOOK_GENERATOR_SUB_TOOL_ID]: ["topic"],
+        [PROMPT_GENERATOR_SUB_TOOL_ID]: ["task"],
+    }[Number(subToolId)] || [];
+
+    return [...preferredKeys, ...textFields.value.map((field) => field.key)]
+        .map((key) => String(source[key] || "").trim())
+        .find(Boolean) || "";
+};
+
+const canSendMessage = computed(() => Boolean(resolvePromptStateMessage()));
 
 useSeoMeta({
     title: computed(() => `${pageTitle.value} | Ai Pro`),
@@ -1629,7 +1655,8 @@ const openAssistantStream = async (conversation, afterId, toolContext = {}) => {
 
 const sendMessage = async (request = {}) => {
     const requestOverrides = request?.regenerate === true ? request : {};
-    const text = String(requestOverrides.text ?? userMessage.value).trim();
+    const requestState = normalizeToolState(requestOverrides.state ?? promptState.value);
+    const text = resolvePromptStateMessage(requestState, activeSubToolId.value, requestOverrides.text ?? userMessage.value);
 
     if (!text || sendDisabled.value || !activeSubToolId.value) return;
 
@@ -1665,8 +1692,6 @@ const sendMessage = async (request = {}) => {
             closeSendDebugGroup();
             return;
         }
-
-        const requestState = normalizeToolState(requestOverrides.state ?? promptState.value);
 
         console.log("6) NORMALIZED REQUEST STATE:", debugClone(requestState));
 
@@ -2676,6 +2701,20 @@ button:disabled {
 .options-summary {
     color: var(--muted);
     font-size: 12px;
+}
+
+.options-panel-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.options-chevron {
+    transition: transform 0.2s ease;
+}
+
+.options-panel[open] .options-chevron {
+    transform: rotate(180deg);
 }
 
 .options-grid {

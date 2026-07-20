@@ -1142,7 +1142,7 @@ const toolState = ref(createDefaultStateForTool(DETECTOR_SUB_TOOL_ID));
 const pageTitle = computed(() => isArabic.value ? activeToolConfig.value.title_ar : activeToolConfig.value.title_en);
 const sendDisabled = computed(() => isSending.value || isAssistantTyping.value);
 const canSendMessage = computed(() => {
-    const hasText = Boolean(String(userMessage.value || "").trim());
+    const hasText = Boolean(buildChat4UserMessage());
 
     if (isResumeBuilder.value) {
         const hasPreviousOutput = Boolean(String(toolState.value.last_output || "").trim());
@@ -1832,6 +1832,34 @@ function getStateSeedText(state = toolState.value) {
     return String(state?.content || state?.business_idea || state?.target_role || "");
 }
 
+function buildChat4UserMessage(state = toolState.value) {
+    const typed = String(userMessage.value || "").trim();
+    if (typed) return typed;
+
+    if (isResumeBuilder.value) {
+        const targetRole = String(state?.target_role || "").trim();
+        const hasPreviousOutput = Boolean(String(state?.last_output || "").trim());
+        const hasPreviousGeneratedFile = Boolean(
+            state?.previous_generated_file?.file_id
+            || state?.previous_generated_file?.download_url
+        );
+
+        if (!targetRole) return "";
+
+        return hasPreviousOutput || hasPreviousGeneratedFile || resumeFile.value
+            ? `Improve this resume for ${targetRole}.`
+            : `Build an ATS-friendly resume for ${targetRole}.`;
+    }
+
+    const content = String(state?.content || "").trim();
+    if (content) return content;
+
+    const businessIdea = String(state?.business_idea || "").trim();
+    if (businessIdea) return `Generate business names for: ${businessIdea}`;
+
+    return "";
+}
+
 function buildChat4Payload(messageText, conversation) {
     const subToolId = Number(activeSubToolId.value);
     const config = CHAT4_TOOLS[subToolId] || CHAT4_TOOLS[DETECTOR_SUB_TOOL_ID];
@@ -2238,7 +2266,7 @@ const ensureConversation = async () => {
 };
 
 const sendMessage = async () => {
-    const text = String(userMessage.value || "").trim();
+    const text = buildChat4UserMessage();
     const hasPreviousResumeOutput = isResumeBuilder.value && Boolean(String(toolState.value.last_output || "").trim());
     const hasPreviousGeneratedFile = isResumeBuilder.value && Boolean(
         toolState.value.previous_generated_file?.file_id
@@ -2250,7 +2278,7 @@ const sendMessage = async () => {
     if (!text && !isResumeBuilder.value) return;
     if (isResumeBuilder.value && !text && !resumeFile.value && !hasPreviousResumeOutput && !hasPreviousGeneratedFile) return;
 
-    const finalText = text || `Improve this resume for ${toolState.value.target_role || "the target role"}.`;
+    const finalText = text;
     const resumeValidationMessage = validateResumeBuilderBeforeSend(finalText);
     if (resumeValidationMessage) {
         errorMessage.value = resumeValidationMessage;

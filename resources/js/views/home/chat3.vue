@@ -125,11 +125,13 @@
                 <details ref="optionsPanelRef" class="options-panel">
                     <summary>
                         <span><i class="bi bi-sliders"></i> {{ labels.options }}</span>
-                        <span class="options-summary">{{ optionsSummary }}</span>
+                        <span class="options-panel-meta">
+                            <span class="options-summary">{{ optionsSummary }}</span>
+                            <i class="bi bi-chevron-down options-chevron" aria-hidden="true"></i>
+                        </span>
                     </summary>
 
-                    <form class="options-grid" @submit.prevent="submitCurrentToolFromOptions"
-                        @keydown.enter.exact.prevent="submitCurrentToolFromOptions">
+                    <div class="options-grid">
                         <label v-for="field in activeTool.fields" :key="field.key"
                             :class="{ wide: field.wide }">
                             <span>{{ isArabic ? field.labelAr : field.labelEn }}</span>
@@ -183,19 +185,7 @@
                             <span>{{ labels.extraOptions }}</span>
                             <input v-model="extraOptionsText" type="text" :placeholder="labels.extraOptionsPlaceholder">
                         </label>
-
-                        <div class="wide options-actions">
-                            <button type="submit" class="options-submit-button" :disabled="sendDisabled">
-                                <i :class="sendingMessage ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
-                                {{ labels.send }}
-                            </button>
-                            <button type="button" class="options-reset-button" :disabled="sendDisabled"
-                                @click="resetCurrentToolOptions">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                                {{ isArabic ? "إعادة تعيين الخيارات" : "Reset options" }}
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </details>
 
                 <div v-if="refineMode" class="refine-banner">
@@ -209,7 +199,7 @@
                         :disabled="sendDisabled" @input="autoResize"
                         @keydown.enter.exact.prevent="sendKeywordMessage"></textarea>
 
-                    <button type="button" class="send-button" :disabled="sendDisabled || !userMessage.trim()"
+                    <button type="button" class="send-button" :disabled="sendDisabled || !canSendMessage"
                         :aria-label="labels.send" @click="sendKeywordMessage">
                         <i :class="sendingMessage ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
@@ -1599,7 +1589,13 @@ const submitKeywordRequest = async (text, options = {}) => {
 };
 
 const sendKeywordMessage = async () => {
-    await submitKeywordRequest(userMessage.value);
+    const toolId = Number(activeTool.value?.id || 0);
+    const currentState = toolStates.value[toolId];
+    const message = buildUserMessage(toolId, currentState);
+
+    await submitKeywordRequest(message, {
+        state: currentState,
+    });
 };
 
 const buildUserMessage = (toolId, state = {}) => {
@@ -1624,6 +1620,10 @@ const buildUserMessage = (toolId, state = {}) => {
 
     return content || topic;
 };
+
+const canSendMessage = computed(() =>
+    Boolean(buildUserMessage(activeTool.value.id, toolState.value))
+);
 
 const submitCurrentToolFromOptions = async () => {
     const toolId = Number(activeTool.value?.id || 0);
@@ -2471,6 +2471,20 @@ button:disabled {
 .options-summary {
     color: var(--muted);
     font-size: 12px;
+}
+
+.options-panel-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.options-chevron {
+    transition: transform 0.2s ease;
+}
+
+.options-panel[open] .options-chevron {
+    transform: rotate(180deg);
 }
 
 .options-grid {
