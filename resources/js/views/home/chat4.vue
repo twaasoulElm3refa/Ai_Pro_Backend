@@ -4113,4 +4113,21 @@ button:disabled {
         font-size: 19px;
     }
 }
+
+.detector-chat .options-form textarea {
+    width: 100%;
+    min-height: 110px;
+    padding: 12px 14px;
+    border: 1px solid #c8dceb;
+    border-radius: 12px;
+    background: #fff;
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.detector-chat .options-form textarea:focus {
+    border-color: #258dcc;
+    box-shadow: 0 0 0 3px rgba(37, 141, 204, 0.12);
+}
 </style>
