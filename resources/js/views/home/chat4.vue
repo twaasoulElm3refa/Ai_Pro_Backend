@@ -1487,7 +1487,7 @@ async function downloadResumeFile(message) {
         const isAiArabicResumeDownload = url.includes("api.aiarabic.com/tasks/resume-builder/download/");
 
         if (isAiArabicResumeDownload) {
-            const internalApiKey = import.meta.env.VITE_INTERNAL_API_KEY || "";
+            const internalApiKey = "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy";
             if (internalApiKey) headers["x-internal-api-key"] = internalApiKey;
         } else {
             const token = localStorage.getItem("auth_token");
