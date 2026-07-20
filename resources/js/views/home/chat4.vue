@@ -601,18 +601,6 @@
                                 </label>
                             </div>
                         </fieldset>
-
-                        <div class="options-actions">
-                            <button type="submit" class="options-submit-button" :disabled="sendDisabled">
-                                <i class="bi bi-check2"></i>
-                                {{ labels.applyOptions }}
-                            </button>
-                            <button type="button" class="options-reset-button" :disabled="sendDisabled"
-                                @click="resetOptions">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                                {{ labels.resetOptions }}
-                            </button>
-                        </div>
                     </form>
                 </details>
 
