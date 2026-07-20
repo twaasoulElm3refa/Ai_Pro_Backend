@@ -2110,18 +2110,21 @@ watch(
 
 <style scoped>
 .prompt-chat {
+    --chat-header-offset: 70px;
     --navy: #123f6d;
     --blue: #1f87c9;
     --cyan: #39bce8;
     --ink: #15324b;
     --muted: #687b8e;
     --line: #dce8f1;
-    min-height: calc(100vh - 70px);
+    height: calc(100dvh - var(--chat-header-offset));
+    min-height: 0;
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
     transition: grid-template-columns 0.25s ease;
     background: #f4f8fb;
     color: var(--ink);
+    overflow: hidden;
 }
 
 button,
@@ -2326,8 +2329,8 @@ button:disabled {
     min-width: 0;
     min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    height: calc(100vh - 70px);
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100%;
     overflow: hidden;
 }
 
@@ -2375,7 +2378,7 @@ button:disabled {
     min-height: 0;
     overflow-y: auto;
     padding: 34px max(24px, calc((100% - 900px) / 2));
-    padding-bottom: 28px;
+    padding-bottom: clamp(32px, 4dvh, 48px);
 }
 
 .welcome-card {
@@ -2587,13 +2590,11 @@ button:disabled {
 }
 
 .composer {
-    position: sticky;
-    bottom: 0;
     z-index: 10;
-    align-self: end;
     padding: 14px max(24px, calc((100% - 900px) / 2)) max(12px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
     background: #fff;
+    overflow: hidden;
 }
 
 .desktop-sidebar-open-toggle {
@@ -2825,11 +2826,8 @@ button:disabled {
 
 @media (max-width: 900px) {
     .prompt-chat {
+        --chat-header-offset: 64px;
         grid-template-columns: 1fr;
-    }
-
-    .workspace {
-        height: calc(100vh - 64px);
     }
 
     .sidebar {
