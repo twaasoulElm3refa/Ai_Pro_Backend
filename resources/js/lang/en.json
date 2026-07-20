@@ -125,6 +125,20 @@
             "noDescription": "No description"
         },
         "chat": {
+            "errors": {
+                "conversationLimitTitle": "This conversation has reached its maximum limit",
+                "conversationLimitBody": "Start a new conversation to continue sending messages.",
+                "conversationLimitPlaceholder": "This conversation has reached its maximum limit. Start a new chat to continue.",
+                "conversationLimit": "This conversation has reached its maximum limit. Start a new chat to continue.",
+                "insufficientPoints": "You do not have enough points. Recharge your wallet and try again.",
+                "validation": "Check the required information and try again.",
+                "unauthorized": "Your session has expired. Please sign in again.",
+                "forbidden": "You do not have permission to perform this action.",
+                "rateLimit": "Too many attempts. Please try again later.",
+                "paraphraserFailed": "The paraphrasing request could not be completed. Please try again.",
+                "server": "A server error occurred. Please try again later.",
+                "generic": "An unexpected error occurred. Please try again."
+            },
             "workspaceAria": "AI chat workspace",
             "workspaceTitle": "Chat Workspace",
             "conversations": "Conversations",

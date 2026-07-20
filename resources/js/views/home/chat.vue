@@ -219,8 +219,8 @@
                         <i class="bi bi-exclamation-triangle-fill"></i>
                     </div>
                     <div class="limit-warning-content">
-                        <strong>ÙˆØµÙ„Øª Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø© Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰</strong>
-                        <span>Ø§Ø¨Ø¯Ø£ Ù…Ø­Ø§Ø¯Ø«Ø© Ø¬Ø¯ÙŠØ¯Ø© Ù„Ù„Ù…ØªØ§Ø¨Ø¹Ø© Ø¨Ø±Ø³Ø§Ø¦Ù„ Ø¥Ø¶Ø§ÙÙŠØ©.</span>
+                        <strong>{{ t("user.chat.errors.conversationLimitTitle") }}</strong>
+                        <span>{{ t("user.chat.errors.conversationLimitBody") }}</span>
                     </div>
                 </div>
 
@@ -294,8 +294,7 @@
                             {{ isArabic ? "خيارات أداة التلخيص" : "Summarizer options" }}
                         </span>
 
-                        <i class="bi"
-                            :class="textSummarizerOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                        <i class="bi" :class="textSummarizerOptionsOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
                     </button>
 
                     <div v-if="textSummarizerOptionsOpen" class="advanced-options-grid">
@@ -7257,17 +7256,17 @@ const submitMessage = async (text = userInput.value, options = {}) => {
                 }
                 : searchEnabled.value
                     ? {
-                    search_mode: "on",
-                    web_search_max_results: 3,
-                    web_search_total_results: 5,
-                    max_tokens: 2500,
-                    temperature: 0.45,
-                }
-                : {
-                    search_mode: "off",
-                    max_tokens: 2500,
-                    temperature: 0.45,
-                },
+                        search_mode: "on",
+                        web_search_max_results: 3,
+                        web_search_total_results: 5,
+                        max_tokens: 2500,
+                        temperature: 0.45,
+                    }
+                    : {
+                        search_mode: "off",
+                        max_tokens: 2500,
+                        temperature: 0.45,
+                    },
         };
 
         console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
