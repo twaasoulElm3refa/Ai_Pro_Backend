@@ -380,7 +380,7 @@
 
                         <label>
                             <span>{{ isArabic ? "عدد النتائج" : "Results count" }}</span>
-                            <input v-model.number="paraphraserState.results_count" type="number" min="1" max="10">
+                            <input v-model.number="paraphraserState.results_count" type="number" min="1" max="5">
                         </label>
 
                         <fieldset class="wide-field extra-options-field">
@@ -429,7 +429,7 @@
 
                         <label>
                             <span>{{ isArabic ? "عدد العناوين" : "Number of headlines" }}</span>
-                            <input v-model.number="headlineState.number_of_headlines" type="number" min="1" max="20">
+                            <input v-model.number="headlineState.number_of_headlines" type="number" min="1" max="5">
                         </label>
 
                         <fieldset class="wide-field extra-options-field">
@@ -476,12 +476,12 @@
 
                         <label>
                             <span>{{ isArabic ? "عدد الهاشتاقات" : "Hashtag count" }}</span>
-                            <input v-model.number="socialPostState.hashtag_count" type="number" min="0" max="30">
+                            <input v-model.number="socialPostState.hashtag_count" type="number" min="0" max="5">
                         </label>
 
                         <label>
                             <span>{{ isArabic ? "عدد النتائج" : "Results count" }}</span>
-                            <input v-model.number="socialPostState.results_count" type="number" min="1" max="10">
+                            <input v-model.number="socialPostState.results_count" type="number" min="1" max="5">
                         </label>
 
                         <label>
