@@ -331,7 +331,7 @@
 
                                 <label>
                                     <span>{{ labels.resultsCount }}</span>
-                                    <input v-model.number="toolState.results_count" type="number" min="1" max="30">
+                                    <input v-model.number="toolState.results_count" type="number" min="1" max="5">
                                 </label>
 
                                 <label class="wide">
@@ -1101,7 +1101,7 @@ function createBusinessNameState() {
         name_style: "Brandable",
         keywords: [],
         avoid_words: [],
-        results_count: 10,
+        results_count: 5,
         include_slogans: true,
         include_domain_ideas: true,
         extra_options: ["Easy to remember", "Avoid duplicates", "Brandable names"],
@@ -1169,7 +1169,7 @@ const optionsSummary = computed(() => {
     const state = toolState.value || {};
 
     if (isBusinessNameTool.value) {
-        return [state.language, state.tone, state.name_style, `${state.results_count || 10} results`]
+        return [state.language, state.tone, state.name_style, `${state.results_count || 5} results`]
             .filter(Boolean)
             .join(" / ");
     }
