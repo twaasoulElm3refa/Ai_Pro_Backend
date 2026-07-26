@@ -10,6 +10,7 @@ use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class MoyasarDepositController extends Controller
@@ -47,6 +48,16 @@ class MoyasarDepositController extends Controller
             ]);
         } catch (DomainException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 409);
+        } catch (RuntimeException $e) {
+            Log::error('moyasar_wallet_deposit_create_failed', [
+                'user_id' => $request->user()->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 503);
         } catch (Throwable $e) {
             Log::error('moyasar_wallet_deposit_create_failed', [
                 'user_id' => $request->user()->id,

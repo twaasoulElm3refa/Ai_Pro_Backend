@@ -21,6 +21,7 @@ return [
     ],
 
     'moyasar' => [
+        'merchant_id' => env('MOYASAR_MERCHANT_ID'),
         'webhook_secret' => env('MOYASAR_WEBHOOK_SECRET'),
     ],
 

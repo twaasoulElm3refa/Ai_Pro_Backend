@@ -612,17 +612,23 @@ class MoyasarWalletService
 
     private function expectedMetadata(Payment $order): array
     {
-        $merchantId = (string) config('moyasar.merchant_id', '');
-        if ($merchantId === '') {
-            throw new RuntimeException('MOYASAR_MERCHANT_ID is not configured.');
-        }
-
-        return [
+        $metadata = [
             'local_payment_id' => (string) $order->id,
             'payment_type' => 'wallet_deposit',
-            'merchant_id' => $merchantId,
             'idempotency_key' => (string) $order->idempotency_key,
         ];
+
+        $merchantId = $this->merchantId();
+        if ($merchantId !== '') {
+            $metadata['merchant_id'] = $merchantId;
+        }
+
+        return $metadata;
+    }
+
+    private function merchantId(): string
+    {
+        return trim((string) config('services.moyasar.merchant_id', ''));
     }
 
     private function invoiceMetadata(array $payment, array $invoice): array
@@ -778,8 +784,11 @@ class MoyasarWalletService
 
         $key = (string) config("moyasar.{$mode}.secret_key", '');
         $expectedPrefix = $mode === 'live' ? 'sk_live_' : 'sk_test_';
-        if ($key === '' || ! str_starts_with($key, $expectedPrefix)) {
-            throw new RuntimeException("The Moyasar {$mode} secret key is missing or does not match the mode.");
+        if ($key === '') {
+            throw new RuntimeException("Moyasar {$mode} secret key is not configured.");
+        }
+        if (! str_starts_with($key, $expectedPrefix)) {
+            throw new RuntimeException("Moyasar {$mode} secret key does not match the current mode.");
         }
 
         return $key;

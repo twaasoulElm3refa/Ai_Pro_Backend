@@ -100,6 +100,111 @@ class MoyasarWalletEndpointsTest extends TestCase
             && str_contains((string) $request['success_url'], 'deposit_id='));
     }
 
+    public function test_card_payment_creation_succeeds_without_moyasar_merchant_id(): void
+    {
+        config()->set('moyasar.merchant_id', '');
+        config()->set('services.moyasar.merchant_id', null);
+
+        Http::fake(function (Request $request) {
+            if ($request->method() === 'GET' && str_contains($request->url(), '/invoices?')) {
+                return Http::response(['invoices' => []]);
+            }
+
+            if ($request->method() === 'POST' && str_ends_with($request->url(), '/invoices')) {
+                $data = $request->data();
+
+                return Http::response([
+                    'id' => 'invoice_no_merchant_id',
+                    'status' => 'initiated',
+                    'amount' => $data['amount'],
+                    'currency' => $data['currency'],
+                    'url' => 'https://checkout.moyasar.com/invoices/invoice_no_merchant_id',
+                    'metadata' => $data['metadata'],
+                    'payments' => [],
+                ], 201);
+            }
+
+            return Http::response([], 404);
+        });
+
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->apiPost('/api/v1/moyasar/pay', [
+            'amount' => '25.00',
+            'idempotency_key' => (string) Str::uuid(),
+            'locale' => 'en',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.redirect_url', 'https://checkout.moyasar.com/invoices/invoice_no_merchant_id');
+
+        Http::assertSent(fn (Request $request) => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/invoices')
+            && ! array_key_exists('merchant_id', $request->data())
+            && ! array_key_exists('merchant_id', $request['metadata']));
+    }
+
+    public function test_missing_current_mode_secret_key_returns_clear_error(): void
+    {
+        config()->set('moyasar.mode', 'test');
+        config()->set('moyasar.test.secret_key', '');
+        config()->set('moyasar.live.secret_key', 'sk_live_should_not_be_required_in_test');
+        Http::fake();
+
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->apiPost('/api/v1/moyasar/pay', [
+            'amount' => '10.00',
+            'idempotency_key' => (string) Str::uuid(),
+            'locale' => 'en',
+        ])
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'Moyasar test secret key is not configured.');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_live_mode_does_not_require_test_keys_for_card_payment_creation(): void
+    {
+        config()->set('moyasar.mode', 'live');
+        config()->set('moyasar.test.secret_key', '');
+        config()->set('moyasar.live.secret_key', 'sk_live_unit');
+        config()->set('moyasar.live.publishable_key', '');
+        config()->set('moyasar.merchant_id', '');
+        config()->set('services.moyasar.merchant_id', null);
+
+        Http::fake(function (Request $request) {
+            if ($request->method() === 'GET' && str_contains($request->url(), '/invoices?')) {
+                return Http::response(['invoices' => []]);
+            }
+
+            if ($request->method() === 'POST' && str_ends_with($request->url(), '/invoices')) {
+                $data = $request->data();
+
+                return Http::response([
+                    'id' => 'invoice_live_mode',
+                    'status' => 'initiated',
+                    'amount' => $data['amount'],
+                    'currency' => $data['currency'],
+                    'url' => 'https://checkout.moyasar.com/invoices/invoice_live_mode',
+                    'metadata' => $data['metadata'],
+                    'payments' => [],
+                ], 201);
+            }
+
+            return Http::response([], 404);
+        });
+
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->apiPost('/api/v1/moyasar/pay', [
+            'amount' => '10.00',
+            'idempotency_key' => (string) Str::uuid(),
+            'locale' => 'en',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.redirect_url', 'https://checkout.moyasar.com/invoices/invoice_live_mode');
+    }
+
     public function test_repeating_same_idempotency_key_does_not_create_two_payments(): void
     {
         Http::fake(function (Request $request) {
