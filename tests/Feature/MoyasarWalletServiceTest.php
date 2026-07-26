@@ -32,6 +32,7 @@ class MoyasarWalletServiceTest extends TestCase
         config()->set('moyasar.currency', 'SAR');
         config()->set('moyasar.merchant_id', 'MERCHANT-123');
         config()->set('moyasar.webhook_secret', 'webhook-secret');
+        config()->set('services.moyasar.webhook_secret', 'webhook-secret');
         config()->set('moyasar.points_per_sar', 1_000_000);
         config()->set('moyasar.get_retries', 0);
         Queue::fake();
@@ -104,11 +105,13 @@ class MoyasarWalletServiceTest extends TestCase
         $first = $service->handleWebhook([
             'type' => 'payment_paid',
             'secret_token' => 'webhook-secret',
+            'live' => false,
             'data' => $remotePayment,
         ]);
         $second = $service->handleWebhook([
             'type' => 'payment_paid',
             'secret_token' => 'webhook-secret',
+            'live' => false,
             'data' => $remotePayment,
         ]);
 
@@ -134,11 +137,54 @@ class MoyasarWalletServiceTest extends TestCase
             app(MoyasarWalletService::class)->handleWebhook([
                 'type' => 'payment_paid',
                 'secret_token' => 'webhook-secret',
+                'live' => false,
                 'data' => $remotePayment,
             ]);
         } finally {
             $this->assertFalse($payment->fresh()->wallet_credited);
             $this->assertDatabaseMissing('wallet_transactions', ['payment_id' => $payment->id]);
+        }
+    }
+
+    public function test_canonical_currency_mismatch_never_credits_wallet(): void
+    {
+        $payment = $this->payment();
+        [$remotePayment, $invoice] = $this->paidResources($payment);
+        $remotePayment['currency'] = 'USD';
+        $this->fakeCanonicalResources($remotePayment, $invoice);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(MoyasarWalletService::class)->handleWebhook([
+                'type' => 'payment_paid',
+                'secret_token' => 'webhook-secret',
+                'live' => false,
+                'data' => $remotePayment,
+            ]);
+        } finally {
+            $this->assertFalse($payment->fresh()->wallet_credited);
+            $this->assertDatabaseMissing('wallet_transactions', ['payment_id' => $payment->id]);
+        }
+    }
+
+    public function test_live_mode_mismatch_is_rejected_by_service(): void
+    {
+        $payment = $this->payment();
+        [$remotePayment, $invoice] = $this->paidResources($payment);
+        $this->fakeCanonicalResources($remotePayment, $invoice);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(MoyasarWalletService::class)->handleWebhook([
+                'type' => 'payment_paid',
+                'secret_token' => 'webhook-secret',
+                'live' => true,
+                'data' => $remotePayment,
+            ]);
+        } finally {
+            $this->assertFalse($payment->fresh()->wallet_credited);
         }
     }
 
@@ -154,6 +200,7 @@ class MoyasarWalletServiceTest extends TestCase
         app(MoyasarWalletService::class)->handleWebhook([
             'type' => 'payment_failed',
             'secret_token' => 'webhook-secret',
+            'live' => false,
             'data' => $remotePayment,
         ]);
 
@@ -172,6 +219,7 @@ class MoyasarWalletServiceTest extends TestCase
         $this->assertFalse($service->verifyWebhookSignature([]));
 
         config()->set('moyasar.webhook_secret', '');
+        config()->set('services.moyasar.webhook_secret', '');
         $this->expectException(RuntimeException::class);
         $service->verifyWebhookSignature(['secret_token' => 'anything']);
     }

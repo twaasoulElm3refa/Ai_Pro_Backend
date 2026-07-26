@@ -26,7 +26,7 @@ class MoyasarWalletService
 
     private const PENDING_STATUSES = ['initiated', 'verified'];
 
-    private const FAILED_STATUSES = ['failed', 'voided', 'refunded'];
+    private const FAILED_STATUSES = ['failed', 'voided', 'refunded', 'canceled', 'expired', 'abandoned'];
 
     private const INVOICE_FAILED_STATUSES = ['failed', 'canceled', 'expired', 'voided', 'refunded'];
 
@@ -117,7 +117,7 @@ class MoyasarWalletService
 
     public function verifyWebhookSignature(array $payload): bool
     {
-        $expected = (string) config('moyasar.webhook_secret', '');
+        $expected = $this->webhookSecret();
         if ($expected === '') {
             throw new RuntimeException('MOYASAR_WEBHOOK_SECRET is not configured.');
         }
@@ -130,8 +130,37 @@ class MoyasarWalletService
             && hash_equals($expected, $provided);
     }
 
+    public function webhookLiveModeMatches(array $payload): bool
+    {
+        if (! array_key_exists('live', $payload) || ! is_bool($payload['live'])) {
+            return false;
+        }
+
+        return $payload['live'] === ($this->mode() === 'live');
+    }
+
+    public function isSupportedWebhookEvent(string $eventType): bool
+    {
+        return in_array($eventType, [
+            'payment_paid',
+            'payment_captured',
+            'payment_failed',
+            'payment_faild',
+            'payment_refunded',
+            'payment_voided',
+            'payment_authorized',
+            'payment_verified',
+            'payment_abandoned',
+        ], true);
+    }
+
     public function webhookEventId(array $payload): string
     {
+        $eventId = (string) ($payload['id'] ?? '');
+        if ($this->validGatewayId($eventId)) {
+            return $eventId;
+        }
+
         $payment = is_array($payload['data'] ?? null) ? $payload['data'] : [];
 
         return hash('sha256', implode('|', [
@@ -158,6 +187,9 @@ class MoyasarWalletService
     {
         if (! $this->verifyWebhookSignature($payload)) {
             throw new RuntimeException('Invalid Moyasar webhook signature.');
+        }
+        if (! $this->webhookLiveModeMatches($payload)) {
+            throw new RuntimeException('Moyasar webhook mode mismatch.');
         }
 
         $notifiedPayment = $payload['data'] ?? null;
@@ -357,8 +389,11 @@ class MoyasarWalletService
         string $amount,
         string $currency
     ): Payment {
+        $amountMinor = $this->moneyToMinorUnits($amount);
+        $expectedPoints = $this->amountToPoints($amount);
+
         try {
-            return DB::transaction(function () use ($data, $key, $userId, $amount, $currency) {
+            return DB::transaction(function () use ($data, $key, $userId, $amount, $currency, $amountMinor, $expectedPoints) {
                 $existing = Payment::where('idempotency_key', $key)->lockForUpdate()->first();
                 if ($existing) {
                     return $existing;
@@ -368,6 +403,8 @@ class MoyasarWalletService
                     'idempotency_key' => $key,
                     'user_id' => $userId,
                     'amount' => $amount,
+                    'amount_minor' => $amountMinor,
+                    'expected_points' => $expectedPoints,
                     'currency' => $currency,
                     'description' => ($data['description'] ?? null) ?: 'Wallet Deposit',
                     'payment_method' => 'moyasar',
@@ -411,7 +448,7 @@ class MoyasarWalletService
             'currency' => strtoupper((string) $order->currency),
             'description' => $description,
             'expired_at' => now()->addMinutes($expiryMinutes)->utc()->toIso8601String(),
-            'success_url' => url("/{$locale}/Deposit/waiting").'?order_id='.$order->id,
+            'success_url' => url("/{$locale}/wallet/charge/moyasar").'?deposit_id='.$order->id.'&provider=moyasar',
             'back_url' => url("/{$locale}/deposit/cancel"),
             'metadata' => $this->expectedMetadata($order),
         ]);
@@ -737,10 +774,7 @@ class MoyasarWalletService
 
     private function secretKey(): string
     {
-        $mode = strtolower((string) config('moyasar.mode', 'test'));
-        if (! in_array($mode, ['test', 'live'], true)) {
-            throw new RuntimeException('MOYASAR_MODE must be test or live.');
-        }
+        $mode = $this->mode();
 
         $key = (string) config("moyasar.{$mode}.secret_key", '');
         $expectedPrefix = $mode === 'live' ? 'sk_live_' : 'sk_test_';
@@ -749,6 +783,26 @@ class MoyasarWalletService
         }
 
         return $key;
+    }
+
+    private function mode(): string
+    {
+        $mode = strtolower((string) config('moyasar.mode', 'test'));
+        if (! in_array($mode, ['test', 'live'], true)) {
+            throw new RuntimeException('MOYASAR_MODE must be test or live.');
+        }
+
+        return $mode;
+    }
+
+    private function webhookSecret(): string
+    {
+        $servicesSecret = config('services.moyasar.webhook_secret');
+        if (is_string($servicesSecret) && $servicesSecret !== '') {
+            return $servicesSecret;
+        }
+
+        return (string) config('moyasar.webhook_secret', '');
     }
 
     private function assertConfiguration(): void

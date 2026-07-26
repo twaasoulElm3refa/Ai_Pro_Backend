@@ -44,6 +44,24 @@ class MoyasarWebhookController extends Controller
             return response()->json(['error' => 'webhook_not_configured'], 500);
         }
 
+        if (! $this->moyasar->webhookLiveModeMatches($payload)) {
+            Log::warning('moyasar_webhook_mode_mismatch', [
+                'event_type' => $eventType,
+                'moyasar_payment_id' => is_string($moyasarPaymentId) ? $moyasarPaymentId : null,
+            ]);
+
+            return response()->json(['error' => 'mode_mismatch'], 422);
+        }
+
+        if (! $this->moyasar->isSupportedWebhookEvent($eventType)) {
+            Log::warning('moyasar_webhook_event_unsupported', [
+                'event_type' => $eventType,
+                'moyasar_payment_id' => is_string($moyasarPaymentId) ? $moyasarPaymentId : null,
+            ]);
+
+            return response()->json(['error' => 'unsupported_event'], 422);
+        }
+
         if (! is_string($moyasarPaymentId) || $moyasarPaymentId === '') {
             return response()->json(['error' => 'missing_payment_id'], 422);
         }

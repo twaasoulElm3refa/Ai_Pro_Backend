@@ -6,8 +6,8 @@ return [
     'api_url' => env('MOYASAR_API_URL', 'https://api.moyasar.com/v1'),
 
     'test' => [
-        'publishable_key' => env('MOYASAR_TEST_PUBLISHABLE_KEY', 'pk_test_fmdBUF1qjjwowRY8wpiupGCBquBmNZmy7STFtsgV'),
-        'secret_key' => env('MOYASAR_TEST_SECRET_KEY', 'sk_test_6Wo73pvAp5Umxgf5qHk55eh9CMexsGM4DtZFzJbH'),
+        'publishable_key' => env('MOYASAR_TEST_PUBLISHABLE_KEY', ''),
+        'secret_key' => env('MOYASAR_TEST_SECRET_KEY', ''),
     ],
 
     'live' => [
@@ -15,7 +15,7 @@ return [
         'secret_key' => env('MOYASAR_LIVE_SECRET_KEY', ''),
     ],
 
-    'webhook_secret' => env('MOYASAR_WEBHOOK_SECRET', '93ddfedd5212ab174cc234ad062f1b0a6774005f4bc454275e32521b99bb227e'),
+    'webhook_secret' => env('MOYASAR_WEBHOOK_SECRET', ''),
     'currency' => strtoupper(env('MOYASAR_CURRENCY', 'SAR')),
     'merchant_id' => env('MOYASAR_MERCHANT_ID', ''),
     'merchant_name' => env('MOYASAR_MERCHANT_NAME', env('APP_NAME', 'Laravel')),

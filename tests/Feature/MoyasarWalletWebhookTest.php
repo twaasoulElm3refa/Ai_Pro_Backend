@@ -25,6 +25,7 @@ class MoyasarWalletWebhookTest extends TestCase
         config()->set('moyasar.currency', 'SAR');
         config()->set('moyasar.merchant_id', 'MERCHANT-123');
         config()->set('moyasar.webhook_secret', 'webhook-secret');
+        config()->set('services.moyasar.webhook_secret', 'webhook-secret');
         config()->set('moyasar.points_per_sar', 1_000_000);
         config()->set('moyasar.get_retries', 0);
         Queue::fake();
@@ -39,8 +40,10 @@ class MoyasarWalletWebhookTest extends TestCase
             'https://api.moyasar.com/v1/invoices/*' => Http::response($invoice),
         ]);
         $payload = [
+            'id' => 'evt_paid_123',
             'type' => 'payment_paid',
             'secret_token' => 'webhook-secret',
+            'live' => false,
             'data' => $remotePayment,
         ];
 
@@ -66,6 +69,7 @@ class MoyasarWalletWebhookTest extends TestCase
         $this->postJson('/api/v1/moyasar/webhook', [
             'type' => 'payment_paid',
             'secret_token' => 'wrong',
+            'live' => false,
             'data' => ['id' => 'payment_test_123', 'status' => 'paid'],
         ])->assertUnauthorized()->assertJson(['error' => 'invalid_signature']);
 
@@ -76,14 +80,48 @@ class MoyasarWalletWebhookTest extends TestCase
     public function test_missing_webhook_secret_configuration_fails_closed(): void
     {
         config()->set('moyasar.webhook_secret', '');
+        config()->set('services.moyasar.webhook_secret', '');
 
         $this->postJson('/api/v1/moyasar/webhook', [
             'type' => 'payment_paid',
             'secret_token' => 'anything',
+            'live' => false,
             'data' => ['id' => 'payment_test_123', 'status' => 'paid'],
         ])->assertStatus(500)->assertJson(['error' => 'webhook_not_configured']);
 
         $this->assertSame(0, MoyasarWebhookEvent::count());
+    }
+
+    public function test_test_mode_rejects_live_webhook_event(): void
+    {
+        Http::fake();
+
+        $this->postJson('/api/v1/moyasar/webhook', [
+            'id' => 'evt_live_mismatch',
+            'type' => 'payment_paid',
+            'secret_token' => 'webhook-secret',
+            'live' => true,
+            'data' => ['id' => 'payment_test_123', 'status' => 'paid'],
+        ])->assertUnprocessable()->assertJson(['error' => 'mode_mismatch']);
+
+        $this->assertSame(0, MoyasarWebhookEvent::count());
+        Http::assertNothingSent();
+    }
+
+    public function test_unsupported_webhook_event_is_rejected_before_storage_or_api_call(): void
+    {
+        Http::fake();
+
+        $this->postJson('/api/v1/moyasar/webhook', [
+            'id' => 'evt_unknown',
+            'type' => 'customer_created',
+            'secret_token' => 'webhook-secret',
+            'live' => false,
+            'data' => ['id' => 'payment_test_123', 'status' => 'paid'],
+        ])->assertUnprocessable()->assertJson(['error' => 'unsupported_event']);
+
+        $this->assertSame(0, MoyasarWebhookEvent::count());
+        Http::assertNothingSent();
     }
 
     private function payment(): Payment

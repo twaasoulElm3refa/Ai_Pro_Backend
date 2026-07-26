@@ -10,6 +10,15 @@ test("wallet charge uses the shared API client and a durable idempotency key", (
     assert.match(source, /ApiClient/);
     assert.match(source, /sessionStorage/);
     assert.match(source, /idempotency_key/);
+    assert.match(source, /\/moyasar\/pay/);
+    assert.match(source, /\/wallet\/moyasar-status\/\$\{encodeURIComponent\(moyasarDepositId\.value\)\}/);
+    assert.match(source, /MOYASAR_DEPOSIT_ID_STORAGE_KEY/);
+    assert.match(source, /POINTS_PER_SAR\s*=\s*1000000/);
+    assert.match(source, /onBeforeUnmount\(stopMoyasarPolling\)/);
+    assert.match(source, /AbortController/);
+    assert.match(source, /setTimeout\s*\(/);
+    assert.doesNotMatch(source, /setInterval\s*\(/);
+    assert.doesNotMatch(source, /moyasar\.init|checkout\.moyasar|moyasar\.css/i);
     assert.doesNotMatch(source, /https:\/\/api\.ai-pro\.pro/);
     assert.doesNotMatch(source, /X-API-KEY['"]?\s*:/i);
 });
