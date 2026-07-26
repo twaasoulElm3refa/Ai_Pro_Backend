@@ -8,7 +8,17 @@ class MainToolRepository implements MainToolInterface
 {
     public function index()
     {
-        return MainTools::with('translation')->select('id', 'is_active', 'slug', 'name', 'image', 'description', 'created_at')
+        return MainTools::with('translation')
+            ->where('is_active', 1)
+            ->select(
+                'id',
+                'is_active',
+                'slug',
+                'name',
+                'image',
+                'description',
+                'created_at'
+            )
             ->get();
     }
 
