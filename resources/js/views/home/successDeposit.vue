@@ -83,7 +83,18 @@ export default {
     },
 
     computed: {
+        provider() {
+            if (this.$route.query.provider) {
+                return String(this.$route.query.provider).toLowerCase();
+            }
+
+            return this.$route.query.deposit_id ? "moyasar" : "paypal";
+        },
         transactionId() {
+            if (this.provider === "moyasar") {
+                return this.$route.query.deposit_id || "-";
+            }
+
             return this.$route.query.order_id || "-";
         },
     },

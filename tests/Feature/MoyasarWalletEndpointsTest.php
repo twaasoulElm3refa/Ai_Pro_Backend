@@ -96,7 +96,8 @@ class MoyasarWalletEndpointsTest extends TestCase
         ]);
         Http::assertSent(fn (Request $request) => $request->method() === 'POST'
             && str_ends_with($request->url(), '/invoices')
-            && str_contains((string) $request['success_url'], '/wallet/charge/moyasar')
+            && str_contains((string) $request['success_url'], '/Deposit/waiting')
+            && str_contains((string) $request['success_url'], 'provider=moyasar')
             && str_contains((string) $request['success_url'], 'deposit_id='));
     }
 

@@ -448,7 +448,7 @@ class MoyasarWalletService
             'currency' => strtoupper((string) $order->currency),
             'description' => $description,
             'expired_at' => now()->addMinutes($expiryMinutes)->utc()->toIso8601String(),
-            'success_url' => url("/{$locale}/wallet/charge/moyasar").'?deposit_id='.$order->id.'&provider=moyasar',
+            'success_url' => url("/{$locale}/Deposit/waiting").'?provider=moyasar&deposit_id='.$order->id,
             'back_url' => url("/{$locale}/deposit/cancel"),
             'metadata' => $this->expectedMetadata($order),
         ]);

@@ -6,22 +6,7 @@
             <p class="currency">{{ t("user.charge.balancePoints") }}</p>
         </section>
 
-        <section v-if="isMoyasarCallback" class="deposit-card" aria-live="polite">
-            <div v-if="moyasarStatusView === 'waiting'" class="status-spinner" aria-hidden="true"></div>
-            <h1 id="charge-wallet-title">{{ moyasarStatusTitle }}</h1>
-            <p class="status-message">{{ moyasarStatusMessage }}</p>
-            <p v-if="moyasarStatusError" class="error status-error">{{ moyasarStatusError }}</p>
-            <div class="status-actions">
-                <button v-if="moyasarStatusView === 'timeout'" type="button" class="secondary-btn" @click="retryMoyasarPolling">
-                    {{ t("user.charge.moyasarRetry") }}
-                </button>
-                <button type="button" class="pay-btn compact" @click="goToWallet">
-                    {{ t("user.charge.backToWallet") }}
-                </button>
-            </div>
-        </section>
-
-        <section v-else class="deposit-card" :aria-label="t('user.charge.formAria')">
+        <section class="deposit-card" :aria-label="t('user.charge.formAria')">
             <h1 id="charge-wallet-title">{{ t("user.charge.title") }}</h1>
 
             <div class="method-options" role="radiogroup" :aria-label="t('user.charge.summaryMethod')">
@@ -126,8 +111,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
-import { useRoute, useRouter } from "vue-router"
+import { computed, onMounted, ref, watch } from "vue"
+import { useRouter } from "vue-router"
 import { useI18n } from "vue-i18n"
 import { v4 as uuidv4 } from "uuid"
 import useSeoMeta from "@/composables/useSeoMeta"
@@ -140,17 +125,12 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const route = useRoute()
 const { t, locale } = useI18n()
 
 const PAYPAL_IDEMPOTENCY_STORAGE_KEY = "wallet_deposit_paypal_idempotency_key"
 const MOYASAR_IDEMPOTENCY_STORAGE_KEY = "wallet_deposit_moyasar_idempotency_key"
 const MOYASAR_DEPOSIT_ID_STORAGE_KEY = "wallet_moyasar_deposit_id"
-const MOYASAR_POLL_INTERVAL_MS = 3000
-const MOYASAR_POLL_TIMEOUT_MS = 60000
 const POINTS_PER_SAR = 1000000
-const PENDING_MOYASAR_STATUSES = ["pending", "initiated", "processing", "approved"]
-const TERMINAL_MOYASAR_STATUSES = ["paid", "completed", "failed", "canceled", "expired", "refunded", "voided"]
 
 const paymentMethod = ref("paypal")
 const selectedPreset = ref(null)
@@ -158,14 +138,6 @@ const loading = ref(false)
 const serverError = ref("")
 const validationMessages = ref([])
 const walletSnapshot = ref(props.wallet)
-const moyasarDepositId = ref("")
-const moyasarStatus = ref("")
-const moyasarStatusView = ref("waiting")
-const moyasarStatusError = ref("")
-let moyasarTimer = null
-let moyasarController = null
-let moyasarDeadline = 0
-let moyasarChecking = false
 
 const form = ref({
     amount: "",
@@ -211,9 +183,6 @@ const expectedMoyasarPoints = computed(() => {
     if (paymentMethod.value !== "moyasar" || !normalizedAmount.value) return 0
     return Math.round(normalizedAmount.value * POINTS_PER_SAR)
 })
-const isMoyasarCallback = computed(() => {
-    return route.query.provider === "moyasar" || Boolean(route.query.deposit_id) || Boolean(moyasarDepositId.value)
-})
 
 const amountError = computed(() => {
     if (!form.value.amount) return ""
@@ -226,15 +195,6 @@ const amountError = computed(() => {
 const isValid = computed(() => {
     return normalizedAmount.value >= 1 && !amountError.value
 })
-
-const moyasarStatusTitle = computed(() => {
-    if (moyasarStatusView.value === "timeout") return t("user.charge.moyasarTimeoutTitle")
-    if (moyasarStatusView.value === "error") return t("user.charge.moyasarErrorTitle")
-    if (["paid", "completed"].includes(moyasarStatus.value)) return t("user.charge.moyasarSuccessTitle")
-    return t("user.charge.moyasarWaitingTitle")
-})
-
-const moyasarStatusMessage = computed(() => statusMessage(moyasarStatus.value, moyasarStatusView.value))
 
 watch(
     () => props.wallet,
@@ -334,11 +294,11 @@ async function createPaypalPayment() {
 
     resetIdempotencyKey("paypal")
     if (data.status === "completed") {
-        await router.replace(`/${homeService.getLang()}/deposit/success?order_id=${data.order_id}`)
+        await router.replace(`/${homeService.getLang()}/deposit/success?order_id=${data.order_id}&provider=paypal`)
         return
     }
 
-    await router.replace(`/${homeService.getLang()}/Deposit/waiting?order_id=${data.order_id}`)
+    await router.replace(`/${homeService.getLang()}/Deposit/waiting?provider=paypal&order_id=${data.order_id}`)
 }
 
 async function createMoyasarPayment() {
@@ -353,7 +313,6 @@ async function createMoyasarPayment() {
     const redirectUrl = payload?.redirect_url || payload?.payment_url || payload?.transaction_url || payload?.invoice_url
 
     if (/^\d+$/.test(depositId)) {
-        moyasarDepositId.value = depositId
         sessionStorage.setItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY, depositId)
     }
 
@@ -363,10 +322,14 @@ async function createMoyasarPayment() {
     }
 
     if (["paid", "completed"].includes(payload?.status)) {
+        if (!/^\d+$/.test(depositId)) {
+            throw new Error("Missing local Moyasar deposit ID")
+        }
+
         resetIdempotencyKey("moyasar")
+        sessionStorage.removeItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY)
         await refreshWallet()
-        moyasarStatus.value = "completed"
-        moyasarStatusView.value = "done"
+        await router.replace(`/${homeService.getLang()}/deposit/success?deposit_id=${depositId}&provider=moyasar`)
         return
     }
 
@@ -374,149 +337,7 @@ async function createMoyasarPayment() {
         throw new Error("Missing local Moyasar deposit ID")
     }
 
-    startMoyasarPolling(depositId)
-}
-
-function resolveCallbackDepositId() {
-    const queryDepositId = String(route.query.deposit_id || route.query.order_id || "")
-    if (/^\d+$/.test(queryDepositId)) return queryDepositId
-
-    const storedDepositId = String(sessionStorage.getItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY) || "")
-    return /^\d+$/.test(storedDepositId) ? storedDepositId : ""
-}
-
-function startMoyasarPolling(depositId = resolveCallbackDepositId()) {
-    stopMoyasarPolling()
-    moyasarDepositId.value = depositId
-    moyasarStatus.value = "pending"
-    moyasarStatusView.value = "waiting"
-    moyasarStatusError.value = ""
-    moyasarDeadline = Date.now() + MOYASAR_POLL_TIMEOUT_MS
-
-    if (!/^\d+$/.test(depositId)) {
-        showMoyasarError(t("user.charge.invalidDepositId"))
-        return
-    }
-
-    checkMoyasarStatus()
-}
-
-function scheduleMoyasarPolling(delay = MOYASAR_POLL_INTERVAL_MS) {
-    if (moyasarTimer) return
-    moyasarTimer = setTimeout(() => {
-        moyasarTimer = null
-        checkMoyasarStatus()
-    }, delay)
-}
-
-function stopMoyasarPolling() {
-    if (moyasarTimer) clearTimeout(moyasarTimer)
-    moyasarTimer = null
-    moyasarController?.abort()
-    moyasarController = null
-    moyasarChecking = false
-}
-
-async function checkMoyasarStatus() {
-    if (moyasarChecking) return
-    if (Date.now() >= moyasarDeadline) {
-        moyasarStatusView.value = "timeout"
-        stopMoyasarPolling()
-        return
-    }
-
-    moyasarChecking = true
-    moyasarController = new AbortController()
-    try {
-        const { data } = await api.get(`/wallet/moyasar-status/${encodeURIComponent(moyasarDepositId.value)}`, {
-            signal: moyasarController.signal,
-        })
-        const payload = extractPayload(data)
-        const status = String(payload?.status || "").toLowerCase()
-        moyasarStatus.value = status
-
-        if (["paid", "completed"].includes(status)) {
-            stopMoyasarPolling()
-            resetIdempotencyKey("moyasar")
-            sessionStorage.removeItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY)
-            moyasarStatusView.value = "done"
-            await refreshWallet()
-            return
-        }
-
-        if (TERMINAL_MOYASAR_STATUSES.includes(status)) {
-            stopMoyasarPolling()
-            resetIdempotencyKey("moyasar")
-            sessionStorage.removeItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY)
-            moyasarStatusView.value = "done"
-            return
-        }
-
-        if (!PENDING_MOYASAR_STATUSES.includes(status)) {
-            showMoyasarError(t("user.charge.unknownStatus"))
-            return
-        }
-
-        scheduleMoyasarPolling()
-    } catch (error) {
-        if (error?.name === "CanceledError" || error?.code === "ERR_CANCELED") return
-        const status = error.response?.status
-
-        if ([401, 403, 404].includes(status)) {
-            showMoyasarError(error.response?.data?.message || t("user.charge.moyasarStatusAccessError"))
-            return
-        }
-
-        if (status === 429) {
-            const retryAfter = Number(error.response?.headers?.["retry-after"] || 0) * 1000
-            scheduleMoyasarPolling(Math.max(MOYASAR_POLL_INTERVAL_MS, retryAfter))
-            return
-        }
-
-        if (!error.response) {
-            showMoyasarError(t("user.charge.networkError"))
-            return
-        }
-
-        scheduleMoyasarPolling()
-    } finally {
-        moyasarChecking = false
-    }
-}
-
-function retryMoyasarPolling() {
-    startMoyasarPolling(moyasarDepositId.value)
-}
-
-function showMoyasarError(message) {
-    stopMoyasarPolling()
-    moyasarStatusView.value = "error"
-    moyasarStatusError.value = message
-}
-
-function statusMessage(status, viewState) {
-    if (viewState === "timeout") return t("user.charge.moyasarTimeoutMessage")
-
-    switch (status) {
-        case "paid":
-        case "completed":
-            return t("user.charge.statusCompleted")
-        case "failed":
-            return t("user.charge.statusFailed")
-        case "canceled":
-            return t("user.charge.statusCanceled")
-        case "expired":
-            return t("user.charge.statusExpired")
-        case "refunded":
-            return t("user.charge.statusRefunded")
-        case "voided":
-            return t("user.charge.statusVoided")
-        case "pending":
-        case "initiated":
-        case "processing":
-        default:
-            return t("user.charge.statusPending")
-    }
+    await router.replace(`/${homeService.getLang()}/Deposit/waiting?provider=moyasar&deposit_id=${depositId}`)
 }
 
 async function refreshWallet() {
@@ -528,10 +349,6 @@ async function refreshWallet() {
     }
 }
 
-function goToWallet() {
-    router.replace(`/${homeService.getLang()}/wallet`)
-}
-
 function formatPoints(value) {
     return new Intl.NumberFormat("en-US").format(Number(value || 0))
 }
@@ -539,15 +356,7 @@ function formatPoints(value) {
 onMounted(() => {
     locale.value = homeService.getLang()
     refreshWallet()
-
-    const callbackDepositId = resolveCallbackDepositId()
-    if (route.query.provider === "moyasar" || callbackDepositId) {
-        paymentMethod.value = "moyasar"
-        startMoyasarPolling(callbackDepositId)
-    }
 })
-
-onBeforeUnmount(stopMoyasarPolling)
 </script>
 
 <style scoped>
@@ -765,8 +574,7 @@ hr {
     font-weight: 600;
 }
 
-.pay-btn,
-.secondary-btn {
+.pay-btn {
     border: none;
     border-radius: 8px;
     font-size: 15px;
@@ -783,20 +591,7 @@ hr {
     color: #fff;
 }
 
-.pay-btn.compact {
-    width: auto;
-    min-width: 140px;
-    margin-top: 0;
-}
-
-.secondary-btn {
-    padding: 12px 14px;
-    background: #f0f0f0;
-    color: #154677;
-}
-
-.pay-btn:hover,
-.secondary-btn:hover {
+.pay-btn:hover {
     opacity: .9;
 }
 
@@ -813,41 +608,6 @@ hr {
     font-size: 13px;
     color: #e24b4a;
     margin-top: 6px;
-}
-
-.status-spinner {
-    width: 42px;
-    height: 42px;
-    border: 4px solid #e5e5e5;
-    border-top-color: #2ba6de;
-    border-radius: 50%;
-    animation: spin .85s linear infinite;
-    margin: 0 auto 18px;
-}
-
-.status-message {
-    color: #666;
-    font-size: 14px;
-    line-height: 1.8;
-    text-align: center;
-}
-
-.status-error {
-    text-align: center;
-}
-
-.status-actions {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 20px;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
 }
 
 @media (max-width: 520px) {

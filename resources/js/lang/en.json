@@ -357,7 +357,7 @@
         },
         "deposit": {
             "success": {
-                "badge": "Balance charged via PayPal",
+                "badge": "Balance charged",
                 "title": "Balance charged successfully ??",
                 "subtitleHtml": "The amount has been added to your wallet successfully<br />You can now use it for your purchases",
                 "statusLabel": "Transaction Status",
@@ -374,7 +374,7 @@
                 "seoDescription": "Your wallet charge was successful. Confirm transaction details, return to your wallet, and continue using tools with your updated balance immediately."
             },
             "failed": {
-                "badge": "PayPal payment failed",
+                "badge": "Payment failed",
                 "title": "Payment failed ??",
                 "subtitleHtml": "The payment was not completed successfully<br />You can try again or contact support",
                 "statusLabel": "Status",
@@ -383,7 +383,7 @@
                 "noteLabel": "Note",
                 "noteValue": "No amount has been charged",
                 "retryButton": "Retry",
-                "retryAria": "Retry PayPal payment",
+                "retryAria": "Retry payment",
                 "supportButton": "Contact Support",
                 "supportAria": "Contact support",
                 "homeButton": "Back to Home",
@@ -395,12 +395,34 @@
                     "default": "The transaction was canceled or payment failed"
                 },
                 "seoTitle": "Payment Failed | Ai Pro",
-                "seoDescription": "Payment did not complete. Review the failure reason, retry your PayPal charge safely, or contact support for quick help without losing your wallet balance."
+                "seoDescription": "Payment did not complete. Review the failure reason, retry your wallet charge safely, or contact support for quick help without losing your wallet balance."
             },
             "waiting": {
                 "title": "Processing Your Payment",
-                "subtitle": "Please wait while we confirm your payment with PayPal...",
-                "hint": "Do not close this page"
+                "subtitle": "Please wait while we confirm your payment with {provider}...",
+                "hint": "Do not close this page",
+                "retry": "Retry verification",
+                "backToWallet": "Back to Wallet",
+                "timeoutTitle": "Confirmation is taking longer",
+                "timeoutMessage": "The payment was not marked as failed. Retry verification or return to your wallet; server reconciliation will continue.",
+                "errorTitle": "Unable to verify payment",
+                "errorMessage": "Payment verification failed.",
+                "invalidPaymentId": "The local payment ID is invalid.",
+                "unsupportedProvider": "This payment provider is not supported.",
+                "forbidden": "You cannot access this payment.",
+                "notFound": "The payment was not found.",
+                "unknownStatus": "The server returned an unknown payment state.",
+                "providers": {
+                    "paypal": "PayPal",
+                    "moyasar": "Moyasar",
+                    "unknown": "the payment provider"
+                },
+                "status": {
+                    "pending": "Waiting for payment confirmation",
+                    "initiated": "Payment initiated",
+                    "processing": "Payment is processing",
+                    "approved": "Payment approved and awaiting final confirmation"
+                }
             }
         }
     }

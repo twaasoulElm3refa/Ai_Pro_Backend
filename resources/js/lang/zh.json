@@ -358,7 +358,7 @@
         },
         "deposit": {
             "success": {
-                "badge": "通过 PayPal 成功充值",
+                "badge": "余额充值成功",
                 "title": "余额充值成功 ??",
                 "subtitleHtml": "金额已成功添加到您的钱包<br />您现在可以用于购买",
                 "statusLabel": "交易状态",
@@ -375,7 +375,7 @@
                 "seoDescription": "您的钱包充值已成功。确认交易详情，返回钱包并立即使用更新后的余额继续使用工具。"
             },
             "failed": {
-                "badge": "PayPal 支付失败",
+                "badge": "支付失败",
                 "title": "支付失败 ??",
                 "subtitleHtml": "支付未成功完成<br />您可以重试或联系支持",
                 "statusLabel": "状态",
@@ -384,7 +384,7 @@
                 "noteLabel": "说明",
                 "noteValue": "未扣除任何金额",
                 "retryButton": "重试",
-                "retryAria": "重试 PayPal 支付",
+                "retryAria": "重试支付",
                 "supportButton": "联系支持",
                 "supportAria": "联系支持",
                 "homeButton": "返回首页",
@@ -396,12 +396,34 @@
                     "default": "交易已取消或支付失败"
                 },
                 "seoTitle": "支付失败 | Ai Pro",
-                "seoDescription": "支付未完成。请查看失败原因，安全重试 PayPal 充值，或联系支持获取快速帮助，您的钱包余额不会丢失。"
+                "seoDescription": "支付未完成。请查看失败原因，安全重试钱包充值，或联系支持获取快速帮助，您的钱包余额不会丢失。"
             },
             "waiting": {
                 "title": "正在处理您的支付",
-                "subtitle": "请稍候，我们正在与 PayPal 确认您的支付...",
-                "hint": "请勿关闭此页面"
+                "subtitle": "请稍候，我们正在通过 {provider} 确认您的支付...",
+                "hint": "请勿关闭此页面",
+                "retry": "重新验证",
+                "backToWallet": "返回钱包",
+                "timeoutTitle": "确认时间较长",
+                "timeoutMessage": "该支付未被标记为失败。您可以重新验证或返回钱包；服务器会继续对账。",
+                "errorTitle": "无法验证支付",
+                "errorMessage": "支付验证失败。",
+                "invalidPaymentId": "本地支付 ID 无效。",
+                "unsupportedProvider": "不支持此支付提供商。",
+                "forbidden": "您无权访问此支付。",
+                "notFound": "未找到该支付。",
+                "unknownStatus": "服务器返回了未知的支付状态。",
+                "providers": {
+                    "paypal": "PayPal",
+                    "moyasar": "Moyasar",
+                    "unknown": "支付提供商"
+                },
+                "status": {
+                    "pending": "等待支付确认",
+                    "initiated": "支付已发起",
+                    "processing": "支付处理中",
+                    "approved": "支付已批准，等待最终确认"
+                }
             }
         }
     }

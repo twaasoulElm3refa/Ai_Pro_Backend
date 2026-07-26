@@ -76,7 +76,7 @@ class WalletDepositEndpointsTest extends TestCase
         $payment = $this->payment($user);
 
         $this->get('/api/v1/wallet/success?token='.$payment->paypal_order_id.'&lang=ar')
-            ->assertRedirect('/ar/Deposit/waiting?order_id='.$payment->id);
+            ->assertRedirect('/ar/Deposit/waiting?provider=paypal&order_id='.$payment->id);
 
         $payment->refresh();
         $this->assertSame(Payment::STATUS_APPROVED, $payment->status);
@@ -95,7 +95,7 @@ class WalletDepositEndpointsTest extends TestCase
         ]);
 
         $this->get('/api/v1/wallet/success?token='.$payment->paypal_order_id.'&lang=en')
-            ->assertRedirect('/en/Deposit/waiting?order_id='.$payment->id);
+            ->assertRedirect('/en/Deposit/waiting?provider=paypal&order_id='.$payment->id);
 
         $this->assertSame(Payment::STATUS_COMPLETED, $payment->fresh()->status);
         $this->assertTrue($payment->fresh()->wallet_credited);

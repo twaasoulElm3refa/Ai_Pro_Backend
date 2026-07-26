@@ -64,7 +64,7 @@ class DepositController extends Controller
                 throw new DomainException('Local payment ID is missing.');
             }
 
-            return redirect("/{$lang}/Deposit/waiting?order_id={$orderId}");
+            return redirect("/{$lang}/Deposit/waiting?provider=paypal&order_id={$orderId}");
         } catch (Throwable $e) {
             Log::warning('wallet_return_failed', [
                 'paypal_order_id' => $token,

@@ -358,7 +358,7 @@
         },
         "deposit": {
             "success": {
-                "badge": "Solde rechargé via PayPal",
+                "badge": "Solde rechargé",
                 "title": "Solde rechargé avec succès ??",
                 "subtitleHtml": "Le montant a été ajouté à votre portefeuille avec succès<br />Vous pouvez maintenant l'utiliser pour vos achats",
                 "statusLabel": "Statut de la Transaction",
@@ -375,7 +375,7 @@
                 "seoDescription": "Votre recharge de portefeuille a réussi. Confirmez les détails de la transaction, retournez à votre portefeuille et continuez à utiliser les outils avec votre solde mis à jour immédiatement."
             },
             "failed": {
-                "badge": "Paiement PayPal échoué",
+                "badge": "Paiement échoué",
                 "title": "Paiement échoué ??",
                 "subtitleHtml": "Le paiement n'a pas été complété avec succès<br />Vous pouvez réessayer ou contacter le support",
                 "statusLabel": "Statut",
@@ -384,7 +384,7 @@
                 "noteLabel": "Note",
                 "noteValue": "Aucun montant n'a été débité",
                 "retryButton": "Réessayer",
-                "retryAria": "Réessayer le paiement PayPal",
+                "retryAria": "Réessayer le paiement",
                 "supportButton": "Contacter le Support",
                 "supportAria": "Contacter le support",
                 "homeButton": "Retour à l'Accueil",
@@ -396,12 +396,34 @@
                     "default": "La transaction a été annulée ou le paiement a échoué"
                 },
                 "seoTitle": "Paiement Échoué | Ai Pro",
-                "seoDescription": "Le paiement n'a pas abouti. Consultez la raison de l'échec, réessayez votre recharge PayPal en toute sécurité ou contactez le support pour une aide rapide sans perdre votre solde portefeuille."
+                "seoDescription": "Le paiement n'a pas abouti. Consultez la raison de l'échec, réessayez votre recharge en toute sécurité ou contactez le support pour une aide rapide sans perdre votre solde portefeuille."
             },
             "waiting": {
                 "title": "Traitement de Votre Paiement",
-                "subtitle": "Veuillez patienter pendant que nous confirmons votre paiement avec PayPal...",
-                "hint": "Ne fermez pas cette page"
+                "subtitle": "Veuillez patienter pendant que nous confirmons votre paiement avec {provider}...",
+                "hint": "Ne fermez pas cette page",
+                "retry": "Réessayer la vérification",
+                "backToWallet": "Retour au portefeuille",
+                "timeoutTitle": "La confirmation prend plus de temps",
+                "timeoutMessage": "Le paiement n'a pas été marqué comme échoué. Réessayez la vérification ou retournez au portefeuille; la réconciliation serveur continuera.",
+                "errorTitle": "Impossible de vérifier le paiement",
+                "errorMessage": "La vérification du paiement a échoué.",
+                "invalidPaymentId": "L'ID local du paiement est invalide.",
+                "unsupportedProvider": "Ce prestataire de paiement n'est pas pris en charge.",
+                "forbidden": "Vous ne pouvez pas accéder à ce paiement.",
+                "notFound": "Le paiement est introuvable.",
+                "unknownStatus": "Le serveur a renvoyé un état de paiement inconnu.",
+                "providers": {
+                    "paypal": "PayPal",
+                    "moyasar": "Moyasar",
+                    "unknown": "le prestataire de paiement"
+                },
+                "status": {
+                    "pending": "En attente de confirmation du paiement",
+                    "initiated": "Paiement initié",
+                    "processing": "Paiement en cours de traitement",
+                    "approved": "Paiement approuvé, en attente de confirmation finale"
+                }
             }
         }
     }

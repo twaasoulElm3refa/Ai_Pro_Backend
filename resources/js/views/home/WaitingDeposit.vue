@@ -4,169 +4,317 @@
             <div v-if="viewState === 'waiting'" class="spinner" aria-hidden="true"></div>
             <h1 id="waiting-payment-title">{{ title }}</h1>
             <p>{{ message }}</p>
+            <p v-if="statusLabel" class="status-label">{{ statusLabel }}</p>
             <p v-if="viewState === 'waiting'" class="hint">{{ t("user.deposit.waiting.hint") }}</p>
             <div v-else class="actions">
-                <button v-if="viewState === 'timeout'" type="button" @click="retryPolling">{{ retryLabel }}</button>
-                <button type="button" @click="goToWallet">{{ walletLabel }}</button>
+                <button v-if="viewState === 'timeout' || viewState === 'error'" type="button" @click="retryPolling">
+                    {{ t("user.deposit.waiting.retry") }}
+                </button>
+                <button type="button" @click="goToWallet">
+                    {{ t("user.deposit.waiting.backToWallet") }}
+                </button>
             </div>
         </section>
     </main>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { useI18n } from "vue-i18n";
-import useSeoMeta from "@/composables/useSeoMeta";
-import homeService from "@/services/home/homeService";
-import api from "@/services/ApiClient";
+import { computed, onMounted, onUnmounted, ref } from "vue"
+import { useRouter, useRoute } from "vue-router"
+import { useI18n } from "vue-i18n"
+import useSeoMeta from "@/composables/useSeoMeta"
+import homeService from "@/services/home/homeService"
+import api from "@/services/ApiClient"
+import walletService from "@/services/profile/walletService"
 
-const router = useRouter();
-const route = useRoute();
-const { t, locale } = useI18n();
-const isArabic = computed(() => String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar");
-const seoTitle = computed(() => isArabic.value ? "انتظار تأكيد الدفع | Ai Pro" : "Payment Verification | Ai Pro");
-const seoDescription = computed(() => isArabic.value
-    ? "نتحقق من حالة دفع PayPal ونحوّلك تلقائيًا عند اكتمالها."
-    : "We are confirming your PayPal payment and will redirect you when it completes.");
+const router = useRouter()
+const route = useRoute()
+const { t, locale } = useI18n()
 
-useSeoMeta({ title: seoTitle, description: seoDescription });
+const MOYASAR_DEPOSIT_ID_STORAGE_KEY = "wallet_moyasar_deposit_id"
+const MOYASAR_IDEMPOTENCY_STORAGE_KEY = "wallet_deposit_moyasar_idempotency_key"
+const SUPPORTED_PROVIDERS = ["paypal", "moyasar"]
+const SUCCESS_STATUSES = ["paid", "completed"]
+const FAILURE_STATUSES = ["failed", "canceled", "expired", "refunded", "voided", "abandoned"]
+const PENDING_STATUSES = {
+    paypal: ["pending", "approved", "processing"],
+    moyasar: ["pending", "initiated", "processing", "approved"],
+}
+const PROVIDER_CONFIG = {
+    paypal: {
+        idQuery: "order_id",
+        endpoint: (id) => `/wallet/order-status/${encodeURIComponent(id)}`,
+        successPath: (lang, id) => `/${lang}/deposit/success?order_id=${encodeURIComponent(id)}&provider=paypal`,
+    },
+    moyasar: {
+        idQuery: "deposit_id",
+        endpoint: (id) => `/wallet/moyasar-status/${encodeURIComponent(id)}`,
+        successPath: (lang, id) => `/${lang}/deposit/success?deposit_id=${encodeURIComponent(id)}&provider=moyasar`,
+    },
+}
 
-const orderId = String(route.query.order_id || "");
-const currentLang = () => homeService.getLang();
-const pollIntervalMs = Math.max(1000, Number(import.meta.env.VITE_WALLET_POLL_INTERVAL_MS || 5000));
-const pollTimeoutMs = Math.max(pollIntervalMs, Number(import.meta.env.VITE_WALLET_POLL_TIMEOUT_MS || 150000));
-const MAX_ATTEMPTS = Math.max(1, Math.ceil(pollTimeoutMs / pollIntervalMs));
-const attempts = ref(0);
-const viewState = ref("waiting");
-const lastError = ref("");
-let timer = null;
-let controller = null;
-let isChecking = false;
-let stopped = false;
-let deadline = 0;
+const pollIntervalMs = Math.max(1000, Number(import.meta.env.VITE_WALLET_POLL_INTERVAL_MS || 5000))
+const pollTimeoutMs = Math.max(pollIntervalMs, Number(import.meta.env.VITE_WALLET_POLL_TIMEOUT_MS || 150000))
+const MAX_ATTEMPTS = Math.max(1, Math.ceil(pollTimeoutMs / pollIntervalMs))
+const viewState = ref("waiting")
+const lastStatus = ref("")
+const lastError = ref("")
+const attempts = ref(0)
+let timer = null
+let controller = null
+let isChecking = false
+let stopped = false
+let deadline = 0
+
+const currentLang = () => homeService.getLang()
+const isArabic = computed(() => String(locale.value || currentLang() || "ar").toLowerCase() === "ar")
+const seoTitle = computed(() => (isArabic.value ? "Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø¯ÙØ¹ | Ai Pro" : "Payment Verification | AI Pro"))
+const seoDescription = computed(() =>
+    isArabic.value
+        ? "Ù†ØªØ­Ù‚Ù‚ Ù…Ù† Ø­Ø§Ù„Ø© Ø§Ù„Ø¯ÙØ¹ ÙˆÙ†Ø­ÙˆÙ„Ùƒ ØªÙ„Ù‚Ø§Ø¦ÙŠØ§ Ø¹Ù†Ø¯ Ø§ÙƒØªÙ…Ø§Ù„Ù‡."
+        : "We are confirming your payment and will redirect you when it completes."
+)
+
+useSeoMeta({ title: seoTitle, description: seoDescription })
+
+const provider = computed(() => {
+    const requested = String(route.query.provider || "").toLowerCase()
+    if (SUPPORTED_PROVIDERS.includes(requested)) return requested
+    if (requested) return "unsupported"
+    if (route.query.deposit_id) return "moyasar"
+
+    return "paypal"
+})
+
+const config = computed(() => PROVIDER_CONFIG[provider.value] || null)
+const paymentId = computed(() => {
+    if (provider.value === "moyasar") {
+        const queryDepositId = String(route.query.deposit_id || "")
+        if (/^\d+$/.test(queryDepositId)) return queryDepositId
+
+        const storedDepositId = String(sessionStorage.getItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY) || "")
+        return /^\d+$/.test(storedDepositId) ? storedDepositId : ""
+    }
+
+    if (provider.value === "paypal") {
+        return String(route.query.order_id || "")
+    }
+
+    return ""
+})
+
+const providerLabel = computed(() => {
+    if (provider.value === "moyasar") return t("user.deposit.waiting.providers.moyasar")
+    if (provider.value === "paypal") return t("user.deposit.waiting.providers.paypal")
+    return t("user.deposit.waiting.providers.unknown")
+})
 
 const title = computed(() => {
-    if (viewState.value === "timeout") return isArabic.value ? "يستغرق التأكيد وقتًا أطول" : "Confirmation is taking longer";
-    if (viewState.value === "error") return isArabic.value ? "تعذر التحقق من الدفع" : "Unable to verify payment";
-    return t("user.deposit.waiting.title");
-});
+    if (viewState.value === "timeout") return t("user.deposit.waiting.timeoutTitle")
+    if (viewState.value === "error") return t("user.deposit.waiting.errorTitle")
+    return t("user.deposit.waiting.title")
+})
+
 const message = computed(() => {
-    if (viewState.value === "timeout") {
-        return isArabic.value
-            ? "لم نعتبر الدفع فاشلًا. يمكنك إعادة التحقق أو العودة للمحفظة، وسيستمر الخادم في المصالحة تلقائيًا."
-            : "The payment was not marked as failed. Retry verification or return to your wallet; server reconciliation will continue.";
+    if (viewState.value === "timeout") return t("user.deposit.waiting.timeoutMessage")
+    if (viewState.value === "error") return lastError.value
+
+    return t("user.deposit.waiting.subtitle", { provider: providerLabel.value })
+})
+
+const statusLabel = computed(() => {
+    if (!lastStatus.value || viewState.value !== "waiting") return ""
+
+    const labels = {
+        pending: t("user.deposit.waiting.status.pending"),
+        initiated: t("user.deposit.waiting.status.initiated"),
+        processing: t("user.deposit.waiting.status.processing"),
+        approved: t("user.deposit.waiting.status.approved"),
     }
-    if (viewState.value === "error") return lastError.value;
-    return t("user.deposit.waiting.subtitle");
-});
-const retryLabel = computed(() => isArabic.value ? "إعادة التحقق" : "Retry verification");
-const walletLabel = computed(() => isArabic.value ? "العودة إلى المحفظة" : "Back to wallet");
+
+    return labels[lastStatus.value] || labels.pending
+})
+
+function extractPayload(data) {
+    return data?.data && typeof data.data === "object" ? data.data : data
+}
+
+function normalizeStatus(status) {
+    const normalized = String(status || "").toLowerCase()
+    return normalized === "cancelled" ? "canceled" : normalized
+}
+
+function responseId(payload) {
+    return String(payload?.[config.value.idQuery] || payload?.order_id || payload?.deposit_id || paymentId.value)
+}
 
 function stopPolling() {
-    stopped = true;
-    if (timer) clearTimeout(timer);
-    timer = null;
-    controller?.abort();
+    stopped = true
+    if (timer) clearTimeout(timer)
+    timer = null
+    controller?.abort()
+    controller = null
 }
 
 function schedule(delay = pollIntervalMs) {
-    if (!stopped) timer = setTimeout(() => {
-        timer = null;
-        checkStatus();
-    }, delay);
+    if (stopped || timer) return
+
+    timer = setTimeout(() => {
+        timer = null
+        checkStatus()
+    }, delay)
 }
 
 async function finish(path) {
-    stopPolling();
-    await router.replace(path);
+    stopPolling()
+    await router.replace(path)
 }
 
 function showError(messageText) {
-    stopPolling();
-    viewState.value = "error";
-    lastError.value = messageText;
+    stopPolling()
+    viewState.value = "error"
+    lastError.value = messageText
+}
+
+function failurePath() {
+    return `/${currentLang()}/failed?error=PAYMENT_FAILED&provider=${encodeURIComponent(provider.value)}`
+}
+
+async function refreshWallet() {
+    try {
+        await walletService.getWallet()
+        homeService.clearAllCaches()
+    } catch {
+        homeService.clearAllCaches()
+    }
+}
+
+async function handleSuccess(payload) {
+    const id = responseId(payload)
+    stopPolling()
+    if (provider.value === "moyasar") {
+        sessionStorage.removeItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY)
+        sessionStorage.removeItem(MOYASAR_IDEMPOTENCY_STORAGE_KEY)
+    }
+    await refreshWallet()
+    await router.replace(config.value.successPath(currentLang(), id))
 }
 
 async function checkStatus() {
-    if (stopped || isChecking) return;
+    if (stopped || isChecking) return
     if (attempts.value >= MAX_ATTEMPTS || Date.now() >= deadline) {
-        stopPolling();
-        viewState.value = "timeout";
-        return;
+        stopPolling()
+        viewState.value = "timeout"
+        return
     }
 
-    isChecking = true;
-    attempts.value++;
-    controller = new AbortController();
+    isChecking = true
+    attempts.value += 1
+    controller = new AbortController()
     try {
-        const { data } = await api.get(`/wallet/order-status/${encodeURIComponent(orderId)}`, {
+        const { data } = await api.get(config.value.endpoint(paymentId.value), {
             signal: controller.signal,
-        });
-        if (data.status === "completed") {
-            await finish(`/${currentLang()}/deposit/success?order_id=${data.order_id}`);
-            return;
+        })
+        const payload = extractPayload(data)
+        const status = normalizeStatus(payload?.status)
+        lastStatus.value = status
+
+        if (SUCCESS_STATUSES.includes(status)) {
+            await handleSuccess(payload)
+            return
         }
-        if (data.status === "failed") {
-            await finish(`/${currentLang()}/failed?error=PAYMENT_FAILED`);
-            return;
+
+        if (FAILURE_STATUSES.includes(status)) {
+            if (provider.value === "moyasar") {
+                sessionStorage.removeItem(MOYASAR_DEPOSIT_ID_STORAGE_KEY)
+                sessionStorage.removeItem(MOYASAR_IDEMPOTENCY_STORAGE_KEY)
+            }
+            await finish(failurePath())
+            return
         }
-        if (!["pending", "approved"].includes(data.status)) {
-            showError(isArabic.value ? "أعاد الخادم حالة دفع غير معروفة." : "The server returned an unknown payment state.");
+
+        if (!PENDING_STATUSES[provider.value]?.includes(status)) {
+            showError(t("user.deposit.waiting.unknownStatus"))
+            return
         }
     } catch (error) {
-        if (error?.name === "CanceledError" || error?.code === "ERR_CANCELED") return;
-        const status = error.response?.status;
+        if (error?.name === "CanceledError" || error?.code === "ERR_CANCELED") return
+        const status = error.response?.status
+
         if (status === 401) {
-            await finish(`/${currentLang()}/auth`);
-            return;
+            await finish(`/${currentLang()}/auth`)
+            return
         }
+
         if (status === 403) {
-            showError(isArabic.value ? "لا تملك صلاحية الوصول إلى طلب الدفع." : "You cannot access this payment order.");
-            return;
+            showError(t("user.deposit.waiting.forbidden"))
+            return
         }
+
         if (status === 404 && attempts.value >= 3) {
-            showError(isArabic.value ? "لم يتم العثور على طلب الدفع." : "The payment order was not found.");
-            return;
+            showError(t("user.deposit.waiting.notFound"))
+            return
         }
+
         if (status === 429) {
-            const retryAfter = Number(error.response?.headers?.["retry-after"] || 0) * 1000;
-            schedule(Math.max(pollIntervalMs, retryAfter));
-            return;
+            const retryAfter = Number(error.response?.headers?.["retry-after"] || 0) * 1000
+            schedule(Math.max(pollIntervalMs, retryAfter))
+            return
         }
+
         if (status && status < 500) {
-            showError(isArabic.value ? "تعذر التحقق من حالة الدفع." : "Payment verification failed.");
+            showError(t("user.deposit.waiting.errorMessage"))
+            return
         }
     } finally {
-        isChecking = false;
-        if (!stopped && !timer) schedule();
+        isChecking = false
+        if (!stopped && !timer) schedule()
     }
 }
 
 function retryPolling() {
-    stopPolling();
-    stopped = false;
-    viewState.value = "waiting";
-    attempts.value = 0;
-    deadline = Date.now() + pollTimeoutMs;
-    checkStatus();
+    stopPolling()
+    stopped = false
+    viewState.value = "waiting"
+    lastError.value = ""
+    attempts.value = 0
+    deadline = Date.now() + pollTimeoutMs
+
+    if (!config.value) {
+        showError(t("user.deposit.waiting.unsupportedProvider"))
+        return
+    }
+
+    if (!/^\d+$/.test(paymentId.value)) {
+        showError(t("user.deposit.waiting.invalidPaymentId"))
+        return
+    }
+
+    checkStatus()
 }
 
 function goToWallet() {
-    finish(`/${currentLang()}/wallet`);
+    finish(`/${currentLang()}/wallet`)
 }
 
 onMounted(() => {
-    locale.value = currentLang();
-    if (!/^\d+$/.test(orderId)) {
-        showError(isArabic.value ? "معرّف طلب الدفع غير صالح." : "The payment order ID is invalid.");
-        return;
-    }
-    deadline = Date.now() + pollTimeoutMs;
-    checkStatus();
-});
+    locale.value = currentLang()
 
-onUnmounted(stopPolling);
+    if (!config.value) {
+        showError(t("user.deposit.waiting.unsupportedProvider"))
+        return
+    }
+
+    if (!/^\d+$/.test(paymentId.value)) {
+        showError(t("user.deposit.waiting.invalidPaymentId"))
+        return
+    }
+
+    deadline = Date.now() + pollTimeoutMs
+    checkStatus()
+})
+
+onUnmounted(stopPolling)
 </script>
 
 <style scoped>
@@ -177,15 +325,17 @@ onUnmounted(stopPolling);
     justify-content: center;
     background: #f5f5f5;
 }
+
 .card {
     background: white;
-    border-radius: 16px;
+    border-radius: 12px;
     padding: 48px 40px;
     text-align: center;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
     max-width: 460px;
     width: 90%;
 }
+
 .spinner {
     width: 56px;
     height: 56px;
@@ -195,11 +345,48 @@ onUnmounted(stopPolling);
     animation: spin 0.9s linear infinite;
     margin: 0 auto 24px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-h1 { font-size: 1.4rem; color: #1a1a1a; margin-bottom: 10px; }
-p { color: #666; font-size: 0.95rem; }
-.hint { margin-top: 8px; font-size: 0.82rem; color: #888; }
-.actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
-.actions button { border: 0; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
-.actions button:first-child { background: #2ba6de; color: white; }
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+h1 {
+    font-size: 1.4rem;
+    color: #1a1a1a;
+    margin-bottom: 10px;
+}
+
+p {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+.hint,
+.status-label {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    color: #888;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.actions button {
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+}
+
+.actions button:first-child {
+    background: #2ba6de;
+    color: white;
+}
 </style>
