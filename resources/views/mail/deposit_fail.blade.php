@@ -23,7 +23,7 @@
             </p>
 
             <div style="margin:25px 0;font-size:28px;font-weight:bold;color:#ef4444">
-                ${{ $amount }}
+                {{ $currency }} {{ $amount }}
             </div>
 
             <p style="color:#9ca3af">

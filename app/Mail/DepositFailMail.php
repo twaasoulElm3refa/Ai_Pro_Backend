@@ -13,12 +13,16 @@ class DepositFailMail extends Mailable
     use Queueable, SerializesModels;
 
     public $amount;
+
+    public $currency;
+
     public $name;
 
-    public function __construct($amount, $name)
+    public function __construct($amount, $name, $currency = 'USD')
     {
         $this->amount = $amount;
         $this->name = $name;
+        $this->currency = strtoupper((string) $currency);
     }
 
     /**
@@ -40,7 +44,8 @@ class DepositFailMail extends Mailable
             view: 'mail.deposit_fail',
             with: [
                 'amount' => number_format($this->amount, 2),
-                'name'   => $this->name,
+                'currency' => $this->currency,
+                'name' => $this->name,
             ],
         );
     }

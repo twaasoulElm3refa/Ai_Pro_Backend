@@ -19,6 +19,8 @@ use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\payment\DepositController;
+use App\Http\Controllers\api\payment\MoyasarDepositController;
+use App\Http\Controllers\api\webhook\MoyasarWebhookController;
 use App\Http\Controllers\api\webhook\WebhookController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ApiKeyMiddleware;
@@ -93,9 +95,20 @@ Route::prefix('v1')->group(function () {
         Route::post('/pay', [DepositController::class, 'create']);
     });
     Route::get('/wallet/success', [DepositController::class, 'success'])->name('wallet.success')->middleware('throttle:30,1')->withoutMiddleware(ApiKeyMiddleware::class);
-    Route::get('/wallet/cancel',  [DepositController::class, 'cancel'])->name('wallet.cancel')->middleware('throttle:30,1')->withoutMiddleware(ApiKeyMiddleware::class);
+    Route::get('/wallet/cancel', [DepositController::class, 'cancel'])->name('wallet.cancel')->middleware('throttle:30,1')->withoutMiddleware(ApiKeyMiddleware::class);
     Route::post('/paypal/webhook', [WebhookController::class, 'handle'])->name('paypal.webhook')->middleware('throttle:60,1')->withoutMiddleware(ApiKeyMiddleware::class);
     Route::get('/wallet/order-status/{id}', [DepositController::class, 'orderStatus'])
+        ->whereNumber('id')
+        ->middleware(['auth:sanctum', 'throttle:30,1'])
+        ->withoutMiddleware(ApiKeyMiddleware::class);
+
+    Route::post('/moyasar/pay', [MoyasarDepositController::class, 'create'])
+        ->middleware(['auth:sanctum', 'throttle:15,1']);
+    Route::post('/moyasar/webhook', [MoyasarWebhookController::class, 'handle'])
+        ->name('moyasar.webhook')
+        ->middleware('throttle:60,1')
+        ->withoutMiddleware(ApiKeyMiddleware::class);
+    Route::get('/wallet/moyasar-status/{id}', [MoyasarDepositController::class, 'status'])
         ->whereNumber('id')
         ->middleware(['auth:sanctum', 'throttle:30,1'])
         ->withoutMiddleware(ApiKeyMiddleware::class);

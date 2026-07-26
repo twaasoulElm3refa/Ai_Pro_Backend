@@ -196,11 +196,8 @@ return new class extends Migration
 
     private function indexExists(string $table, string $index): bool
     {
-        return DB::table('information_schema.statistics')
-            ->where('table_schema', DB::getDatabaseName())
-            ->where('table_name', $table)
-            ->where('index_name', $index)
-            ->exists();
+        return collect(Schema::getIndexes($table))
+            ->contains(fn (array $definition) => ($definition['name'] ?? null) === $index);
     }
 
     private function hasDuplicates(string $table, string $column): bool

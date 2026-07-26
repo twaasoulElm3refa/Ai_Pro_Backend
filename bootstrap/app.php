@@ -1,7 +1,8 @@
 <?php
 
-use App\Exceptions\AiServiceException;
+use App\Console\Commands\ReconcileMoyasarWalletPayments;
 use App\Console\Commands\ReconcilePayPalWalletPayments;
+use App\Exceptions\AiServiceException;
 use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\ApiKeyMiddleware;
 use App\Http\Middleware\Utf8JsonResponse;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
+        ReconcileMoyasarWalletPayments::class,
         ReconcilePayPalWalletPayments::class,
     ])
     ->withMiddleware(function (Middleware $middleware) {

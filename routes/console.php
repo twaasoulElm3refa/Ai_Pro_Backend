@@ -15,3 +15,7 @@ Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=120')
 Schedule::command('payments:reconcile-paypal-wallet')
     ->everyFiveMinutes()
     ->withoutOverlapping();
+
+Schedule::command('payments:reconcile-moyasar-wallet')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();

@@ -13,12 +13,16 @@ class DepositSuccessMail extends Mailable
     use Queueable, SerializesModels;
 
     public $amount;
+
+    public $currency;
+
     public $name;
 
-    public function __construct($amount, $name)
+    public function __construct($amount, $name, $currency = 'USD')
     {
         $this->amount = $amount;
         $this->name = $name;
+        $this->currency = strtoupper((string) $currency);
     }
 
     /**
@@ -40,7 +44,8 @@ class DepositSuccessMail extends Mailable
             view: 'mail.deposit_success',
             with: [
                 'amount' => $this->amount,
-                'name'   => $this->name,
+                'currency' => $this->currency,
+                'name' => $this->name,
             ],
         );
     }

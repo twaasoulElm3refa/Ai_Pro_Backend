@@ -14,12 +14,14 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class SendDepositSuccessMailJob implements ShouldQueue, ShouldBeUnique
+class SendDepositSuccessMailJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 5;
+
     public int $uniqueFor = 7200;
+
     public array $backoff = [60, 300, 900, 3600];
 
     public function __construct(public readonly int $paymentId) {}
@@ -37,7 +39,7 @@ class SendDepositSuccessMailJob implements ShouldQueue, ShouldBeUnique
         }
 
         try {
-            (new DepositSuccessMail($payment->amount, $payment->user->name))
+            (new DepositSuccessMail($payment->amount, $payment->user->name, $payment->currency))
                 ->to($payment->user->email)
                 ->send($mailer);
             $payment->update(['mail_sent' => true]);

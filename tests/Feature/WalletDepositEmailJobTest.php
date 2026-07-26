@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\SendDepositSuccessMailJob;
+use App\Mail\DepositSuccessMail;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Contracts\Mail\Mailer;
@@ -47,9 +48,16 @@ class WalletDepositEmailJobTest extends TestCase
         }
     }
 
-    private function completedPayment(): Payment
+    public function test_deposit_mail_uses_the_payment_currency(): void
     {
-        return Payment::create([
+        $mail = new DepositSuccessMail('8.50', 'Test User', 'SAR');
+
+        $this->assertStringContainsString('SAR 8.50', $mail->render());
+    }
+
+    private function completedPayment(array $overrides = []): Payment
+    {
+        return Payment::create(array_merge([
             'user_id' => User::factory()->create()->id,
             'payment_method' => 'paypal',
             'type' => 'wallet_deposit',
@@ -63,6 +71,6 @@ class WalletDepositEmailJobTest extends TestCase
             'mail_sent' => false,
             'wallet_credited' => true,
             'paid_at' => now(),
-        ]);
+        ], $overrides));
     }
 }
