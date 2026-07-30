@@ -24,7 +24,6 @@ const chatServices = {
     },
 
     async sendMessage(payload) {
-        console.log("[chatServices.sendMessage] request:", payload);
         const response = await api.post("/message/send", payload);
         return unwrap(response);
     },
@@ -33,6 +32,14 @@ const chatServices = {
         const response = await api.post("/message/send", formData);
 
         return unwrap(response);
+    },
+
+    async fetchProtectedBlob(url) {
+        const response = await api.get(url, {
+            responseType: "blob",
+        });
+
+        return response.data;
     },
 };
 

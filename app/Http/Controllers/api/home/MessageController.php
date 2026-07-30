@@ -18,11 +18,13 @@ use App\Services\AiArabicWriterService;
 use App\Services\ChatSeoToolService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
+use App\Services\GeneratedImageService;
 use App\Services\ProductDescriptionGeneratorService;
 use App\Services\ResumeBuilderService;
 use App\Services\ScriptGeneratorService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -66,7 +68,8 @@ class MessageController extends Controller
             ScriptGeneratorService $scriptGeneratorService,
             ProductDescriptionGeneratorService $productDescriptionGeneratorService,
             ChatSeoToolService $chatSeoToolService,
-            ResumeBuilderService $resumeBuilderService
+            ResumeBuilderService $resumeBuilderService,
+            GeneratedImageService $generatedImageService
     )
     {
         Log::info('Message send request received', [
@@ -119,6 +122,16 @@ class MessageController extends Controller
                 ) === 0
             );
             $isResumeBuilder = $subToolId === ResumeBuilderService::SUB_TOOL_ID;
+            $isImageGenerator = GeneratedImageService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool
+            ) || (int) $conversation->sub_tool_id === GeneratedImageService::SUB_TOOL_ID;
+
+            if ($isImageGenerator && $subToolId !== (int) $conversation->sub_tool_id) {
+                return $this->validationError([
+                    'sub_tool_id' => ['The selected tool does not match this conversation.'],
+                ], 'Invalid image generation conversation.');
+            }
 
             if ($content === '') {
                 if ($isProductDescriptionGenerator) {
@@ -142,6 +155,18 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Resume Builder Response Ready.'
+                );
+            }
+
+            if ($isImageGenerator) {
+                return $this->success(
+                    $generatedImageService->handle(
+                        $conversation,
+                        $data,
+                        $content,
+                        $userId
+                    ),
+                    'Image Generator Response Ready.'
                 );
             }
 
@@ -352,6 +377,112 @@ class MessageController extends Controller
         return Storage::disk($disk)->download($file->path, $file->filename, [
             'Content-Type' => $file->content_type ?: 'application/octet-stream',
         ]);
+    }
+
+    public function downloadResumeAssistantFile(Message $message)
+    {
+        $message->loadMissing('conversation');
+
+        if (
+            $message->role !== 'assistant'
+            || (int) $message->conversation?->user_id !== (int) auth()->id()
+            || (int) $message->conversation?->sub_tool_id !== ResumeBuilderService::SUB_TOOL_ID
+        ) {
+            abort(403);
+        }
+
+        $metadata = is_array($message->metadata) ? $message->metadata : [];
+        $resultMeta = data_get($metadata, 'results.0.meta', []);
+        $file = is_array($metadata['file'] ?? null) ? $metadata['file'] : [];
+        $downloadUrl = trim((string) (
+            $file['download_url']
+                ?? $file['file_url']
+                ?? data_get($resultMeta, 'download_url')
+                ?? data_get($resultMeta, 'file_url')
+                ?? ''
+        ));
+        $fileId = trim((string) (
+            $file['file_id']
+                ?? data_get($resultMeta, 'file_id')
+                ?? ''
+        ));
+
+        if ($downloadUrl === '' && $fileId !== '') {
+            $downloadUrl = '/tasks/resume-builder/download/'.$fileId;
+        }
+
+        $baseUrl = rtrim((string) (
+            config('services.aiarabic.public_base_url')
+                ?: config('services.aiarabic.base_url')
+                ?: config('services.aiarabic.url')
+        ), '/');
+        $downloadUrl = $this->trustedResumeDownloadUrl($downloadUrl, $baseUrl);
+        $internalApiKey = trim((string) (
+            config('services.aiarabic.internal_api_key')
+                ?: config('services.aiarabic.key')
+        ));
+
+        if ($internalApiKey === '') {
+            abort(503, 'Resume download is not configured.');
+        }
+
+        $response = Http::withHeaders([
+            'x-internal-api-key' => $internalApiKey,
+            'Accept' => 'application/octet-stream',
+        ])
+            ->connectTimeout(10)
+            ->timeout(120)
+            ->retry(2, 500, null, false)
+            ->get($downloadUrl);
+
+        if (! $response->successful() || strlen($response->body()) > 20 * 1024 * 1024) {
+            abort(502, 'Resume file could not be downloaded.');
+        }
+
+        $filename = basename((string) (
+            $file['filename']
+                ?? data_get($resultMeta, 'filename')
+                ?? 'resume.docx'
+        ));
+
+        if (! preg_match('/^[A-Za-z0-9._-]+\.(pdf|doc|docx)$/i', $filename)) {
+            $filename = 'resume.docx';
+        }
+
+        return response($response->body(), 200, [
+            'Content-Type' => $response->header('Content-Type') ?: 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function trustedResumeDownloadUrl(string $downloadUrl, string $baseUrl): string
+    {
+        $allowedPath = '#^/tasks/resume-builder/download/[A-Za-z0-9-]+$#';
+        $baseParts = parse_url($baseUrl);
+
+        if (! is_array($baseParts) || empty($baseParts['host'])) {
+            abort(503, 'Resume download is not configured.');
+        }
+
+        if (str_starts_with($downloadUrl, '/')) {
+            if (! preg_match($allowedPath, $downloadUrl)) {
+                abort(422, 'Resume download URL is invalid.');
+            }
+
+            return $baseUrl.$downloadUrl;
+        }
+
+        $urlParts = parse_url($downloadUrl);
+        $sameHost = is_array($urlParts)
+            && strtolower((string) ($urlParts['scheme'] ?? '')) === strtolower((string) ($baseParts['scheme'] ?? ''))
+            && strtolower((string) ($urlParts['host'] ?? '')) === strtolower((string) $baseParts['host']);
+
+        if (! $sameHost || ! preg_match($allowedPath, (string) ($urlParts['path'] ?? ''))) {
+            abort(422, 'Resume download URL is invalid.');
+        }
+
+        return $downloadUrl;
     }
 
     protected function handleTextSummarizerFlow(

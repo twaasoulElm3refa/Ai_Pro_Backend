@@ -10,7 +10,7 @@ class Message extends Model
 {
     use SoftDeletes;
 
-    private const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20];
+    private const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20, 21];
 
     protected $table = 'messages';
 
@@ -75,5 +75,10 @@ class Message extends Model
     public function conversation()
     {
         return $this->belongsTo(Conversation::class, 'conversation_id');
+    }
+
+    public function generatedImages()
+    {
+        return $this->hasMany(GeneratedImage::class);
     }
 }

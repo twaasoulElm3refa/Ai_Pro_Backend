@@ -41,6 +41,10 @@ return [
         'inject_qdrant_context' => env('AIARABIC_INJECT_QDRANT_CONTEXT', false),
         'conversation_token_limit' => env('AI_CONVERSATION_TOKEN_LIMIT', 7000),
     ],
+    'ai' => [
+        'base_url' => env('AI_SERVICE_URL', env('AIARABIC_BASE_URL', 'https://api.aiarabic.com')),
+        'internal_api_key' => env('AI_INTERNAL_API_KEY', env('AIARABIC_INTERNAL_API_KEY', env('AIARABIC_API_KEY'))),
+    ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

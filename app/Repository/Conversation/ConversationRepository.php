@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class ConversationRepository implements ConversationInterface
 {
-    protected const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20];
+    protected const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20, 21];
 
     protected function clearCache($userId)
     {

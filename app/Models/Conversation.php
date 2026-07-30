@@ -52,4 +52,9 @@ class Conversation extends Model
     {
         return $this->firstUserMessage();
     }
+
+    public function generatedImages()
+    {
+        return $this->hasMany(GeneratedImage::class);
+    }
 }

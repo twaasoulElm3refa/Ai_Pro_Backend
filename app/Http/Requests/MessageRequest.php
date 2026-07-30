@@ -14,6 +14,7 @@ class MessageRequest extends FormRequest
     private const LEGACY_SUB_TOOL_IDS = [3, 4, 5, 6, 7, 8];
     private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
     private const RESUME_BUILDER_SUB_TOOL_ID = 19;
+    private const IMAGE_GENERATOR_SUB_TOOL_ID = 21;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
@@ -141,6 +142,10 @@ class MessageRequest extends FormRequest
             return array_merge($rules, $this->resumeBuilderRules());
         }
 
+        if ($subToolId === self::IMAGE_GENERATOR_SUB_TOOL_ID) {
+            return array_merge($rules, $this->imageGeneratorRules());
+        }
+
         if (in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)) {
             return array_merge($rules, $this->chat3SeoStateRules());
         }
@@ -157,6 +162,29 @@ class MessageRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    private function imageGeneratorRules(): array
+    {
+        return [
+            'content' => ['nullable', 'string', 'max:10000'],
+            'message' => ['nullable', 'string', 'max:10000'],
+            'user_message' => ['required', 'string', 'max:10000'],
+            'state' => ['required', 'array'],
+            'state.provider' => ['nullable', 'string', 'max:100'],
+            'state.negative_prompt' => ['nullable', 'string', 'max:5000'],
+            'state.size' => [
+                'required',
+                Rule::in(['512x512', '768x768', '1024x1024', '1024x1536', '1536x1024']),
+            ],
+            'state.quality' => ['required', Rule::in(['low', 'medium', 'high'])],
+            'state.results_count' => ['required', 'integer', 'min:1', 'max:4'],
+            'state.output_format' => ['required', Rule::in(['png', 'jpg', 'jpeg', 'webp'])],
+            'state.seed' => ['nullable', 'integer'],
+            'state.extra_options' => ['nullable', 'array', 'max:20'],
+            'state.extra_options.*' => ['string', 'max:150'],
+            'state.last_output' => ['nullable'],
+        ];
     }
 
     protected function prepareForValidation(): void

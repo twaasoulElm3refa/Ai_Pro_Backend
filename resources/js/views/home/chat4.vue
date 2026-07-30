@@ -1484,7 +1484,9 @@ async function getDownloadErrorMessage(response) {
 }
 
 async function downloadResumeFile(message) {
-    const url = resolveDownloadUrl(getMessageDownloadUrl(message));
+    const url = message?.id && isResumeBuilderMessage(message)
+        ? resolveApiUrl(`/message/${message.id}/resume-file`)
+        : resolveDownloadUrl(getMessageDownloadUrl(message));
     if (!url) return;
 
     try {
@@ -1492,17 +1494,10 @@ async function downloadResumeFile(message) {
             Accept: "application/json",
         };
 
-        const isAiArabicResumeDownload = url.includes("api.aiarabic.com/tasks/resume-builder/download/");
+        const token = localStorage.getItem("auth_token");
 
-        if (isAiArabicResumeDownload) {
-            const internalApiKey = "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy";
-            if (internalApiKey) headers["x-internal-api-key"] = internalApiKey;
-        } else {
-            const token = localStorage.getItem("auth_token");
-
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
         }
 
         const response = await fetch(url, { headers });

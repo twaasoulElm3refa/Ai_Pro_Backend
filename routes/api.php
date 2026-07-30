@@ -16,6 +16,7 @@ use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\UserProfileController;
 use App\Http\Controllers\api\auth\WalletController;
 use App\Http\Controllers\api\home\ConversationController;
+use App\Http\Controllers\api\home\GeneratedImageController;
 use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\payment\DepositController;
@@ -79,7 +80,14 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('message')->middleware(['auth:sanctum', 'throttle:45,1'])->group(function () {
         Route::post('/send', [MessageController::class, 'sendMessage']);
+        Route::get('/{message}/resume-file', [MessageController::class, 'downloadResumeAssistantFile'])
+            ->withoutMiddleware(ApiKeyMiddleware::class);
     });
+
+    Route::prefix('generated-images')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+        Route::get('/{image}/preview', [GeneratedImageController::class, 'preview']);
+        Route::get('/{image}/download', [GeneratedImageController::class, 'download']);
+    })->withoutMiddleware(ApiKeyMiddleware::class);
 
     Route::get('/message/resume-output/{filename}', [MessageController::class, 'downloadResumeOutput'])
         ->name('resume-builder.download')

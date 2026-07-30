@@ -342,6 +342,7 @@ const goToSubTool = (subTool) => {
         2: "chat2",
         3: "chat3",
         4: "chat4",
+        5: "chat5",
     };
     const chatPath = chatRouteMap[mainToolId] || "chat";
     const uuid = subTool?.uuid || subTool?.chat_uuid || null;
