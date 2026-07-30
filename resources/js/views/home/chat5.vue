@@ -870,16 +870,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+:global(html),
+:global(body),
+:global(#app) {
+    height: 100%;
+    min-height: 100%;
+}
+
 .detector-chat {
-    --page-header-height: 118px;
     --navy: #0d4d97;
     --blue: #1f87c9;
     --cyan: #35b8dc;
     --ink: #15324b;
     --muted: #687b8e;
     --line: #d8e6f7;
-    height: calc(100dvh - var(--page-header-height));
-    min-height: calc(100dvh - var(--page-header-height));
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
     overflow: hidden;
@@ -909,6 +916,7 @@ button:disabled {
     z-index: 20;
     display: flex;
     flex-direction: column;
+    height: 100%;
     min-height: 0;
     padding: 24px 18px;
     overflow: hidden;
@@ -1070,10 +1078,11 @@ button:disabled {
 }
 
 .messages {
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
     padding: 26px max(24px, calc((100% - 900px) / 2)) 34px;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     scroll-behavior: smooth;
 }
 
@@ -1582,6 +1591,10 @@ button:disabled {
 }
 
 .composer {
+    position: relative;
+    z-index: 10;
+    flex: 0 0 auto;
+    width: 100%;
     padding: 14px max(24px, calc((100% - 900px) / 2)) 16px;
     border-top: 1px solid var(--line);
     background: #fff;
@@ -1742,7 +1755,7 @@ button:disabled {
 }
 
 .desktop-sidebar-open-toggle {
-    top: 84px;
+    top: 12px;
     inset-inline-start: 12px;
 }
 
@@ -1774,15 +1787,15 @@ button:disabled {
 
 @media (max-width: 900px) {
     .detector-chat {
-        --page-header-height: 104px;
         grid-template-columns: minmax(0, 1fr);
     }
 
     .sidebar {
         position: fixed;
-        top: var(--page-header-height);
+        top: 0;
         bottom: 0;
         inset-inline-start: 0;
+        height: 100dvh;
         width: min(84vw, 310px);
         transform: translateX(-105%);
         box-shadow: 20px 0 50px rgba(18, 63, 109, 0.18);
@@ -1800,7 +1813,7 @@ button:disabled {
         position: fixed;
         z-index: 15;
         display: block;
-        inset: var(--page-header-height) 0 0;
+        inset: 0;
         border: 0;
         background: rgba(14, 42, 67, 0.35);
     }
@@ -1810,7 +1823,7 @@ button:disabled {
     }
 
     .mobile-sidebar-toggle {
-        top: calc(var(--page-header-height) + 12px);
+        top: 12px;
         inset-inline-start: 12px;
     }
 
@@ -1838,12 +1851,6 @@ button:disabled {
 
     .options-form label.wide {
         grid-column: 1 / -1;
-    }
-}
-
-@media (max-width: 640px) {
-    .detector-chat {
-        --page-header-height: 90px;
     }
 }
 
