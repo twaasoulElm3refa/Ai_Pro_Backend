@@ -82,9 +82,6 @@
                                             <i class="bi bi-stars"></i>
                                             {{ message.content || labels.generated }}
                                         </span>
-                                        <!-- <small v-if="message.metadata?.generation?.model">
-                                            {{ message.metadata.generation.model }}
-                                        </small> -->
                                     </div>
 
                                     <div class="generated-images"
@@ -103,45 +100,40 @@
                                                     </button>
                                                 </div>
                                                 <img v-else-if="previewUrls[image.id]" :src="previewUrls[image.id]"
-                                                    :alt="image.filename" loading="lazy"
+                                                    :alt="labels.generated" loading="lazy"
                                                     @error="markPreviewFailed(image)">
                                             </div>
 
-                                            <div class="image-meta">
-                                                <span :title="image.filename">{{ image.filename }}</span>
-                                                <small>{{ formatFileSize(image.size_bytes) }}</small>
-                                            </div>
-
                                             <div class="image-actions">
-                                                <button type="button"
+                                                <button type="button" class="image-action image-action-primary"
                                                     :disabled="actionLoading === `download-${image.id}`"
                                                     @click="downloadImage(image)">
-                                                    <i class="bi bi-download"></i>
+                                                    <span v-if="actionLoading === `download-${image.id}`"
+                                                        class="button-spinner"></span>
+                                                    <i v-else class="bi bi-download"></i>
                                                     {{ labels.download }}
                                                 </button>
-                                                <button type="button" @click="openImage(image)">
+                                                <button type="button" class="image-action image-action-secondary"
+                                                    @click="openImage(image)">
                                                     <i class="bi bi-arrows-fullscreen"></i>
                                                     {{ labels.open }}
                                                 </button>
-                                                <!-- <button type="button" @click="copyImageLink(image)">
-                                                    <i
-                                                        :class="copiedImageId === image.id ? 'bi bi-check2' : 'bi bi-link-45deg'"></i>
-                                                    {{ copiedImageId === image.id ? labels.copied : labels.copyLink }}
-                                                </button> -->
                                             </div>
                                         </article>
+                                    </div>
+
+                                    <div class="result-footer">
+                                        <button type="button" class="regenerate-button" :disabled="isSending"
+                                            @click="regenerate(message)">
+                                            <span v-if="isSending" class="button-spinner"></span>
+                                            <i v-else class="bi bi-arrow-clockwise"></i>
+                                            {{ labels.regenerate }}
+                                        </button>
                                     </div>
 
                                     <div v-if="message.metadata?.failed_files?.length" class="partial-warning">
                                         <i class="bi bi-exclamation-triangle"></i>
                                         {{ labels.partialResult }}
-                                    </div>
-
-                                    <div class="result-actions">
-                                        <button type="button" :disabled="isSending" @click="regenerate(message)">
-                                            <i class="bi bi-arrow-clockwise"></i>
-                                            {{ labels.regenerate }}
-                                        </button>
                                     </div>
                                 </div>
                             </template>
@@ -316,9 +308,7 @@ const textareaRef = ref(null);
 const previewUrls = ref({});
 const previewLoading = ref({});
 const previewErrors = ref({});
-const copiedImageId = ref("");
 const actionLoading = ref("");
-let copyTimer = null;
 
 const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "en").toLowerCase() === "ar"
@@ -353,15 +343,12 @@ const labels = computed(() => isArabic.value ? {
     generated: "تم توليد الصور بنجاح",
     download: "تحميل",
     open: "فتح",
-    copyLink: "نسخ الرابط",
-    copied: "تم النسخ",
     regenerate: "إعادة التوليد",
     retry: "إعادة المحاولة",
     previewFailed: "تعذر عرض الصورة",
     partialResult: "تم حفظ بعض الصور فقط، وتعذر تنزيل صورة أو أكثر من خدمة التوليد.",
     genericError: "تعذر توليد الصور الآن. حاول مرة أخرى.",
     promptRequired: "اكتب وصف الصورة أولًا.",
-    copyFailed: "تعذر نسخ الرابط.",
     downloadFailed: "تعذر تحميل الصورة.",
     openFailed: "تعذر فتح الصورة.",
     deleteConfirm: "هل تريد حذف هذه المحادثة؟",
@@ -397,15 +384,12 @@ const labels = computed(() => isArabic.value ? {
     generated: "Images generated successfully",
     download: "Download",
     open: "Open",
-    copyLink: "Copy link",
-    copied: "Copied",
     regenerate: "Regenerate",
     retry: "Retry",
     previewFailed: "Preview unavailable",
     partialResult: "Some images were saved, but one or more files could not be downloaded.",
     genericError: "Images could not be generated right now. Please try again.",
     promptRequired: "Describe the image first.",
-    copyFailed: "The link could not be copied.",
     downloadFailed: "The image could not be downloaded.",
     openFailed: "The image could not be opened.",
     deleteConfirm: "Delete this conversation?",
@@ -762,19 +746,6 @@ async function openImage(image) {
     }
 }
 
-async function copyImageLink(image) {
-    try {
-        await navigator.clipboard.writeText(toAbsoluteUrl(image.preview_url));
-        copiedImageId.value = image.id;
-        clearTimeout(copyTimer);
-        copyTimer = setTimeout(() => {
-            copiedImageId.value = "";
-        }, 1800);
-    } catch {
-        errorMessage.value = labels.value.copyFailed;
-    }
-}
-
 function toAbsoluteUrl(url) {
     return new URL(String(url || ""), window.location.origin).toString();
 }
@@ -805,13 +776,6 @@ function autoResize() {
         textareaRef.value.style.height = "auto";
         textareaRef.value.style.height = `${Math.min(textareaRef.value.scrollHeight, 160)}px`;
     });
-}
-
-function formatFileSize(bytes) {
-    const size = Number(bytes || 0);
-    if (!size) return "";
-    if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function localizeError(message) {
@@ -879,7 +843,6 @@ watch(
 onMounted(initialize);
 onUnmounted(() => {
     revokePreviewUrls();
-    clearTimeout(copyTimer);
 });
 </script>
 
@@ -1232,6 +1195,7 @@ button:disabled {
 .generated-images {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    align-items: start;
     gap: 12px;
 }
 
@@ -1245,8 +1209,9 @@ button:disabled {
     min-width: 0;
     overflow: hidden;
     border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fbfdff;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(18, 63, 109, 0.06);
 }
 
 .image-preview {
@@ -1254,14 +1219,17 @@ button:disabled {
     display: grid;
     place-items: center;
     width: 100%;
-    aspect-ratio: 1 / 1;
+    min-height: 280px;
+    max-height: 620px;
     overflow: hidden;
-    background: #edf4fa;
+    background: #f3f7fb;
 }
 
 .image-preview img {
+    display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
+    max-height: 620px;
     object-fit: contain;
 }
 
@@ -1298,64 +1266,92 @@ button:disabled {
     background: #fff;
 }
 
-.image-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 10px 12px;
-}
-
-.image-meta span {
-    min-width: 0;
-    overflow: hidden;
-    font-size: 12px;
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.image-meta small {
-    flex: 0 0 auto;
-    color: var(--muted);
-}
-
 .image-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px;
     border-top: 1px solid var(--line);
+    background: #fff;
 }
 
-.image-actions button {
-    display: flex;
+.image-action {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 7px;
     min-width: 0;
-    min-height: 38px;
-    padding: 6px;
-    border: 0;
-    border-inline-end: 1px solid var(--line);
+    min-height: 42px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.image-action-primary {
+    border: 1px solid #123f6d;
+    color: #fff;
+    background: #123f6d;
+}
+
+.image-action-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: var(--navy);
+    box-shadow: 0 8px 18px rgba(18, 63, 109, 0.18);
+}
+
+.image-action-secondary {
+    border: 1px solid #bfd7e8;
     color: var(--navy);
     background: #fff;
-    font-size: 11px;
 }
 
-.image-actions button:last-child {
-    border-inline-end: 0;
-}
-
-.image-actions button:hover:not(:disabled) {
+.image-action-secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--blue);
     background: #edf7fc;
 }
 
-.result-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 14px;
+.image-action i {
+    font-size: 14px;
 }
 
-.result-actions button,
+.result-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 14px;
+}
+
+.regenerate-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 0 15px;
+    border: 1px solid #bfd7e8;
+    border-radius: 10px;
+    color: var(--navy);
+    background: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.regenerate-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--blue);
+    background: #edf7fc;
+}
+
 .clean-error-card button,
 .error-banner button {
     display: inline-flex;
@@ -1370,9 +1366,19 @@ button:disabled {
     font-weight: 700;
 }
 
-.result-actions button:hover:not(:disabled),
 .clean-error-card button:hover:not(:disabled) {
     background: #edf7fc;
+}
+
+.button-spinner {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
 }
 
 .partial-warning {
@@ -1474,12 +1480,6 @@ button:disabled {
 
 .options-panel-header::-webkit-details-marker {
     display: none;
-}
-
-.settings-summary {
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 500;
 }
 
 .options-form {
@@ -1712,12 +1712,20 @@ button:disabled {
     }
 
     .image-actions {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
     }
 
-    .image-actions button {
-        flex-direction: column;
-        min-height: 48px;
+    .image-action {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .result-footer {
+        justify-content: stretch;
+    }
+
+    .regenerate-button {
+        width: 100%;
     }
 
     .options-form {
@@ -1726,10 +1734,6 @@ button:disabled {
 
     .options-form label.wide {
         grid-column: auto;
-    }
-
-    .settings-summary {
-        display: none;
     }
 
     .response-heading {
