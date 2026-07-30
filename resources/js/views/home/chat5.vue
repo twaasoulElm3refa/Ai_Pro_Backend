@@ -153,16 +153,37 @@
                         </div>
                     </article>
 
-                    <article v-if="isSending" class="message-row assistant">
-                        <div class="avatar"><i class="bi bi-stars"></i></div>
+                    <article v-if="isSending" class="message-row assistant generation-message">
+                        <div class="avatar generation-avatar"><i class="bi bi-stars"></i></div>
                         <div class="message-body card-shell generation-loading">
-                            <div class="loading-image-grid">
-                                <span v-for="index in state.results_count" :key="index" class="loading-image"></span>
+                            <div class="generation-header">
+                                <div class="generation-header-content">
+                                    <span class="generation-icon">
+                                        <i class="bi bi-stars"></i>
+                                    </span>
+
+                                    <div>
+                                        <strong>{{ labels.generating }}</strong>
+                                        <small>{{ labels.generationWait }}</small>
+                                    </div>
+                                </div>
+
+                                <span class="generation-spinner" aria-hidden="true"></span>
                             </div>
-                            <span class="generating-label">
-                                <span class="spinner"></span>
-                                {{ labels.generating }}
-                            </span>
+
+                            <div class="loading-image-grid" :class="`loading-count-${Math.min(state.results_count, 4)}`">
+                                <div v-for="index in state.results_count" :key="index" class="loading-image-card">
+                                    <span class="loading-image-shimmer"></span>
+
+                                    <span class="loading-image-placeholder">
+                                        <i class="bi bi-image"></i>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="generation-progress">
+                                <span class="generation-progress-line"></span>
+                            </div>
                         </div>
                     </article>
                 </div>
@@ -340,6 +361,7 @@ const labels = computed(() => isArabic.value ? {
     send: "توليد الصور",
     hint: "Enter للإرسال، وShift + Enter لسطر جديد",
     generating: "جاري توليد الصور وحفظها...",
+    generationWait: "قد تستغرق العملية بضع لحظات، لا تغلق الصفحة.",
     generated: "تم توليد الصور بنجاح",
     download: "تحميل",
     open: "فتح",
@@ -381,6 +403,7 @@ const labels = computed(() => isArabic.value ? {
     send: "Generate images",
     hint: "Press Enter to send, Shift + Enter for a new line",
     generating: "Generating and saving images...",
+    generationWait: "This may take a few moments. Please keep this page open.",
     generated: "Images generated successfully",
     download: "Download",
     open: "Open",
@@ -1233,8 +1256,7 @@ button:disabled {
     object-fit: contain;
 }
 
-.image-skeleton,
-.loading-image {
+.image-skeleton {
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, #e8f0f6 25%, #f7fbfe 50%, #e8f0f6 75%);
@@ -1407,33 +1429,156 @@ button:disabled {
     flex: 1;
 }
 
-.generation-loading {
+.generation-message {
+    align-items: flex-start;
+}
+
+.message-body.card-shell.generation-loading {
+    width: min(620px, calc(100% - 50px));
+    max-width: min(620px, calc(100% - 50px));
     padding: 16px;
+    overflow: hidden;
+    border: 1px solid #d8e6f7;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 14px 34px rgba(18, 63, 109, 0.08);
+}
+
+.generation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.generation-header-content {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+}
+
+.generation-header-content > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.generation-header strong {
+    color: var(--navy);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.generation-header small {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.generation-icon {
+    display: grid;
+    flex: 0 0 36px;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    color: #fff;
+    background: linear-gradient(145deg, var(--navy), var(--blue));
+    box-shadow: 0 8px 18px rgba(18, 63, 109, 0.16);
+}
+
+.generation-icon i {
+    animation: generationSparkle 1.6s ease-in-out infinite;
+}
+
+.generation-spinner {
+    flex: 0 0 auto;
+    width: 21px;
+    height: 21px;
+    border: 2px solid #d5e7f3;
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
 
 .loading-image-grid {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+
+.loading-image-grid.loading-count-2,
+.loading-image-grid.loading-count-3,
+.loading-image-grid.loading-count-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
 }
 
-.loading-image {
-    display: block;
+.loading-image-card {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
     aspect-ratio: 1 / 1;
-    border-radius: 8px;
+    min-height: 180px;
+    max-height: 360px;
+    overflow: hidden;
+    border: 1px solid #deebf4;
+    border-radius: 14px;
+    background: #edf4fa;
 }
 
-.generating-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 12px;
-    color: var(--muted);
+.loading-image-shimmer {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(
+            100deg,
+            transparent 20%,
+            rgba(255, 255, 255, 0.72) 48%,
+            transparent 76%
+        ),
+        linear-gradient(145deg, #edf4fa, #e3eef7);
+    background-size: 220% 100%, 100% 100%;
+    animation: imageShimmer 1.5s linear infinite;
 }
 
-.generating-label .spinner {
-    width: 18px;
-    height: 18px;
+.loading-image-placeholder {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    border: 1px solid rgba(31, 135, 201, 0.12);
+    border-radius: 15px;
+    color: #7ea6c1;
+    background: rgba(255, 255, 255, 0.72);
+    font-size: 22px;
+    backdrop-filter: blur(4px);
+    animation: imagePlaceholderPulse 1.6s ease-in-out infinite;
+}
+
+.generation-progress {
+    height: 3px;
+    margin-top: 14px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e3edf5;
+}
+
+.generation-progress-line {
+    display: block;
+    width: 38%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--navy), var(--cyan));
+    animation: generationProgress 1.7s ease-in-out infinite;
+}
+
+[dir="rtl"] .generation-progress-line {
+    animation-name: generationProgressRtl;
 }
 
 .composer {
@@ -1703,12 +1848,32 @@ button:disabled {
 }
 
 @media (max-width: 560px) {
+    .message-body.card-shell.generation-loading {
+        width: calc(100% - 48px);
+        max-width: calc(100% - 48px);
+        padding: 13px;
+    }
 
     .generated-images.image-count-2,
     .generated-images.image-count-3,
-    .generated-images.image-count-4,
-    .loading-image-grid {
+    .generated-images.image-count-4 {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .loading-image-grid,
+    .loading-image-grid.loading-count-2,
+    .loading-image-grid.loading-count-3,
+    .loading-image-grid.loading-count-4 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .loading-image-card {
+        min-height: 210px;
+        max-height: 330px;
+    }
+
+    .generation-header small {
+        font-size: 10px;
     }
 
     .image-actions {
@@ -1756,6 +1921,70 @@ button:disabled {
 @keyframes shimmer {
     to {
         background-position: -200% 0;
+    }
+}
+
+@keyframes imageShimmer {
+    from {
+        background-position: 220% 0, 0 0;
+    }
+
+    to {
+        background-position: -120% 0, 0 0;
+    }
+}
+
+@keyframes imagePlaceholderPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+
+    50% {
+        transform: scale(1.06);
+        opacity: 1;
+    }
+}
+
+@keyframes generationSparkle {
+
+    0%,
+    100% {
+        transform: rotate(0deg) scale(1);
+    }
+
+    50% {
+        transform: rotate(12deg) scale(1.12);
+    }
+}
+
+@keyframes generationProgress {
+    0% {
+        transform: translateX(-130%);
+    }
+
+    50% {
+        transform: translateX(120%);
+    }
+
+    100% {
+        transform: translateX(300%);
+    }
+}
+
+@keyframes generationProgressRtl {
+    0% {
+        transform: translateX(130%);
+    }
+
+    50% {
+        transform: translateX(-120%);
+    }
+
+    100% {
+        transform: translateX(-300%);
     }
 }
 .options-chevron {

@@ -74,7 +74,7 @@ const routes = [
     {
         path: "/:lang/subtool/:slug/chat5/:uuid?",
         component: chat5,
-        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
+        meta: { hideNavbar: true, hideFooter: true, hideHeader: true },
     },
     {
         path: "/:lang/profile",
