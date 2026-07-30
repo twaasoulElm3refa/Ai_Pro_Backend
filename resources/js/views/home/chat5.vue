@@ -82,9 +82,9 @@
                                             <i class="bi bi-stars"></i>
                                             {{ message.content || labels.generated }}
                                         </span>
-                                        <small v-if="message.metadata?.generation?.model">
+                                        <!-- <small v-if="message.metadata?.generation?.model">
                                             {{ message.metadata.generation.model }}
-                                        </small>
+                                        </small> -->
                                     </div>
 
                                     <div class="generated-images"
