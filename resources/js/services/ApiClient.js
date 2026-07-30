@@ -2,8 +2,8 @@ import axios from "axios";
 import toastr from "toastr";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
-const PUBLIC_API_KEY = import.meta.env.VITE_API_KEY || "";
+const API_BASE_URL = "/api/v1" || "/api/v1";
+const PUBLIC_API_KEY = "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy" || "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy";
 
 let fingerprintPromise = null;
 
