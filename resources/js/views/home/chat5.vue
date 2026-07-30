@@ -470,6 +470,35 @@ function stateFromMessage(message) {
         : null;
 }
 
+function normalizeSeed(value) {
+    if (value === "" || value === undefined || value === null) return null;
+    const seed = Number(value);
+    return Number.isFinite(seed) ? seed : null;
+}
+
+function cleanRequestState(requestState = {}, regenerate = false) {
+    return {
+        ...createDefaultState(),
+        provider: requestState?.provider ?? null,
+        negative_prompt: String(requestState?.negative_prompt || ""),
+        size: requestState?.size || "1024x1024",
+        quality: requestState?.quality || "medium",
+        results_count: Number(requestState?.results_count || 1),
+        output_format: requestState?.output_format || "png",
+        seed: normalizeSeed(requestState?.seed),
+        extra_options: [],
+        last_output: regenerate ? requestState?.last_output ?? null : null,
+    };
+}
+
+function cleanUiState(source = {}) {
+    return {
+        ...cleanRequestState(source, false),
+        seed: null,
+        last_output: null,
+    };
+}
+
 async function loadSubtool() {
     try {
         const data = responseData(await homeService.showSubtool(route.params.slug));
@@ -515,7 +544,7 @@ async function loadConversationDetails(uuid) {
             .reverse()
             .map(stateFromMessage)
             .find(Boolean);
-        state.value = latestState || createDefaultState();
+        state.value = latestState ? cleanUiState(latestState) : createDefaultState();
         await loadMessagePreviews();
         await scrollToBottom();
     } catch {
@@ -547,16 +576,13 @@ async function ensureConversation() {
 }
 
 function buildPayload(prompt, conversation, requestState, regenerate = false) {
+    const cleanState = cleanRequestState(requestState, regenerate);
+
     return {
         sub_tool_id: Number(conversation.sub_tool_id || activeSubToolId.value),
         conversation_uuid: conversation.uuid,
         user_message: prompt,
-        state: {
-            ...createDefaultState(),
-            ...requestState,
-            seed: requestState.seed === "" || requestState.seed === undefined ? null : requestState.seed,
-            extra_options: [],
-        },
+        state: cleanState,
         tool: IMAGE_TOOL.tool_key,
         tool_key: IMAGE_TOOL.tool_key,
         model_key: IMAGE_TOOL.model_key,
@@ -573,10 +599,8 @@ async function sendMessage(options = {}) {
         return;
     }
 
-    const requestState = {
-        ...createDefaultState(),
-        ...(options.requestState || state.value),
-    };
+    const regenerate = Boolean(options.regenerate);
+    const requestState = cleanRequestState(options.requestState || state.value, regenerate);
     const optimisticKey = `local-user-${Date.now()}`;
     errorMessage.value = "";
     lastFailedRequest.value = null;
@@ -584,12 +608,12 @@ async function sendMessage(options = {}) {
 
     try {
         const conversation = await ensureConversation();
-        const payload = buildPayload(prompt, conversation, requestState, Boolean(options.regenerate));
+        const payload = buildPayload(prompt, conversation, requestState, regenerate);
         messages.value.push(mapMessage({
             localKey: optimisticKey,
             role: "user",
             content: prompt,
-            metadata: { state: requestState },
+            metadata: { state: payload.state },
         }, messages.value.length));
         messages.value[messages.value.length - 1].localKey = optimisticKey;
         userMessage.value = "";
@@ -614,11 +638,14 @@ async function sendMessage(options = {}) {
             },
         }, messages.value.length);
         messages.value.push(assistant);
-        state.value = { ...createDefaultState(), ...(result.state || requestState) };
+        state.value = cleanUiState(result.state || requestState);
 
         if (assistant.is_error) {
-            lastFailedRequest.value = { prompt, requestState };
-            errorMessage.value = localizeError(result.message);
+            lastFailedRequest.value = {
+                prompt,
+                requestState: cleanRequestState(requestState, false),
+                regenerate: false,
+            };
         } else {
             await loadPreviewsForMessage(assistant);
         }
@@ -626,9 +653,21 @@ async function sendMessage(options = {}) {
         await loadConversations();
         await scrollToBottom();
     } catch (error) {
-        const message = error?.response?.data?.message || labels.value.genericError;
+        if (import.meta.env.DEV) {
+            console.error("[chat5 image generation error]", {
+                status: error?.response?.status,
+                data: error?.response?.data,
+                message: error?.message,
+            });
+        }
+
+        const message = error?.response?.data?.message || error?.response?.data?.error || labels.value.genericError;
         errorMessage.value = localizeError(message);
-        lastFailedRequest.value = { prompt, requestState };
+        lastFailedRequest.value = {
+            prompt,
+            requestState: cleanRequestState(requestState, false),
+            regenerate: false,
+        };
     } finally {
         isSending.value = false;
     }
@@ -642,11 +681,32 @@ function retryLastRequest() {
 function retryMessage(message) {
     const prompt = String(message?.metadata?.request_prompt || lastUserPromptBefore(message) || "").trim();
     const requestState = stateFromMessage(message) || state.value;
-    sendMessage({ prompt, requestState, regenerate: true });
+    sendMessage({
+        prompt,
+        requestState: {
+            ...cleanRequestState(requestState, true),
+            last_output: message?.metadata?.last_output ?? requestState?.last_output ?? null,
+        },
+        regenerate: true,
+    });
 }
 
 function regenerate(message) {
-    retryMessage(message);
+    const prompt = String(
+        message?.metadata?.request_prompt
+        || lastUserPromptBefore(message)
+        || ""
+    ).trim();
+    const previousState = stateFromMessage(message) || createDefaultState();
+
+    sendMessage({
+        prompt,
+        requestState: {
+            ...cleanRequestState(previousState, true),
+            last_output: message?.metadata?.last_output ?? previousState?.last_output ?? null,
+        },
+        regenerate: true,
+    });
 }
 
 function lastUserPromptBefore(message) {

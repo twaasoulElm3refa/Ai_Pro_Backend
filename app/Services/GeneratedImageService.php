@@ -99,13 +99,18 @@ class GeneratedImageService
             }
         }
 
-        $state = $this->normalizeState(is_array($data['state'] ?? null) ? $data['state'] : []);
+        $regenerate = (bool) ($data['regenerate'] ?? false);
+        $state = $this->normalizeState(
+            is_array($data['state'] ?? null) ? $data['state'] : [],
+            $regenerate
+        );
         $requestPayload = [
             'user_id' => $userId,
             'sub_tool_id' => self::SUB_TOOL_ID,
             'conversation_uuid' => (string) $conversation->uuid,
             'user_message' => $prompt,
             'state' => $state,
+            'regenerate' => $regenerate,
             'debug' => (bool) ($data['debug'] ?? false),
         ];
 
@@ -123,7 +128,7 @@ class GeneratedImageService
                 'conversation_uuid' => (string) $conversation->uuid,
                 'state' => $state,
                 'request_payload' => $requestPayload,
-                'regenerate' => (bool) ($data['regenerate'] ?? false),
+                'regenerate' => $regenerate,
             ],
         ]);
 
@@ -569,7 +574,7 @@ class GeneratedImageService
         ));
     }
 
-    private function normalizeState(array $state): array
+    private function normalizeState(array $state, bool $regenerate = false): array
     {
         return [
             'provider' => $this->stringValue($state['provider'] ?? null),
@@ -582,7 +587,7 @@ class GeneratedImageService
             'extra_options' => is_array($state['extra_options'] ?? null)
                 ? array_values($state['extra_options'])
                 : [],
-            'last_output' => $state['last_output'] ?? null,
+            'last_output' => $regenerate ? ($state['last_output'] ?? null) : null,
         ];
     }
 

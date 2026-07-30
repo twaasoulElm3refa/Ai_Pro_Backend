@@ -238,6 +238,102 @@ class ImageGeneratorFlowTest extends TestCase
         $this->assertDatabaseCount('generated_images', 2);
     }
 
+    public function test_user_can_generate_multiple_images_in_same_conversation_without_reusing_previous_output(): void
+    {
+        [$user, $conversation] = $this->makeContext();
+        $providerRequests = [];
+        $providerCall = 0;
+
+        Http::fake(function (Request $request) use (&$providerRequests, &$providerCall) {
+            if ($request->method() === 'POST' && $request->url() === self::AI_BASE_URL.'/tasks/image-generator/chat') {
+                $providerCall++;
+                $providerRequests[] = $request->data();
+
+                return Http::response(
+                    $this->providerResponse([$this->providerFile('file-'.$providerCall)])
+                );
+            }
+
+            if (
+                $request->method() === 'GET'
+                && preg_match('#^'.preg_quote(self::AI_BASE_URL, '#').'/tasks/generated-files/download/file-[1-3]$#', $request->url())
+            ) {
+                return Http::response(
+                    $this->pngBytes(),
+                    200,
+                    ['Content-Type' => 'image/png']
+                );
+            }
+
+            return Http::response(['message' => 'Unexpected request.'], 500);
+        });
+        Sanctum::actingAs($user);
+
+        $firstKey = (string) Str::uuid();
+        $secondKey = (string) Str::uuid();
+        $thirdKey = (string) Str::uuid();
+
+        $this->sendGeneration($conversation, [
+            'last_output' => null,
+        ], 'First image prompt', $firstKey)->assertOk()
+            ->assertJsonPath('data.success', true);
+
+        $this->sendGeneration($conversation, [
+            'last_output' => [
+                'request_id' => 'stale-request-id',
+                'image_ids' => ['stale-image-id'],
+            ],
+        ], 'Second image prompt', $secondKey)->assertOk()
+            ->assertJsonPath('data.success', true);
+
+        $this->sendGeneration($conversation, [
+            'last_output' => [
+                'request_id' => 'another-stale-request-id',
+                'image_ids' => ['another-stale-image-id'],
+            ],
+        ], 'Third image prompt', $thirdKey)->assertOk()
+            ->assertJsonPath('data.success', true);
+
+        $this->assertCount(3, $providerRequests);
+        $this->assertSame(
+            ['First image prompt', 'Second image prompt', 'Third image prompt'],
+            array_column($providerRequests, 'user_message')
+        );
+        $this->assertSame(
+            [null, null, null],
+            array_map(fn (array $payload) => data_get($payload, 'state.last_output'), $providerRequests)
+        );
+
+        $this->assertDatabaseCount('generated_images', 3);
+        $this->assertSame(3, Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('role', 'user')
+            ->count());
+        $this->assertSame(3, Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->where('is_error', false)
+            ->count());
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role' => 'user',
+            'content' => 'First image prompt',
+            'idempotency_key' => $firstKey,
+        ]);
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role' => 'user',
+            'content' => 'Second image prompt',
+            'idempotency_key' => $secondKey,
+        ]);
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role' => 'user',
+            'content' => 'Third image prompt',
+            'idempotency_key' => $thirdKey,
+        ]);
+    }
+
     public function test_conversation_history_restores_generated_images_and_settings(): void
     {
         [$user, $conversation] = $this->makeContext();
@@ -307,16 +403,23 @@ class ImageGeneratorFlowTest extends TestCase
         return [$user, $conversation];
     }
 
-    private function sendGeneration(Conversation $conversation, array $stateOverrides = [])
+    private function sendGeneration(
+        Conversation $conversation,
+        array $stateOverrides = [],
+        ?string $prompt = null,
+        ?string $idempotencyKey = null,
+        bool $regenerate = false
+    )
     {
         return $this->withHeaders(['X-API-KEY' => self::API_KEY])
             ->postJson('/api/v1/message/send', [
                 'sub_tool_id' => 21,
                 'conversation_uuid' => $conversation->uuid,
-                'user_message' => 'A cinematic futuristic Cairo skyline at sunset.',
+                'user_message' => $prompt ?? 'A cinematic futuristic Cairo skyline at sunset.',
                 'tool' => 'ai_image_generator',
                 'tool_key' => 'ai_image_generator',
-                'idempotency_key' => (string) Str::uuid(),
+                'idempotency_key' => $idempotencyKey ?? (string) Str::uuid(),
+                'regenerate' => $regenerate,
                 'state' => array_replace([
                     'provider' => null,
                     'negative_prompt' => 'blurry, text, watermark',
