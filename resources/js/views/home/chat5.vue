@@ -1,29 +1,18 @@
 <template>
-    <main
-        class="detector-chat"
-        :class="{ 'sidebar-collapsed': desktopSidebarCollapsed }"
-        :dir="isArabic ? 'rtl' : 'ltr'"
-    >
+    <main class="detector-chat" :class="{ 'sidebar-collapsed': desktopSidebarCollapsed }"
+        :dir="isArabic ? 'rtl' : 'ltr'">
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-brand">
                 <span class="brand-icon"><i class="bi bi-image"></i></span>
                 <strong>{{ labels.title }}</strong>
-                <button
-                    type="button"
-                    class="icon-button sidebar-close-toggle"
-                    :aria-label="labels.closeSidebar"
-                    @click="closeSidebar"
-                >
+                <button type="button" class="icon-button sidebar-close-toggle" :aria-label="labels.closeSidebar"
+                    @click="closeSidebar">
                     <i class="bi bi-layout-sidebar-inset-reverse"></i>
                 </button>
             </div>
 
-            <button
-                type="button"
-                class="new-chat-button"
-                :disabled="creatingConversation || isSending"
-                @click="startNewChat"
-            >
+            <button type="button" class="new-chat-button" :disabled="creatingConversation || isSending"
+                @click="startNewChat">
                 <i class="bi bi-plus-lg"></i>
                 {{ creatingConversation ? labels.creating : labels.newChat }}
             </button>
@@ -33,47 +22,29 @@
             <div v-else-if="conversations.length === 0" class="sidebar-status">{{ labels.noChats }}</div>
 
             <div v-else class="conversation-list">
-                <div
-                    v-for="conversation in conversations"
-                    :key="conversation.uuid"
-                    class="conversation-item"
-                    :class="{ active: conversation.uuid === activeConversation?.uuid }"
-                >
+                <div v-for="conversation in conversations" :key="conversation.uuid" class="conversation-item"
+                    :class="{ active: conversation.uuid === activeConversation?.uuid }">
                     <button type="button" class="conversation-open" @click="openConversation(conversation)">
                         <i class="bi bi-chat-left-text"></i>
                         <span>{{ conversation.title }}</span>
                     </button>
-                    <button
-                        type="button"
-                        class="conversation-delete"
-                        :disabled="deletingUuid === conversation.uuid || isSending"
-                        :aria-label="labels.deleteChat"
-                        @click="deleteConversation(conversation)"
-                    >
+                    <button type="button" class="conversation-delete"
+                        :disabled="deletingUuid === conversation.uuid || isSending" :aria-label="labels.deleteChat"
+                        @click="deleteConversation(conversation)">
                         <i class="bi bi-trash3"></i>
                     </button>
                 </div>
             </div>
         </aside>
 
-        <button
-            v-if="desktopSidebarCollapsed"
-            type="button"
-            class="desktop-sidebar-open-toggle"
-            :aria-label="labels.openSidebar"
-            @click="openSidebar"
-        >
+        <button v-if="desktopSidebarCollapsed" type="button" class="desktop-sidebar-open-toggle"
+            :aria-label="labels.openSidebar" @click="openSidebar">
             <i class="bi bi-layout-sidebar-inset"></i>
         </button>
 
         <button v-if="sidebarOpen" type="button" class="sidebar-overlay" @click="sidebarOpen = false"></button>
-        <button
-            v-if="!sidebarOpen"
-            type="button"
-            class="mobile-sidebar-toggle mobile-only"
-            :aria-label="labels.openSidebar"
-            @click="openSidebar"
-        >
+        <button v-if="!sidebarOpen" type="button" class="mobile-sidebar-toggle mobile-only"
+            :aria-label="labels.openSidebar" @click="openSidebar">
             <i class="bi bi-layout-sidebar-inset"></i>
         </button>
 
@@ -94,23 +65,16 @@
                 </div>
 
                 <div v-else class="message-list">
-                    <article
-                        v-for="message in messages"
-                        :key="message.localKey"
-                        class="message-row"
-                        :class="message.role"
-                    >
+                    <article v-for="message in messages" :key="message.localKey" class="message-row"
+                        :class="message.role">
                         <div class="avatar">
                             <i :class="message.role === 'assistant' ? 'bi bi-stars' : 'bi bi-person-fill'"></i>
                         </div>
 
-                        <div
-                            class="message-body"
-                            :class="{
-                                error: message.is_error,
-                                'card-shell': message.role === 'assistant' && (message.images.length || message.is_error),
-                            }"
-                        >
+                        <div class="message-body" :class="{
+                            error: message.is_error,
+                            'card-shell': message.role === 'assistant' && (message.images.length || message.is_error),
+                        }">
                             <template v-if="message.role === 'assistant' && message.images.length">
                                 <div class="image-response-card">
                                     <div class="response-heading">
@@ -123,15 +87,10 @@
                                         </small>
                                     </div>
 
-                                    <div
-                                        class="generated-images"
-                                        :class="`image-count-${Math.min(message.images.length, 4)}`"
-                                    >
-                                        <article
-                                            v-for="image in message.images"
-                                            :key="image.id"
-                                            class="generated-image-card"
-                                        >
+                                    <div class="generated-images"
+                                        :class="`image-count-${Math.min(message.images.length, 4)}`">
+                                        <article v-for="image in message.images" :key="image.id"
+                                            class="generated-image-card">
                                             <div class="image-preview">
                                                 <span v-if="previewLoading[image.id]" class="image-skeleton">
                                                     <i class="bi bi-image"></i>
@@ -143,13 +102,9 @@
                                                         {{ labels.retry }}
                                                     </button>
                                                 </div>
-                                                <img
-                                                    v-else-if="previewUrls[image.id]"
-                                                    :src="previewUrls[image.id]"
-                                                    :alt="image.filename"
-                                                    loading="lazy"
-                                                    @error="markPreviewFailed(image)"
-                                                >
+                                                <img v-else-if="previewUrls[image.id]" :src="previewUrls[image.id]"
+                                                    :alt="image.filename" loading="lazy"
+                                                    @error="markPreviewFailed(image)">
                                             </div>
 
                                             <div class="image-meta">
@@ -158,11 +113,9 @@
                                             </div>
 
                                             <div class="image-actions">
-                                                <button
-                                                    type="button"
+                                                <button type="button"
                                                     :disabled="actionLoading === `download-${image.id}`"
-                                                    @click="downloadImage(image)"
-                                                >
+                                                    @click="downloadImage(image)">
                                                     <i class="bi bi-download"></i>
                                                     {{ labels.download }}
                                                 </button>
@@ -171,7 +124,8 @@
                                                     {{ labels.open }}
                                                 </button>
                                                 <button type="button" @click="copyImageLink(image)">
-                                                    <i :class="copiedImageId === image.id ? 'bi bi-check2' : 'bi bi-link-45deg'"></i>
+                                                    <i
+                                                        :class="copiedImageId === image.id ? 'bi bi-check2' : 'bi bi-link-45deg'"></i>
                                                     {{ copiedImageId === image.id ? labels.copied : labels.copyLink }}
                                                 </button>
                                             </div>
@@ -184,11 +138,7 @@
                                     </div>
 
                                     <div class="result-actions">
-                                        <button
-                                            type="button"
-                                            :disabled="isSending"
-                                            @click="regenerate(message)"
-                                        >
+                                        <button type="button" :disabled="isSending" @click="regenerate(message)">
                                             <i class="bi bi-arrow-clockwise"></i>
                                             {{ labels.regenerate }}
                                         </button>
@@ -238,7 +188,9 @@
                 <details class="options-panel">
                     <summary class="options-panel-header">
                         <span><i class="bi bi-sliders"></i> {{ labels.settings }}</span>
-                        <span class="settings-summary">{{ state.size }} · {{ state.quality }} · {{ state.results_count }}</span>
+                        <span class="options-chevron" aria-hidden="true">
+                            <i class="bi bi-chevron-down"></i>
+                        </span>
                     </summary>
 
                     <div class="options-form">
@@ -283,44 +235,24 @@
 
                         <label class="wide">
                             <span>{{ labels.negativePrompt }}</span>
-                            <textarea
-                                v-model="state.negative_prompt"
-                                rows="2"
-                                :disabled="isSending"
-                                :placeholder="labels.negativePlaceholder"
-                            ></textarea>
+                            <textarea v-model="state.negative_prompt" rows="2" :disabled="isSending"
+                                :placeholder="labels.negativePlaceholder"></textarea>
                         </label>
 
                         <label>
                             <span>{{ labels.seed }}</span>
-                            <input
-                                v-model.number="state.seed"
-                                type="number"
-                                :disabled="isSending"
-                                :placeholder="labels.random"
-                            >
+                            <input v-model.number="state.seed" type="number" :disabled="isSending"
+                                :placeholder="labels.random">
                         </label>
                     </div>
                 </details>
 
                 <div class="input-box">
-                    <textarea
-                        ref="textareaRef"
-                        v-model="userMessage"
-                        rows="1"
-                        maxlength="10000"
-                        :placeholder="labels.placeholder"
-                        :disabled="isSending"
-                        @input="autoResize"
-                        @keydown.enter.exact.prevent="sendMessage()"
-                    ></textarea>
-                    <button
-                        type="button"
-                        class="send-button"
-                        :disabled="!canSend"
-                        :aria-label="labels.send"
-                        @click="sendMessage()"
-                    >
+                    <textarea ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
+                        :placeholder="labels.placeholder" :disabled="isSending" @input="autoResize"
+                        @keydown.enter.exact.prevent="sendMessage()"></textarea>
+                    <button type="button" class="send-button" :disabled="!canSend" :aria-label="labels.send"
+                        @click="sendMessage()">
                         <i :class="isSending ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
                 </div>
@@ -1689,7 +1621,7 @@ button:disabled {
         pointer-events: none;
     }
 
-    .detector-chat.sidebar-collapsed .sidebar > * {
+    .detector-chat.sidebar-collapsed .sidebar>* {
         visibility: hidden;
         opacity: 0;
     }
@@ -1771,6 +1703,7 @@ button:disabled {
 }
 
 @media (max-width: 560px) {
+
     .generated-images.image-count-2,
     .generated-images.image-count-3,
     .generated-images.image-count-4,
@@ -1820,5 +1753,51 @@ button:disabled {
     to {
         background-position: -200% 0;
     }
+}
+.options-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: var(--navy);
+    background: rgba(31, 135, 201, 0.08);
+    transition:
+        transform 0.3s ease,
+        background-color 0.2s ease;
+}
+.options-panel-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.options-chevron i {
+    display: block;
+    font-size: 14px;
+    transition: transform 0.3s ease;
+}
+
+.options-panel[open] .options-chevron i {
+    transform: rotate(180deg);
+}
+
+.options-panel-header:hover .options-chevron {
+    background: rgba(31, 135, 201, 0.15);
+}
+.options-panel-header {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.options-panel-header::-webkit-details-marker {
+    display: none;
+}
+
+.options-panel-header::marker {
+    display: none;
+    content: "";
 }
 </style>
