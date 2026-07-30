@@ -123,11 +123,11 @@
                                                     <i class="bi bi-arrows-fullscreen"></i>
                                                     {{ labels.open }}
                                                 </button>
-                                                <button type="button" @click="copyImageLink(image)">
+                                                <!-- <button type="button" @click="copyImageLink(image)">
                                                     <i
                                                         :class="copiedImageId === image.id ? 'bi bi-check2' : 'bi bi-link-45deg'"></i>
                                                     {{ copiedImageId === image.id ? labels.copied : labels.copyLink }}
-                                                </button>
+                                                </button> -->
                                             </div>
                                         </article>
                                     </div>
