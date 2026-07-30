@@ -297,13 +297,15 @@ const openSubtoolChat = async (subtool) => {
     const mainToolId = Number(rawTool.value?.id || tool.value?.id);
 
     const chatPage =
-        mainToolId === 4
-            ? "chat4"
-            : mainToolId === 3
-                ? "chat3"
-                : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
-                    ? "chat2"
-                    : "chat";
+        mainToolId === 5
+            ? "chat5"
+            : mainToolId === 4
+                ? "chat4"
+                : mainToolId === 3
+                    ? "chat3"
+                    : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
+                        ? "chat2"
+                        : "chat";
 
     await router.push(
         `/${homeService.getLang()}/subtool/${subtool.slug}/${chatPage}`
