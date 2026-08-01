@@ -751,41 +751,7 @@ async function sendMessage(options = {}) {
         let result;
         if (isBgRemover) {
             const formData = buildBgRemoverFormData(conversation, selectedFile.value);
-            const rawResult = responseData(await chatServices.sendMessageFormData(formData));
-            
-            let files = rawResult.files || [];
-            let msgText = rawResult.message;
-            
-            if (typeof msgText === "object" && msgText !== null) {
-                files = msgText.files || files;
-                msgText = msgText.message || "Background removed successfully.";
-            } else if (typeof msgText !== "string") {
-                msgText = "Background removed successfully.";
-            }
-            
-            const origin = window.location.origin;
-            const apiBase = "/api/v1";
-            
-            result = {
-                ...rawResult,
-                message: msgText,
-                images: files.map(f => {
-                    let dUrl = f.download_url || "";
-                    if (dUrl && !dUrl.startsWith("http")) {
-                        dUrl = `${origin}${apiBase}${dUrl.startsWith("/") ? "" : "/"}${dUrl}`;
-                    }
-                    return {
-                        id: f.file_id || f.id,
-                        filename: f.filename,
-                        content_type: f.content_type,
-                        size_bytes: f.size_bytes || 0,
-                        preview_url: dUrl,
-                        download_url: dUrl,
-                        source_file_id: f.source_file_id || null
-                    };
-                })
-            };
-            
+            result = responseData(await chatServices.sendMessageFormData(formData));
             removeSelectedFile();
         } else {
             const payload = buildPayload(prompt, conversation, requestState, regenerate);
