@@ -262,7 +262,7 @@
 
                 <div class="input-box">
                     <input type="file" ref="fileInputRef" accept="image/*" class="hidden-file-input" @change="handleFileSelect" :disabled="isSending" />
-                    
+
                     <button v-if="isBackgroundRemover" type="button" class="attach-button" :disabled="isSending" :title="labels.uploadImage" @click="triggerFileInput">
                         <i class="bi bi-paperclip"></i>
                     </button>
@@ -277,7 +277,7 @@
                     <textarea v-if="!isBackgroundRemover" ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
                         :placeholder="labels.placeholder" :disabled="isSending" @input="autoResize"
                         @keydown.enter.exact.prevent="sendMessage()"></textarea>
-                        
+
                     <div v-else class="bg-remover-placeholder">
                         <p>{{ labels.bgRemoverPlaceholder }}</p>
                     </div>
@@ -306,6 +306,23 @@ import {
     unwrapApiData,
 } from "@/utils/imageGeneratorResults";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Base URL for the internal API used to download generated files */
+const API_BASE_URL = "https://api.aiarabic.com";
+
+/**
+ * Internal API key sent as the `x-internal-api-key` header on every
+ * protected file-download request.
+ *
+ * ⚠️  Replace the placeholder below with the real key (or inject it via an
+ *     environment variable / Vite import.meta.env at build time).
+ *
+ * Example using Vite env:
+ *   const INTERNAL_API_KEY = import.meta.env.VITE_INTERNAL_API_KEY ?? "";
+ */
+const INTERNAL_API_KEY = "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy" ?? "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy";
+
 const IMAGE_TOOL = {
     sub_tool_id: 21,
     tool_key: "ai_image_generator",
@@ -320,6 +337,8 @@ const BACKGROUND_REMOVER_TOOL = {
 
 const BG_REMOVER_MESSAGE = "Remove the background from the uploaded image and return a transparent PNG.";
 
+// ─── State factory ────────────────────────────────────────────────────────────
+
 const createDefaultState = () => ({
     provider: null,
     negative_prompt: "",
@@ -332,9 +351,14 @@ const createDefaultState = () => ({
     last_output: null,
 });
 
+// ─── Composables ──────────────────────────────────────────────────────────────
+
 const route = useRoute();
 const router = useRouter();
 const { locale } = useI18n();
+
+// ─── Reactive state ───────────────────────────────────────────────────────────
+
 const activeConversation = ref(null);
 const currentSubtool = ref(null);
 const conversations = ref([]);
@@ -359,6 +383,8 @@ const actionLoading = ref("");
 const selectedFile = ref(null);
 const selectedFilePreview = ref("");
 const fileInputRef = ref(null);
+
+// ─── Computed ─────────────────────────────────────────────────────────────────
 
 const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "en").toLowerCase() === "ar"
@@ -492,6 +518,8 @@ useSeoMeta({
     description: computed(() => labels.value.welcome),
 });
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function routePath(uuid = "") {
     const suffix = uuid ? `/${uuid}` : "";
     return `/${homeService.getLang()}/subtool/${route.params.slug}/chat5${suffix}`;
@@ -555,6 +583,45 @@ function cleanUiState(source = {}) {
         last_output: null,
     };
 }
+
+/**
+ * Build a fully-qualified download URL.
+ *
+ * The API returns `download_url` as a relative path, e.g.
+ *   "/tasks/generated-files/download/d42c2464-…"
+ *
+ * We prepend API_BASE_URL so the request hits the correct origin.
+ * If the URL is already absolute we leave it untouched.
+ */
+function toApiUrl(url) {
+    const str = String(url || "").trim();
+    if (!str) return "";
+    try {
+        // If it's already an absolute URL, return as-is
+        new URL(str);
+        return str;
+    } catch {
+        // Relative path → prepend the API base
+        return `${API_BASE_URL}${str.startsWith("/") ? "" : "/"}${str}`;
+    }
+}
+
+/**
+ * Fetch a protected file from the internal API.
+ *
+ * Sends the `x-internal-api-key` header required by api.aiarabic.com.
+ * Returns a Blob on success, throws on network or HTTP error.
+ */
+async function fetchInternalBlob(url) {
+    const headers = { "x-internal-api-key": INTERNAL_API_KEY };
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    return response.blob();
+}
+
+// ─── Data loading ─────────────────────────────────────────────────────────────
 
 async function loadSubtool() {
     try {
@@ -644,6 +711,8 @@ function resolveCurrentUserId() {
     return null;
 }
 
+// ─── File handling ────────────────────────────────────────────────────────────
+
 function handleFileSelect(event) {
     const file = event?.target?.files?.[0];
     if (!file) return;
@@ -663,6 +732,8 @@ function removeSelectedFile() {
 function triggerFileInput() {
     fileInputRef.value?.click();
 }
+
+// ─── Message building ─────────────────────────────────────────────────────────
 
 function buildPayload(prompt, conversation, requestState, regenerate = false) {
     const cleanState = cleanRequestState(requestState, regenerate);
@@ -690,11 +761,8 @@ function buildBgRemoverFormData(conversation, file) {
     formData.append("user_id", userId === null || userId === undefined ? "" : String(userId));
     formData.append("sub_tool_id", String(BACKGROUND_REMOVER_TOOL.sub_tool_id));
     formData.append("user_message", BG_REMOVER_MESSAGE);
-    const stateObj = {
-        provider: "",
-        last_output: ""
-    };
-    Object.keys(stateObj).forEach(key => {
+    const stateObj = { provider: "", last_output: "" };
+    Object.keys(stateObj).forEach((key) => {
         formData.append(`state[${key}]`, stateObj[key]);
     });
     formData.append("debug", "0");
@@ -706,6 +774,8 @@ function buildBgRemoverFormData(conversation, file) {
 
     return formData;
 }
+
+// ─── Send / retry ─────────────────────────────────────────────────────────────
 
 async function sendMessage(options = {}) {
     const isBgRemover = isBackgroundRemover.value;
@@ -753,16 +823,17 @@ async function sendMessage(options = {}) {
             const formData = buildBgRemoverFormData(conversation, selectedFile.value);
             result = responseData(await chatServices.sendMessageFormData(formData));
             removeSelectedFile();
-            
-            // Map the Background Remover files exactly to the structure expected by the Image Generator pipeline
+
+            // Normalise background-remover files to match the image-generator shape
             if (result && Array.isArray(result.files)) {
-                result.images = result.files.map(f => ({
+                result.images = result.files.map((f) => ({
                     id: String(f.file_id || f.id || Date.now()),
                     filename: String(f.filename || "background-removed.png"),
                     content_type: String(f.content_type || "image/png"),
-                    preview_url: String(f.preview_url || f.download_url || ""),
+                    // Store the raw relative path; toApiUrl() will resolve it later
+                    preview_url: String(f.download_url || f.preview_url || ""),
                     download_url: String(f.download_url || f.preview_url || ""),
-                    size_bytes: Number(f.size_bytes || 0)
+                    size_bytes: Number(f.size_bytes || 0),
                 }));
             }
         } else {
@@ -868,6 +939,8 @@ function lastUserPromptBefore(message) {
     return "";
 }
 
+// ─── Conversation management ──────────────────────────────────────────────────
+
 async function startNewChat() {
     if (creatingConversation.value || isSending.value) return;
     creatingConversation.value = true;
@@ -920,6 +993,8 @@ async function deleteConversation(conversation) {
     }
 }
 
+// ─── Image preview / download ─────────────────────────────────────────────────
+
 async function loadMessagePreviews() {
     await Promise.all(messages.value.map(loadPreviewsForMessage));
 }
@@ -929,12 +1004,19 @@ async function loadPreviewsForMessage(message) {
     await Promise.all(message.images.map(loadImagePreview));
 }
 
+/**
+ * Load a preview for a single image.
+ *
+ * Uses fetchInternalBlob() so the request carries the x-internal-api-key
+ * header and targets API_BASE_URL for relative paths.
+ */
 async function loadImagePreview(image) {
     if (!image?.preview_url || previewLoading.value[image.id]) return;
     previewLoading.value = { ...previewLoading.value, [image.id]: true };
     previewErrors.value = { ...previewErrors.value, [image.id]: false };
     try {
-        const blob = await chatServices.fetchProtectedBlob(toAbsoluteUrl(image.preview_url));
+        const url = toApiUrl(image.preview_url);
+        const blob = await fetchInternalBlob(url);
         revokePreviewUrl(image.id);
         previewUrls.value = {
             ...previewUrls.value,
@@ -952,18 +1034,26 @@ function markPreviewFailed(image) {
     previewErrors.value = { ...previewErrors.value, [image.id]: true };
 }
 
+/**
+ * Download an image via the internal API.
+ *
+ * Builds the fully-qualified URL with toApiUrl(), fetches using
+ * fetchInternalBlob() (which attaches x-internal-api-key), then triggers
+ * a browser download using a temporary <a> element.
+ */
 async function downloadImage(image) {
     actionLoading.value = `download-${image.id}`;
     try {
-        const blob = await chatServices.fetchProtectedBlob(toAbsoluteUrl(image.download_url));
-        const href = URL.createObjectURL(blob);
+        const url = toApiUrl(image.download_url);
+        const blob = await fetchInternalBlob(url);
+        const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.href = href;
-        link.download = image.filename;
+        link.href = objectUrl;
+        link.download = image.filename || "image";
         document.body.appendChild(link);
         link.click();
         link.remove();
-        URL.revokeObjectURL(href);
+        URL.revokeObjectURL(objectUrl);
     } catch {
         errorMessage.value = labels.value.downloadFailed;
     } finally {
@@ -982,9 +1072,7 @@ async function openImage(image) {
     }
 }
 
-function toAbsoluteUrl(url) {
-    return new URL(String(url || ""), window.location.origin).toString();
-}
+// ─── Preview URL lifecycle ────────────────────────────────────────────────────
 
 function revokePreviewUrl(id) {
     const url = previewUrls.value[id];
@@ -1000,6 +1088,8 @@ function revokePreviewUrls() {
     previewLoading.value = {};
     previewErrors.value = {};
 }
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
 
 function fillExample() {
     userMessage.value = labels.value.example;
@@ -1042,6 +1132,8 @@ async function scrollToBottom() {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
     }
 }
+
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 async function initialize() {
     await loadSubtool();
@@ -1850,10 +1942,17 @@ button:disabled {
     font-size: 13px;
     font-weight: 700;
     list-style: none;
+    cursor: pointer;
+    user-select: none;
 }
 
 .options-panel-header::-webkit-details-marker {
     display: none;
+}
+
+.options-panel-header::marker {
+    display: none;
+    content: "";
 }
 
 .options-form {
@@ -2136,80 +2235,40 @@ button:disabled {
 }
 
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
 @keyframes shimmer {
-    to {
-        background-position: -200% 0;
-    }
+    to { background-position: -200% 0; }
 }
 
 @keyframes imageShimmer {
-    from {
-        background-position: 220% 0, 0 0;
-    }
-
-    to {
-        background-position: -120% 0, 0 0;
-    }
+    from { background-position: 220% 0, 0 0; }
+    to   { background-position: -120% 0, 0 0; }
 }
 
 @keyframes imagePlaceholderPulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-        opacity: 0.7;
-    }
-
-    50% {
-        transform: scale(1.06);
-        opacity: 1;
-    }
+    0%, 100% { transform: scale(1);    opacity: 0.7; }
+    50%       { transform: scale(1.06); opacity: 1;   }
 }
 
 @keyframes generationSparkle {
-
-    0%,
-    100% {
-        transform: rotate(0deg) scale(1);
-    }
-
-    50% {
-        transform: rotate(12deg) scale(1.12);
-    }
+    0%, 100% { transform: rotate(0deg)  scale(1);    }
+    50%      { transform: rotate(12deg) scale(1.12); }
 }
 
 @keyframes generationProgress {
-    0% {
-        transform: translateX(-130%);
-    }
-
-    50% {
-        transform: translateX(120%);
-    }
-
-    100% {
-        transform: translateX(300%);
-    }
+    0%   { transform: translateX(-130%); }
+    50%  { transform: translateX(120%);  }
+    100% { transform: translateX(300%);  }
 }
 
 @keyframes generationProgressRtl {
-    0% {
-        transform: translateX(130%);
-    }
-
-    50% {
-        transform: translateX(-120%);
-    }
-
-    100% {
-        transform: translateX(-300%);
-    }
+    0%   { transform: translateX(130%);  }
+    50%  { transform: translateX(-120%); }
+    100% { transform: translateX(-300%); }
 }
+
 .options-chevron {
     display: inline-flex;
     align-items: center;
@@ -2220,15 +2279,9 @@ button:disabled {
     border-radius: 8px;
     color: var(--navy);
     background: rgba(31, 135, 201, 0.08);
-    transition:
-        transform 0.3s ease,
-        background-color 0.2s ease;
+    transition: transform 0.3s ease, background-color 0.2s ease;
 }
-.options-panel-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
+
 .options-chevron i {
     display: block;
     font-size: 14px;
@@ -2241,20 +2294,6 @@ button:disabled {
 
 .options-panel-header:hover .options-chevron {
     background: rgba(31, 135, 201, 0.15);
-}
-.options-panel-header {
-    list-style: none;
-    cursor: pointer;
-    user-select: none;
-}
-
-.options-panel-header::-webkit-details-marker {
-    display: none;
-}
-
-.options-panel-header::marker {
-    display: none;
-    content: "";
 }
 
 .hidden-file-input {
@@ -2312,6 +2351,7 @@ button:disabled {
     cursor: pointer;
     transition: background 0.2s;
 }
+
 [dir="rtl"] .remove-file {
     right: auto;
     left: -4px;
@@ -2330,6 +2370,7 @@ button:disabled {
     font-size: 13px;
     user-select: none;
 }
+
 .bg-remover-placeholder p {
     margin: 0;
 }
