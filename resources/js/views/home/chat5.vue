@@ -690,11 +690,13 @@ function buildBgRemoverFormData(conversation, file) {
     formData.append("user_id", userId === null || userId === undefined ? "" : String(userId));
     formData.append("sub_tool_id", String(BACKGROUND_REMOVER_TOOL.sub_tool_id));
     formData.append("user_message", BG_REMOVER_MESSAGE);
-    formData.append("state", JSON.stringify({
-        provider: null,
-        extra_options: [],
-        last_output: null,
-    }));
+    const stateObj = {
+        provider: "",
+        last_output: ""
+    };
+    Object.keys(stateObj).forEach(key => {
+        formData.append(`state[${key}]`, stateObj[key]);
+    });
     formData.append("debug", "0");
     formData.append("tool", String(BACKGROUND_REMOVER_TOOL.tool_key || ""));
     formData.append("tool_key", String(BACKGROUND_REMOVER_TOOL.tool_key || ""));
