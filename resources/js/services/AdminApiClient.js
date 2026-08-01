@@ -1,7 +1,7 @@
 import axios from "axios";
 import toastr from "toastr";
 
-const ADMIN_API_BASE_URL = import.meta.env.VITE_API_ROOT_URL || "/api";
+const ADMIN_API_BASE_URL = "/api" || "/api";
 const PUBLIC_API_KEY = "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy" || "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy";
 
 toastr.options = {

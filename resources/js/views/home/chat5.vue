@@ -684,20 +684,24 @@ function buildPayload(prompt, conversation, requestState, regenerate = false) {
 
 function buildBgRemoverFormData(conversation, file) {
     const formData = new FormData();
-    const payload = {
-        user_id: resolveCurrentUserId(),
-        sub_tool_id: BACKGROUND_REMOVER_TOOL.sub_tool_id,
-        conversation_uuid: conversation.uuid,
-        user_message: BG_REMOVER_MESSAGE,
-        state: {
-            provider: null,
-            extra_options: [],
-            last_output: null,
-        },
-        debug: false,
-    };
-    formData.append("payload", JSON.stringify(payload));
+    const userId = resolveCurrentUserId();
+
+    formData.append("conversation_uuid", String(conversation.uuid || ""));
+    formData.append("user_id", userId === null || userId === undefined ? "" : String(userId));
+    formData.append("sub_tool_id", String(BACKGROUND_REMOVER_TOOL.sub_tool_id));
+    formData.append("user_message", BG_REMOVER_MESSAGE);
+    formData.append("state", JSON.stringify({
+        provider: null,
+        extra_options: [],
+        last_output: null,
+    }));
+    formData.append("debug", "0");
+    formData.append("tool", String(BACKGROUND_REMOVER_TOOL.tool_key || ""));
+    formData.append("tool_key", String(BACKGROUND_REMOVER_TOOL.tool_key || ""));
+    formData.append("model_key", String(BACKGROUND_REMOVER_TOOL.model_key || ""));
+    formData.append("idempotency_key", crypto.randomUUID());
     formData.append("file", file);
+
     return formData;
 }
 
