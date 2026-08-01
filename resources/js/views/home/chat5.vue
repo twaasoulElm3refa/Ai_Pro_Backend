@@ -56,10 +56,10 @@
                 </div>
 
                 <div v-else-if="messages.length === 0" class="welcome-card">
-                    <span class="welcome-icon"><i class="bi bi-image"></i></span>
-                    <h1>{{ labels.title }}</h1>
-                    <p>{{ labels.welcome }}</p>
-                    <button type="button" class="suggestion" @click="fillExample">
+                    <span class="welcome-icon"><i :class="isBackgroundRemover ? 'bi bi-magic' : 'bi bi-image'"></i></span>
+                    <h1>{{ isBackgroundRemover ? labels.bgRemoverTitle : labels.title }}</h1>
+                    <p>{{ isBackgroundRemover ? labels.bgRemoverWelcome : labels.welcome }}</p>
+                    <button v-if="!isBackgroundRemover" type="button" class="suggestion" @click="fillExample">
                         {{ labels.example }}
                     </button>
                 </div>
@@ -163,8 +163,8 @@
                                     </span>
 
                                     <div>
-                                        <strong>{{ labels.generating }}</strong>
-                                        <small>{{ labels.generationWait }}</small>
+                                        <strong>{{ isBackgroundRemover ? labels.bgRemoverGenerating : labels.generating }}</strong>
+                                        <small>{{ isBackgroundRemover ? labels.bgRemoverGenerationWait : labels.generationWait }}</small>
                                     </div>
                                 </div>
 
@@ -198,7 +198,7 @@
                     </button>
                 </div>
 
-                <details class="options-panel">
+                <details v-if="!isBackgroundRemover" class="options-panel">
                     <summary class="options-panel-header">
                         <span><i class="bi bi-sliders"></i> {{ labels.settings }}</span>
                         <span class="options-chevron" aria-hidden="true">
@@ -261,10 +261,28 @@
                 </details>
 
                 <div class="input-box">
-                    <textarea ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
+                    <input type="file" ref="fileInputRef" accept="image/*" class="hidden-file-input" @change="handleFileSelect" :disabled="isSending" />
+                    
+                    <button v-if="isBackgroundRemover" type="button" class="attach-button" :disabled="isSending" :title="labels.uploadImage" @click="triggerFileInput">
+                        <i class="bi bi-paperclip"></i>
+                    </button>
+
+                    <div v-if="isBackgroundRemover && selectedFilePreview" class="composer-file-preview">
+                        <img :src="selectedFilePreview" :alt="selectedFile?.name" />
+                        <button type="button" class="remove-file" :title="labels.removeImage" @click="removeSelectedFile">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+
+                    <textarea v-if="!isBackgroundRemover" ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
                         :placeholder="labels.placeholder" :disabled="isSending" @input="autoResize"
                         @keydown.enter.exact.prevent="sendMessage()"></textarea>
-                    <button type="button" class="send-button" :disabled="!canSend" :aria-label="labels.send"
+                        
+                    <div v-else class="bg-remover-placeholder">
+                        <p>{{ labels.bgRemoverPlaceholder }}</p>
+                    </div>
+
+                    <button type="button" class="send-button" :disabled="!canSend" :aria-label="isBackgroundRemover ? labels.bgRemoverSend : labels.send"
                         @click="sendMessage()">
                         <i :class="isSending ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
@@ -293,6 +311,14 @@ const IMAGE_TOOL = {
     tool_key: "ai_image_generator",
     model_key: "image_generator",
 };
+
+const BACKGROUND_REMOVER_TOOL = {
+    sub_tool_id: 22,
+    tool_key: "ai_background_remover",
+    model_key: "background_remover",
+};
+
+const BG_REMOVER_MESSAGE = "Remove the background from the uploaded image and return a transparent PNG.";
 
 const createDefaultState = () => ({
     provider: null,
@@ -330,6 +356,9 @@ const previewUrls = ref({});
 const previewLoading = ref({});
 const previewErrors = ref({});
 const actionLoading = ref("");
+const selectedFile = ref(null);
+const selectedFilePreview = ref("");
+const fileInputRef = ref(null);
 
 const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "en").toLowerCase() === "ar"
@@ -377,6 +406,17 @@ const labels = computed(() => isArabic.value ? {
     deleteChat: "حذف المحادثة",
     closeSidebar: "إغلاق قائمة المحادثات",
     openSidebar: "فتح قائمة المحادثات",
+    uploadImage: "رفع صورة",
+    removeImage: "إزالة",
+    fileRequired: "ارفع صورة أولًا.",
+    bgRemoverTitle: "إزالة خلفية الصور بالذكاء الاصطناعي",
+    bgRemoverWelcome: "ارفع صورة وسيتم إزالة الخلفية تلقائيًا وإرجاع صورة بخلفية شفافة.",
+    bgRemoverPlaceholder: "ارفع صورة لإزالة خلفيتها...",
+    bgRemoverSend: "إزالة الخلفية",
+    bgRemoverGenerating: "جاري إزالة الخلفية وحفظ الصورة...",
+    bgRemoverGenerationWait: "قد تستغرق العملية بضع لحظات، لا تغلق الصفحة.",
+    bgRemoverGenerated: "تمت إزالة الخلفية بنجاح",
+    bgRemoverGenericError: "تعذر إزالة الخلفية الآن. حاول مرة أخرى.",
 } : {
     title: "AI Image Generator",
     welcome: "Describe the image you have in mind, then choose its size and quality to generate ready-to-use images.",
@@ -419,6 +459,17 @@ const labels = computed(() => isArabic.value ? {
     deleteChat: "Delete conversation",
     closeSidebar: "Close conversations sidebar",
     openSidebar: "Open conversations sidebar",
+    uploadImage: "Upload image",
+    removeImage: "Remove",
+    fileRequired: "Upload an image first.",
+    bgRemoverTitle: "AI Background Remover",
+    bgRemoverWelcome: "Upload an image and the background will be removed automatically, returning a transparent PNG.",
+    bgRemoverPlaceholder: "Upload an image to remove its background...",
+    bgRemoverSend: "Remove background",
+    bgRemoverGenerating: "Removing background and saving...",
+    bgRemoverGenerationWait: "This may take a few moments. Please keep this page open.",
+    bgRemoverGenerated: "Background removed successfully",
+    bgRemoverGenericError: "Background could not be removed right now. Please try again.",
 });
 
 const activeSubToolId = computed(() => Number(
@@ -428,7 +479,13 @@ const activeSubToolId = computed(() => Number(
     || IMAGE_TOOL.sub_tool_id
 ));
 
-const canSend = computed(() => Boolean(userMessage.value.trim()) && !isSending.value && !creatingConversation.value);
+const isBackgroundRemover = computed(() => activeSubToolId.value === BACKGROUND_REMOVER_TOOL.sub_tool_id);
+
+const canSend = computed(() => {
+    if (isSending.value || creatingConversation.value) return false;
+    if (isBackgroundRemover.value) return Boolean(selectedFile.value);
+    return Boolean(userMessage.value.trim());
+});
 
 useSeoMeta({
     title: computed(() => labels.value.title),
@@ -575,53 +632,128 @@ async function ensureConversation() {
     }
 }
 
+function resolveCurrentUserId() {
+    const candidates = [
+        activeConversation.value?.user_id,
+        conversations.value.find((item) => item.uuid === activeConversation.value?.uuid)?.user_id,
+    ];
+    for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return null;
+}
+
+function handleFileSelect(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    if (selectedFilePreview.value) URL.revokeObjectURL(selectedFilePreview.value);
+    selectedFile.value = file;
+    selectedFilePreview.value = URL.createObjectURL(file);
+    if (fileInputRef.value) fileInputRef.value.value = "";
+}
+
+function removeSelectedFile() {
+    if (selectedFilePreview.value) URL.revokeObjectURL(selectedFilePreview.value);
+    selectedFile.value = null;
+    selectedFilePreview.value = "";
+    if (fileInputRef.value) fileInputRef.value.value = "";
+}
+
+function triggerFileInput() {
+    fileInputRef.value?.click();
+}
+
 function buildPayload(prompt, conversation, requestState, regenerate = false) {
     const cleanState = cleanRequestState(requestState, regenerate);
+    const toolConfig = isBackgroundRemover.value ? BACKGROUND_REMOVER_TOOL : IMAGE_TOOL;
 
     return {
         sub_tool_id: Number(conversation.sub_tool_id || activeSubToolId.value),
         conversation_uuid: conversation.uuid,
         user_message: prompt,
         state: cleanState,
-        tool: IMAGE_TOOL.tool_key,
-        tool_key: IMAGE_TOOL.tool_key,
-        model_key: IMAGE_TOOL.model_key,
+        tool: toolConfig.tool_key,
+        tool_key: toolConfig.tool_key,
+        model_key: toolConfig.model_key,
         regenerate,
         idempotency_key: crypto.randomUUID(),
         debug: false,
     };
 }
 
+function buildBgRemoverFormData(conversation, file) {
+    const formData = new FormData();
+    const payload = {
+        user_id: resolveCurrentUserId(),
+        sub_tool_id: BACKGROUND_REMOVER_TOOL.sub_tool_id,
+        conversation_uuid: conversation.uuid,
+        user_message: BG_REMOVER_MESSAGE,
+        state: {
+            provider: null,
+            extra_options: [],
+            last_output: null,
+        },
+        debug: false,
+    };
+    formData.append("payload", JSON.stringify(payload));
+    formData.append("file", file);
+    return formData;
+}
+
 async function sendMessage(options = {}) {
-    const prompt = String(options.prompt ?? userMessage.value).trim();
-    if (!prompt || isSending.value) {
-        if (!prompt) errorMessage.value = labels.value.promptRequired;
+    const isBgRemover = isBackgroundRemover.value;
+    const prompt = isBgRemover
+        ? BG_REMOVER_MESSAGE
+        : String(options.prompt ?? userMessage.value).trim();
+
+    if (isSending.value) return;
+
+    if (isBgRemover && !selectedFile.value) {
+        errorMessage.value = labels.value.fileRequired;
+        return;
+    }
+    if (!isBgRemover && !prompt) {
+        errorMessage.value = labels.value.promptRequired;
         return;
     }
 
     const regenerate = Boolean(options.regenerate);
     const requestState = cleanRequestState(options.requestState || state.value, regenerate);
     const optimisticKey = `local-user-${Date.now()}`;
+    const displayContent = isBgRemover
+        ? (selectedFile.value?.name || labels.value.bgRemoverSend)
+        : prompt;
     errorMessage.value = "";
     lastFailedRequest.value = null;
     isSending.value = true;
 
     try {
         const conversation = await ensureConversation();
-        const payload = buildPayload(prompt, conversation, requestState, regenerate);
+
         messages.value.push(mapMessage({
             localKey: optimisticKey,
             role: "user",
-            content: prompt,
-            metadata: { state: payload.state },
+            content: displayContent,
+            metadata: { state: requestState },
         }, messages.value.length));
         messages.value[messages.value.length - 1].localKey = optimisticKey;
         userMessage.value = "";
         autoResize();
         await scrollToBottom();
 
-        const result = responseData(await chatServices.sendMessage(payload));
-        const images = normalizeGeneratedImages(result.images);
+        let result;
+        if (isBgRemover) {
+            const formData = buildBgRemoverFormData(conversation, selectedFile.value);
+            result = responseData(await chatServices.sendMessageFormData(formData));
+            removeSelectedFile();
+        } else {
+            const payload = buildPayload(prompt, conversation, requestState, regenerate);
+            result = responseData(await chatServices.sendMessage(payload));
+        }
+
+        const rawImages = result.images || result.files || [];
+        const images = normalizeGeneratedImages(rawImages);
         const assistant = mapMessage({
             id: result.assistant_message_id,
             role: "assistant",
@@ -654,14 +786,15 @@ async function sendMessage(options = {}) {
         await scrollToBottom();
     } catch (error) {
         if (import.meta.env.DEV) {
-            console.error("[chat5 image generation error]", {
+            console.error("[chat5 send error]", {
                 status: error?.response?.status,
                 data: error?.response?.data,
                 message: error?.message,
             });
         }
 
-        const message = error?.response?.data?.message || error?.response?.data?.error || labels.value.genericError;
+        const errorLabel = isBgRemover ? labels.value.bgRemoverGenericError : labels.value.genericError;
+        const message = error?.response?.data?.message || error?.response?.data?.error || errorLabel;
         errorMessage.value = localizeError(message);
         lastFailedRequest.value = {
             prompt,
@@ -725,6 +858,7 @@ async function startNewChat() {
             responseData(await chatServices.createConversation(route.params.slug))
         );
         revokePreviewUrls();
+        removeSelectedFile();
         activeConversation.value = conversation;
         conversations.value = [
             conversation,
@@ -757,6 +891,7 @@ async function deleteConversation(conversation) {
         conversations.value = conversations.value.filter((item) => item.uuid !== conversation.uuid);
         if (activeConversation.value?.uuid === conversation.uuid) {
             revokePreviewUrls();
+            removeSelectedFile();
             activeConversation.value = null;
             messages.value = [];
             state.value = createDefaultState();
@@ -904,6 +1039,7 @@ watch(
             await loadConversationDetails(String(uuid));
         } else {
             revokePreviewUrls();
+            removeSelectedFile();
             activeConversation.value = null;
             messages.value = [];
             state.value = createDefaultState();
@@ -916,6 +1052,7 @@ watch(
     async (slug, previousSlug) => {
         if (!slug || slug === previousSlug) return;
         revokePreviewUrls();
+        removeSelectedFile();
         activeConversation.value = null;
         messages.value = [];
         state.value = createDefaultState();
@@ -926,6 +1063,7 @@ watch(
 onMounted(initialize);
 onUnmounted(() => {
     revokePreviewUrls();
+    removeSelectedFile();
 });
 </script>
 
@@ -2099,5 +2237,82 @@ button:disabled {
 .options-panel-header::marker {
     display: none;
     content: "";
+}
+
+.hidden-file-input {
+    display: none;
+}
+
+.attach-button {
+    display: grid;
+    place-items: center;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    border: 1px solid #cfdfea;
+    border-radius: 12px;
+    color: var(--muted);
+    background: #fbfdff;
+    transition: all 0.2s ease;
+}
+
+.attach-button:hover:not(:disabled) {
+    color: var(--navy);
+    border-color: var(--blue);
+    background: #edf7fc;
+}
+
+.composer-file-preview {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    border: 1px solid #cfdfea;
+    overflow: hidden;
+    background: #f3f7fb;
+}
+
+.composer-file-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-file {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+[dir="rtl"] .remove-file {
+    right: auto;
+    left: -4px;
+}
+
+.remove-file:hover {
+    background: rgba(220, 53, 69, 0.9);
+}
+
+.bg-remover-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    color: var(--muted);
+    font-size: 13px;
+    user-select: none;
+}
+.bg-remover-placeholder p {
+    margin: 0;
 }
 </style>
