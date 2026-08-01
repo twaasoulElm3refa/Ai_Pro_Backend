@@ -294,14 +294,48 @@ class AiArabicWriterService
             ]);
         }
 
+        $fileHandle = null;
+
         try {
-            $response = Http::timeout($timeout)
-                ->withHeaders([
-                    'x-internal-api-key' => $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ])
-                ->post($targetUrl, $payload);
+            $isBackgroundRemover = str_contains((string) $endpoint, 'background-remover') 
+                || str_contains($targetUrl, 'background-remover');
+
+            $http = Http::timeout($timeout)->withHeaders([
+                'x-internal-api-key' => $this->apiKey,
+            ]);
+
+            if ($isBackgroundRemover && request()->hasFile('file')) {
+                $file = request()->file('file');
+                $fileHandle = @fopen($file->getRealPath(), 'r');
+                
+                if ($fileHandle !== false) {
+                    $http = $http->asMultipart()->attach(
+                        'file',
+                        $fileHandle,
+                        $file->getClientOriginalName(),
+                        [
+                            'Content-Type' => $file->getMimeType()
+                                ?: ($file->getClientMimeType() ?: 'application/octet-stream'),
+                        ]
+                    );
+                    $payload = $this->normalizeMultipartFields($payload);
+                } else {
+                    $http = $http->withHeaders(['Content-Type' => 'application/json']);
+                }
+            } else {
+                $http = $http->withHeaders(['Content-Type' => 'application/json']);
+            }
+
+            $response = $http->post($targetUrl, $payload);
+            
+            if (is_resource($fileHandle)) {
+                fclose($fileHandle);
+            }
         } catch (ConnectionException $th) {
+            if (is_resource($fileHandle)) {
+                fclose($fileHandle);
+            }
+
             Log::error('AI request connection failure.', [
                 'base_url' => $this->url,
                 'endpoint' => $endpoint,
@@ -329,6 +363,10 @@ class AiArabicWriterService
                 $th
             );
         } catch (Throwable $th) {
+            if (is_resource($fileHandle)) {
+                fclose($fileHandle);
+            }
+
             Log::error('AI request failed before receiving response.', [
                 'base_url' => $this->url,
                 'endpoint' => $endpoint,
