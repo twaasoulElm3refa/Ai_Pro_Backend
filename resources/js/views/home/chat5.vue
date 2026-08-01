@@ -753,6 +753,18 @@ async function sendMessage(options = {}) {
             const formData = buildBgRemoverFormData(conversation, selectedFile.value);
             result = responseData(await chatServices.sendMessageFormData(formData));
             removeSelectedFile();
+            
+            // Map the Background Remover files exactly to the structure expected by the Image Generator pipeline
+            if (result && Array.isArray(result.files)) {
+                result.images = result.files.map(f => ({
+                    id: String(f.file_id || f.id || Date.now()),
+                    filename: String(f.filename || "background-removed.png"),
+                    content_type: String(f.content_type || "image/png"),
+                    preview_url: String(f.preview_url || f.download_url || ""),
+                    download_url: String(f.download_url || f.preview_url || ""),
+                    size_bytes: Number(f.size_bytes || 0)
+                }));
+            }
         } else {
             const payload = buildPayload(prompt, conversation, requestState, regenerate);
             result = responseData(await chatServices.sendMessage(payload));

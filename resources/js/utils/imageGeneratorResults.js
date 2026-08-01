@@ -13,27 +13,15 @@ export const normalizeGeneratedImages = (images) => {
 
     return images
         .filter((image) => image && typeof image === "object" && (image.id || image.file_id))
-        .map((image) => {
-            let pUrl = String(image.preview_url || image.download_url || "");
-            let dUrl = String(image.download_url || image.preview_url || "");
-            
-            if (pUrl && !pUrl.startsWith("http")) {
-                pUrl = `${window.location.origin}/api/v1${pUrl.startsWith("/") ? "" : "/"}${pUrl}`;
-            }
-            if (dUrl && !dUrl.startsWith("http")) {
-                dUrl = `${window.location.origin}/api/v1${dUrl.startsWith("/") ? "" : "/"}${dUrl}`;
-            }
-
-            return {
-                id: String(image.id || image.file_id),
-                filename: String(image.filename || "generated-image.png"),
-                content_type: String(image.content_type || "image/png"),
-                size_bytes: Number(image.size_bytes || 0),
-                preview_url: pUrl,
-                download_url: dUrl,
-                source_file_id: image.source_file_id ? String(image.source_file_id) : null,
-            };
-        })
+        .map((image) => ({
+            id: String(image.id || image.file_id),
+            filename: String(image.filename || "generated-image.png"),
+            content_type: String(image.content_type || "image/png"),
+            size_bytes: Number(image.size_bytes || 0),
+            preview_url: String(image.preview_url || image.download_url || ""),
+            download_url: String(image.download_url || image.preview_url || ""),
+            source_file_id: image.source_file_id ? String(image.source_file_id) : null,
+        }))
         .filter((image) => image.preview_url && image.download_url);
 };
 
@@ -41,10 +29,22 @@ export const normalizeImageGenerationMessage = (message, index = 0) => {
     const metadata = message?.metadata && typeof message.metadata === "object"
         ? message.metadata
         : {};
-        
+
     const rawImages = message?.images || metadata?.images || message?.files || metadata?.files || [];
-    const images = normalizeGeneratedImages(rawImages);
     
+    // Convert any raw files to Image Generator compatible structures so it works seamlessly on reload
+    const normalizedRaw = rawImages.map(f => {
+        if (!f || typeof f !== "object") return f;
+        return {
+            ...f,
+            id: String(f.id || f.file_id || Date.now()),
+            preview_url: String(f.preview_url || f.download_url || ""),
+            download_url: String(f.download_url || f.preview_url || "")
+        };
+    });
+
+    const images = normalizeGeneratedImages(normalizedRaw);
+
     let content = message?.content || metadata?.message || "";
     if (typeof content === "object" && content !== null) {
         content = content.message || content.text || "";
@@ -64,3 +64,4 @@ export const normalizeImageGenerationMessage = (message, index = 0) => {
         },
     };
 };
+
