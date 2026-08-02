@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Conversation;
 use App\Services\AI\DynamicToolConfigService;
+use App\Services\BackgroundRemoverService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,7 @@ class MessageRequest extends FormRequest
     private const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
     private const RESUME_BUILDER_SUB_TOOL_ID = 19;
     private const IMAGE_GENERATOR_SUB_TOOL_ID = 21;
+    private const BACKGROUND_REMOVER_SUB_TOOL_ID = 22;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
@@ -142,6 +144,10 @@ class MessageRequest extends FormRequest
             return array_merge($rules, $this->resumeBuilderRules());
         }
 
+        if ($this->isBackgroundRemoverRequest()) {
+            return array_merge($rules, $this->backgroundRemoverRules());
+        }
+
         if ($subToolId === self::IMAGE_GENERATOR_SUB_TOOL_ID) {
             return array_merge($rules, $this->imageGeneratorRules());
         }
@@ -187,6 +193,19 @@ class MessageRequest extends FormRequest
         ];
     }
 
+    private function backgroundRemoverRules(): array
+    {
+        return [
+            'sub_tool_id' => ['required', 'integer', Rule::in([self::BACKGROUND_REMOVER_SUB_TOOL_ID])],
+            'content' => ['nullable', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'user_message' => ['required', 'string', 'max:5000'],
+            'file' => ['required', 'file', 'max:20480', 'mimetypes:image/png,image/jpeg,image/webp,image/svg+xml'],
+            'state' => ['nullable', 'array'],
+            'idempotency_key' => ['nullable', 'uuid'],
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
         $this->normalizeMessageTextFields();
@@ -217,6 +236,7 @@ class MessageRequest extends FormRequest
 
         $this->normalizeChat3SeoStateForValidation();
         $this->normalizeResumeBuilderStateForValidation();
+        $this->normalizeBackgroundRemoverStateForValidation();
     }
 
     private function normalizeMessageTextFields(): void
@@ -318,6 +338,22 @@ class MessageRequest extends FormRequest
         ]);
     }
 
+    private function normalizeBackgroundRemoverStateForValidation(): void
+    {
+        if (! $this->isBackgroundRemoverRequest()) {
+            return;
+        }
+
+        $state = $this->input('state');
+
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+        }
+
+        $this->merge(['state' => is_array($state) ? $state : []]);
+    }
+
     private function isResumeBuilderRequest(): bool
     {
         $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
@@ -326,6 +362,16 @@ class MessageRequest extends FormRequest
         return (int) $this->input('sub_tool_id') === self::RESUME_BUILDER_SUB_TOOL_ID
             || $toolKey === 'resume_builder'
             || $modelKey === 'resume_builder';
+    }
+
+    private function isBackgroundRemoverRequest(): bool
+    {
+        $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
+        $modelKey = strtolower(trim((string) $this->input('model_key')));
+
+        return (int) $this->input('sub_tool_id') === self::BACKGROUND_REMOVER_SUB_TOOL_ID
+            || $toolKey === BackgroundRemoverService::TOOL_KEY
+            || $modelKey === 'background_remover';
     }
 
     private function firstFilledScalar(array $keys): ?string

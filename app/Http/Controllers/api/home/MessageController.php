@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Repository\Messages\MessageInterface;
 use App\Services\AiArabicWriterService;
+use App\Services\BackgroundRemoverService;
 use App\Services\ChatSeoToolService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
@@ -69,7 +70,8 @@ class MessageController extends Controller
             ProductDescriptionGeneratorService $productDescriptionGeneratorService,
             ChatSeoToolService $chatSeoToolService,
             ResumeBuilderService $resumeBuilderService,
-            GeneratedImageService $generatedImageService
+            GeneratedImageService $generatedImageService,
+            BackgroundRemoverService $backgroundRemoverService
     )
     {
         Log::info('Message send request received', [
@@ -122,10 +124,21 @@ class MessageController extends Controller
                 ) === 0
             );
             $isResumeBuilder = $subToolId === ResumeBuilderService::SUB_TOOL_ID;
+            $isBackgroundRemover = BackgroundRemoverService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
+                $requestedModelKey
+            );
             $isImageGenerator = GeneratedImageService::supports(
                 $subToolId,
                 $requestedToolKey !== '' ? $requestedToolKey : $requestedTool
             ) || (int) $conversation->sub_tool_id === GeneratedImageService::SUB_TOOL_ID;
+
+            if ($isBackgroundRemover && $subToolId !== (int) $conversation->sub_tool_id) {
+                return $this->validationError([
+                    'sub_tool_id' => ['The selected tool does not match this conversation.'],
+                ], 'Invalid background remover conversation.');
+            }
 
             if ($isImageGenerator && $subToolId !== (int) $conversation->sub_tool_id) {
                 return $this->validationError([
@@ -155,6 +168,18 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Resume Builder Response Ready.'
+                );
+            }
+
+            if ($isBackgroundRemover) {
+                return $this->success(
+                    $backgroundRemoverService->handle(
+                        $conversation,
+                        $data,
+                        $request->file('file'),
+                        $userId
+                    ),
+                    'Background Remover Response Ready.'
                 );
             }
 
@@ -324,6 +349,13 @@ class MessageController extends Controller
                 'request_input' => $request->all(),
                 'user_id' => auth()->id(),
             ]);
+
+            if (($isBackgroundRemover ?? false)) {
+                return $this->error(
+                    'تعذر إزالة خلفية الصورة حاليًا. يرجى المحاولة مرة أخرى.',
+                    500
+                );
+            }
 
             if (app()->environment('local')) {
                 return response()->json([

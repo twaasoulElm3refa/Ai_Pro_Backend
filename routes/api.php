@@ -16,6 +16,7 @@ use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\UserProfileController;
 use App\Http\Controllers\api\auth\WalletController;
 use App\Http\Controllers\api\home\ConversationController;
+use App\Http\Controllers\api\home\BackgroundRemoverFileController;
 use App\Http\Controllers\api\home\GeneratedImageController;
 use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\MessageController;
@@ -87,6 +88,13 @@ Route::prefix('v1')->group(function () {
     Route::prefix('generated-images')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         Route::get('/{image}/preview', [GeneratedImageController::class, 'preview']);
         Route::get('/{image}/download', [GeneratedImageController::class, 'download']);
+    })->withoutMiddleware(ApiKeyMiddleware::class);
+
+    Route::prefix('background-remover/files')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+        Route::get('/{file}/preview', [BackgroundRemoverFileController::class, 'preview'])
+            ->name('background-remover.files.preview');
+        Route::get('/{file}/download', [BackgroundRemoverFileController::class, 'download'])
+            ->name('background-remover.files.download');
     })->withoutMiddleware(ApiKeyMiddleware::class);
 
     Route::get('/message/resume-output/{filename}', [MessageController::class, 'downloadResumeOutput'])
@@ -175,5 +183,4 @@ Route::prefix('admin')->group(function () {
         Route::get('show/{id}', [AdminCostController::class, 'show']);
         Route::delete('/{id}', [AdminCostController::class, 'destroy']);
     });
-    // 67 Api For Now
 });

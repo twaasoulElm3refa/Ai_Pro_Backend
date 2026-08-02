@@ -308,21 +308,6 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Base URL for the internal API used to download generated files */
-const API_BASE_URL = "https://api.aiarabic.com";
-
-/**
- * Internal API key sent as the `x-internal-api-key` header on every
- * protected file-download request.
- *
- * ⚠️  Replace the placeholder below with the real key (or inject it via an
- *     environment variable / Vite import.meta.env at build time).
- *
- * Example using Vite env:
- *   const INTERNAL_API_KEY = import.meta.env.VITE_INTERNAL_API_KEY ?? "";
- */
-const INTERNAL_API_KEY = "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy" ?? "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy";
-
 const IMAGE_TOOL = {
     sub_tool_id: 21,
     tool_key: "ai_image_generator",
@@ -587,11 +572,7 @@ function cleanUiState(source = {}) {
 /**
  * Build a fully-qualified download URL.
  *
- * The API returns `download_url` as a relative path, e.g.
- *   "/tasks/generated-files/download/d42c2464-…"
- *
- * We prepend API_BASE_URL so the request hits the correct origin.
- * If the URL is already absolute we leave it untouched.
+ * Keep absolute local API URLs intact; relative URLs are resolved by Axios.
  */
 function toApiUrl(url) {
     const str = String(url || "").trim();
@@ -601,24 +582,18 @@ function toApiUrl(url) {
         new URL(str);
         return str;
     } catch {
-        // Relative path → prepend the API base
-        return `${API_BASE_URL}${str.startsWith("/") ? "" : "/"}${str}`;
+        // Relative path → let the API client resolve it against this app.
+        return str;
     }
 }
 
 /**
  * Fetch a protected file from the internal API.
  *
- * Sends the `x-internal-api-key` header required by api.aiarabic.com.
- * Returns a Blob on success, throws on network or HTTP error.
+ * Fetch a protected local file through the authenticated API client.
  */
-async function fetchInternalBlob(url) {
-    const headers = { "x-internal-api-key": INTERNAL_API_KEY };
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    return response.blob();
+async function fetchProtectedBlob(url) {
+    return chatServices.fetchProtectedBlob(url);
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
@@ -699,18 +674,6 @@ async function ensureConversation() {
     }
 }
 
-function resolveCurrentUserId() {
-    const candidates = [
-        activeConversation.value?.user_id,
-        conversations.value.find((item) => item.uuid === activeConversation.value?.uuid)?.user_id,
-    ];
-    for (const candidate of candidates) {
-        const parsed = Number(candidate);
-        if (Number.isFinite(parsed) && parsed > 0) return parsed;
-    }
-    return null;
-}
-
 // ─── File handling ────────────────────────────────────────────────────────────
 
 function handleFileSelect(event) {
@@ -755,16 +718,11 @@ function buildPayload(prompt, conversation, requestState, regenerate = false) {
 
 function buildBgRemoverFormData(conversation, file) {
     const formData = new FormData();
-    const userId = resolveCurrentUserId();
 
     formData.append("conversation_uuid", String(conversation.uuid || ""));
-    formData.append("user_id", userId === null || userId === undefined ? "" : String(userId));
     formData.append("sub_tool_id", String(BACKGROUND_REMOVER_TOOL.sub_tool_id));
     formData.append("user_message", BG_REMOVER_MESSAGE);
-    const stateObj = { provider: "", last_output: "" };
-    Object.keys(stateObj).forEach((key) => {
-        formData.append(`state[${key}]`, stateObj[key]);
-    });
+    formData.append("state", JSON.stringify({ provider: null, last_output: null }));
     formData.append("debug", "0");
     formData.append("tool", String(BACKGROUND_REMOVER_TOOL.tool_key || ""));
     formData.append("tool_key", String(BACKGROUND_REMOVER_TOOL.tool_key || ""));
@@ -1007,8 +965,7 @@ async function loadPreviewsForMessage(message) {
 /**
  * Load a preview for a single image.
  *
- * Uses fetchInternalBlob() so the request carries the x-internal-api-key
- * header and targets API_BASE_URL for relative paths.
+ * Uses the authenticated local API client for protected file access.
  */
 async function loadImagePreview(image) {
     if (!image?.preview_url || previewLoading.value[image.id]) return;
@@ -1016,7 +973,7 @@ async function loadImagePreview(image) {
     previewErrors.value = { ...previewErrors.value, [image.id]: false };
     try {
         const url = toApiUrl(image.preview_url);
-        const blob = await fetchInternalBlob(url);
+        const blob = await fetchProtectedBlob(url);
         revokePreviewUrl(image.id);
         previewUrls.value = {
             ...previewUrls.value,
@@ -1037,15 +994,14 @@ function markPreviewFailed(image) {
 /**
  * Download an image via the internal API.
  *
- * Builds the fully-qualified URL with toApiUrl(), fetches using
- * fetchInternalBlob() (which attaches x-internal-api-key), then triggers
- * a browser download using a temporary <a> element.
+ * Fetches a protected local file, then triggers a browser download using a
+ * temporary <a> element.
  */
 async function downloadImage(image) {
     actionLoading.value = `download-${image.id}`;
     try {
         const url = toApiUrl(image.download_url);
-        const blob = await fetchInternalBlob(url);
+        const blob = await fetchProtectedBlob(url);
         const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = objectUrl;
