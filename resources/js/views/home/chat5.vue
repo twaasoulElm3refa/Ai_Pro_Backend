@@ -576,15 +576,23 @@ function cleanUiState(source = {}) {
  */
 function toApiUrl(url) {
     const str = String(url || "").trim();
+
     if (!str) return "";
-    try {
-        // If it's already an absolute URL, return as-is
-        new URL(str);
-        return str;
-    } catch {
-        // Relative path → let the API client resolve it against this app.
+
+    // الرابط كامل بالفعل
+    if (/^https?:\/\//i.test(str)) {
         return str;
     }
+
+    /*
+     * chatServices لديه baseURL = /api/v1
+     * لذلك نحذف /api/v1 من بداية الرابط إن كان موجودًا
+     * حتى لا يصبح:
+     * /api/v1/api/v1/generated-images/...
+     */
+    return str
+        .replace(/^\/+/, "")
+        .replace(/^api\/v1\/+/, "");
 }
 
 /**
