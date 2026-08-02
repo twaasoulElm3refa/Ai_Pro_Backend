@@ -123,12 +123,12 @@
                                     </div>
 
                                     <div class="result-footer">
-                                        <button type="button" class="regenerate-button" :disabled="isSending"
+                                        <!-- <button type="button" class="regenerate-button" :disabled="isSending"
                                             @click="regenerate(message)">
                                             <span v-if="isSending" class="button-spinner"></span>
                                             <i v-else class="bi bi-arrow-clockwise"></i>
                                             {{ labels.regenerate }}
-                                        </button>
+                                        </button> -->
                                     </div>
 
                                     <div v-if="message.metadata?.failed_files?.length" class="partial-warning">
