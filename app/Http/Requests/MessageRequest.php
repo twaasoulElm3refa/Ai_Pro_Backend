@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Conversation;
 use App\Services\AI\DynamicToolConfigService;
 use App\Services\BackgroundRemoverService;
+use App\Services\ImagePromptGeneratorService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,7 @@ class MessageRequest extends FormRequest
     private const RESUME_BUILDER_SUB_TOOL_ID = 19;
     private const IMAGE_GENERATOR_SUB_TOOL_ID = 21;
     private const BACKGROUND_REMOVER_SUB_TOOL_ID = 22;
+    private const IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID = 24;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
@@ -152,6 +154,10 @@ class MessageRequest extends FormRequest
             return array_merge($rules, $this->imageGeneratorRules());
         }
 
+        if ($this->isImagePromptGeneratorRequest()) {
+            return array_merge($rules, $this->imagePromptGeneratorRules());
+        }
+
         if (in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)) {
             return array_merge($rules, $this->chat3SeoStateRules());
         }
@@ -190,6 +196,30 @@ class MessageRequest extends FormRequest
             'state.extra_options' => ['nullable', 'array', 'max:20'],
             'state.extra_options.*' => ['string', 'max:150'],
             'state.last_output' => ['nullable'],
+        ];
+    }
+
+    private function imagePromptGeneratorRules(): array
+    {
+        return [
+            'sub_tool_id' => ['required', 'integer', Rule::in([self::IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID])],
+            'content' => ['nullable', 'string', 'max:10000'],
+            'message' => ['nullable', 'string', 'max:10000'],
+            'user_message' => ['required', 'string', 'max:10000'],
+            'state' => ['required', 'array'],
+            'state.content' => ['nullable', 'string', 'max:10000'],
+            'state.language' => ['required', 'string', 'max:80'],
+            'state.style' => ['required', 'string', 'max:150'],
+            'state.aspect_ratio' => ['required', 'string', 'max:30'],
+            'state.camera' => ['required', 'string', 'max:150'],
+            'state.lighting' => ['required', 'string', 'max:150'],
+            'state.negative_prompt' => ['nullable', 'string', 'max:5000'],
+            'state.text_policy' => ['required', 'string', 'max:150'],
+            'state.face_policy' => ['required', 'string', 'max:150'],
+            'state.results_count' => ['required', 'integer', 'min:1', 'max:5'],
+            'state.extra_options' => ['nullable', 'array', 'max:20'],
+            'state.extra_options.*' => ['string', 'max:150'],
+            'state.last_output' => ['nullable', 'string', 'max:100000'],
         ];
     }
 
@@ -237,6 +267,7 @@ class MessageRequest extends FormRequest
         $this->normalizeChat3SeoStateForValidation();
         $this->normalizeResumeBuilderStateForValidation();
         $this->normalizeBackgroundRemoverStateForValidation();
+        $this->normalizeImagePromptGeneratorStateForValidation();
     }
 
     private function normalizeMessageTextFields(): void
@@ -354,6 +385,25 @@ class MessageRequest extends FormRequest
         $this->merge(['state' => is_array($state) ? $state : []]);
     }
 
+    private function normalizeImagePromptGeneratorStateForValidation(): void
+    {
+        if (! $this->isImagePromptGeneratorRequest()) {
+            return;
+        }
+
+        $state = $this->input('state');
+
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+        }
+
+        $this->merge([
+            'sub_tool_id' => self::IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID,
+            'state' => is_array($state) ? $state : [],
+        ]);
+    }
+
     private function isResumeBuilderRequest(): bool
     {
         $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
@@ -372,6 +422,16 @@ class MessageRequest extends FormRequest
         return (int) $this->input('sub_tool_id') === self::BACKGROUND_REMOVER_SUB_TOOL_ID
             || $toolKey === BackgroundRemoverService::TOOL_KEY
             || $modelKey === 'background_remover';
+    }
+
+    private function isImagePromptGeneratorRequest(): bool
+    {
+        $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
+        $modelKey = strtolower(trim((string) $this->input('model_key')));
+
+        return (int) $this->input('sub_tool_id') === self::IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID
+            || $toolKey === ImagePromptGeneratorService::TOOL_KEY
+            || $modelKey === ImagePromptGeneratorService::MODEL_KEY;
     }
 
     private function firstFilledScalar(array $keys): ?string

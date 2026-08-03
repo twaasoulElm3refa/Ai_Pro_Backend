@@ -4,7 +4,7 @@
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-brand">
                 <span class="brand-icon"><i class="bi bi-image"></i></span>
-                <strong>{{ labels.title }}</strong>
+                <strong>{{ activeTitle }}</strong>
                 <button type="button" class="icon-button sidebar-close-toggle" :aria-label="labels.closeSidebar"
                     @click="closeSidebar">
                     <i class="bi bi-layout-sidebar-inset-reverse"></i>
@@ -56,11 +56,11 @@
                 </div>
 
                 <div v-else-if="messages.length === 0" class="welcome-card">
-                    <span class="welcome-icon"><i :class="isBackgroundRemover ? 'bi bi-magic' : 'bi bi-image'"></i></span>
-                    <h1>{{ isBackgroundRemover ? labels.bgRemoverTitle : labels.title }}</h1>
-                    <p>{{ isBackgroundRemover ? labels.bgRemoverWelcome : labels.welcome }}</p>
+                    <span class="welcome-icon"><i :class="activeToolIcon"></i></span>
+                    <h1>{{ activeTitle }}</h1>
+                    <p>{{ activeWelcome }}</p>
                     <button v-if="!isBackgroundRemover" type="button" class="suggestion" @click="fillExample">
-                        {{ labels.example }}
+                        {{ isPromptGenerator ? promptLabels.example : labels.example }}
                     </button>
                 </div>
 
@@ -73,14 +73,14 @@
 
                         <div class="message-body" :class="{
                             error: message.is_error,
-                            'card-shell': message.role === 'assistant' && (message.images.length || message.is_error),
+                            'card-shell': message.role === 'assistant' && (message.images.length || message.is_error || isPromptGeneratorMessage(message)),
                         }">
                             <template v-if="message.role === 'assistant' && message.images.length">
                                 <div class="image-response-card">
                                     <div class="response-heading">
                                         <span>
                                             <i class="bi bi-stars"></i>
-                                            {{ message.content || labels.generated }}
+                                            {{ message.content || activeGenerated }}
                                         </span>
                                     </div>
 
@@ -100,7 +100,7 @@
                                                     </button>
                                                 </div>
                                                 <img v-else-if="previewUrls[image.id]" :src="previewUrls[image.id]"
-                                                    :alt="labels.generated" loading="lazy"
+                                                    :alt="activeGenerated" loading="lazy"
                                                     @error="markPreviewFailed(image)">
                                             </div>
 
@@ -149,6 +149,23 @@
                                 </div>
                             </template>
 
+                            <template v-else-if="message.role === 'assistant' && isPromptGeneratorMessage(message)">
+                                <div class="prompt-response-card">
+                                    <div class="response-heading">
+                                        <span>
+                                            <i class="bi bi-card-text"></i>
+                                            {{ activeGenerated }}
+                                        </span>
+                                        <button type="button" class="copy-prompt-button" @click="copyPrompt(message)">
+                                            <i class="bi bi-clipboard-check"></i>
+                                            {{ copiedPromptKey === message.localKey ? promptLabels.copied : promptLabels.copyPrompt }}
+                                        </button>
+                                    </div>
+
+                                    <p class="message-content prompt-output">{{ message.content }}</p>
+                                </div>
+                            </template>
+
                             <p v-else class="message-content">{{ message.content }}</p>
                         </div>
                     </article>
@@ -163,15 +180,21 @@
                                     </span>
 
                                     <div>
-                                        <strong>{{ isBackgroundRemover ? labels.bgRemoverGenerating : labels.generating }}</strong>
-                                        <small>{{ isBackgroundRemover ? labels.bgRemoverGenerationWait : labels.generationWait }}</small>
+                                        <strong>{{ activeGenerating }}</strong>
+                                        <small>{{ activeGenerationWait }}</small>
                                     </div>
                                 </div>
 
                                 <span class="generation-spinner" aria-hidden="true"></span>
                             </div>
 
-                            <div class="loading-image-grid" :class="`loading-count-${Math.min(state.results_count, 4)}`">
+                            <div v-if="isPromptGenerator" class="loading-prompt-card">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+
+                            <div v-else class="loading-image-grid" :class="`loading-count-${Math.min(state.results_count, 4)}`">
                                 <div v-for="index in state.results_count" :key="index" class="loading-image-card">
                                     <span class="loading-image-shimmer"></span>
 
@@ -200,13 +223,78 @@
 
                 <details v-if="!isBackgroundRemover" class="options-panel">
                     <summary class="options-panel-header">
-                        <span><i class="bi bi-sliders"></i> {{ labels.settings }}</span>
+                        <span><i class="bi bi-sliders"></i> {{ isPromptGenerator ? promptLabels.settings : labels.settings }}</span>
                         <span class="options-chevron" aria-hidden="true">
                             <i class="bi bi-chevron-down"></i>
                         </span>
                     </summary>
 
-                    <div class="options-form">
+                    <div v-if="isPromptGenerator" class="options-form prompt-options-form">
+                        <label>
+                            <span>{{ promptLabels.language }}</span>
+                            <select v-model="state.language" :disabled="isSending">
+                                <option value="English">English</option>
+                                <option value="Arabic">Arabic</option>
+                                <option value="Auto Detect">Auto Detect</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ promptLabels.aspectRatio }}</span>
+                            <select v-model="state.aspect_ratio" :disabled="isSending">
+                                <option value="1:1">1:1</option>
+                                <option value="4:5">4:5</option>
+                                <option value="9:16">9:16</option>
+                                <option value="16:9">16:9</option>
+                                <option value="3:2">3:2</option>
+                            </select>
+                        </label>
+
+                        <label class="wide">
+                            <span>{{ promptLabels.style }}</span>
+                            <input v-model="state.style" type="text" :disabled="isSending">
+                        </label>
+
+                        <label>
+                            <span>{{ promptLabels.camera }}</span>
+                            <input v-model="state.camera" type="text" :disabled="isSending">
+                        </label>
+
+                        <label>
+                            <span>{{ promptLabels.lighting }}</span>
+                            <input v-model="state.lighting" type="text" :disabled="isSending">
+                        </label>
+
+                        <label>
+                            <span>{{ promptLabels.textPolicy }}</span>
+                            <select v-model="state.text_policy" :disabled="isSending">
+                                <option value="No text">No text</option>
+                                <option value="Minimal text only if requested">Minimal text only if requested</option>
+                                <option value="Text allowed">Text allowed</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ promptLabels.facePolicy }}</span>
+                            <select v-model="state.face_policy" :disabled="isSending">
+                                <option value="No visible human faces">No visible human faces</option>
+                                <option value="Faces allowed if natural">Faces allowed if natural</option>
+                                <option value="No restrictions">No restrictions</option>
+                            </select>
+                        </label>
+
+                        <label class="wide">
+                            <span>{{ labels.negativePrompt }}</span>
+                            <textarea v-model="state.negative_prompt" rows="2" :disabled="isSending"></textarea>
+                        </label>
+
+                        <label class="wide">
+                            <span>{{ promptLabels.extraOptions }}</span>
+                            <textarea v-model="promptExtraOptionsText" rows="2" :disabled="isSending"></textarea>
+                        </label>
+                    </div>
+
+                    <div v-else-if="isImageGenerator" class="options-form">
                         <label>
                             <span>{{ labels.size }}</span>
                             <select v-model="state.size" :disabled="isSending">
@@ -275,14 +363,14 @@
                     </div>
 
                     <textarea v-if="!isBackgroundRemover" ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
-                        :placeholder="labels.placeholder" :disabled="isSending" @input="autoResize"
+                        :placeholder="activePlaceholder" :disabled="isSending" @input="autoResize"
                         @keydown.enter.exact.prevent="sendMessage()"></textarea>
 
                     <div v-else class="bg-remover-placeholder">
                         <p>{{ labels.bgRemoverPlaceholder }}</p>
                     </div>
 
-                    <button type="button" class="send-button" :disabled="!canSend" :aria-label="isBackgroundRemover ? labels.bgRemoverSend : labels.send"
+                    <button type="button" class="send-button" :disabled="!canSend" :aria-label="activeSendLabel"
                         @click="sendMessage()">
                         <i :class="isSending ? 'bi bi-hourglass-split' : 'bi bi-send-fill'"></i>
                     </button>
@@ -320,11 +408,18 @@ const BACKGROUND_REMOVER_TOOL = {
     model_key: "background_remover",
 };
 
+const IMAGE_PROMPT_GENERATOR_TOOL = {
+    sub_tool_id: 24,
+    tool_key: "image_prompt_generator",
+    model_key: "image_prompt_generator",
+};
+
 const BG_REMOVER_MESSAGE = "Remove the background from the uploaded image and return a transparent PNG.";
+const IMAGE_PROMPT_PREFIX = "Create a professional image prompt for";
 
 // ─── State factory ────────────────────────────────────────────────────────────
 
-const createDefaultState = () => ({
+const createImageGeneratorState = () => ({
     provider: null,
     negative_prompt: "",
     size: "1024x1024",
@@ -333,6 +428,26 @@ const createDefaultState = () => ({
     output_format: "png",
     seed: null,
     extra_options: [],
+    last_output: null,
+});
+
+const createBackgroundRemoverState = () => ({
+    provider: null,
+    last_output: null,
+});
+
+const createPromptGeneratorState = () => ({
+    content: null,
+    language: "English",
+    style: "high-end editorial photography",
+    aspect_ratio: "4:5",
+    camera: "medium-wide shot",
+    lighting: "cinematic side lighting",
+    negative_prompt: "text, watermark, blurry image, distorted anatomy",
+    text_policy: "No text",
+    face_policy: "No visible human faces",
+    results_count: 1,
+    extra_options: ["realistic materials", "8K detail"],
     last_output: null,
 });
 
@@ -368,6 +483,31 @@ const actionLoading = ref("");
 const selectedFile = ref(null);
 const selectedFilePreview = ref("");
 const fileInputRef = ref(null);
+const copiedPromptKey = ref("");
+
+function resolveStateSubToolId(subToolId = null) {
+    return Number(
+        subToolId
+        || activeConversation.value?.sub_tool_id
+        || currentSubtool.value?.id
+        || currentSubtool.value?.sub_tool_id
+        || IMAGE_TOOL.sub_tool_id
+    );
+}
+
+function createDefaultState(subToolId = null) {
+    const resolvedSubToolId = resolveStateSubToolId(subToolId);
+
+    if (resolvedSubToolId === BACKGROUND_REMOVER_TOOL.sub_tool_id) {
+        return createBackgroundRemoverState();
+    }
+
+    if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
+        return createPromptGeneratorState();
+    }
+
+    return createImageGeneratorState();
+}
 
 // ─── Computed ─────────────────────────────────────────────────────────────────
 
@@ -491,6 +631,95 @@ const activeSubToolId = computed(() => Number(
 ));
 
 const isBackgroundRemover = computed(() => activeSubToolId.value === BACKGROUND_REMOVER_TOOL.sub_tool_id);
+const isImageGenerator = computed(() => activeSubToolId.value === IMAGE_TOOL.sub_tool_id);
+const isPromptGenerator = computed(() => activeSubToolId.value === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id);
+const activeToolIcon = computed(() => {
+    if (isBackgroundRemover.value) return "bi bi-magic";
+    if (isPromptGenerator.value) return "bi bi-card-text";
+    return "bi bi-image";
+});
+const promptLabels = computed(() => isArabic.value ? {
+    title: "مولد وصف الصور بالذكاء الاصطناعي",
+    welcome: "اكتب فكرة الصورة أو المشهد، وسيتم توليد برومبت احترافي جاهز للاستخدام.",
+    example: "A cinematic futuristic Cairo skyline at sunset, realistic architecture, no text, no watermark",
+    placeholder: "اكتب وصف الصورة أو الفكرة التي تريد تحويلها إلى برومبت احترافي...",
+    settings: "إعدادات البرومبت",
+    send: "توليد البرومبت",
+    generating: "جاري إنشاء وصف احترافي للصورة...",
+    generationWait: "سيتم تجهيز برومبت منسق ومناسب لمولدات الصور.",
+    generated: "تم إنشاء البرومبت بنجاح",
+    genericError: "تعذر إنشاء البرومبت الآن. حاول مرة أخرى.",
+    promptRequired: "اكتب فكرة الصورة أولًا.",
+    language: "اللغة",
+    style: "النمط",
+    aspectRatio: "نسبة الأبعاد",
+    camera: "الكاميرا",
+    lighting: "الإضاءة",
+    textPolicy: "سياسة النص",
+    facePolicy: "سياسة الوجوه",
+    extraOptions: "خيارات إضافية",
+    copyPrompt: "نسخ البرومبت",
+    copied: "تم النسخ",
+} : {
+    title: "AI Image Prompt Generator",
+    welcome: "Describe your idea and generate a professional image prompt ready to use.",
+    example: "A cinematic futuristic Cairo skyline at sunset, realistic architecture, no text, no watermark",
+    placeholder: "Describe the image idea you want to turn into a professional prompt...",
+    settings: "Prompt settings",
+    send: "Generate prompt",
+    generating: "Generating a professional image prompt...",
+    generationWait: "Preparing a structured prompt ready for image models.",
+    generated: "Prompt generated successfully",
+    genericError: "The prompt could not be generated right now. Please try again.",
+    promptRequired: "Describe the image idea first.",
+    language: "Language",
+    style: "Style",
+    aspectRatio: "Aspect ratio",
+    camera: "Camera",
+    lighting: "Lighting",
+    textPolicy: "Text policy",
+    facePolicy: "Face policy",
+    extraOptions: "Extra options",
+    copyPrompt: "Copy Prompt",
+    copied: "Copied",
+});
+const activeTitle = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverTitle;
+    if (isPromptGenerator.value) return promptLabels.value.title;
+    return labels.value.title;
+});
+const activeWelcome = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverWelcome;
+    if (isPromptGenerator.value) return promptLabels.value.welcome;
+    return labels.value.welcome;
+});
+const activePlaceholder = computed(() => isPromptGenerator.value ? promptLabels.value.placeholder : labels.value.placeholder);
+const activeSendLabel = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverSend;
+    if (isPromptGenerator.value) return promptLabels.value.send;
+    return labels.value.send;
+});
+const activeGenerating = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverGenerating;
+    if (isPromptGenerator.value) return promptLabels.value.generating;
+    return labels.value.generating;
+});
+const activeGenerationWait = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverGenerationWait;
+    if (isPromptGenerator.value) return promptLabels.value.generationWait;
+    return labels.value.generationWait;
+});
+const activeGenerated = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverGenerated;
+    if (isPromptGenerator.value) return promptLabels.value.generated;
+    return labels.value.generated;
+});
+const activeGenericError = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverGenericError;
+    if (isPromptGenerator.value) return promptLabels.value.genericError;
+    return labels.value.genericError;
+});
+const activePromptRequired = computed(() => isPromptGenerator.value ? promptLabels.value.promptRequired : labels.value.promptRequired);
 
 const canSend = computed(() => {
     if (isSending.value || creatingConversation.value) return false;
@@ -498,9 +727,16 @@ const canSend = computed(() => {
     return Boolean(userMessage.value.trim());
 });
 
+const promptExtraOptionsText = computed({
+    get: () => normalizeStringList(state.value.extra_options).join(", "),
+    set: (value) => {
+        state.value.extra_options = splitOptions(value);
+    },
+});
+
 useSeoMeta({
-    title: computed(() => labels.value.title),
-    description: computed(() => labels.value.welcome),
+    title: computed(() => activeTitle.value),
+    description: computed(() => activeWelcome.value),
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -533,10 +769,33 @@ function mapMessage(message, index) {
     return normalizeImageGenerationMessage(message, index);
 }
 
+function toolConfigForSubTool(subToolId = null) {
+    const resolvedSubToolId = resolveStateSubToolId(subToolId);
+
+    if (resolvedSubToolId === BACKGROUND_REMOVER_TOOL.sub_tool_id) {
+        return BACKGROUND_REMOVER_TOOL;
+    }
+
+    if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
+        return IMAGE_PROMPT_GENERATOR_TOOL;
+    }
+
+    return IMAGE_TOOL;
+}
+
+function subToolIdFromMessage(message) {
+    return Number(
+        message?.metadata?.sub_tool_id
+        || message?.sub_tool_id
+        || activeSubToolId.value
+    );
+}
+
 function stateFromMessage(message) {
     const candidate = message?.state || message?.metadata?.state;
+    const subToolId = subToolIdFromMessage(message);
     return candidate && typeof candidate === "object"
-        ? { ...createDefaultState(), ...candidate }
+        ? { ...createDefaultState(subToolId), ...candidate }
         : null;
 }
 
@@ -546,9 +805,69 @@ function normalizeSeed(value) {
     return Number.isFinite(seed) ? seed : null;
 }
 
-function cleanRequestState(requestState = {}, regenerate = false) {
+function normalizeStringList(value) {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item || "").trim()).filter(Boolean);
+    }
+
+    if (typeof value === "string") {
+        return splitOptions(value);
+    }
+
+    return [];
+}
+
+function splitOptions(value) {
+    return String(value || "")
+        .split(/[\n,]/u)
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function normalizeResultsCount(value, fallback = 1, max = 4) {
+    const count = Number(value || fallback);
+    return Number.isFinite(count) ? Math.max(1, Math.min(max, count)) : fallback;
+}
+
+function cleanPromptGeneratorState(requestState = {}, regenerate = false) {
+    const defaults = createPromptGeneratorState();
+
     return {
-        ...createDefaultState(),
+        ...defaults,
+        content: requestState?.content ? String(requestState.content) : null,
+        language: requestState?.language || defaults.language,
+        style: requestState?.style || defaults.style,
+        aspect_ratio: requestState?.aspect_ratio || defaults.aspect_ratio,
+        camera: requestState?.camera || defaults.camera,
+        lighting: requestState?.lighting || defaults.lighting,
+        negative_prompt: String(requestState?.negative_prompt || defaults.negative_prompt),
+        text_policy: requestState?.text_policy || defaults.text_policy,
+        face_policy: requestState?.face_policy || defaults.face_policy,
+        results_count: normalizeResultsCount(requestState?.results_count, defaults.results_count, 5),
+        extra_options: normalizeStringList(requestState?.extra_options).length
+            ? normalizeStringList(requestState.extra_options)
+            : [...defaults.extra_options],
+        last_output: regenerate ? requestState?.last_output ?? null : null,
+    };
+}
+
+function cleanRequestState(requestState = {}, regenerate = false, subToolId = null) {
+    const resolvedSubToolId = resolveStateSubToolId(subToolId);
+
+    if (resolvedSubToolId === BACKGROUND_REMOVER_TOOL.sub_tool_id) {
+        return {
+            ...createBackgroundRemoverState(),
+            provider: requestState?.provider ?? null,
+            last_output: regenerate ? requestState?.last_output ?? null : null,
+        };
+    }
+
+    if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
+        return cleanPromptGeneratorState(requestState, regenerate);
+    }
+
+    return {
+        ...createImageGeneratorState(),
         provider: requestState?.provider ?? null,
         negative_prompt: String(requestState?.negative_prompt || ""),
         size: requestState?.size || "1024x1024",
@@ -561,9 +880,19 @@ function cleanRequestState(requestState = {}, regenerate = false) {
     };
 }
 
-function cleanUiState(source = {}) {
+function cleanUiState(source = {}, subToolId = null) {
+    const resolvedSubToolId = resolveStateSubToolId(subToolId);
+    const cleanState = cleanRequestState(source, false, resolvedSubToolId);
+
+    if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
+        return {
+            ...cleanState,
+            last_output: source?.last_output ?? null,
+        };
+    }
+
     return {
-        ...cleanRequestState(source, false),
+        ...cleanState,
         seed: null,
         last_output: null,
     };
@@ -651,12 +980,14 @@ async function loadConversationDetails(uuid) {
             .reverse()
             .map(stateFromMessage)
             .find(Boolean);
-        state.value = latestState ? cleanUiState(latestState) : createDefaultState();
+        state.value = latestState
+            ? cleanUiState(latestState, activeConversation.value?.sub_tool_id)
+            : createDefaultState(activeConversation.value?.sub_tool_id);
         await loadMessagePreviews();
         await scrollToBottom();
     } catch {
         messages.value = [];
-        errorMessage.value = labels.value.genericError;
+        errorMessage.value = activeGenericError.value;
     } finally {
         loadingMessages.value = false;
     }
@@ -707,21 +1038,69 @@ function triggerFileInput() {
 // ─── Message building ─────────────────────────────────────────────────────────
 
 function buildPayload(prompt, conversation, requestState, regenerate = false) {
-    const cleanState = cleanRequestState(requestState, regenerate);
-    const toolConfig = isBackgroundRemover.value ? BACKGROUND_REMOVER_TOOL : IMAGE_TOOL;
+    const subToolId = Number(conversation.sub_tool_id || activeSubToolId.value);
+    const cleanState = cleanRequestState(requestState, regenerate, subToolId);
+    const toolConfig = toolConfigForSubTool(subToolId);
 
     return {
-        sub_tool_id: Number(conversation.sub_tool_id || activeSubToolId.value),
+        sub_tool_id: subToolId,
         conversation_uuid: conversation.uuid,
         user_message: prompt,
         state: cleanState,
         tool: toolConfig.tool_key,
         tool_key: toolConfig.tool_key,
         model_key: toolConfig.model_key,
+        task_key: toolConfig.tool_key,
         regenerate,
         idempotency_key: crypto.randomUUID(),
         debug: false,
     };
+}
+
+function buildPromptGeneratorMessage(input) {
+    const text = String(input || "").trim();
+    if (!text) return "";
+
+    return text.toLowerCase().startsWith(IMAGE_PROMPT_PREFIX.toLowerCase())
+        ? text
+        : `${IMAGE_PROMPT_PREFIX} ${text}`;
+}
+
+function textFromResults(results) {
+    if (!Array.isArray(results)) return "";
+
+    return results
+        .map((result) => {
+            if (typeof result === "string") return result;
+            if (!result || typeof result !== "object") return "";
+            return String(result.text || result.content || result.prompt || "").trim();
+        })
+        .filter(Boolean)
+        .join("\n\n");
+}
+
+function assistantContentFromResult(result, isPromptTool) {
+    if (!isPromptTool) {
+        return String(result.message || "");
+    }
+
+    return String(
+        result.reply
+        || result.message
+        || result.content
+        || textFromResults(result.results || result.normalized_results)
+        || result.state?.last_output
+        || ""
+    );
+}
+
+function isPromptGeneratorMessage(message) {
+    const metadata = message?.metadata || {};
+    return Number(metadata.sub_tool_id || message?.sub_tool_id || 0) === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id
+        || metadata.task_key === IMAGE_PROMPT_GENERATOR_TOOL.tool_key
+        || metadata.tool_key === IMAGE_PROMPT_GENERATOR_TOOL.tool_key
+        || metadata.tool === IMAGE_PROMPT_GENERATOR_TOOL.tool_key
+        || metadata.model_key === IMAGE_PROMPT_GENERATOR_TOOL.model_key;
 }
 
 function buildBgRemoverFormData(conversation, file) {
@@ -745,9 +1124,11 @@ function buildBgRemoverFormData(conversation, file) {
 
 async function sendMessage(options = {}) {
     const isBgRemover = isBackgroundRemover.value;
+    const isPromptTool = isPromptGenerator.value;
+    const rawPrompt = String(options.prompt ?? userMessage.value).trim();
     const prompt = isBgRemover
         ? BG_REMOVER_MESSAGE
-        : String(options.prompt ?? userMessage.value).trim();
+        : (isPromptTool ? buildPromptGeneratorMessage(rawPrompt) : rawPrompt);
 
     if (isSending.value) return;
 
@@ -755,17 +1136,20 @@ async function sendMessage(options = {}) {
         errorMessage.value = labels.value.fileRequired;
         return;
     }
-    if (!isBgRemover && !prompt) {
-        errorMessage.value = labels.value.promptRequired;
+    if (!isBgRemover && !rawPrompt) {
+        errorMessage.value = activePromptRequired.value;
         return;
     }
 
     const regenerate = Boolean(options.regenerate);
-    const requestState = cleanRequestState(options.requestState || state.value, regenerate);
+    const requestState = cleanRequestState(options.requestState || state.value, regenerate, activeSubToolId.value);
+    if (isPromptTool) {
+        requestState.content = rawPrompt;
+    }
     const optimisticKey = `local-user-${Date.now()}`;
     const displayContent = isBgRemover
         ? (selectedFile.value?.name || labels.value.bgRemoverSend)
-        : prompt;
+        : rawPrompt;
     errorMessage.value = "";
     lastFailedRequest.value = null;
     isSending.value = true;
@@ -807,12 +1191,15 @@ async function sendMessage(options = {}) {
             result = responseData(await chatServices.sendMessage(payload));
         }
 
-        const rawImages = result.images || result.files || [];
+        const rawImages = isPromptTool ? [] : (result.images || result.files || []);
         const images = normalizeGeneratedImages(rawImages);
+        const assistantContent = assistantContentFromResult(result, isPromptTool) || (
+            isPromptTool ? promptLabels.value.generated : result.message
+        );
         const assistant = mapMessage({
             id: result.assistant_message_id,
             role: "assistant",
-            content: result.message,
+            content: assistantContent,
             is_error: result.success === false || result.type === "error",
             images,
             state: result.state,
@@ -820,17 +1207,19 @@ async function sendMessage(options = {}) {
                 ...result,
                 images,
                 generation: result.metadata,
-                request_prompt: prompt,
+                request_prompt: rawPrompt,
+                provider_user_message: prompt,
+                last_output: result.state?.last_output || assistantContent,
                 failed_files: result.failed_files || [],
             },
         }, messages.value.length);
         messages.value.push(assistant);
-        state.value = cleanUiState(result.state || requestState);
+        state.value = cleanUiState(result.state || requestState, activeSubToolId.value);
 
         if (assistant.is_error) {
             lastFailedRequest.value = {
-                prompt,
-                requestState: cleanRequestState(requestState, false),
+                prompt: rawPrompt,
+                requestState: cleanRequestState(requestState, false, activeSubToolId.value),
                 regenerate: false,
             };
         } else {
@@ -848,12 +1237,12 @@ async function sendMessage(options = {}) {
             });
         }
 
-        const errorLabel = isBgRemover ? labels.value.bgRemoverGenericError : labels.value.genericError;
+        const errorLabel = activeGenericError.value;
         const message = error?.response?.data?.message || error?.response?.data?.error || errorLabel;
         errorMessage.value = localizeError(message);
         lastFailedRequest.value = {
-            prompt,
-            requestState: cleanRequestState(requestState, false),
+            prompt: rawPrompt,
+            requestState: cleanRequestState(requestState, false, activeSubToolId.value),
             regenerate: false,
         };
     } finally {
@@ -869,10 +1258,11 @@ function retryLastRequest() {
 function retryMessage(message) {
     const prompt = String(message?.metadata?.request_prompt || lastUserPromptBefore(message) || "").trim();
     const requestState = stateFromMessage(message) || state.value;
+    const subToolId = subToolIdFromMessage(message);
     sendMessage({
         prompt,
         requestState: {
-            ...cleanRequestState(requestState, true),
+            ...cleanRequestState(requestState, true, subToolId),
             last_output: message?.metadata?.last_output ?? requestState?.last_output ?? null,
         },
         regenerate: true,
@@ -885,12 +1275,13 @@ function regenerate(message) {
         || lastUserPromptBefore(message)
         || ""
     ).trim();
-    const previousState = stateFromMessage(message) || createDefaultState();
+    const subToolId = subToolIdFromMessage(message);
+    const previousState = stateFromMessage(message) || createDefaultState(subToolId);
 
     sendMessage({
         prompt,
         requestState: {
-            ...cleanRequestState(previousState, true),
+            ...cleanRequestState(previousState, true, subToolId),
             last_output: message?.metadata?.last_output ?? previousState?.last_output ?? null,
         },
         regenerate: true,
@@ -928,7 +1319,7 @@ async function startNewChat() {
         sidebarOpen.value = false;
         await router.push(routePath(conversation.uuid));
     } catch {
-        errorMessage.value = labels.value.genericError;
+        errorMessage.value = activeGenericError.value;
     } finally {
         creatingConversation.value = false;
     }
@@ -1056,8 +1447,36 @@ function revokePreviewUrls() {
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 
 function fillExample() {
-    userMessage.value = labels.value.example;
+    userMessage.value = isPromptGenerator.value ? promptLabels.value.example : labels.value.example;
     nextTick(autoResize);
+}
+
+async function copyPrompt(message) {
+    const text = String(message?.content || "").trim();
+    if (!text) return;
+
+    try {
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            textarea.remove();
+        }
+
+        copiedPromptKey.value = message.localKey;
+        window.setTimeout(() => {
+            if (copiedPromptKey.value === message.localKey) copiedPromptKey.value = "";
+        }, 1600);
+    } catch {
+        copiedPromptKey.value = "";
+    }
 }
 
 function autoResize() {
@@ -1070,7 +1489,7 @@ function autoResize() {
 
 function localizeError(message) {
     const text = String(message || "").trim();
-    if (!text || /could not|failed|error/i.test(text)) return labels.value.genericError;
+    if (!text || /could not|failed|error/i.test(text)) return activeGenericError.value;
     return text;
 }
 
@@ -1476,6 +1895,43 @@ button:disabled {
     padding: 16px;
 }
 
+.prompt-response-card {
+    padding: 16px;
+}
+
+.prompt-output {
+    padding: 12px 14px;
+    border: 1px solid #d8e6f7;
+    border-radius: 10px;
+    color: var(--ink);
+    background: #fbfdff;
+}
+
+.copy-prompt-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid #bfd7e8;
+    border-radius: 9px;
+    color: var(--navy);
+    background: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.copy-prompt-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: var(--blue);
+    background: #edf7fc;
+}
+
 .response-heading {
     display: flex;
     align-items: center;
@@ -1839,6 +2295,32 @@ button:disabled {
     font-size: 22px;
     backdrop-filter: blur(4px);
     animation: imagePlaceholderPulse 1.6s ease-in-out infinite;
+}
+
+.loading-prompt-card {
+    display: grid;
+    gap: 9px;
+    padding: 12px;
+    border: 1px solid #deebf4;
+    border-radius: 12px;
+    background: #fbfdff;
+}
+
+.loading-prompt-card span {
+    display: block;
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #e8f0f6 25%, #f7fbfe 50%, #e8f0f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+}
+
+.loading-prompt-card span:nth-child(2) {
+    width: 86%;
+}
+
+.loading-prompt-card span:nth-child(3) {
+    width: 62%;
 }
 
 .generation-progress {

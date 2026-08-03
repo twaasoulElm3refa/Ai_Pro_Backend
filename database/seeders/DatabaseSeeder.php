@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             KeywordGeneratorSeeder::class,
             ResumeBuilderSeeder::class,
             ImageGeneratorSeeder::class,
+            ImagePromptGeneratorSeeder::class,
         ]);
     }
 }

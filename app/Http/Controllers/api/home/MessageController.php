@@ -20,6 +20,7 @@ use App\Services\ChatSeoToolService;
 use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
 use App\Services\GeneratedImageService;
+use App\Services\ImagePromptGeneratorService;
 use App\Services\ProductDescriptionGeneratorService;
 use App\Services\ResumeBuilderService;
 use App\Services\ScriptGeneratorService;
@@ -71,6 +72,7 @@ class MessageController extends Controller
             ChatSeoToolService $chatSeoToolService,
             ResumeBuilderService $resumeBuilderService,
             GeneratedImageService $generatedImageService,
+            ImagePromptGeneratorService $imagePromptGeneratorService,
             BackgroundRemoverService $backgroundRemoverService
     )
     {
@@ -133,6 +135,11 @@ class MessageController extends Controller
                 $subToolId,
                 $requestedToolKey !== '' ? $requestedToolKey : $requestedTool
             ) || (int) $conversation->sub_tool_id === GeneratedImageService::SUB_TOOL_ID;
+            $isImagePromptGenerator = ImagePromptGeneratorService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
+                $requestedModelKey
+            );
 
             if ($isBackgroundRemover && $subToolId !== (int) $conversation->sub_tool_id) {
                 return $this->validationError([
@@ -144,6 +151,12 @@ class MessageController extends Controller
                 return $this->validationError([
                     'sub_tool_id' => ['The selected tool does not match this conversation.'],
                 ], 'Invalid image generation conversation.');
+            }
+
+            if ($isImagePromptGenerator && $subToolId !== (int) $conversation->sub_tool_id) {
+                return $this->validationError([
+                    'sub_tool_id' => ['The selected tool does not match this conversation.'],
+                ], 'Invalid image prompt generation conversation.');
             }
 
             if ($content === '') {
@@ -192,6 +205,18 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Image Generator Response Ready.'
+                );
+            }
+
+            if ($isImagePromptGenerator) {
+                return $this->success(
+                    $imagePromptGeneratorService->handle(
+                        $conversation,
+                        $data,
+                        $content,
+                        $userId
+                    ),
+                    'Image Prompt Generator Response Ready.'
                 );
             }
 
