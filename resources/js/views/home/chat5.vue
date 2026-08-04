@@ -294,6 +294,20 @@
                         </label>
                     </div>
 
+                    <div v-else-if="isImageUpscaler" class="options-form">
+                        <label>
+                            <span>{{ labels.scale }}</span>
+                            <select v-model.number="state.scale" :disabled="isSending">
+                                <option :value="2">2x</option>
+                                <option :value="4">4x</option>
+                            </select>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" v-model="state.face_enhance" :disabled="isSending" />
+                            <span>{{ labels.faceEnhance }}</span>
+                        </label>
+                    </div>
+
                     <div v-else-if="isImageGenerator" class="options-form">
                         <label>
                             <span>{{ labels.size }}</span>
@@ -351,23 +365,23 @@
                 <div class="input-box">
                     <input type="file" ref="fileInputRef" accept="image/*" class="hidden-file-input" @change="handleFileSelect" :disabled="isSending" />
 
-                    <button v-if="isBackgroundRemover" type="button" class="attach-button" :disabled="isSending" :title="labels.uploadImage" @click="triggerFileInput">
+                    <button v-if="isBackgroundRemover || isImageUpscaler" type="button" class="attach-button" :disabled="isSending" :title="labels.uploadImage" @click="triggerFileInput">
                         <i class="bi bi-paperclip"></i>
                     </button>
 
-                    <div v-if="isBackgroundRemover && selectedFilePreview" class="composer-file-preview">
+                    <div v-if="(isBackgroundRemover || isImageUpscaler) && selectedFilePreview" class="composer-file-preview">
                         <img :src="selectedFilePreview" :alt="selectedFile?.name" />
                         <button type="button" class="remove-file" :title="labels.removeImage" @click="removeSelectedFile">
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
 
-                    <textarea v-if="!isBackgroundRemover" ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
+                    <textarea v-if="!isBackgroundRemover && !isImageUpscaler" ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
                         :placeholder="activePlaceholder" :disabled="isSending" @input="autoResize"
                         @keydown.enter.exact.prevent="sendMessage()"></textarea>
 
                     <div v-else class="bg-remover-placeholder">
-                        <p>{{ labels.bgRemoverPlaceholder }}</p>
+                        <p>{{ isImageUpscaler ? labels.upscalerPlaceholder : labels.bgRemoverPlaceholder }}</p>
                     </div>
 
                     <button type="button" class="send-button" :disabled="!canSend" :aria-label="activeSendLabel"
@@ -408,6 +422,12 @@ const BACKGROUND_REMOVER_TOOL = {
     model_key: "background_remover",
 };
 
+const IMAGE_UPSCALER_TOOL = {
+    sub_tool_id: 23,
+    tool_key: "ai_image_upscaler",
+    model_key: "image_upscaler",
+};
+
 const IMAGE_PROMPT_GENERATOR_TOOL = {
     sub_tool_id: 24,
     tool_key: "image_prompt_generator",
@@ -415,6 +435,7 @@ const IMAGE_PROMPT_GENERATOR_TOOL = {
 };
 
 const BG_REMOVER_MESSAGE = "Remove the background from the uploaded image and return a transparent PNG.";
+const IMAGE_UPSCALER_MESSAGE = "Upscale the uploaded image.";
 const IMAGE_PROMPT_PREFIX = "Create a professional image prompt for";
 
 // ─── State factory ────────────────────────────────────────────────────────────
@@ -433,6 +454,13 @@ const createImageGeneratorState = () => ({
 
 const createBackgroundRemoverState = () => ({
     provider: null,
+    last_output: null,
+});
+
+const createImageUpscalerState = () => ({
+    scale: 2,
+    face_enhance: false,
+    extra_options: [],
     last_output: null,
 });
 
@@ -502,6 +530,10 @@ function createDefaultState(subToolId = null) {
         return createBackgroundRemoverState();
     }
 
+    if (resolvedSubToolId === IMAGE_UPSCALER_TOOL.sub_tool_id) {
+        return createImageUpscalerState();
+    }
+
     if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
         return createPromptGeneratorState();
     }
@@ -568,6 +600,16 @@ const labels = computed(() => isArabic.value ? {
     bgRemoverGenerationWait: "قد تستغرق العملية بضع لحظات، لا تغلق الصفحة.",
     bgRemoverGenerated: "تمت إزالة الخلفية بنجاح",
     bgRemoverGenericError: "تعذر إزالة الخلفية الآن. حاول مرة أخرى.",
+    scale: "نسبة التكبير",
+    faceEnhance: "تحسين الوجوه",
+    upscalerTitle: "تكبير وتحسين جودة الصور بالذكاء الاصطناعي",
+    upscalerWelcome: "ارفع صورة لزيادة دقتها وتحسين تفاصيلها باستخدام الذكاء الاصطناعي.",
+    upscalerPlaceholder: "ارفع صورة لترقية جودتها وتوضيح تفاصيلها...",
+    upscalerSend: "تكبير الصورة",
+    upscalerGenerating: "جاري تكبير الصورة وتحسين دقتها...",
+    upscalerGenerationWait: "قد تستغرق العملية بضع لحظات، لا تغلق الصفحة.",
+    upscalerGenerated: "تم تكبير الصورة بنجاح",
+    upscalerGenericError: "تعذر تكبير الصورة الآن. حاول مرة أخرى.",
 } : {
     title: "AI Image Generator",
     welcome: "Describe the image you have in mind, then choose its size and quality to generate ready-to-use images.",
@@ -621,6 +663,16 @@ const labels = computed(() => isArabic.value ? {
     bgRemoverGenerationWait: "This may take a few moments. Please keep this page open.",
     bgRemoverGenerated: "Background removed successfully",
     bgRemoverGenericError: "Background could not be removed right now. Please try again.",
+    scale: "Scale factor",
+    faceEnhance: "Face enhance",
+    upscalerTitle: "AI Image Upscaler",
+    upscalerWelcome: "Upload an image to increase its resolution and detail using AI.",
+    upscalerPlaceholder: "Upload an image to upscale and enhance...",
+    upscalerSend: "Upscale image",
+    upscalerGenerating: "Upscaling image and enhancing details...",
+    upscalerGenerationWait: "This may take a few moments. Please keep this page open.",
+    upscalerGenerated: "Image upscaled successfully",
+    upscalerGenericError: "Image could not be upscaled right now. Please try again.",
 });
 
 const activeSubToolId = computed(() => Number(
@@ -631,10 +683,12 @@ const activeSubToolId = computed(() => Number(
 ));
 
 const isBackgroundRemover = computed(() => activeSubToolId.value === BACKGROUND_REMOVER_TOOL.sub_tool_id);
+const isImageUpscaler = computed(() => activeSubToolId.value === IMAGE_UPSCALER_TOOL.sub_tool_id);
 const isImageGenerator = computed(() => activeSubToolId.value === IMAGE_TOOL.sub_tool_id);
 const isPromptGenerator = computed(() => activeSubToolId.value === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id);
 const activeToolIcon = computed(() => {
     if (isBackgroundRemover.value) return "bi bi-magic";
+    if (isImageUpscaler.value) return "bi bi-aspect-ratio";
     if (isPromptGenerator.value) return "bi bi-card-text";
     return "bi bi-image";
 });
@@ -685,37 +739,44 @@ const promptLabels = computed(() => isArabic.value ? {
 });
 const activeTitle = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverTitle;
+    if (isImageUpscaler.value) return labels.value.upscalerTitle;
     if (isPromptGenerator.value) return promptLabels.value.title;
     return labels.value.title;
 });
 const activeWelcome = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverWelcome;
+    if (isImageUpscaler.value) return labels.value.upscalerWelcome;
     if (isPromptGenerator.value) return promptLabels.value.welcome;
     return labels.value.welcome;
 });
 const activePlaceholder = computed(() => isPromptGenerator.value ? promptLabels.value.placeholder : labels.value.placeholder);
 const activeSendLabel = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverSend;
+    if (isImageUpscaler.value) return labels.value.upscalerSend;
     if (isPromptGenerator.value) return promptLabels.value.send;
     return labels.value.send;
 });
 const activeGenerating = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenerating;
+    if (isImageUpscaler.value) return labels.value.upscalerGenerating;
     if (isPromptGenerator.value) return promptLabels.value.generating;
     return labels.value.generating;
 });
 const activeGenerationWait = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenerationWait;
+    if (isImageUpscaler.value) return labels.value.upscalerGenerationWait;
     if (isPromptGenerator.value) return promptLabels.value.generationWait;
     return labels.value.generationWait;
 });
 const activeGenerated = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenerated;
+    if (isImageUpscaler.value) return labels.value.upscalerGenerated;
     if (isPromptGenerator.value) return promptLabels.value.generated;
     return labels.value.generated;
 });
 const activeGenericError = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenericError;
+    if (isImageUpscaler.value) return labels.value.upscalerGenericError;
     if (isPromptGenerator.value) return promptLabels.value.genericError;
     return labels.value.genericError;
 });
@@ -723,7 +784,9 @@ const activePromptRequired = computed(() => isPromptGenerator.value ? promptLabe
 
 const canSend = computed(() => {
     if (isSending.value || creatingConversation.value) return false;
-    if (isBackgroundRemover.value) return Boolean(selectedFile.value);
+    if (isBackgroundRemover.value || isImageUpscaler.value) return Boolean(selectedFile.value);
+    return Boolean(userMessage.value.trim());
+});
     return Boolean(userMessage.value.trim());
 });
 
@@ -857,6 +920,16 @@ function cleanRequestState(requestState = {}, regenerate = false, subToolId = nu
     if (resolvedSubToolId === BACKGROUND_REMOVER_TOOL.sub_tool_id) {
         return {
             ...createBackgroundRemoverState(),
+            provider: requestState?.provider ?? null,
+            last_output: regenerate ? requestState?.last_output ?? null : null,
+        };
+    }
+
+    if (resolvedSubToolId === IMAGE_UPSCALER_TOOL.sub_tool_id) {
+        return {
+            ...createImageUpscalerState(),
+            scale: Number(requestState?.scale || 2),
+            face_enhance: Boolean(requestState?.face_enhance),
             provider: requestState?.provider ?? null,
             last_output: regenerate ? requestState?.last_output ?? null : null,
         };
@@ -1120,23 +1193,46 @@ function buildBgRemoverFormData(conversation, file) {
     return formData;
 }
 
+function buildUpscalerFormData(conversation, file, requestState) {
+    const formData = new FormData();
+
+    formData.append("conversation_uuid", String(conversation.uuid || ""));
+    formData.append("sub_tool_id", String(IMAGE_UPSCALER_TOOL.sub_tool_id));
+    formData.append("user_message", IMAGE_UPSCALER_MESSAGE);
+    formData.append("state", JSON.stringify({
+        scale: Number(requestState.scale || 2),
+        face_enhance: Boolean(requestState.face_enhance),
+        provider: requestState.provider ?? null,
+        last_output: requestState.last_output ?? null,
+    }));
+    formData.append("debug", "0");
+    formData.append("tool", String(IMAGE_UPSCALER_TOOL.tool_key || ""));
+    formData.append("tool_key", String(IMAGE_UPSCALER_TOOL.tool_key || ""));
+    formData.append("model_key", String(IMAGE_UPSCALER_TOOL.model_key || ""));
+    formData.append("idempotency_key", crypto.randomUUID());
+    formData.append("file", file);
+
+    return formData;
+}
+
 // ─── Send / retry ─────────────────────────────────────────────────────────────
 
 async function sendMessage(options = {}) {
     const isBgRemover = isBackgroundRemover.value;
+    const isUpscaler = isImageUpscaler.value;
     const isPromptTool = isPromptGenerator.value;
     const rawPrompt = String(options.prompt ?? userMessage.value).trim();
     const prompt = isBgRemover
         ? BG_REMOVER_MESSAGE
-        : (isPromptTool ? buildPromptGeneratorMessage(rawPrompt) : rawPrompt);
+        : (isUpscaler ? IMAGE_UPSCALER_MESSAGE : (isPromptTool ? buildPromptGeneratorMessage(rawPrompt) : rawPrompt));
 
     if (isSending.value) return;
 
-    if (isBgRemover && !selectedFile.value) {
+    if ((isBgRemover || isUpscaler) && !selectedFile.value) {
         errorMessage.value = labels.value.fileRequired;
         return;
     }
-    if (!isBgRemover && !rawPrompt) {
+    if (!isBgRemover && !isUpscaler && !rawPrompt) {
         errorMessage.value = activePromptRequired.value;
         return;
     }
@@ -1149,7 +1245,7 @@ async function sendMessage(options = {}) {
     const optimisticKey = `local-user-${Date.now()}`;
     const displayContent = isBgRemover
         ? (selectedFile.value?.name || labels.value.bgRemoverSend)
-        : rawPrompt;
+        : (isUpscaler ? (selectedFile.value?.name || labels.value.upscalerSend) : rawPrompt);
     errorMessage.value = "";
     lastFailedRequest.value = null;
     isSending.value = true;
@@ -1174,13 +1270,26 @@ async function sendMessage(options = {}) {
             result = responseData(await chatServices.sendMessageFormData(formData));
             removeSelectedFile();
 
-            // Normalise background-remover files to match the image-generator shape
             if (result && Array.isArray(result.files)) {
                 result.images = result.files.map((f) => ({
                     id: String(f.file_id || f.id || Date.now()),
                     filename: String(f.filename || "background-removed.png"),
                     content_type: String(f.content_type || "image/png"),
-                    // Store the raw relative path; toApiUrl() will resolve it later
+                    preview_url: String(f.download_url || f.preview_url || ""),
+                    download_url: String(f.download_url || f.preview_url || ""),
+                    size_bytes: Number(f.size_bytes || 0),
+                }));
+            }
+        } else if (isUpscaler) {
+            const formData = buildUpscalerFormData(conversation, selectedFile.value, requestState);
+            result = responseData(await chatServices.sendMessageFormData(formData));
+            removeSelectedFile();
+
+            if (result && Array.isArray(result.files)) {
+                result.images = result.files.map((f) => ({
+                    id: String(f.file_id || f.id || Date.now()),
+                    filename: String(f.filename || "image-upscaled.png"),
+                    content_type: String(f.content_type || "image/png"),
                     preview_url: String(f.download_url || f.preview_url || ""),
                     download_url: String(f.download_url || f.preview_url || ""),
                     size_bytes: Number(f.size_bytes || 0),

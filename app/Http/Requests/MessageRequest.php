@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Services\AI\DynamicToolConfigService;
 use App\Services\BackgroundRemoverService;
 use App\Services\ImagePromptGeneratorService;
+use App\Services\ImageUpscalerService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,7 @@ class MessageRequest extends FormRequest
     private const RESUME_BUILDER_SUB_TOOL_ID = 19;
     private const IMAGE_GENERATOR_SUB_TOOL_ID = 21;
     private const BACKGROUND_REMOVER_SUB_TOOL_ID = 22;
+    private const IMAGE_UPSCALER_SUB_TOOL_ID = 23;
     private const IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID = 24;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
@@ -150,6 +152,10 @@ class MessageRequest extends FormRequest
             return array_merge($rules, $this->backgroundRemoverRules());
         }
 
+        if ($this->isImageUpscalerRequest()) {
+            return array_merge($rules, $this->imageUpscalerRules());
+        }
+
         if ($subToolId === self::IMAGE_GENERATOR_SUB_TOOL_ID) {
             return array_merge($rules, $this->imageGeneratorRules());
         }
@@ -236,6 +242,21 @@ class MessageRequest extends FormRequest
         ];
     }
 
+    private function imageUpscalerRules(): array
+    {
+        return [
+            'sub_tool_id' => ['required', 'integer', Rule::in([self::IMAGE_UPSCALER_SUB_TOOL_ID])],
+            'content' => ['nullable', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'user_message' => ['required', 'string', 'max:5000'],
+            'file' => ['required', 'file', 'max:20480', 'mimetypes:image/png,image/jpeg,image/webp,image/svg+xml'],
+            'state' => ['nullable', 'array'],
+            'state.scale' => ['required', 'numeric', 'min:1', 'max:4'],
+            'state.face_enhance' => ['nullable', 'boolean'],
+            'idempotency_key' => ['nullable', 'uuid'],
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
         $this->normalizeMessageTextFields();
@@ -267,6 +288,7 @@ class MessageRequest extends FormRequest
         $this->normalizeChat3SeoStateForValidation();
         $this->normalizeResumeBuilderStateForValidation();
         $this->normalizeBackgroundRemoverStateForValidation();
+        $this->normalizeImageUpscalerStateForValidation();
         $this->normalizeImagePromptGeneratorStateForValidation();
     }
 
@@ -385,6 +407,22 @@ class MessageRequest extends FormRequest
         $this->merge(['state' => is_array($state) ? $state : []]);
     }
 
+    private function normalizeImageUpscalerStateForValidation(): void
+    {
+        if (! $this->isImageUpscalerRequest()) {
+            return;
+        }
+
+        $state = $this->input('state');
+
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+        }
+
+        $this->merge(['state' => is_array($state) ? $state : []]);
+    }
+
     private function normalizeImagePromptGeneratorStateForValidation(): void
     {
         if (! $this->isImagePromptGeneratorRequest()) {
@@ -422,6 +460,16 @@ class MessageRequest extends FormRequest
         return (int) $this->input('sub_tool_id') === self::BACKGROUND_REMOVER_SUB_TOOL_ID
             || $toolKey === BackgroundRemoverService::TOOL_KEY
             || $modelKey === 'background_remover';
+    }
+
+    private function isImageUpscalerRequest(): bool
+    {
+        $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
+        $modelKey = strtolower(trim((string) $this->input('model_key')));
+
+        return (int) $this->input('sub_tool_id') === self::IMAGE_UPSCALER_SUB_TOOL_ID
+            || $toolKey === ImageUpscalerService::TOOL_KEY
+            || $modelKey === 'image_upscaler';
     }
 
     private function isImagePromptGeneratorRequest(): bool

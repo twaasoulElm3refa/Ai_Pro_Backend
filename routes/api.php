@@ -17,6 +17,7 @@ use App\Http\Controllers\api\auth\UserProfileController;
 use App\Http\Controllers\api\auth\WalletController;
 use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\BackgroundRemoverFileController;
+use App\Http\Controllers\api\home\ImageUpscalerFileController;
 use App\Http\Controllers\api\home\GeneratedImageController;
 use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\MessageController;
@@ -95,6 +96,13 @@ Route::prefix('v1')->group(function () {
             ->name('background-remover.files.preview');
         Route::get('/{file}/download', [BackgroundRemoverFileController::class, 'download'])
             ->name('background-remover.files.download');
+    })->withoutMiddleware(ApiKeyMiddleware::class);
+
+    Route::prefix('image-upscaler/files')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+        Route::get('/{file}/preview', [ImageUpscalerFileController::class, 'preview'])
+            ->name('image-upscaler.files.preview');
+        Route::get('/{file}/download', [ImageUpscalerFileController::class, 'download'])
+            ->name('image-upscaler.files.download');
     })->withoutMiddleware(ApiKeyMiddleware::class);
 
     Route::get('/message/resume-output/{filename}', [MessageController::class, 'downloadResumeOutput'])

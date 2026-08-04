@@ -21,6 +21,7 @@ use App\Services\ConversationMessageCacheService;
 use App\Services\EmailWriterService;
 use App\Services\GeneratedImageService;
 use App\Services\ImagePromptGeneratorService;
+use App\Services\ImageUpscalerService;
 use App\Services\ProductDescriptionGeneratorService;
 use App\Services\ResumeBuilderService;
 use App\Services\ScriptGeneratorService;
@@ -73,7 +74,8 @@ class MessageController extends Controller
             ResumeBuilderService $resumeBuilderService,
             GeneratedImageService $generatedImageService,
             ImagePromptGeneratorService $imagePromptGeneratorService,
-            BackgroundRemoverService $backgroundRemoverService
+            BackgroundRemoverService $backgroundRemoverService,
+            ImageUpscalerService $imageUpscalerService
     )
     {
         Log::info('Message send request received', [
@@ -140,11 +142,22 @@ class MessageController extends Controller
                 $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
                 $requestedModelKey
             );
+            $isImageUpscaler = ImageUpscalerService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
+                $requestedModelKey
+            );
 
             if ($isBackgroundRemover && $subToolId !== (int) $conversation->sub_tool_id) {
                 return $this->validationError([
                     'sub_tool_id' => ['The selected tool does not match this conversation.'],
                 ], 'Invalid background remover conversation.');
+            }
+
+            if ($isImageUpscaler && $subToolId !== (int) $conversation->sub_tool_id) {
+                return $this->validationError([
+                    'sub_tool_id' => ['The selected tool does not match this conversation.'],
+                ], 'Invalid image upscaler conversation.');
             }
 
             if ($isImageGenerator && $subToolId !== (int) $conversation->sub_tool_id) {
@@ -193,6 +206,18 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Background Remover Response Ready.'
+                );
+            }
+
+            if ($isImageUpscaler) {
+                return $this->success(
+                    $imageUpscalerService->handle(
+                        $conversation,
+                        $data,
+                        $request->file('file'),
+                        $userId
+                    ),
+                    'Image Upscaler Response Ready.'
                 );
             }
 
