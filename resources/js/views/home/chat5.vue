@@ -158,7 +158,8 @@
                                         </span>
                                         <button type="button" class="copy-prompt-button" @click="copyPrompt(message)">
                                             <i class="bi bi-clipboard-check"></i>
-                                            {{ copiedPromptKey === message.localKey ? promptLabels.copied : promptLabels.copyPrompt }}
+                                            {{ copiedPromptKey === message.localKey ? promptLabels.copied :
+                                                promptLabels.copyPrompt }}
                                         </button>
                                     </div>
 
@@ -194,7 +195,8 @@
                                 <span></span>
                             </div>
 
-                            <div v-else class="loading-image-grid" :class="`loading-count-${Math.min(state.results_count, 4)}`">
+                            <div v-else class="loading-image-grid"
+                                :class="`loading-count-${Math.min(state.results_count, 4)}`">
                                 <div v-for="index in state.results_count" :key="index" class="loading-image-card">
                                     <span class="loading-image-shimmer"></span>
 
@@ -223,7 +225,8 @@
 
                 <details v-if="!isBackgroundRemover" class="options-panel">
                     <summary class="options-panel-header">
-                        <span><i class="bi bi-sliders"></i> {{ isPromptGenerator ? promptLabels.settings : labels.settings }}</span>
+                        <span><i class="bi bi-sliders"></i> {{ isPromptGenerator ? promptLabels.settings :
+                            labels.settings }}</span>
                         <span class="options-chevron" aria-hidden="true">
                             <i class="bi bi-chevron-down"></i>
                         </span>
@@ -363,22 +366,26 @@
                 </details>
 
                 <div class="input-box">
-                    <input type="file" ref="fileInputRef" accept="image/*" class="hidden-file-input" @change="handleFileSelect" :disabled="isSending" />
+                    <input type="file" ref="fileInputRef" accept="image/*" class="hidden-file-input"
+                        @change="handleFileSelect" :disabled="isSending" />
 
-                    <button v-if="isBackgroundRemover || isImageUpscaler" type="button" class="attach-button" :disabled="isSending" :title="labels.uploadImage" @click="triggerFileInput">
+                    <button v-if="isBackgroundRemover || isImageUpscaler" type="button" class="attach-button"
+                        :disabled="isSending" :title="labels.uploadImage" @click="triggerFileInput">
                         <i class="bi bi-paperclip"></i>
                     </button>
 
-                    <div v-if="(isBackgroundRemover || isImageUpscaler) && selectedFilePreview" class="composer-file-preview">
+                    <div v-if="(isBackgroundRemover || isImageUpscaler) && selectedFilePreview"
+                        class="composer-file-preview">
                         <img :src="selectedFilePreview" :alt="selectedFile?.name" />
-                        <button type="button" class="remove-file" :title="labels.removeImage" @click="removeSelectedFile">
+                        <button type="button" class="remove-file" :title="labels.removeImage"
+                            @click="removeSelectedFile">
                             <i class="bi bi-x"></i>
                         </button>
                     </div>
 
-                    <textarea v-if="!isBackgroundRemover && !isImageUpscaler" ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
-                        :placeholder="activePlaceholder" :disabled="isSending" @input="autoResize"
-                        @keydown.enter.exact.prevent="sendMessage()"></textarea>
+                    <textarea v-if="!isBackgroundRemover && !isImageUpscaler" ref="textareaRef" v-model="userMessage"
+                        rows="1" maxlength="10000" :placeholder="activePlaceholder" :disabled="isSending"
+                        @input="autoResize" @keydown.enter.exact.prevent="sendMessage()"></textarea>
 
                     <div v-else class="bg-remover-placeholder">
                         <p>{{ isImageUpscaler ? labels.upscalerPlaceholder : labels.bgRemoverPlaceholder }}</p>
@@ -784,9 +791,11 @@ const activePromptRequired = computed(() => isPromptGenerator.value ? promptLabe
 
 const canSend = computed(() => {
     if (isSending.value || creatingConversation.value) return false;
-    if (isBackgroundRemover.value || isImageUpscaler.value) return Boolean(selectedFile.value);
-    return Boolean(userMessage.value.trim());
-});
+
+    if (isBackgroundRemover.value || isImageUpscaler.value) {
+        return Boolean(selectedFile.value);
+    }
+
     return Boolean(userMessage.value.trim());
 });
 
@@ -2305,7 +2314,7 @@ button:disabled {
     min-width: 0;
 }
 
-.generation-header-content > div {
+.generation-header-content>div {
     display: grid;
     gap: 3px;
     min-width: 0;
@@ -2379,12 +2388,10 @@ button:disabled {
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(
-            100deg,
+        linear-gradient(100deg,
             transparent 20%,
             rgba(255, 255, 255, 0.72) 48%,
-            transparent 76%
-        ),
+            transparent 76%),
         linear-gradient(145deg, #edf4fa, #e3eef7);
     background-size: 220% 100%, 100% 100%;
     animation: imageShimmer 1.5s linear infinite;
@@ -2790,38 +2797,79 @@ button:disabled {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes shimmer {
-    to { background-position: -200% 0; }
+    to {
+        background-position: -200% 0;
+    }
 }
 
 @keyframes imageShimmer {
-    from { background-position: 220% 0, 0 0; }
-    to   { background-position: -120% 0, 0 0; }
+    from {
+        background-position: 220% 0, 0 0;
+    }
+
+    to {
+        background-position: -120% 0, 0 0;
+    }
 }
 
 @keyframes imagePlaceholderPulse {
-    0%, 100% { transform: scale(1);    opacity: 0.7; }
-    50%       { transform: scale(1.06); opacity: 1;   }
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+
+    50% {
+        transform: scale(1.06);
+        opacity: 1;
+    }
 }
 
 @keyframes generationSparkle {
-    0%, 100% { transform: rotate(0deg)  scale(1);    }
-    50%      { transform: rotate(12deg) scale(1.12); }
+
+    0%,
+    100% {
+        transform: rotate(0deg) scale(1);
+    }
+
+    50% {
+        transform: rotate(12deg) scale(1.12);
+    }
 }
 
 @keyframes generationProgress {
-    0%   { transform: translateX(-130%); }
-    50%  { transform: translateX(120%);  }
-    100% { transform: translateX(300%);  }
+    0% {
+        transform: translateX(-130%);
+    }
+
+    50% {
+        transform: translateX(120%);
+    }
+
+    100% {
+        transform: translateX(300%);
+    }
 }
 
 @keyframes generationProgressRtl {
-    0%   { transform: translateX(130%);  }
-    50%  { transform: translateX(-120%); }
-    100% { transform: translateX(-300%); }
+    0% {
+        transform: translateX(130%);
+    }
+
+    50% {
+        transform: translateX(-120%);
+    }
+
+    100% {
+        transform: translateX(-300%);
+    }
 }
 
 .options-chevron {
