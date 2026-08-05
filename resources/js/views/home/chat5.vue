@@ -2,6 +2,23 @@
     <main class="detector-chat" :class="{ 'sidebar-collapsed': desktopSidebarCollapsed }"
         :dir="isArabic ? 'rtl' : 'ltr'">
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
+            <div class="sidebar-quick-actions" :aria-label="labels.quickNavigation">
+                <button type="button" class="sidebar-quick-button sidebar-home-button" :title="labels.home"
+                    @click="goHome">
+                    <i class="bi bi-house-door-fill"></i>
+                    <span>{{ labels.home }}</span>
+                </button>
+
+                <button type="button" class="sidebar-quick-button sidebar-wallet-button" :title="labels.wallet"
+                    @click="goToWallet">
+                    <i class="bi bi-wallet2"></i>
+                    <span class="sidebar-wallet-copy">
+                        <small>{{ labels.wallet }}</small>
+                        <strong>{{ walletLoading ? "..." : formattedWalletBalance }}</strong>
+                    </span>
+                </button>
+            </div>
+
             <div class="sidebar-brand">
                 <span class="brand-icon"><i class="bi bi-image"></i></span>
                 <strong>{{ activeTitle }}</strong>
@@ -408,6 +425,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
+import api from "@/services/ApiClient";
 import useSeoMeta from "@/composables/useSeoMeta";
 import {
     normalizeGeneratedImages,
@@ -444,6 +462,8 @@ const IMAGE_PROMPT_GENERATOR_TOOL = {
 const BG_REMOVER_MESSAGE = "Remove the background from the uploaded image and return a transparent PNG.";
 const IMAGE_UPSCALER_MESSAGE = "Upscale the uploaded image.";
 const IMAGE_PROMPT_PREFIX = "Create a professional image prompt for";
+const WALLET_CACHE_PREFIX = "navbar_wallet_cache_v1";
+const WALLET_CACHE_TTL = 60 * 1000;
 
 // ─── State factory ────────────────────────────────────────────────────────────
 
@@ -519,6 +539,8 @@ const selectedFile = ref(null);
 const selectedFilePreview = ref("");
 const fileInputRef = ref(null);
 const copiedPromptKey = ref("");
+const walletBalance = ref(null);
+const walletLoading = ref(false);
 
 function resolveStateSubToolId(subToolId = null) {
     return Number(
@@ -596,6 +618,9 @@ const labels = computed(() => isArabic.value ? {
     deleteChat: "حذف المحادثة",
     closeSidebar: "إغلاق قائمة المحادثات",
     openSidebar: "فتح قائمة المحادثات",
+    home: "الرئيسية",
+    wallet: "رصيد المحفظة",
+    quickNavigation: "اختصارات التنقل والمحفظة",
     uploadImage: "رفع صورة",
     removeImage: "إزالة",
     fileRequired: "ارفع صورة أولًا.",
@@ -659,6 +684,9 @@ const labels = computed(() => isArabic.value ? {
     deleteChat: "Delete conversation",
     closeSidebar: "Close conversations sidebar",
     openSidebar: "Open conversations sidebar",
+    home: "Home",
+    wallet: "Wallet balance",
+    quickNavigation: "Home and wallet shortcuts",
     uploadImage: "Upload image",
     removeImage: "Remove",
     fileRequired: "Upload an image first.",
@@ -680,6 +708,22 @@ const labels = computed(() => isArabic.value ? {
     upscalerGenerationWait: "This may take a few moments. Please keep this page open.",
     upscalerGenerated: "Image upscaled successfully",
     upscalerGenericError: "Image could not be upscaled right now. Please try again.",
+});
+
+const currentLocale = computed(() =>
+    String(locale.value || homeService.getLang() || "ar").toLowerCase()
+);
+const homePath = computed(() => `/${currentLocale.value}`);
+const walletPath = computed(() => `/${currentLocale.value}/wallet`);
+const formattedWalletBalance = computed(() => {
+    if (walletBalance.value === null || walletBalance.value === undefined) return "—";
+
+    const numericBalance = Number(walletBalance.value);
+    const displayBalance = Number.isFinite(numericBalance)
+        ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(numericBalance)
+        : String(walletBalance.value);
+
+    return `${displayBalance} ${isArabic.value ? "ج.م" : "EGP"}`;
 });
 
 const activeSubToolId = computed(() => Number(
@@ -1562,6 +1606,79 @@ function revokePreviewUrls() {
     previewErrors.value = {};
 }
 
+// ─── Sidebar quick actions ─────────────────────────────────────────────────────
+
+function walletCacheKey() {
+    return `${WALLET_CACHE_PREFIX}:${currentLocale.value}`;
+}
+
+function readWalletCache() {
+    try {
+        const raw = sessionStorage.getItem(walletCacheKey());
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw);
+        if (!parsed?.expiresAt || parsed.expiresAt < Date.now()) {
+            sessionStorage.removeItem(walletCacheKey());
+            return null;
+        }
+
+        return parsed.value;
+    } catch {
+        return null;
+    }
+}
+
+function writeWalletCache(value) {
+    try {
+        sessionStorage.setItem(
+            walletCacheKey(),
+            JSON.stringify({
+                value,
+                expiresAt: Date.now() + WALLET_CACHE_TTL,
+            })
+        );
+    } catch {
+        // Ignore storage restrictions; the wallet still works without caching.
+    }
+}
+
+async function fetchWalletBalance() {
+    if (!localStorage.getItem("auth_token")) {
+        walletBalance.value = null;
+        return;
+    }
+
+    const cachedBalance = readWalletCache();
+    if (cachedBalance !== null) {
+        walletBalance.value = cachedBalance;
+        return;
+    }
+
+    walletLoading.value = true;
+
+    try {
+        const response = await api.get("/users/wallet");
+
+        if (response.data?.status === "success") {
+            walletBalance.value = response.data.data?.balance ?? 0;
+            writeWalletCache(walletBalance.value);
+        }
+    } catch {
+        walletBalance.value = null;
+    } finally {
+        walletLoading.value = false;
+    }
+}
+
+function goHome() {
+    window.location.href = homePath.value;
+}
+
+function goToWallet() {
+    window.location.href = walletPath.value;
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 
 function fillExample() {
@@ -1671,7 +1788,10 @@ watch(
     }
 );
 
-onMounted(initialize);
+onMounted(() => {
+    initialize();
+    fetchWalletBalance();
+});
 onUnmounted(() => {
     revokePreviewUrls();
     removeSelectedFile();
@@ -1732,6 +1852,83 @@ button:disabled {
     border-inline-end: 1px solid var(--line);
     background: #fff;
     transition: width 0.25s ease, transform 0.25s ease, padding 0.25s ease;
+}
+
+.sidebar-quick-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-bottom: 16px;
+}
+
+.sidebar-quick-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 42px;
+    padding: 0 9px;
+    overflow: hidden;
+    border: 1px solid rgba(18, 63, 109, 0.1);
+    border-radius: 12px;
+    color: var(--navy);
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    box-shadow: 0 8px 18px rgba(18, 63, 109, 0.07);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sidebar-quick-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(31, 135, 201, 0.28);
+    box-shadow: 0 10px 22px rgba(18, 63, 109, 0.11);
+}
+
+.sidebar-quick-button i {
+    flex: 0 0 auto;
+    font-size: 15px;
+}
+
+.sidebar-home-button>span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-wallet-copy {
+    display: grid;
+    min-width: 0;
+    line-height: 1.05;
+    text-align: start;
+}
+
+.sidebar-wallet-copy small,
+.sidebar-wallet-copy strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-wallet-copy small {
+    color: var(--muted);
+    font-size: 8.5px;
+    font-weight: 700;
+}
+
+.sidebar-wallet-copy strong {
+    margin-top: 3px;
+    color: var(--navy);
+    font-size: 10.5px;
+    font-weight: 800;
 }
 
 .sidebar-brand {
@@ -2706,6 +2903,15 @@ button:disabled {
 
     .desktop-sidebar-open-toggle {
         display: none;
+    }
+
+    .sidebar-quick-actions {
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    }
+
+    .sidebar-quick-button {
+        height: 40px;
+        padding-inline: 8px;
     }
 
     .messages {
