@@ -411,13 +411,9 @@
                         </button>
                     </div>
 
-                    <textarea v-if="!isBackgroundRemover && !isImageUpscaler" ref="textareaRef" v-model="userMessage"
-                        rows="1" maxlength="10000" :placeholder="activePlaceholder" :disabled="isSending"
-                        @input="autoResize" @keydown.enter.exact.prevent="sendMessage()"></textarea>
-
-                    <div v-else class="bg-remover-placeholder">
-                        <p>{{ isImageUpscaler ? labels.upscalerPlaceholder : labels.bgRemoverPlaceholder }}</p>
-                    </div>
+                    <textarea ref="textareaRef" v-model="userMessage" rows="1" maxlength="10000"
+                        :placeholder="activePlaceholder" :disabled="isSending" @input="autoResize"
+                        @keydown.enter.exact.prevent="sendMessage()"></textarea>
 
                     <button type="button" class="send-button" :disabled="!canSend" :aria-label="activeSendLabel"
                         @click="sendMessage()">
@@ -644,6 +640,7 @@ const labels = computed(() => isArabic.value ? {
     bgRemoverTitle: "إزالة خلفية الصور بالذكاء الاصطناعي",
     bgRemoverWelcome: "ارفع صورة وسيتم إزالة الخلفية تلقائيًا وإرجاع صورة بخلفية شفافة.",
     bgRemoverPlaceholder: "ارفع صورة لإزالة خلفيتها...",
+    bgRemoverMessagePlaceholder: "اكتب تعليمات إضافية اختيارية لإزالة الخلفية...",
     bgRemoverSend: "إزالة الخلفية",
     bgRemoverGenerating: "جاري إزالة الخلفية وحفظ الصورة...",
     bgRemoverGenerationWait: "قد تستغرق العملية بضع لحظات، لا تغلق الصفحة.",
@@ -654,6 +651,7 @@ const labels = computed(() => isArabic.value ? {
     upscalerTitle: "تكبير وتحسين جودة الصور بالذكاء الاصطناعي",
     upscalerWelcome: "ارفع صورة لزيادة دقتها وتحسين تفاصيلها باستخدام الذكاء الاصطناعي.",
     upscalerPlaceholder: "ارفع صورة لترقية جودتها وتوضيح تفاصيلها...",
+    upscalerMessagePlaceholder: "اكتب تعليمات إضافية اختيارية لتكبير الصورة وتحسينها...",
     upscalerSend: "تكبير الصورة",
     upscalerGenerating: "جاري تكبير الصورة وتحسين دقتها...",
     upscalerGenerationWait: "قد تستغرق العملية بضع لحظات، لا تغلق الصفحة.",
@@ -710,6 +708,7 @@ const labels = computed(() => isArabic.value ? {
     bgRemoverTitle: "AI Background Remover",
     bgRemoverWelcome: "Upload an image and the background will be removed automatically, returning a transparent PNG.",
     bgRemoverPlaceholder: "Upload an image to remove its background...",
+    bgRemoverMessagePlaceholder: "Add optional instructions for removing the background...",
     bgRemoverSend: "Remove background",
     bgRemoverGenerating: "Removing background and saving...",
     bgRemoverGenerationWait: "This may take a few moments. Please keep this page open.",
@@ -720,6 +719,7 @@ const labels = computed(() => isArabic.value ? {
     upscalerTitle: "AI Image Upscaler",
     upscalerWelcome: "Upload an image to increase its resolution and detail using AI.",
     upscalerPlaceholder: "Upload an image to upscale and enhance...",
+    upscalerMessagePlaceholder: "Add optional instructions for upscaling and enhancing the image...",
     upscalerSend: "Upscale image",
     upscalerGenerating: "Upscaling image and enhancing details...",
     upscalerGenerationWait: "This may take a few moments. Please keep this page open.",
@@ -817,7 +817,12 @@ const activeWelcome = computed(() => {
     if (isPromptGenerator.value) return promptLabels.value.welcome;
     return labels.value.welcome;
 });
-const activePlaceholder = computed(() => isPromptGenerator.value ? promptLabels.value.placeholder : labels.value.placeholder);
+const activePlaceholder = computed(() => {
+    if (isBackgroundRemover.value) return labels.value.bgRemoverMessagePlaceholder;
+    if (isImageUpscaler.value) return labels.value.upscalerMessagePlaceholder;
+    if (isPromptGenerator.value) return promptLabels.value.placeholder;
+    return labels.value.placeholder;
+});
 const activeSendLabel = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverSend;
     if (isImageUpscaler.value) return labels.value.upscalerSend;
@@ -1246,12 +1251,13 @@ function isPromptGeneratorMessage(message) {
         || metadata.model_key === IMAGE_PROMPT_GENERATOR_TOOL.model_key;
 }
 
-function buildBgRemoverFormData(conversation, file) {
+function buildBgRemoverFormData(conversation, file, userInput = "") {
     const formData = new FormData();
+    const message = String(userInput || "").trim() || BG_REMOVER_MESSAGE;
 
     formData.append("conversation_uuid", String(conversation.uuid || ""));
     formData.append("sub_tool_id", String(BACKGROUND_REMOVER_TOOL.sub_tool_id));
-    formData.append("user_message", BG_REMOVER_MESSAGE);
+    formData.append("user_message", message);
     formData.append("state", JSON.stringify({ provider: null, last_output: null }));
     formData.append("debug", "0");
     formData.append("tool", String(BACKGROUND_REMOVER_TOOL.tool_key || ""));
@@ -1263,12 +1269,13 @@ function buildBgRemoverFormData(conversation, file) {
     return formData;
 }
 
-function buildUpscalerFormData(conversation, file, requestState) {
+function buildUpscalerFormData(conversation, file, requestState, userInput = "") {
     const formData = new FormData();
+    const message = String(userInput || "").trim() || IMAGE_UPSCALER_MESSAGE;
 
     formData.append("conversation_uuid", String(conversation.uuid || ""));
     formData.append("sub_tool_id", String(IMAGE_UPSCALER_TOOL.sub_tool_id));
-    formData.append("user_message", IMAGE_UPSCALER_MESSAGE);
+    formData.append("user_message", message);
     formData.append("state", JSON.stringify({
         scale: Number(requestState.scale || 2),
         face_enhance: Boolean(requestState.face_enhance),
@@ -1292,9 +1299,15 @@ async function sendMessage(options = {}) {
     const isUpscaler = isImageUpscaler.value;
     const isPromptTool = isPromptGenerator.value;
     const rawPrompt = String(options.prompt ?? userMessage.value).trim();
-    const prompt = isBgRemover
-        ? BG_REMOVER_MESSAGE
-        : (isUpscaler ? IMAGE_UPSCALER_MESSAGE : (isPromptTool ? buildPromptGeneratorMessage(rawPrompt) : rawPrompt));
+    let prompt = rawPrompt;
+
+    if (isBgRemover) {
+        prompt = rawPrompt || BG_REMOVER_MESSAGE;
+    } else if (isUpscaler) {
+        prompt = rawPrompt || IMAGE_UPSCALER_MESSAGE;
+    } else if (isPromptTool) {
+        prompt = buildPromptGeneratorMessage(rawPrompt);
+    }
 
     if (isSending.value) return;
 
@@ -1313,9 +1326,7 @@ async function sendMessage(options = {}) {
         requestState.content = rawPrompt;
     }
     const optimisticKey = `local-user-${Date.now()}`;
-    const displayContent = isBgRemover
-        ? (selectedFile.value?.name || labels.value.bgRemoverSend)
-        : (isUpscaler ? (selectedFile.value?.name || labels.value.upscalerSend) : rawPrompt);
+    const displayContent = rawPrompt || selectedFile.value?.name || activeSendLabel.value;
     errorMessage.value = "";
     lastFailedRequest.value = null;
     isSending.value = true;
@@ -1336,7 +1347,7 @@ async function sendMessage(options = {}) {
 
         let result;
         if (isBgRemover) {
-            const formData = buildBgRemoverFormData(conversation, selectedFile.value);
+            const formData = buildBgRemoverFormData(conversation, selectedFile.value, prompt);
             result = responseData(await chatServices.sendMessageFormData(formData));
             removeSelectedFile();
 
@@ -1351,7 +1362,7 @@ async function sendMessage(options = {}) {
                 }));
             }
         } else if (isUpscaler) {
-            const formData = buildUpscalerFormData(conversation, selectedFile.value, requestState);
+            const formData = buildUpscalerFormData(conversation, selectedFile.value, requestState, prompt);
             result = responseData(await chatServices.sendMessageFormData(formData));
             removeSelectedFile();
 
