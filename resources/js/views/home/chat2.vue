@@ -76,6 +76,18 @@
                     <p>{{ subtool.description || welcomeText }}</p>
 
                     <button
+                        v-if="!hasActiveConversation"
+                        type="button"
+                        class="welcome-new-chat-button"
+                        :disabled="creatingConversation || sendingMessage"
+                        @click="startNewChat"
+                    >
+                        <span v-if="creatingConversation" class="button-spinner" aria-hidden="true"></span>
+                        <i v-else class="bi bi-chat-square-text-fill" aria-hidden="true"></i>
+                        <span>{{ creatingConversation ? copy.creating : createConversationLabel }}</span>
+                    </button>
+
+                    <button
                         v-if="subtool.promptPlaceholder"
                         class="suggestion"
                         type="button"
@@ -152,7 +164,7 @@
                 </div>
             </div>
 
-            <footer class="composer">
+            <footer v-if="hasActiveConversation" class="composer">
                 <div v-if="errorMessage" class="error-banner">
                     <i class="bi bi-exclamation-circle"></i>
                     {{ errorMessage }}
@@ -359,6 +371,9 @@ const { locale } = useI18n();
 
 const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "en").toLowerCase() === "ar"
+);
+const createConversationLabel = computed(() =>
+    isArabic.value ? "إنشاء محادثة جديدة" : "Create new conversation"
 );
 
 const copy = computed(() => isArabic.value ? {
@@ -650,6 +665,9 @@ const textFields = computed(() => {
 const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
+const hasActiveConversation = computed(() =>
+    Boolean(activeConversation.value?.uuid || route.params.uuid)
+);
 const promptState = ref(createDefaultToolState(DEFAULT_SUB_TOOL_ID));
 const userMessage = ref("");
 const errorMessage = ref("");
@@ -1977,6 +1995,8 @@ const startNewChat = async () => {
         sidebarOpen.value = false;
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat2/${conversation.uuid}`);
+        await nextTick();
+        textareaRef.value?.focus();
     } finally {
         creatingConversation.value = false;
     }
@@ -2417,6 +2437,64 @@ button:disabled {
     border-radius: 999px;
     color: var(--navy);
     background: #f3faff;
+}
+
+.welcome-new-chat-button {
+    width: min(100%, 390px);
+    min-height: 52px;
+    margin: 20px auto 0;
+    padding: 12px 22px;
+    border: 0;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--blue), var(--navy));
+    color: #ffffff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 12px 28px rgba(21, 70, 119, 0.18);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.welcome-new-chat-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 15px 34px rgba(21, 70, 119, 0.24);
+}
+
+.welcome-new-chat-button:focus-visible {
+    outline: 3px solid rgba(43, 166, 222, 0.28);
+    outline-offset: 3px;
+}
+
+.welcome-new-chat-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none;
+}
+
+.welcome-new-chat-button i {
+    font-size: 17px;
+    line-height: 1;
+}
+
+.button-spinner {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: welcome-button-spin 0.7s linear infinite;
+}
+
+@keyframes welcome-button-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .message-list {

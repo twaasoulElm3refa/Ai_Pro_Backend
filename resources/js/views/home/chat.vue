@@ -103,6 +103,17 @@
                                 : t("user.chat.emptyWithoutConversation")
                         }}
                     </p>
+                    <button
+                        v-if="!hasActiveConversation"
+                        type="button"
+                        class="welcome-new-chat-button"
+                        :disabled="creatingConversation || sendingMessage || streamingAssistant"
+                        @click="startNewChat"
+                    >
+                        <span v-if="creatingConversation" class="button-spinner" aria-hidden="true"></span>
+                        <i v-else class="bi bi-chat-square-text-fill" aria-hidden="true"></i>
+                        <span>{{ creatingConversation ? t("user.chat.creating") : createConversationLabel }}</span>
+                    </button>
                     <button v-if="subtool.promptPlaceholder" type="button" class="suggestion-chip"
                         @click="fillPlaceholder">
                         <i class="bi bi-lightning-charge-fill"></i>
@@ -213,7 +224,7 @@
                 </TransitionGroup>
             </div>
 
-            <div class="input-area">
+            <div v-if="hasActiveConversation" class="input-area">
                 <div v-if="conversationLimitExceeded" class="limit-warning">
                     <div class="limit-warning-icon">
                         <i class="bi bi-exclamation-triangle-fill"></i>
@@ -725,6 +736,9 @@ const { t, locale } = useI18n();
 const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
 );
+const createConversationLabel = computed(() =>
+    isArabic.value ? "إنشاء محادثة جديدة" : "Create new conversation"
+);
 
 const isAuthenticated = () => Boolean(localStorage.getItem("auth_token"));
 
@@ -761,6 +775,9 @@ const subtool = ref({
 const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
+const hasActiveConversation = computed(() =>
+    Boolean(activeConversation.value?.uuid || route.params.uuid)
+);
 const userInput = ref("");
 const searchEnabled = ref(false);
 const inputFocused = ref(false);
@@ -7082,6 +7099,8 @@ const startNewChat = async () => {
         resetProductDescriptionState();
 
         await router.push(`/${homeService.getLang()}/subtool/${route.params.slug}/chat/${conversation.uuid}`);
+        await nextTick();
+        textareaRef.value?.focus();
     } finally {
         creatingConversation.value = false;
     }
@@ -7967,6 +7986,64 @@ watch(
     background: rgba(31, 135, 201, 0.16);
     transform: scale(1.02);
     box-shadow: 0 16px 28px rgba(18, 63, 109, 0.08);
+}
+
+.welcome-new-chat-button {
+    width: min(100%, 390px);
+    min-height: 52px;
+    margin: 20px auto 0;
+    padding: 12px 22px;
+    border: 0;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--cyan), var(--navy));
+    color: #ffffff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 12px 28px rgba(21, 70, 119, 0.18);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.welcome-new-chat-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 15px 34px rgba(21, 70, 119, 0.24);
+}
+
+.welcome-new-chat-button:focus-visible {
+    outline: 3px solid rgba(43, 166, 222, 0.28);
+    outline-offset: 3px;
+}
+
+.welcome-new-chat-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none;
+}
+
+.welcome-new-chat-button i {
+    font-size: 17px;
+    line-height: 1;
+}
+
+.button-spinner {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: welcome-button-spin 0.7s linear infinite;
+}
+
+@keyframes welcome-button-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .message-row {
