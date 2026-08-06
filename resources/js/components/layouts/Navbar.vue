@@ -2476,4 +2476,13 @@ onBeforeUnmount(() => {
         transition-duration: 0.01ms !important;
     }
 }
+
+:global(html:not([data-theme="dark"])) .nb-hero:not(.nb-hero-compact) {
+    background: #ffffff !important;
+}
+
+:global(html:not([data-theme="dark"])) .nb-hero:not(.nb-hero-compact) .nb-hero-bg,
+:global(html:not([data-theme="dark"])) .nb-hero:not(.nb-hero-compact) .nb-hero-overlay {
+    display: none !important;
+}
 </style>
