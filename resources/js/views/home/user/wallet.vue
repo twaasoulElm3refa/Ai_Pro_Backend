@@ -1173,6 +1173,175 @@ watch(
         padding: 18px;
     }
 }
+
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"]) .wallet-page {
+    background:
+        radial-gradient(
+            circle at 85% 10%,
+            rgba(43, 166, 222, 0.06),
+            transparent 32%
+        ),
+        linear-gradient(
+            180deg,
+            #111315 0%,
+            #15181b 100%
+        );
+    color: #f1f3f5;
+}
+
+:global(html[data-theme="dark"]) .wallet-header h1,
+:global(html[data-theme="dark"]) .summary-card h3,
+:global(html[data-theme="dark"]) .summary-card__footer strong,
+:global(html[data-theme="dark"]) .info-card h3,
+:global(html[data-theme="dark"]) .transactions-header h2,
+:global(html[data-theme="dark"]) .transaction-card__left h3,
+:global(html[data-theme="dark"]) .transaction-card__right strong,
+:global(html[data-theme="dark"]) .pagination-meta strong,
+:global(html[data-theme="dark"]) .empty-state h3,
+:global(html[data-theme="dark"]) .details-modal__header h2,
+:global(html[data-theme="dark"]) .details-item strong,
+:global(html[data-theme="dark"]) .details-summary strong {
+    color: #f1f3f5;
+}
+
+:global(html[data-theme="dark"]) .wallet-header p,
+:global(html[data-theme="dark"]) .summary-card__label,
+:global(html[data-theme="dark"]) .summary-card__small,
+:global(html[data-theme="dark"]) .info-card p,
+:global(html[data-theme="dark"]) .transactions-header p,
+:global(html[data-theme="dark"]) .transaction-card__left p,
+:global(html[data-theme="dark"]) .transaction-card__right span,
+:global(html[data-theme="dark"]) .pagination-meta,
+:global(html[data-theme="dark"]) .empty-state p,
+:global(html[data-theme="dark"]) .details-modal__kicker,
+:global(html[data-theme="dark"]) .details-item span,
+:global(html[data-theme="dark"]) .details-summary span {
+    color: #9299a1;
+}
+
+:global(html[data-theme="dark"]) .wallet-kicker {
+    background: rgba(43, 166, 222, 0.12);
+    color: #2ba6de;
+}
+
+:global(html[data-theme="dark"]) .summary-card,
+:global(html[data-theme="dark"]) .wallet-panel,
+:global(html[data-theme="dark"]) .wallet-tabs,
+:global(html[data-theme="dark"]) .error-banner {
+    background: #1b1f23;
+    border-color: rgba(255, 255, 255, 0.09);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+:global(html[data-theme="dark"]) .balance-card {
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 22px 48px rgba(0, 0, 0, 0.28);
+}
+
+:global(html[data-theme="dark"]) .balance-card__meta {
+    background: rgba(27, 31, 35, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+:global(html[data-theme="dark"]) .summary-card__row,
+:global(html[data-theme="dark"]) .pagination-bar {
+    border-color: rgba(255, 255, 255, 0.09);
+}
+
+:global(html[data-theme="dark"]) .summary-chip--soft,
+:global(html[data-theme="dark"]) .type-badge.debit {
+    background: rgba(43, 166, 222, 0.13);
+    color: #2ba6de;
+}
+
+:global(html[data-theme="dark"]) .wallet-tab {
+    color: #c7ccd1;
+}
+
+:global(html[data-theme="dark"]) .wallet-tab:hover {
+    color: #f1f3f5;
+    background: #20252a;
+}
+
+:global(html[data-theme="dark"]) .wallet-tab.is-active {
+    color: #ffffff;
+}
+
+:global(html[data-theme="dark"]) .info-card,
+:global(html[data-theme="dark"]) .transaction-card,
+:global(html[data-theme="dark"]) .empty-state,
+:global(html[data-theme="dark"]) .details-item,
+:global(html[data-theme="dark"]) .details-summary {
+    background: #20252a;
+    border-color: rgba(255, 255, 255, 0.09);
+}
+
+:global(html[data-theme="dark"]) .info-card:hover,
+:global(html[data-theme="dark"]) .transaction-card:hover {
+    background: #252b31;
+    border-color: rgba(43, 166, 222, 0.42);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+}
+
+:global(html[data-theme="dark"]) .empty-state {
+    border-style: dashed;
+}
+
+:global(html[data-theme="dark"]) .empty-state__icon,
+:global(html[data-theme="dark"]) .details-close {
+    background: rgba(43, 166, 222, 0.12);
+    color: #2ba6de;
+}
+
+:global(html[data-theme="dark"]) .error-banner {
+    color: #f87171;
+}
+
+:global(html[data-theme="dark"]) .details-overlay {
+    background: rgba(0, 0, 0, 0.62);
+}
+
+:global(html[data-theme="dark"]) .details-modal {
+    background: #252b31;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.38);
+}
+
+:global(html[data-theme="dark"]) .panel-skeleton,
+:global(html[data-theme="dark"]) .transaction-skeleton,
+:global(html[data-theme="dark"]) .details-skeleton {
+    background: linear-gradient(90deg, #1b1f23 25%, #252b31 50%, #1b1f23 75%);
+    background-size: 200% 100%;
+}
+
+:global(html[data-theme="dark"]) .wallet-panel,
+:global(html[data-theme="dark"]) .transactions-list,
+:global(html[data-theme="dark"]) .details-modal {
+    scrollbar-color: #3a424a #171a1d;
+}
+
+:global(html[data-theme="dark"]) .wallet-panel::-webkit-scrollbar,
+:global(html[data-theme="dark"]) .transactions-list::-webkit-scrollbar,
+:global(html[data-theme="dark"]) .details-modal::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+:global(html[data-theme="dark"]) .wallet-panel::-webkit-scrollbar-track,
+:global(html[data-theme="dark"]) .transactions-list::-webkit-scrollbar-track,
+:global(html[data-theme="dark"]) .details-modal::-webkit-scrollbar-track {
+    background: #171a1d;
+}
+
+:global(html[data-theme="dark"]) .wallet-panel::-webkit-scrollbar-thumb,
+:global(html[data-theme="dark"]) .transactions-list::-webkit-scrollbar-thumb,
+:global(html[data-theme="dark"]) .details-modal::-webkit-scrollbar-thumb {
+    background: #3a424a;
+    border-radius: 999px;
+}
 </style>
 
 

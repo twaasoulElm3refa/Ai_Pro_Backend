@@ -572,4 +572,110 @@ export default {
 .dark {
     --primary-light: #2ba6de;
 }
+
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"]) {
+    background:
+        radial-gradient(
+            circle at 85% 10%,
+            rgba(43, 166, 222, 0.06),
+            transparent 32%
+        ),
+        linear-gradient(
+            180deg,
+            #111315 0%,
+            #15181b 100%
+        );
+    color: #f1f3f5;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] > div) {
+    background: #1b1f23;
+    color: #f1f3f5;
+    border-color: rgba(255, 255, 255, 0.09);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+:global(html[data-theme="dark"] #profile-page-title),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .font-semibold),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .font-bold) {
+    color: #f1f3f5;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-sm),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-base),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-slate-300),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-slate-400),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-slate-500) {
+    color: #c7ccd1;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] label),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="text-slate-400"]),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="text-slate-500"]) {
+    color: #9299a1;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .border-b) {
+    border-color: rgba(255, 255, 255, 0.09);
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] button[type="button"]:not(.bg-red-500):not([class*="bg-[#154677]"])) {
+    color: #c7ccd1;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] button[type="button"]:not(.bg-red-500):not([class*="bg-[#154677]"]):hover) {
+    color: #f1f3f5;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .rounded-xl),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="bg-slate-900"]),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="bg-slate-50"]) {
+    background: #20252a;
+    border-color: rgba(255, 255, 255, 0.09);
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] button.rounded-xl:hover),
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] label.cursor-pointer:hover) {
+    background: #2a3036;
+    border-color: rgba(43, 166, 222, 0.42);
+    color: #2ba6de;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] input) {
+    background: #171a1d;
+    color: #f1f3f5;
+    border-color: rgba(255, 255, 255, 0.11);
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] input::placeholder) {
+    color: #747b83;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] input:focus) {
+    border-color: rgba(43, 166, 222, 0.65);
+    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.12);
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] label.cursor-pointer) {
+    background: #252b31;
+    color: #c7ccd1;
+    border-color: rgba(255, 255, 255, 0.10);
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [role="status"]) {
+    background: rgba(37, 43, 49, 0.92);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #c7ccd1;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [role="status"] .bi-check-circle-fill) {
+    color: #4ade80;
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [role="status"] .bi-exclamation-triangle-fill) {
+    color: #f87171;
+}
 </style>
