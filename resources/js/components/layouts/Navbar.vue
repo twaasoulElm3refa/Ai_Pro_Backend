@@ -34,6 +34,25 @@
                         <a :href="homeUrl" class="nb-nav-link">
                             <span>{{ t("navbar.home") }}</span>
                         </a>
+
+                        <button
+                            type="button"
+                            class="nb-theme-toggle"
+                            :title="themeToggleTitle"
+                            :aria-label="themeToggleTitle"
+                            :aria-pressed="currentTheme === 'dark'"
+                            @click.stop="toggleTheme"
+                        >
+                            <i
+                                class="bi"
+                                :class="
+                                    currentTheme === 'dark'
+                                        ? 'bi-sun-fill'
+                                        : 'bi-moon-stars-fill'
+                                "
+                                aria-hidden="true"
+                            ></i>
+                        </button>
                     </nav>
                 </div>
 
@@ -245,7 +264,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import api from "@/services/ApiClient";
@@ -272,6 +291,8 @@ const WalletBalance = ref(0);
 const dropdownOpen = ref(false);
 const langDropdownOpen = ref(false);
 const navLinksOpen = ref(false);
+const THEME_STORAGE_KEY = "theme";
+const currentTheme = ref("light");
 
 const heroVideoCardRef = ref(null);
 const shouldLoadHeroVideo = ref(false);
@@ -327,6 +348,78 @@ const currentLanguage = computed(() => {
 
 const currentDir = computed(() => {
     return currentLanguage.value.dir || "rtl";
+});
+
+const normalizeTheme = (value) => {
+    return String(value || "")
+        .trim()
+        .toLowerCase() === "dark"
+        ? "dark"
+        : "light";
+};
+
+const getInitialTheme = () => {
+    const savedTheme = localStorage.getItem(
+        THEME_STORAGE_KEY
+    );
+
+    if (
+        savedTheme === "light" ||
+        savedTheme === "dark"
+    ) {
+        return savedTheme;
+    }
+
+    return window.matchMedia?.(
+        "(prefers-color-scheme: dark)"
+    ).matches
+        ? "dark"
+        : "light";
+};
+
+const applyTheme = (
+    theme,
+    persist = true
+) => {
+    const normalizedTheme = normalizeTheme(theme);
+
+    currentTheme.value = normalizedTheme;
+
+    document.documentElement.setAttribute(
+        "data-theme",
+        normalizedTheme
+    );
+
+    document.documentElement.style.colorScheme =
+        normalizedTheme;
+
+    if (persist) {
+        localStorage.setItem(
+            THEME_STORAGE_KEY,
+            normalizedTheme
+        );
+    }
+};
+
+const toggleTheme = () => {
+    const nextTheme =
+        currentTheme.value === "dark"
+            ? "light"
+            : "dark";
+
+    applyTheme(nextTheme);
+};
+
+const themeToggleTitle = computed(() => {
+    if (currentTheme.value === "dark") {
+        return isArabic.value
+            ? "ØªÙØ¹ÙŠÙ„ Ø§Ù„ÙˆØ¶Ø¹ Ø§Ù„ÙØ§ØªØ­"
+            : "Switch to light mode";
+    }
+
+    return isArabic.value
+        ? "ØªÙØ¹ÙŠÙ„ Ø§Ù„ÙˆØ¶Ø¹ Ø§Ù„Ø¯Ø§ÙƒÙ†"
+        : "Switch to dark mode";
 });
 
 const homeUrl = computed(() => `/${currentLocale.value}`);
@@ -637,12 +730,23 @@ const handleLangChanged = () => {
     refreshUserState();
 };
 
+const handleThemeStorageChange = (event) => {
+    if (event.key !== THEME_STORAGE_KEY) {
+        return;
+    }
+
+    applyTheme(event.newValue, false);
+};
+
 onMounted(() => {
+    applyTheme(getInitialTheme());
+
     syncHtmlDirection();
 
     refreshUserState();
     scheduleHeroVideoLazyLoad();
 
+    window.addEventListener("storage", handleThemeStorageChange);
     window.addEventListener("login", refreshUserState);
     window.addEventListener("lang-changed", handleLangChanged);
     document.addEventListener("click", handleDocumentClick);
@@ -651,6 +755,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     cleanupHeroVideoLazyLoad();
 
+    window.removeEventListener("storage", handleThemeStorageChange);
     window.removeEventListener("login", refreshUserState);
     window.removeEventListener("lang-changed", handleLangChanged);
     document.removeEventListener("click", handleDocumentClick);
@@ -658,6 +763,24 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+:global(:root) {
+    --app-bg: #f4f8fb;
+    --app-surface: #ffffff;
+    --app-surface-soft: #f8fbfe;
+    --app-text: #154677;
+    --app-text-muted: #5b6f84;
+    --app-border: rgba(21, 70, 119, 0.12);
+}
+
+:global(html[data-theme="dark"]) {
+    --app-bg: #020617;
+    --app-surface: #0f172a;
+    --app-surface-soft: #111827;
+    --app-text: #f8fafc;
+    --app-text-muted: #94a3b8;
+    --app-border: rgba(148, 163, 184, 0.18);
+}
+
 .nb-hero {
     --ai-dark: #154677;
     --ai-light: #2ba6de;
@@ -884,6 +1007,51 @@ onBeforeUnmount(() => {
 .nb-nav-link:hover::after {
     opacity: 1;
     transform: scaleX(1);
+}
+
+.nb-theme-toggle {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    padding: 0;
+    border-radius: 12px;
+    border: 1px solid rgba(21, 70, 119, 0.14);
+    background: rgba(21, 70, 119, 0.05);
+    color: #154677;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: inherit;
+    cursor: pointer;
+    box-shadow: none;
+    transition:
+        transform 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.nb-theme-toggle i {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.nb-theme-toggle:hover {
+    transform: translateY(-1px);
+    color: #ffffff;
+    background: #154677;
+    border-color: #154677;
+    box-shadow: 0 9px 20px rgba(21, 70, 119, 0.17);
+}
+
+.nb-theme-toggle:active {
+    transform: translateY(0);
+}
+
+.nb-theme-toggle:focus-visible {
+    outline: 3px solid rgba(43, 166, 222, 0.25);
+    outline-offset: 2px;
 }
 
 /* MOBILE LINKS TOGGLE */
@@ -1501,7 +1669,110 @@ onBeforeUnmount(() => {
     pointer-events: none;
 }
 
+:global(html[data-theme="dark"]) .nb-hero,
+:global(html[data-theme="dark"]) .nb-hero-compact {
+    background:
+        radial-gradient(
+            circle at 18% 18%,
+            rgba(56, 189, 248, 0.10),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 80% 18%,
+            rgba(30, 64, 175, 0.12),
+            transparent 34%
+        ),
+        #020617;
+}
+
+:global(html[data-theme="dark"]) .nb-inner {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: rgba(148, 163, 184, 0.16);
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.36);
+}
+
+:global(html[data-theme="dark"]) .nb-nav-link {
+    color: #f8fafc;
+}
+
+:global(html[data-theme="dark"]) .nb-nav-link:hover {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.10);
+}
+
+:global(html[data-theme="dark"]) .nb-theme-toggle {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(148, 163, 184, 0.20);
+}
+
+:global(html[data-theme="dark"]) .nb-theme-toggle:hover {
+    color: #0f172a;
+    background: #f8fafc;
+    border-color: #f8fafc;
+}
+
+:global(html[data-theme="dark"]) .nb-lang-btn,
+:global(html[data-theme="dark"]) .nb-user-btn {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(148, 163, 184, 0.18);
+}
+
+:global(html[data-theme="dark"]) .nb-lang-dropdown,
+:global(html[data-theme="dark"]) .nb-dropdown {
+    background: #172033;
+    border-color: rgba(148, 163, 184, 0.18);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+}
+
+:global(html[data-theme="dark"]) .nb-lang-item,
+:global(html[data-theme="dark"]) .nb-dd-item {
+    color: #cbd5e1;
+}
+
+:global(html[data-theme="dark"]) .nb-lang-item:hover,
+:global(html[data-theme="dark"]) .nb-dd-item:hover {
+    color: #f8fafc;
+    background: rgba(56, 189, 248, 0.10);
+}
+
+:global(html[data-theme="dark"]) .nb-dd-item svg [stroke] {
+    stroke: currentColor;
+}
+
+:global(html[data-theme="dark"]) .nb-dd-name,
+:global(html[data-theme="dark"]) .nb-user-name {
+    color: #f8fafc;
+}
+
+:global(html[data-theme="dark"]) .nb-dd-label,
+:global(html[data-theme="dark"]) .nb-lang-item small {
+    color: #94a3b8;
+}
+
+:global(html[data-theme="dark"]) .nb-dd-sep,
+:global(html[data-theme="dark"]) .nb-social-divider {
+    background: rgba(148, 163, 184, 0.18);
+}
+
+:global(html[data-theme="dark"]) .nb-social-link {
+    color: #cbd5e1;
+}
+
+:global(html[data-theme="dark"]) .nb-social-link:hover {
+    color: #38bdf8;
+}
+
 /* RESPONSIVE */
+
+@media (max-width: 768px) {
+    .nb-theme-toggle {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+    }
+}
 
 @media (max-width: 1280px) {
     .nb-social-center {
