@@ -291,55 +291,60 @@ const socials = [
    DARK MODE
 ========================= */
 :global(html[data-theme="dark"]) .contact-section {
-    background: var(--theme-bg);
-    color: var(--theme-text-primary);
+    background: var(--app-bg) !important;
+    color: var(--app-text-primary) !important;
 }
 
 :global(html[data-theme="dark"]) .contact-title,
 :global(html[data-theme="dark"]) .contact-card .form-label,
 :global(html[data-theme="dark"]) .contact-card .fw-bold {
-    color: var(--theme-text-primary);
+    color: var(--app-text-primary) !important;
 }
 
 :global(html[data-theme="dark"]) .contact-subtitle,
 :global(html[data-theme="dark"]) .contact-muted {
-    color: var(--theme-text-secondary);
+    color: var(--app-text-secondary) !important;
 }
 
 :global(html[data-theme="dark"]) .contact-card {
-    background: var(--theme-surface);
-    border-color: var(--theme-border);
-    box-shadow: 0 24px 54px var(--theme-shadow);
+    background: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text-primary) !important;
+    box-shadow: 0 24px 54px var(--app-shadow) !important;
+}
+
+:global(html[data-theme="dark"]) .contact-card > .row {
+    background: var(--app-surface) !important;
 }
 
 :global(html[data-theme="dark"]) .contact-input {
-    background: var(--theme-input-bg);
-    color: var(--theme-text-primary);
-    border-color: var(--theme-border-strong);
+    background: var(--app-input-bg) !important;
+    color: var(--app-text-primary) !important;
+    border-color: var(--app-border-strong) !important;
 }
 
 :global(html[data-theme="dark"]) .contact-input:focus {
-    background: var(--theme-input-bg);
-    color: var(--theme-text-primary);
-    border-color: rgba(43, 166, 222, 0.72);
-    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13);
+    background: var(--app-input-bg) !important;
+    color: var(--app-text-primary) !important;
+    border-color: rgba(43, 166, 222, 0.72) !important;
+    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13) !important;
 }
 
 :global(html[data-theme="dark"]) .contact-card .alert-success {
-    background: rgba(74, 222, 128, 0.10);
-    border-color: rgba(74, 222, 128, 0.24);
-    color: #4ade80;
+    background: rgba(74, 222, 128, 0.10) !important;
+    border-color: rgba(74, 222, 128, 0.24) !important;
+    color: var(--app-success) !important;
 }
 
 :global(html[data-theme="dark"]) .contact-card .alert-danger {
-    background: rgba(248, 113, 113, 0.10);
-    border-color: rgba(248, 113, 113, 0.24);
-    color: #f87171;
+    background: rgba(248, 113, 113, 0.10) !important;
+    border-color: rgba(248, 113, 113, 0.24) !important;
+    color: var(--app-danger) !important;
 }
 
 :global(html[data-theme="dark"]) .social-btn {
-    background: var(--theme-surface-secondary);
-    color: var(--theme-text-primary);
-    border-color: var(--theme-border);
+    background: var(--app-surface-secondary) !important;
+    color: var(--app-text-primary) !important;
+    border-color: var(--app-border) !important;
 }
 </style>
