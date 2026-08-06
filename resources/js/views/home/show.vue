@@ -813,68 +813,68 @@ watch(
 /* =========================
    DARK MODE
 ========================= */
-:global(html[data-theme="dark"]) .home-tools-page {
+html[data-theme="dark"] .home-tools-page {
     background: var(--theme-bg);
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .text-main,
-:global(html[data-theme="dark"]) .tool-hero-title,
-:global(html[data-theme="dark"]) .section-title,
-:global(html[data-theme="dark"]) .subtool-title {
+html[data-theme="dark"] .text-main,
+html[data-theme="dark"] .tool-hero-title,
+html[data-theme="dark"] .section-title,
+html[data-theme="dark"] .subtool-title {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .text-muted,
-:global(html[data-theme="dark"]) .tool-hero-desc,
-:global(html[data-theme="dark"]) .subtool-desc {
+html[data-theme="dark"] .text-muted,
+html[data-theme="dark"] .tool-hero-desc,
+html[data-theme="dark"] .subtool-desc {
     color: var(--theme-text-secondary);
 }
 
-:global(html[data-theme="dark"]) .section-sub,
-:global(html[data-theme="dark"]) .subtool-slug,
-:global(html[data-theme="dark"]) .meta-text {
+html[data-theme="dark"] .section-sub,
+html[data-theme="dark"] .subtool-slug,
+html[data-theme="dark"] .meta-text {
     color: var(--theme-text-muted);
 }
 
-:global(html[data-theme="dark"]) .tool-hero-card,
-:global(html[data-theme="dark"]) .subtool-card,
-:global(html[data-theme="dark"]) .empty-box {
+html[data-theme="dark"] .tool-hero-card,
+html[data-theme="dark"] .subtool-card,
+html[data-theme="dark"] .empty-box {
     background: var(--theme-surface);
     border-color: var(--theme-border);
     box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .subtool-card:hover {
+html[data-theme="dark"] .subtool-card:hover {
     background: var(--theme-surface-secondary);
     border-color: rgba(43, 166, 222, 0.34);
     box-shadow: 0 18px 38px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .tool-hero-fallback,
-:global(html[data-theme="dark"]) .icon-orbit,
-:global(html[data-theme="dark"]) .icon-main,
-:global(html[data-theme="dark"]) .icon-mini,
-:global(html[data-theme="dark"]) .subtool-icon-editor,
-:global(html[data-theme="dark"]) .subtool-icon-summarizer,
-:global(html[data-theme="dark"]) .subtool-icon-default {
+html[data-theme="dark"] .tool-hero-fallback,
+html[data-theme="dark"] .icon-orbit,
+html[data-theme="dark"] .icon-main,
+html[data-theme="dark"] .icon-mini,
+html[data-theme="dark"] .subtool-icon-editor,
+html[data-theme="dark"] .subtool-icon-summarizer,
+html[data-theme="dark"] .subtool-icon-default {
     background: var(--theme-surface-secondary);
     color: var(--theme-accent);
     border-color: var(--theme-border);
     box-shadow: none;
 }
 
-:global(html[data-theme="dark"]) .status-chip.active {
+html[data-theme="dark"] .status-chip.active {
     background: rgba(74, 222, 128, 0.10);
     color: #4ade80;
 }
 
-:global(html[data-theme="dark"]) .status-chip.inactive {
+html[data-theme="dark"] .status-chip.inactive {
     background: rgba(248, 113, 113, 0.10);
     color: #f87171;
 }
 
-:global(html[data-theme="dark"]) .subtool-footer {
+html[data-theme="dark"] .subtool-footer {
     border-color: var(--theme-border);
 }
 </style>

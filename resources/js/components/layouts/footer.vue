@@ -1228,7 +1228,7 @@ const instagramUrl = "https://www.instagram.com/";
 /* =========================
    DARK MODE
 ========================= */
-:global(html[data-theme="dark"]) .site-footer {
+html[data-theme="dark"] .site-footer {
     background:
         radial-gradient(circle at 50% 0%, rgba(43, 166, 222, 0.07), transparent 34%),
         var(--theme-bg-secondary);
@@ -1236,63 +1236,63 @@ const instagramUrl = "https://www.instagram.com/";
     border-top: 1px solid var(--theme-border);
 }
 
-:global(html[data-theme="dark"]) .footer-panel {
+html[data-theme="dark"] .footer-panel {
     background: var(--theme-surface);
     border-color: var(--theme-border);
     box-shadow: 0 22px 60px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .footer-panel::before {
+html[data-theme="dark"] .footer-panel::before {
     background:
         radial-gradient(circle at 82% 14%, rgba(43, 166, 222, 0.07), transparent 30%),
         radial-gradient(circle at 14% 82%, rgba(255, 255, 255, 0.025), transparent 32%);
 }
 
-:global(html[data-theme="dark"]) .footer-border-line,
-:global(html[data-theme="dark"]) .footer-border-line::before,
-:global(html[data-theme="dark"]) .footer-brand-area,
-:global(html[data-theme="dark"]) .footer-bottom {
+html[data-theme="dark"] .footer-border-line,
+html[data-theme="dark"] .footer-border-line::before,
+html[data-theme="dark"] .footer-brand-area,
+html[data-theme="dark"] .footer-bottom {
     border-color: var(--theme-border);
 }
 
-:global(html[data-theme="dark"]) .brand-title,
-:global(html[data-theme="dark"]) .footer-col h3 {
+html[data-theme="dark"] .brand-title,
+html[data-theme="dark"] .footer-col h3 {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .brand-copy,
-:global(html[data-theme="dark"]) .footer-col ul li a {
+html[data-theme="dark"] .brand-copy,
+html[data-theme="dark"] .footer-col ul li a {
     color: var(--theme-text-secondary);
 }
 
-:global(html[data-theme="dark"]) .footer-cta-badge {
+html[data-theme="dark"] .footer-cta-badge {
     background: rgba(43, 166, 222, 0.11);
     border-color: rgba(43, 166, 222, 0.24);
     color: var(--theme-accent);
 }
 
-:global(html[data-theme="dark"]) .footer-col:not(.footer-highlight) {
+html[data-theme="dark"] .footer-col:not(.footer-highlight) {
     background: var(--theme-surface-secondary);
     border-color: var(--theme-border);
 }
 
-:global(html[data-theme="dark"]) .footer-col:not(.footer-highlight):hover {
+html[data-theme="dark"] .footer-col:not(.footer-highlight):hover {
     background: var(--theme-hover);
     border-color: rgba(43, 166, 222, 0.30);
     box-shadow: 0 16px 34px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .footer-col ul li a i {
+html[data-theme="dark"] .footer-col ul li a i {
     background: rgba(43, 166, 222, 0.10);
     color: var(--theme-accent);
 }
 
-:global(html[data-theme="dark"]) .site-footer[dir="rtl"] .footer-col ul li a:hover,
-:global(html[data-theme="dark"]) .site-footer[dir="ltr"] .footer-col ul li a:hover {
+html[data-theme="dark"] .site-footer[dir="rtl"] .footer-col ul li a:hover,
+html[data-theme="dark"] .site-footer[dir="ltr"] .footer-col ul li a:hover {
     color: var(--theme-accent);
 }
 
-:global(html[data-theme="dark"]) .footer-highlight {
+html[data-theme="dark"] .footer-highlight {
     background:
         radial-gradient(circle at 20% 10%, rgba(43, 166, 222, 0.12), transparent 36%),
         linear-gradient(135deg, rgba(21, 70, 119, 0.84), rgba(43, 166, 222, 0.58));
@@ -1300,31 +1300,31 @@ const instagramUrl = "https://www.instagram.com/";
     box-shadow: 0 18px 40px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .footer-social-link {
+html[data-theme="dark"] .footer-social-link {
     color: var(--theme-text-secondary);
     background: var(--theme-surface-secondary);
     border-color: var(--theme-border);
     box-shadow: 0 14px 30px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .footer-social-link:hover,
-:global(html[data-theme="dark"]) .footer-social-link:focus-visible {
+html[data-theme="dark"] .footer-social-link:hover,
+html[data-theme="dark"] .footer-social-link:focus-visible {
     color: var(--theme-accent);
     background: var(--theme-hover);
     border-color: rgba(43, 166, 222, 0.42);
     box-shadow: 0 18px 36px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .copyright,
-:global(html[data-theme="dark"]) .legal-links a {
+html[data-theme="dark"] .copyright,
+html[data-theme="dark"] .legal-links a {
     color: var(--theme-text-muted);
 }
 
-:global(html[data-theme="dark"]) .legal-links a {
+html[data-theme="dark"] .legal-links a {
     background: var(--theme-surface-secondary);
 }
 
-:global(html[data-theme="dark"]) .legal-links a:hover {
+html[data-theme="dark"] .legal-links a:hover {
     color: var(--theme-text-primary);
     background: var(--theme-hover);
     box-shadow: 0 12px 24px var(--theme-shadow);

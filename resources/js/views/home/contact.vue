@@ -306,59 +306,59 @@ const socials = [
 /* =========================
    DARK MODE
 ========================= */
-:global(html[data-theme="dark"]) .contact-section {
+html[data-theme="dark"] .contact-section {
     background: var(--app-bg) !important;
     color: var(--app-text-primary) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-title,
-:global(html[data-theme="dark"]) .contact-card .form-label,
-:global(html[data-theme="dark"]) .contact-card .fw-bold {
+html[data-theme="dark"] .contact-title,
+html[data-theme="dark"] .contact-card .form-label,
+html[data-theme="dark"] .contact-card .fw-bold {
     color: var(--app-text-primary) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-subtitle,
-:global(html[data-theme="dark"]) .contact-muted {
+html[data-theme="dark"] .contact-subtitle,
+html[data-theme="dark"] .contact-muted {
     color: var(--app-text-secondary) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-card {
+html[data-theme="dark"] .contact-card {
     background: var(--app-surface) !important;
     border-color: var(--app-border) !important;
     color: var(--app-text-primary) !important;
     box-shadow: 0 24px 54px var(--app-shadow) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-card > .row {
+html[data-theme="dark"] .contact-card > .row {
     background: var(--app-surface) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-input {
+html[data-theme="dark"] .contact-input {
     background: var(--app-input-bg) !important;
     color: var(--app-text-primary) !important;
     border-color: var(--app-border-strong) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-input:focus {
+html[data-theme="dark"] .contact-input:focus {
     background: var(--app-input-bg) !important;
     color: var(--app-text-primary) !important;
     border-color: rgba(43, 166, 222, 0.72) !important;
     box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-card .alert-success {
+html[data-theme="dark"] .contact-card .alert-success {
     background: rgba(74, 222, 128, 0.10) !important;
     border-color: rgba(74, 222, 128, 0.24) !important;
     color: var(--app-success) !important;
 }
 
-:global(html[data-theme="dark"]) .contact-card .alert-danger {
+html[data-theme="dark"] .contact-card .alert-danger {
     background: rgba(248, 113, 113, 0.10) !important;
     border-color: rgba(248, 113, 113, 0.24) !important;
     color: var(--app-danger) !important;
 }
 
-:global(html[data-theme="dark"]) .social-btn {
+html[data-theme="dark"] .social-btn {
     background: var(--app-surface-secondary) !important;
     color: var(--app-text-primary) !important;
     border-color: var(--app-border) !important;

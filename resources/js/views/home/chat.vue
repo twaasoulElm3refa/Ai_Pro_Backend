@@ -9095,7 +9095,7 @@ watch(
 /* =========================
    DARK MODE
 ========================= */
-:global(html[data-theme="dark"]) .chat-root {
+html[data-theme="dark"] .chat-root {
     --navy: #154677;
     --blue: #5cc8f0;
     --cyan: #5cc8f0;
@@ -9116,134 +9116,134 @@ watch(
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .chat-root .sidebar,
-:global(html[data-theme="dark"]) .chat-root .topbar,
-:global(html[data-theme="dark"]) .chat-root .input-area,
-:global(html[data-theme="dark"]) .chat-root .mobile-chat-topbar {
+html[data-theme="dark"] .chat-root .sidebar,
+html[data-theme="dark"] .chat-root .topbar,
+html[data-theme="dark"] .chat-root .input-area,
+html[data-theme="dark"] .chat-root .mobile-chat-topbar {
     background: var(--theme-surface);
     border-color: var(--theme-border);
     box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .chat-root .brand-name,
-:global(html[data-theme="dark"]) .chat-root .model-name,
-:global(html[data-theme="dark"]) .chat-root .empty-title,
-:global(html[data-theme="dark"]) .chat-root .mobile-chat-title strong,
-:global(html[data-theme="dark"]) .chat-root .ai-result-title {
+html[data-theme="dark"] .chat-root .brand-name,
+html[data-theme="dark"] .chat-root .model-name,
+html[data-theme="dark"] .chat-root .empty-title,
+html[data-theme="dark"] .chat-root .mobile-chat-title strong,
+html[data-theme="dark"] .chat-root .ai-result-title {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .chat-root .brand-subtitle,
-:global(html[data-theme="dark"]) .chat-root .model-desc,
-:global(html[data-theme="dark"]) .chat-root .empty-desc,
-:global(html[data-theme="dark"]) .chat-root .history-label,
-:global(html[data-theme="dark"]) .chat-root .history-item-date,
-:global(html[data-theme="dark"]) .chat-root .msg-time,
-:global(html[data-theme="dark"]) .chat-root .input-hint,
-:global(html[data-theme="dark"]) .chat-root .mobile-chat-title span {
+html[data-theme="dark"] .chat-root .brand-subtitle,
+html[data-theme="dark"] .chat-root .model-desc,
+html[data-theme="dark"] .chat-root .empty-desc,
+html[data-theme="dark"] .chat-root .history-label,
+html[data-theme="dark"] .chat-root .history-item-date,
+html[data-theme="dark"] .chat-root .msg-time,
+html[data-theme="dark"] .chat-root .input-hint,
+html[data-theme="dark"] .chat-root .mobile-chat-title span {
     color: var(--theme-text-muted);
 }
 
-:global(html[data-theme="dark"]) .chat-root .history-item-main,
-:global(html[data-theme="dark"]) .chat-root .history-delete,
-:global(html[data-theme="dark"]) .chat-root .desktop-sidebar-open-toggle,
-:global(html[data-theme="dark"]) .chat-root .mobile-sidebar-toggle,
-:global(html[data-theme="dark"]) .chat-root .suggestion-chip,
-:global(html[data-theme="dark"]) .chat-root .result-actions button,
-:global(html[data-theme="dark"]) .chat-root .advanced-options,
-:global(html[data-theme="dark"]) .chat-root .check-option,
-:global(html[data-theme="dark"]) .chat-root .input-box {
+html[data-theme="dark"] .chat-root .history-item-main,
+html[data-theme="dark"] .chat-root .history-delete,
+html[data-theme="dark"] .chat-root .desktop-sidebar-open-toggle,
+html[data-theme="dark"] .chat-root .mobile-sidebar-toggle,
+html[data-theme="dark"] .chat-root .suggestion-chip,
+html[data-theme="dark"] .chat-root .result-actions button,
+html[data-theme="dark"] .chat-root .advanced-options,
+html[data-theme="dark"] .chat-root .check-option,
+html[data-theme="dark"] .chat-root .input-box {
     background: var(--theme-surface-secondary);
     color: var(--theme-text-secondary);
     border-color: var(--theme-border);
     box-shadow: none;
 }
 
-:global(html[data-theme="dark"]) .chat-root .history-item.active .history-item-main,
-:global(html[data-theme="dark"]) .chat-root .history-item-main:hover,
-:global(html[data-theme="dark"]) .chat-root .history-delete:hover,
-:global(html[data-theme="dark"]) .chat-root .suggestion-chip:hover,
-:global(html[data-theme="dark"]) .chat-root .result-actions button:hover:not(:disabled) {
+html[data-theme="dark"] .chat-root .history-item.active .history-item-main,
+html[data-theme="dark"] .chat-root .history-item-main:hover,
+html[data-theme="dark"] .chat-root .history-delete:hover,
+html[data-theme="dark"] .chat-root .suggestion-chip:hover,
+html[data-theme="dark"] .chat-root .result-actions button:hover:not(:disabled) {
     background: var(--theme-hover);
     color: var(--theme-text-primary);
     border-color: rgba(43, 166, 222, 0.34);
 }
 
-:global(html[data-theme="dark"]) .chat-root .message-row.assistant .msg-content,
-:global(html[data-theme="dark"]) .chat-root .ai-result-card,
-:global(html[data-theme="dark"]) .chat-root .typing-bubble {
+html[data-theme="dark"] .chat-root .message-row.assistant .msg-content,
+html[data-theme="dark"] .chat-root .ai-result-card,
+html[data-theme="dark"] .chat-root .typing-bubble {
     background: var(--theme-surface-secondary);
     color: var(--theme-text-primary);
     border-color: var(--theme-border);
     box-shadow: 0 12px 28px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .chat-root .message-row.user .msg-content {
+html[data-theme="dark"] .chat-root .message-row.user .msg-content {
     background: linear-gradient(135deg, #154677, #2ba6de);
     color: #ffffff;
 }
 
-:global(html[data-theme="dark"]) .chat-root .ai-result-header {
+html[data-theme="dark"] .chat-root .ai-result-header {
     background: var(--theme-surface-elevated);
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .chat-root .ai-copy-btn {
+html[data-theme="dark"] .chat-root .ai-copy-btn {
     background: var(--theme-surface-elevated);
     color: var(--theme-accent);
 }
 
-:global(html[data-theme="dark"]) .chat-root .markdown-body :deep(code) {
+html[data-theme="dark"] .chat-root .markdown-body :deep(code) {
     background: var(--theme-surface-elevated);
     color: var(--theme-accent);
 }
 
-:global(html[data-theme="dark"]) .chat-root .markdown-body :deep(pre) {
+html[data-theme="dark"] .chat-root .markdown-body :deep(pre) {
     background: var(--theme-input-bg);
     color: var(--theme-text-primary);
     border-color: var(--theme-border-strong);
 }
 
-:global(html[data-theme="dark"]) .chat-root .markdown-body :deep(pre code) {
+html[data-theme="dark"] .chat-root .markdown-body :deep(pre code) {
     background: transparent;
     color: inherit;
 }
 
-:global(html[data-theme="dark"]) .chat-root .advanced-options-grid input,
-:global(html[data-theme="dark"]) .chat-root .advanced-options-grid textarea,
-:global(html[data-theme="dark"]) .chat-root .advanced-options-grid select,
-:global(html[data-theme="dark"]) .chat-root .chat-input {
+html[data-theme="dark"] .chat-root .advanced-options-grid input,
+html[data-theme="dark"] .chat-root .advanced-options-grid textarea,
+html[data-theme="dark"] .chat-root .advanced-options-grid select,
+html[data-theme="dark"] .chat-root .chat-input {
     background: var(--theme-input-bg);
     color: var(--theme-text-primary);
     border-color: var(--theme-border-strong);
 }
 
-:global(html[data-theme="dark"]) .chat-root .advanced-options-grid input:focus,
-:global(html[data-theme="dark"]) .chat-root .advanced-options-grid textarea:focus,
-:global(html[data-theme="dark"]) .chat-root .advanced-options-grid select:focus,
-:global(html[data-theme="dark"]) .chat-root .input-box.focused {
+html[data-theme="dark"] .chat-root .advanced-options-grid input:focus,
+html[data-theme="dark"] .chat-root .advanced-options-grid textarea:focus,
+html[data-theme="dark"] .chat-root .advanced-options-grid select:focus,
+html[data-theme="dark"] .chat-root .input-box.focused {
     border-color: rgba(43, 166, 222, 0.72);
     box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13);
 }
 
-:global(html[data-theme="dark"]) .chat-root .message-row.assistant .msg-content.error-message,
-:global(html[data-theme="dark"]) .chat-root .ai-result-card.error-message,
-:global(html[data-theme="dark"]) .chat-root .limit-warning,
-:global(html[data-theme="dark"]) .chat-root .points-warning {
+html[data-theme="dark"] .chat-root .message-row.assistant .msg-content.error-message,
+html[data-theme="dark"] .chat-root .ai-result-card.error-message,
+html[data-theme="dark"] .chat-root .limit-warning,
+html[data-theme="dark"] .chat-root .points-warning {
     background: rgba(248, 113, 113, 0.10);
     color: #f87171;
     border-color: rgba(248, 113, 113, 0.24);
 }
 
-:global(html[data-theme="dark"]) .chat-root .history-skeleton,
-:global(html[data-theme="dark"]) .chat-root .message-skeleton,
-:global(html[data-theme="dark"]) .chat-root .skeleton-box,
-:global(html[data-theme="dark"]) .chat-root .skel-line {
+html[data-theme="dark"] .chat-root .history-skeleton,
+html[data-theme="dark"] .chat-root .message-skeleton,
+html[data-theme="dark"] .chat-root .skeleton-box,
+html[data-theme="dark"] .chat-root .skel-line {
     background: linear-gradient(90deg, var(--theme-surface) 25%, var(--theme-surface-elevated) 50%, var(--theme-surface) 75%);
     background-size: 200% 100%;
 }
 
-:global(html[data-theme="dark"]) .chat-root .sidebar-overlay {
+html[data-theme="dark"] .chat-root .sidebar-overlay {
     background: var(--theme-overlay);
 }
 </style>

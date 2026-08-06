@@ -92,13 +92,13 @@ export default {
     animation: spin 2s linear infinite;
 }
 
-:global(html[data-theme="dark"]) .ai-loader-screen {
+html[data-theme="dark"] .ai-loader-screen {
     background:
         radial-gradient(circle at top left, rgba(43, 166, 222, 0.10), transparent 35%),
         var(--theme-bg);
 }
 
-:global(html[data-theme="dark"]) .logo-box {
+html[data-theme="dark"] .logo-box {
     background: var(--theme-surface-elevated);
     border: 1px solid var(--theme-border);
     box-shadow: 0 18px 45px var(--theme-shadow);

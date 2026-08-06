@@ -3259,7 +3259,7 @@ button:disabled {
 /* =========================
    DARK MODE
 ========================= */
-:global(html[data-theme="dark"]) .detector-chat {
+html[data-theme="dark"] .detector-chat {
     --navy: #154677;
     --blue: #5cc8f0;
     --cyan: #5cc8f0;
@@ -3270,133 +3270,133 @@ button:disabled {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .sidebar,
-:global(html[data-theme="dark"]) .detector-chat .composer {
+html[data-theme="dark"] .detector-chat .sidebar,
+html[data-theme="dark"] .detector-chat .composer {
     background: var(--theme-surface);
     border-color: var(--theme-border);
     box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .sidebar-brand strong,
-:global(html[data-theme="dark"]) .detector-chat .welcome-card h2,
-:global(html[data-theme="dark"]) .detector-chat .response-heading,
-:global(html[data-theme="dark"]) .detector-chat .generation-header strong,
-:global(html[data-theme="dark"]) .detector-chat .sidebar-wallet-copy strong {
+html[data-theme="dark"] .detector-chat .sidebar-brand strong,
+html[data-theme="dark"] .detector-chat .welcome-card h2,
+html[data-theme="dark"] .detector-chat .response-heading,
+html[data-theme="dark"] .detector-chat .generation-header strong,
+html[data-theme="dark"] .detector-chat .sidebar-wallet-copy strong {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .section-label,
-:global(html[data-theme="dark"]) .detector-chat .welcome-card p,
-:global(html[data-theme="dark"]) .detector-chat .response-heading small,
-:global(html[data-theme="dark"]) .detector-chat .generation-header small,
-:global(html[data-theme="dark"]) .detector-chat .sidebar-wallet-copy small,
-:global(html[data-theme="dark"]) .detector-chat .composer-hint {
+html[data-theme="dark"] .detector-chat .section-label,
+html[data-theme="dark"] .detector-chat .welcome-card p,
+html[data-theme="dark"] .detector-chat .response-heading small,
+html[data-theme="dark"] .detector-chat .generation-header small,
+html[data-theme="dark"] .detector-chat .sidebar-wallet-copy small,
+html[data-theme="dark"] .detector-chat .composer-hint {
     color: var(--theme-text-muted);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .sidebar-quick-button,
-:global(html[data-theme="dark"]) .detector-chat .conversation-open,
-:global(html[data-theme="dark"]) .detector-chat .conversation-delete,
-:global(html[data-theme="dark"]) .detector-chat .icon-button,
-:global(html[data-theme="dark"]) .detector-chat .desktop-sidebar-open-toggle,
-:global(html[data-theme="dark"]) .detector-chat .mobile-sidebar-toggle,
-:global(html[data-theme="dark"]) .detector-chat .suggestion,
-:global(html[data-theme="dark"]) .detector-chat .copy-prompt-button,
-:global(html[data-theme="dark"]) .detector-chat .image-action-secondary,
-:global(html[data-theme="dark"]) .detector-chat .regenerate-button,
-:global(html[data-theme="dark"]) .detector-chat .options-panel,
-:global(html[data-theme="dark"]) .detector-chat .input-box,
-:global(html[data-theme="dark"]) .detector-chat .attach-button,
-:global(html[data-theme="dark"]) .detector-chat .composer-file-preview {
+html[data-theme="dark"] .detector-chat .sidebar-quick-button,
+html[data-theme="dark"] .detector-chat .conversation-open,
+html[data-theme="dark"] .detector-chat .conversation-delete,
+html[data-theme="dark"] .detector-chat .icon-button,
+html[data-theme="dark"] .detector-chat .desktop-sidebar-open-toggle,
+html[data-theme="dark"] .detector-chat .mobile-sidebar-toggle,
+html[data-theme="dark"] .detector-chat .suggestion,
+html[data-theme="dark"] .detector-chat .copy-prompt-button,
+html[data-theme="dark"] .detector-chat .image-action-secondary,
+html[data-theme="dark"] .detector-chat .regenerate-button,
+html[data-theme="dark"] .detector-chat .options-panel,
+html[data-theme="dark"] .detector-chat .input-box,
+html[data-theme="dark"] .detector-chat .attach-button,
+html[data-theme="dark"] .detector-chat .composer-file-preview {
     background: var(--theme-surface-secondary);
     color: var(--theme-text-secondary);
     border-color: var(--theme-border);
     box-shadow: none;
 }
 
-:global(html[data-theme="dark"]) .detector-chat .sidebar-quick-button:hover,
-:global(html[data-theme="dark"]) .detector-chat .conversation-item.active .conversation-open,
-:global(html[data-theme="dark"]) .detector-chat .conversation-open:hover,
-:global(html[data-theme="dark"]) .detector-chat .conversation-delete:hover,
-:global(html[data-theme="dark"]) .detector-chat .suggestion:hover,
-:global(html[data-theme="dark"]) .detector-chat .image-action-secondary:hover:not(:disabled),
-:global(html[data-theme="dark"]) .detector-chat .regenerate-button:hover:not(:disabled) {
+html[data-theme="dark"] .detector-chat .sidebar-quick-button:hover,
+html[data-theme="dark"] .detector-chat .conversation-item.active .conversation-open,
+html[data-theme="dark"] .detector-chat .conversation-open:hover,
+html[data-theme="dark"] .detector-chat .conversation-delete:hover,
+html[data-theme="dark"] .detector-chat .suggestion:hover,
+html[data-theme="dark"] .detector-chat .image-action-secondary:hover:not(:disabled),
+html[data-theme="dark"] .detector-chat .regenerate-button:hover:not(:disabled) {
     background: var(--theme-hover);
     color: var(--theme-text-primary);
     border-color: rgba(43, 166, 222, 0.34);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .welcome-card,
-:global(html[data-theme="dark"]) .detector-chat .message-body,
-:global(html[data-theme="dark"]) .detector-chat .prompt-output,
-:global(html[data-theme="dark"]) .detector-chat .generated-image-card,
-:global(html[data-theme="dark"]) .detector-chat .message-body.card-shell.generation-loading,
-:global(html[data-theme="dark"]) .detector-chat .loading-prompt-card {
+html[data-theme="dark"] .detector-chat .welcome-card,
+html[data-theme="dark"] .detector-chat .message-body,
+html[data-theme="dark"] .detector-chat .prompt-output,
+html[data-theme="dark"] .detector-chat .generated-image-card,
+html[data-theme="dark"] .detector-chat .message-body.card-shell.generation-loading,
+html[data-theme="dark"] .detector-chat .loading-prompt-card {
     background: var(--theme-surface-secondary);
     color: var(--theme-text-primary);
     border-color: var(--theme-border);
     box-shadow: 0 12px 28px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .message-row.user .message-body {
+html[data-theme="dark"] .detector-chat .message-row.user .message-body {
     background: linear-gradient(135deg, #154677, #2ba6de);
     color: #ffffff;
     border-color: transparent;
 }
 
-:global(html[data-theme="dark"]) .detector-chat .image-preview,
-:global(html[data-theme="dark"]) .detector-chat .image-actions,
-:global(html[data-theme="dark"]) .detector-chat .loading-image-card,
-:global(html[data-theme="dark"]) .detector-chat .loading-image-placeholder {
+html[data-theme="dark"] .detector-chat .image-preview,
+html[data-theme="dark"] .detector-chat .image-actions,
+html[data-theme="dark"] .detector-chat .loading-image-card,
+html[data-theme="dark"] .detector-chat .loading-image-placeholder {
     background: var(--theme-surface-elevated);
     border-color: var(--theme-border);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .image-skeleton,
-:global(html[data-theme="dark"]) .detector-chat .loading-prompt-card span {
+html[data-theme="dark"] .detector-chat .image-skeleton,
+html[data-theme="dark"] .detector-chat .loading-prompt-card span {
     background: linear-gradient(90deg, var(--theme-surface) 25%, var(--theme-surface-elevated) 50%, var(--theme-surface) 75%);
     background-size: 200% 100%;
 }
 
-:global(html[data-theme="dark"]) .detector-chat .loading-image-shimmer {
+html[data-theme="dark"] .detector-chat .loading-image-shimmer {
     background:
         linear-gradient(100deg, transparent 20%, rgba(43, 166, 222, 0.10) 48%, transparent 76%),
         linear-gradient(145deg, var(--theme-surface), var(--theme-surface-elevated));
     background-size: 220% 100%, 100% 100%;
 }
 
-:global(html[data-theme="dark"]) .detector-chat .options-form input,
-:global(html[data-theme="dark"]) .detector-chat .options-form select,
-:global(html[data-theme="dark"]) .detector-chat .options-form textarea,
-:global(html[data-theme="dark"]) .detector-chat .input-box textarea {
+html[data-theme="dark"] .detector-chat .options-form input,
+html[data-theme="dark"] .detector-chat .options-form select,
+html[data-theme="dark"] .detector-chat .options-form textarea,
+html[data-theme="dark"] .detector-chat .input-box textarea {
     background: var(--theme-input-bg);
     color: var(--theme-text-primary);
     border-color: var(--theme-border-strong);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .options-form input:focus,
-:global(html[data-theme="dark"]) .detector-chat .options-form select:focus,
-:global(html[data-theme="dark"]) .detector-chat .options-form textarea:focus,
-:global(html[data-theme="dark"]) .detector-chat .input-box:focus-within {
+html[data-theme="dark"] .detector-chat .options-form input:focus,
+html[data-theme="dark"] .detector-chat .options-form select:focus,
+html[data-theme="dark"] .detector-chat .options-form textarea:focus,
+html[data-theme="dark"] .detector-chat .input-box:focus-within {
     border-color: rgba(43, 166, 222, 0.72);
     box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .partial-warning {
+html[data-theme="dark"] .detector-chat .partial-warning {
     background: rgba(251, 191, 36, 0.10);
     color: #fbbf24;
     border-color: rgba(251, 191, 36, 0.24);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .clean-error-card,
-:global(html[data-theme="dark"]) .detector-chat .error-banner,
-:global(html[data-theme="dark"]) .detector-chat .image-load-error button {
+html[data-theme="dark"] .detector-chat .clean-error-card,
+html[data-theme="dark"] .detector-chat .error-banner,
+html[data-theme="dark"] .detector-chat .image-load-error button {
     background: rgba(248, 113, 113, 0.10);
     color: #f87171;
     border-color: rgba(248, 113, 113, 0.24);
 }
 
-:global(html[data-theme="dark"]) .detector-chat .sidebar-overlay {
+html[data-theme="dark"] .detector-chat .sidebar-overlay {
     background: var(--theme-overlay);
 }
 </style>

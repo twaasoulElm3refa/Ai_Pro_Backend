@@ -620,7 +620,7 @@ hr {
 /* =========================
    DARK MODE
 ========================= */
-:global(html[data-theme="dark"]) .deposit-page {
+html[data-theme="dark"] .deposit-page {
     background:
         radial-gradient(
             circle at 85% 10%,
@@ -631,93 +631,93 @@ hr {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .balance-card {
+html[data-theme="dark"] .balance-card {
     background: var(--theme-surface-secondary);
     border: 1px solid var(--theme-border);
     box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .balance-card .label,
-:global(html[data-theme="dark"]) .balance-card .currency,
-:global(html[data-theme="dark"]) .input-group label,
-:global(html[data-theme="dark"]) .summary-row span:first-child,
-:global(html[data-theme="dark"]) .currency-badge,
-:global(html[data-theme="dark"]) .method-option small {
+html[data-theme="dark"] .balance-card .label,
+html[data-theme="dark"] .balance-card .currency,
+html[data-theme="dark"] .input-group label,
+html[data-theme="dark"] .summary-row span:first-child,
+html[data-theme="dark"] .currency-badge,
+html[data-theme="dark"] .method-option small {
     color: var(--theme-text-muted);
 }
 
-:global(html[data-theme="dark"]) .balance-card .amount,
-:global(html[data-theme="dark"]) .deposit-card h1,
-:global(html[data-theme="dark"]) .summary-row {
+html[data-theme="dark"] .balance-card .amount,
+html[data-theme="dark"] .deposit-card h1,
+html[data-theme="dark"] .summary-row {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .deposit-card {
+html[data-theme="dark"] .deposit-card {
     background: var(--theme-surface);
     border-color: var(--theme-border);
     box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .method-option,
-:global(html[data-theme="dark"]) .preset-btn {
+html[data-theme="dark"] .method-option,
+html[data-theme="dark"] .preset-btn {
     background: var(--theme-surface-secondary);
     border-color: var(--theme-border);
     color: var(--theme-text-secondary);
 }
 
-:global(html[data-theme="dark"]) .method-option:hover,
-:global(html[data-theme="dark"]) .preset-btn:hover {
+html[data-theme="dark"] .method-option:hover,
+html[data-theme="dark"] .preset-btn:hover {
     background: var(--theme-hover);
 }
 
-:global(html[data-theme="dark"]) .method-option span {
+html[data-theme="dark"] .method-option span {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .method-option.active,
-:global(html[data-theme="dark"]) .preset-btn.active {
+html[data-theme="dark"] .method-option.active,
+html[data-theme="dark"] .preset-btn.active {
     background: rgba(43, 166, 222, 0.13);
     border-color: rgba(43, 166, 222, 0.65);
     color: var(--theme-accent);
 }
 
-:global(html[data-theme="dark"]) .amount-wrap input,
-:global(html[data-theme="dark"]) .input-group input[type="text"] {
+html[data-theme="dark"] .amount-wrap input,
+html[data-theme="dark"] .input-group input[type="text"] {
     background: var(--theme-input-bg);
     color: var(--theme-text-primary);
     border-color: var(--theme-border-strong);
 }
 
-:global(html[data-theme="dark"]) .amount-wrap input::placeholder,
-:global(html[data-theme="dark"]) .input-group input[type="text"]::placeholder {
+html[data-theme="dark"] .amount-wrap input::placeholder,
+html[data-theme="dark"] .input-group input[type="text"]::placeholder {
     color: var(--theme-text-muted);
 }
 
-:global(html[data-theme="dark"]) .amount-wrap input:focus,
-:global(html[data-theme="dark"]) .input-group input[type="text"]:focus {
+html[data-theme="dark"] .amount-wrap input:focus,
+html[data-theme="dark"] .input-group input[type="text"]:focus {
     border-color: rgba(43, 166, 222, 0.72);
     box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13);
 }
 
-:global(html[data-theme="dark"]) .card-brands span {
+html[data-theme="dark"] .card-brands span {
     background: var(--theme-surface-secondary);
     border-color: var(--theme-border);
     color: var(--theme-text-secondary);
 }
 
-:global(html[data-theme="dark"]) hr {
+html[data-theme="dark"] hr {
     border-top-color: var(--theme-border);
 }
 
-:global(html[data-theme="dark"]) .paypal-text {
+html[data-theme="dark"] .paypal-text {
     color: var(--theme-text-secondary);
 }
 
-:global(html[data-theme="dark"]) .moyasar-text {
+html[data-theme="dark"] .moyasar-text {
     color: var(--theme-accent);
 }
 
-:global(html[data-theme="dark"]) .error {
+html[data-theme="dark"] .error {
     color: #f87171;
 }
 </style>

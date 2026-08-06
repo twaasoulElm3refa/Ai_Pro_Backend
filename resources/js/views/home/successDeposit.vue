@@ -227,50 +227,50 @@ export default {
 /* =========================
    DARK MODE
 ========================= */
-:global(html[data-theme="dark"]) .success-page {
+html[data-theme="dark"] .success-page {
     background: var(--theme-bg);
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .success-page .card {
+html[data-theme="dark"] .success-page .card {
     background: var(--theme-surface);
     border: 1px solid var(--theme-border);
     box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
-:global(html[data-theme="dark"]) .success-page h1,
-:global(html[data-theme="dark"]) .info-val {
+html[data-theme="dark"] .success-page h1,
+html[data-theme="dark"] .info-val {
     color: var(--theme-text-primary);
 }
 
-:global(html[data-theme="dark"]) .success-page .subtitle {
+html[data-theme="dark"] .success-page .subtitle {
     color: var(--theme-text-secondary);
 }
 
-:global(html[data-theme="dark"]) .paypal-badge,
-:global(html[data-theme="dark"]) .info-row {
+html[data-theme="dark"] .paypal-badge,
+html[data-theme="dark"] .info-row {
     background: var(--theme-surface-secondary);
     border: 1px solid var(--theme-border);
 }
 
-:global(html[data-theme="dark"]) .paypal-dot,
-:global(html[data-theme="dark"]) .icon-circle {
+html[data-theme="dark"] .paypal-dot,
+html[data-theme="dark"] .icon-circle {
     background: #4ade80;
 }
 
-:global(html[data-theme="dark"]) .info-icon {
+html[data-theme="dark"] .info-icon {
     color: #4ade80;
 }
 
-:global(html[data-theme="dark"]) .info-label {
+html[data-theme="dark"] .info-label {
     color: var(--theme-text-muted);
 }
 
-:global(html[data-theme="dark"]) .sec-link {
+html[data-theme="dark"] .sec-link {
     color: var(--theme-text-secondary);
 }
 
-:global(html[data-theme="dark"]) .sec-link:hover {
+html[data-theme="dark"] .sec-link:hover {
     color: var(--theme-accent);
 }
 </style>
