@@ -9193,6 +9193,22 @@ watch(
     color: var(--theme-accent);
 }
 
+:global(html[data-theme="dark"]) .chat-root .markdown-body :deep(code) {
+    background: var(--theme-surface-elevated);
+    color: var(--theme-accent);
+}
+
+:global(html[data-theme="dark"]) .chat-root .markdown-body :deep(pre) {
+    background: var(--theme-input-bg);
+    color: var(--theme-text-primary);
+    border-color: var(--theme-border-strong);
+}
+
+:global(html[data-theme="dark"]) .chat-root .markdown-body :deep(pre code) {
+    background: transparent;
+    color: inherit;
+}
+
 :global(html[data-theme="dark"]) .chat-root .advanced-options-grid input,
 :global(html[data-theme="dark"]) .chat-root .advanced-options-grid textarea,
 :global(html[data-theme="dark"]) .chat-root .advanced-options-grid select,

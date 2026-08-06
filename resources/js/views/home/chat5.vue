@@ -3358,6 +3358,13 @@ button:disabled {
     background-size: 200% 100%;
 }
 
+:global(html[data-theme="dark"]) .detector-chat .loading-image-shimmer {
+    background:
+        linear-gradient(100deg, transparent 20%, rgba(43, 166, 222, 0.10) 48%, transparent 76%),
+        linear-gradient(145deg, var(--theme-surface), var(--theme-surface-elevated));
+    background-size: 220% 100%, 100% 100%;
+}
+
 :global(html[data-theme="dark"]) .detector-chat .options-form input,
 :global(html[data-theme="dark"]) .detector-chat .options-form select,
 :global(html[data-theme="dark"]) .detector-chat .options-form textarea,

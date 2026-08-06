@@ -3102,6 +3102,13 @@ button:disabled {
     color: var(--theme-accent);
 }
 
+:global(html[data-theme="dark"]) .prompt-chat .tool-badges span,
+:global(html[data-theme="dark"]) .prompt-chat .response-meta span {
+    background: var(--theme-surface-elevated);
+    color: var(--theme-accent);
+    border-color: var(--theme-border);
+}
+
 :global(html[data-theme="dark"]) .prompt-chat .options-grid input,
 :global(html[data-theme="dark"]) .prompt-chat .options-grid select,
 :global(html[data-theme="dark"]) .prompt-chat .input-box textarea {

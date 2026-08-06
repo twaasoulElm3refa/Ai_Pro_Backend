@@ -241,9 +241,12 @@ export default {
         const { t, locale } = useI18n();
         const currentDir = computed(() => locale.value === "ar" ? "rtl" : "ltr");
 
-        const isDark = ref(
-            localStorage.getItem("theme") === "dark" || localStorage.getItem("theme") === null
-        );
+        const isDark = ref(document.documentElement.dataset.theme === "dark");
+        let themeObserver = null;
+
+        const syncTheme = () => {
+            isDark.value = document.documentElement.dataset.theme === "dark";
+        };
 
         const handleStorageChange = (e) => {
             if (e.key === "theme") isDark.value = e.newValue === "dark";
@@ -493,6 +496,12 @@ export default {
 
         onMounted(() => {
             locale.value = homeService.getLang();
+            syncTheme();
+            themeObserver = new MutationObserver(syncTheme);
+            themeObserver.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ["data-theme"],
+            });
             window.addEventListener("storage", handleStorageChange);
             window.addEventListener("login", fetchProfile);
             window.addEventListener("lang-changed", fetchProfile);
@@ -504,6 +513,7 @@ export default {
         });
 
         onUnmounted(() => {
+            themeObserver?.disconnect();
             window.removeEventListener("storage", handleStorageChange);
             window.removeEventListener("login", fetchProfile);
             window.removeEventListener("lang-changed", fetchProfile);

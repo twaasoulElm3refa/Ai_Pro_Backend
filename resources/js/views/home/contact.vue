@@ -100,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import COLORS, { rgba } from "@/components/assets/colors.js";
@@ -133,19 +133,35 @@ const form = ref({
 const successMessage = ref("");
 
 /* ---------------- dark / light ---------------- */
-const isDark = computed(() =>
-    document.documentElement.dataset.theme === "dark"
-);
+const isDark = ref(document.documentElement.dataset.theme === "dark");
+let themeObserver = null;
+
+const syncTheme = () => {
+    isDark.value = document.documentElement.dataset.theme === "dark";
+};
+
+onMounted(() => {
+    syncTheme();
+    themeObserver = new MutationObserver(syncTheme);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-theme"],
+    });
+});
+
+onUnmounted(() => {
+    themeObserver?.disconnect();
+});
 
 /* ---------------- styles ---------------- */
 const sectionStyle = computed(() => ({
-    backgroundColor: isDark.value ? COLORS.BG_DARK : COLORS.BG,
-    color: isDark.value ? COLORS.TEXT_DARK : COLORS.TEXT,
+    backgroundColor: isDark.value ? "var(--theme-bg)" : COLORS.BG,
+    color: isDark.value ? "var(--theme-text-primary)" : COLORS.TEXT,
 }));
 
 const cardStyle = computed(() => ({
-    backgroundColor: isDark.value ? COLORS.CARD_DARK : COLORS.PRIMARY,
-    color: isDark.value ? COLORS.TEXT_DARK : COLORS.TEXT,
+    backgroundColor: isDark.value ? "var(--theme-surface)" : COLORS.PRIMARY,
+    color: isDark.value ? "var(--theme-text-primary)" : COLORS.TEXT,
     borderRadius: "0.5rem",
 }));
 
@@ -155,9 +171,9 @@ const infoStyle = computed(() => ({
 }));
 
 const inputStyle = computed(() => ({
-    backgroundColor: isDark.value ? COLORS.INPUT_DARK : COLORS.PRIMARY,
-    color: isDark.value ? COLORS.TEXT_DARK : COLORS.SECONDARY,
-    border: `1px solid ${COLORS.CARD_BORDER}`,
+    backgroundColor: isDark.value ? "var(--theme-input-bg)" : COLORS.PRIMARY,
+    color: isDark.value ? "var(--theme-text-primary)" : COLORS.SECONDARY,
+    border: `1px solid ${isDark.value ? "var(--theme-border-strong)" : COLORS.CARD_BORDER}`,
 }));
 
 const btnStyle = computed(() => ({
@@ -178,9 +194,9 @@ const socialBtnStyle = computed(() => ({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    color: COLORS.TEXT,
-    backgroundColor: isDark.value ? COLORS.CARD_DARK : COLORS.PRIMARY,
-    border: `1px solid ${rgba(COLORS.TEXT, 0.3)}`,
+    color: isDark.value ? "var(--theme-text-primary)" : COLORS.TEXT,
+    backgroundColor: isDark.value ? "var(--theme-surface-secondary)" : COLORS.PRIMARY,
+    border: `1px solid ${isDark.value ? "var(--theme-border)" : rgba(COLORS.TEXT, 0.3)}`,
 }));
 
 const textMuted = computed(() =>
