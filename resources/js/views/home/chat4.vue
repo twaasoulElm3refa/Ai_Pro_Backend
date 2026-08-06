@@ -4198,4 +4198,141 @@ button:disabled {
     border-color: #258dcc;
     box-shadow: 0 0 0 3px rgba(37, 141, 204, 0.12);
 }
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"]) .detector-chat {
+    --navy: #154677;
+    --blue: #5cc8f0;
+    --cyan: #5cc8f0;
+    --ink: var(--theme-text-primary);
+    --muted: var(--theme-text-muted);
+    --line: var(--theme-border);
+    background: var(--theme-bg);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .sidebar,
+:global(html[data-theme="dark"]) .detector-chat .workspace-header,
+:global(html[data-theme="dark"]) .detector-chat .composer {
+    background: var(--theme-surface);
+    border-color: var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .sidebar-brand strong,
+:global(html[data-theme="dark"]) .detector-chat .workspace-header h1,
+:global(html[data-theme="dark"]) .detector-chat .welcome-card h2,
+:global(html[data-theme="dark"]) .detector-chat .ai-response-title,
+:global(html[data-theme="dark"]) .detector-chat .business-name,
+:global(html[data-theme="dark"]) .detector-chat .assistant-typing-text {
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .sidebar-brand small,
+:global(html[data-theme="dark"]) .detector-chat .section-label,
+:global(html[data-theme="dark"]) .detector-chat .welcome-card p,
+:global(html[data-theme="dark"]) .detector-chat .result-title-stack span,
+:global(html[data-theme="dark"]) .detector-chat .business-domain-label,
+:global(html[data-theme="dark"]) .detector-chat .options-summary,
+:global(html[data-theme="dark"]) .detector-chat .composer-hint {
+    color: var(--theme-text-muted);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .conversation-open,
+:global(html[data-theme="dark"]) .detector-chat .conversation-delete,
+:global(html[data-theme="dark"]) .detector-chat .icon-button,
+:global(html[data-theme="dark"]) .detector-chat .desktop-sidebar-open-toggle,
+:global(html[data-theme="dark"]) .detector-chat .mobile-sidebar-toggle,
+:global(html[data-theme="dark"]) .detector-chat .suggestion,
+:global(html[data-theme="dark"]) .detector-chat .copy-card-button,
+:global(html[data-theme="dark"]) .detector-chat .result-header button,
+:global(html[data-theme="dark"]) .detector-chat .ai-edit-options-button,
+:global(html[data-theme="dark"]) .detector-chat .options-panel,
+:global(html[data-theme="dark"]) .detector-chat .option-card,
+:global(html[data-theme="dark"]) .detector-chat .checkbox-option,
+:global(html[data-theme="dark"]) .detector-chat .resume-file-button,
+:global(html[data-theme="dark"]) .detector-chat .options-reset-button,
+:global(html[data-theme="dark"]) .detector-chat .input-box,
+:global(html[data-theme="dark"]) .detector-chat .composer-file-button,
+:global(html[data-theme="dark"]) .detector-chat .composer-file-preview {
+    background: var(--theme-surface-secondary);
+    color: var(--theme-text-secondary);
+    border-color: var(--theme-border);
+    box-shadow: none;
+}
+
+:global(html[data-theme="dark"]) .detector-chat .conversation-item.active .conversation-open,
+:global(html[data-theme="dark"]) .detector-chat .conversation-open:hover,
+:global(html[data-theme="dark"]) .detector-chat .conversation-delete:hover,
+:global(html[data-theme="dark"]) .detector-chat .icon-button:hover,
+:global(html[data-theme="dark"]) .detector-chat .suggestion:hover,
+:global(html[data-theme="dark"]) .detector-chat .ai-edit-options-button:hover:not(:disabled) {
+    background: var(--theme-hover);
+    color: var(--theme-text-primary);
+    border-color: rgba(43, 166, 222, 0.34);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .welcome-card,
+:global(html[data-theme="dark"]) .detector-chat .message-content,
+:global(html[data-theme="dark"]) .detector-chat .assistant-typing-content,
+:global(html[data-theme="dark"]) .detector-chat .ai-response-card,
+:global(html[data-theme="dark"]) .detector-chat .business-response-card,
+:global(html[data-theme="dark"]) .detector-chat .business-result-card,
+:global(html[data-theme="dark"]) .detector-chat .user-uploaded-file-card,
+:global(html[data-theme="dark"]) .detector-chat .ai-meta-section {
+    background: var(--theme-surface-secondary);
+    color: var(--theme-text-primary);
+    border-color: var(--theme-border);
+    box-shadow: 0 12px 28px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .user .message-content {
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    color: #ffffff;
+    border-color: transparent;
+}
+
+:global(html[data-theme="dark"]) .detector-chat .ai-response-header,
+:global(html[data-theme="dark"]) .detector-chat .result-header,
+:global(html[data-theme="dark"]) .detector-chat .ai-score-box {
+    background: var(--theme-surface-elevated);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .domain-chip,
+:global(html[data-theme="dark"]) .detector-chat .tool-badges span {
+    background: rgba(43, 166, 222, 0.10);
+    color: var(--theme-accent);
+    border-color: rgba(43, 166, 222, 0.24);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .options-basic-grid input,
+:global(html[data-theme="dark"]) .detector-chat .options-basic-grid select,
+:global(html[data-theme="dark"]) .detector-chat .options-form textarea,
+:global(html[data-theme="dark"]) .detector-chat .input-box textarea {
+    background: var(--theme-input-bg);
+    color: var(--theme-text-primary);
+    border-color: var(--theme-border-strong);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .options-basic-grid input:focus,
+:global(html[data-theme="dark"]) .detector-chat .options-basic-grid select:focus,
+:global(html[data-theme="dark"]) .detector-chat .options-form textarea:focus,
+:global(html[data-theme="dark"]) .detector-chat .input-box:focus-within {
+    border-color: rgba(43, 166, 222, 0.72);
+    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .clean-error-card,
+:global(html[data-theme="dark"]) .detector-chat .error-banner,
+:global(html[data-theme="dark"]) .detector-chat .resume-file-selected button {
+    background: rgba(248, 113, 113, 0.10);
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.24);
+}
+
+:global(html[data-theme="dark"]) .detector-chat .sidebar-overlay {
+    background: var(--theme-overlay);
+}
 </style>

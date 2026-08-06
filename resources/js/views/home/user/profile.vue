@@ -583,25 +583,21 @@ export default {
             rgba(43, 166, 222, 0.06),
             transparent 32%
         ),
-        linear-gradient(
-            180deg,
-            #111315 0%,
-            #15181b 100%
-        );
-    color: #f1f3f5;
+        var(--theme-bg);
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] > div) {
-    background: #1b1f23;
-    color: #f1f3f5;
-    border-color: rgba(255, 255, 255, 0.09);
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+    background: var(--theme-surface);
+    color: var(--theme-text-primary);
+    border-color: var(--theme-border);
+    box-shadow: 0 24px 60px var(--theme-shadow);
 }
 
 :global(html[data-theme="dark"] #profile-page-title),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .font-semibold),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .font-bold) {
-    color: #f1f3f5;
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-sm),
@@ -609,66 +605,75 @@ export default {
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-slate-300),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-slate-400),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .text-slate-500) {
-    color: #c7ccd1;
+    color: var(--theme-text-secondary);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] label),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="text-slate-400"]),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="text-slate-500"]) {
-    color: #9299a1;
+    color: var(--theme-text-muted);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .border-b) {
-    border-color: rgba(255, 255, 255, 0.09);
+    border-color: var(--theme-border);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] button[type="button"]:not(.bg-red-500):not([class*="bg-[#154677]"])) {
-    color: #c7ccd1;
+    color: var(--theme-text-muted);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] button[type="button"]:not(.bg-red-500):not([class*="bg-[#154677]"]):hover) {
-    color: #f1f3f5;
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .border-b > button.border-b-2) {
+    color: var(--theme-accent);
+    border-color: var(--theme-accent);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .rounded-xl),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="bg-slate-900"]),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [class*="bg-slate-50"]) {
-    background: #20252a;
-    border-color: rgba(255, 255, 255, 0.09);
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border);
+}
+
+:global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] .space-y-3 > .rounded-xl > span:last-child) {
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] button.rounded-xl:hover),
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] label.cursor-pointer:hover) {
-    background: #2a3036;
+    background: var(--theme-hover);
     border-color: rgba(43, 166, 222, 0.42);
-    color: #2ba6de;
+    color: var(--theme-accent);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] input) {
-    background: #171a1d;
-    color: #f1f3f5;
-    border-color: rgba(255, 255, 255, 0.11);
+    background: var(--theme-input-bg);
+    color: var(--theme-text-primary);
+    border-color: var(--theme-border-strong);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] input::placeholder) {
-    color: #747b83;
+    color: var(--theme-text-muted);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] input:focus) {
-    border-color: rgba(43, 166, 222, 0.65);
-    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.12);
+    border-color: rgba(43, 166, 222, 0.72);
+    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] label.cursor-pointer) {
-    background: #252b31;
-    color: #c7ccd1;
-    border-color: rgba(255, 255, 255, 0.10);
+    background: var(--theme-surface-elevated);
+    color: var(--theme-text-secondary);
+    border-color: var(--theme-border);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [role="status"]) {
-    background: rgba(37, 43, 49, 0.92);
-    border-color: rgba(255, 255, 255, 0.12);
-    color: #c7ccd1;
+    background: var(--theme-surface-elevated);
+    border-color: var(--theme-border-strong);
+    color: var(--theme-text-secondary);
 }
 
 :global(html[data-theme="dark"] main[aria-labelledby="profile-page-title"] [role="status"] .bi-check-circle-fill) {

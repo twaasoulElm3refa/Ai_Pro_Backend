@@ -1829,4 +1829,101 @@ const toggleFaq = (index) => {
         scroll-behavior: auto !important;
     }
 }
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"]) .home-shell,
+:global(html[data-theme="dark"]) .home-tools-page {
+    background: var(--theme-bg);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .ai-premium-container,
+:global(html[data-theme="dark"]) .tools-panel,
+:global(html[data-theme="dark"]) .faq-section {
+    background: var(--theme-surface);
+    border-color: var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .ai-container-title,
+:global(html[data-theme="dark"]) .ai-info-card h3,
+:global(html[data-theme="dark"]) .ai-feature-chip strong,
+:global(html[data-theme="dark"]) .tools-title,
+:global(html[data-theme="dark"]) .popular-subtools-head h3,
+:global(html[data-theme="dark"]) .popular-subtool-name,
+:global(html[data-theme="dark"]) .tool-title,
+:global(html[data-theme="dark"]) .faq-header h2,
+:global(html[data-theme="dark"]) .faq-question {
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .ai-container-desc,
+:global(html[data-theme="dark"]) .ai-info-card p,
+:global(html[data-theme="dark"]) .ai-feature-chip span,
+:global(html[data-theme="dark"]) .tools-subtitle,
+:global(html[data-theme="dark"]) .popular-subtools-head p,
+:global(html[data-theme="dark"]) .tool-description,
+:global(html[data-theme="dark"]) .faq-header p,
+:global(html[data-theme="dark"]) .faq-answer p {
+    color: var(--theme-text-secondary);
+}
+
+:global(html[data-theme="dark"]) .tool-slug {
+    color: var(--theme-text-muted);
+}
+
+:global(html[data-theme="dark"]) .ai-soft-badge,
+:global(html[data-theme="dark"]) .tools-count,
+:global(html[data-theme="dark"]) .tool-status.active {
+    color: var(--theme-accent);
+    background: rgba(43, 166, 222, 0.11);
+    border-color: rgba(43, 166, 222, 0.24);
+}
+
+:global(html[data-theme="dark"]) .ai-info-card,
+:global(html[data-theme="dark"]) .ai-feature-chip,
+:global(html[data-theme="dark"]) .popular-subtool-card,
+:global(html[data-theme="dark"]) .tool-card,
+:global(html[data-theme="dark"]) .faq-item,
+:global(html[data-theme="dark"]) .empty-state {
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border);
+    box-shadow: 0 12px 30px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .popular-subtools-section {
+    background: rgba(43, 166, 222, 0.055);
+    border-color: var(--theme-border);
+}
+
+:global(html[data-theme="dark"]) .popular-subtool-card:hover,
+:global(html[data-theme="dark"]) .tool-card:hover,
+:global(html[data-theme="dark"]) .faq-item.active {
+    background: var(--theme-hover);
+    border-color: rgba(43, 166, 222, 0.34);
+    box-shadow: 0 18px 42px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .ai-mini-logo,
+:global(html[data-theme="dark"]) .tool-spark,
+:global(html[data-theme="dark"]) .empty-icon,
+:global(html[data-theme="dark"]) .faq-question i,
+:global(html[data-theme="dark"]) .popular-subtool-icon {
+    background: var(--theme-surface-elevated);
+    color: var(--theme-accent);
+    border-color: var(--theme-border);
+}
+
+:global(html[data-theme="dark"]) .tool-status.inactive {
+    color: var(--theme-text-muted);
+    background: var(--theme-surface-elevated);
+    border-color: var(--theme-border);
+}
+
+:global(html[data-theme="dark"]) .skeleton-icon,
+:global(html[data-theme="dark"]) .skeleton-line,
+:global(html[data-theme="dark"]) .skeleton-popular-icon {
+    background: var(--theme-surface-elevated);
+}
 </style>

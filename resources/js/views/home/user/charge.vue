@@ -627,18 +627,14 @@ hr {
             rgba(43, 166, 222, 0.06),
             transparent 32%
         ),
-        linear-gradient(
-            180deg,
-            #111315 0%,
-            #15181b 100%
-        );
-    color: #f1f3f5;
+        var(--theme-bg);
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"]) .balance-card {
-    background: #1b1f23;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+    background: var(--theme-surface-secondary);
+    border: 1px solid var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
 :global(html[data-theme="dark"]) .balance-card .label,
@@ -647,78 +643,78 @@ hr {
 :global(html[data-theme="dark"]) .summary-row span:first-child,
 :global(html[data-theme="dark"]) .currency-badge,
 :global(html[data-theme="dark"]) .method-option small {
-    color: #9299a1;
+    color: var(--theme-text-muted);
 }
 
 :global(html[data-theme="dark"]) .balance-card .amount,
 :global(html[data-theme="dark"]) .deposit-card h1,
 :global(html[data-theme="dark"]) .summary-row {
-    color: #f1f3f5;
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"]) .deposit-card {
-    background: #1b1f23;
-    border-color: rgba(255, 255, 255, 0.09);
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+    background: var(--theme-surface);
+    border-color: var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
 :global(html[data-theme="dark"]) .method-option,
 :global(html[data-theme="dark"]) .preset-btn {
-    background: #20252a;
-    border-color: rgba(255, 255, 255, 0.10);
-    color: #c7ccd1;
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border);
+    color: var(--theme-text-secondary);
 }
 
 :global(html[data-theme="dark"]) .method-option:hover,
 :global(html[data-theme="dark"]) .preset-btn:hover {
-    background: #2a3036;
+    background: var(--theme-hover);
 }
 
 :global(html[data-theme="dark"]) .method-option span {
-    color: #f1f3f5;
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"]) .method-option.active,
 :global(html[data-theme="dark"]) .preset-btn.active {
     background: rgba(43, 166, 222, 0.13);
     border-color: rgba(43, 166, 222, 0.65);
-    color: #2ba6de;
+    color: var(--theme-accent);
 }
 
 :global(html[data-theme="dark"]) .amount-wrap input,
 :global(html[data-theme="dark"]) .input-group input[type="text"] {
-    background: #171a1d;
-    color: #f1f3f5;
-    border-color: rgba(255, 255, 255, 0.11);
+    background: var(--theme-input-bg);
+    color: var(--theme-text-primary);
+    border-color: var(--theme-border-strong);
 }
 
 :global(html[data-theme="dark"]) .amount-wrap input::placeholder,
 :global(html[data-theme="dark"]) .input-group input[type="text"]::placeholder {
-    color: #747b83;
+    color: var(--theme-text-muted);
 }
 
 :global(html[data-theme="dark"]) .amount-wrap input:focus,
 :global(html[data-theme="dark"]) .input-group input[type="text"]:focus {
-    border-color: rgba(43, 166, 222, 0.65);
-    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.12);
+    border-color: rgba(43, 166, 222, 0.72);
+    box-shadow: 0 0 0 3px rgba(43, 166, 222, 0.13);
 }
 
 :global(html[data-theme="dark"]) .card-brands span {
-    background: #20252a;
-    border-color: rgba(255, 255, 255, 0.10);
-    color: #c7ccd1;
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border);
+    color: var(--theme-text-secondary);
 }
 
 :global(html[data-theme="dark"]) hr {
-    border-top-color: rgba(255, 255, 255, 0.09);
+    border-top-color: var(--theme-border);
 }
 
 :global(html[data-theme="dark"]) .paypal-text {
-    color: #c7ccd1;
+    color: var(--theme-text-secondary);
 }
 
 :global(html[data-theme="dark"]) .moyasar-text {
-    color: #2ba6de;
+    color: var(--theme-accent);
 }
 
 :global(html[data-theme="dark"]) .error {

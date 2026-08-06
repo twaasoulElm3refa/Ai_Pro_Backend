@@ -389,4 +389,51 @@ p {
     background: #2ba6de;
     color: white;
 }
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"]) .waiting-container {
+    background: var(--theme-bg);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .card {
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .card h1 {
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .card p {
+    color: var(--theme-text-secondary);
+}
+
+:global(html[data-theme="dark"]) .hint,
+:global(html[data-theme="dark"]) .status-label {
+    color: var(--theme-text-muted);
+}
+
+:global(html[data-theme="dark"]) .spinner {
+    border-color: var(--theme-border-strong);
+    border-top-color: var(--theme-accent);
+}
+
+:global(html[data-theme="dark"]) .actions button {
+    background: var(--theme-surface-secondary);
+    color: var(--theme-text-primary);
+    border: 1px solid var(--theme-border);
+}
+
+:global(html[data-theme="dark"]) .actions button:hover {
+    background: var(--theme-hover);
+}
+
+:global(html[data-theme="dark"]) .actions button:first-child {
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    color: #ffffff;
+    border-color: transparent;
+}
 </style>

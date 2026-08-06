@@ -409,4 +409,63 @@ watch(
         grid-template-columns: 1fr;
     }
 }
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"]) .tools-page {
+    background:
+        radial-gradient(circle at 15% 5%, rgba(43, 166, 222, 0.06), transparent 26%),
+        var(--theme-bg);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .tools-header h1,
+:global(html[data-theme="dark"]) .tool-top h2,
+:global(html[data-theme="dark"]) .tool-slug,
+:global(html[data-theme="dark"]) .state-card {
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .tools-header p,
+:global(html[data-theme="dark"]) .tool-description {
+    color: var(--theme-text-secondary);
+}
+
+:global(html[data-theme="dark"]) .tools-badge {
+    background: rgba(43, 166, 222, 0.11);
+    border-color: rgba(43, 166, 222, 0.24);
+    color: var(--theme-accent);
+}
+
+:global(html[data-theme="dark"]) .tool-card,
+:global(html[data-theme="dark"]) .state-card {
+    background: var(--theme-surface);
+    border-color: var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .tool-card:hover {
+    background: var(--theme-surface-secondary);
+    border-color: rgba(43, 166, 222, 0.34);
+}
+
+:global(html[data-theme="dark"]) .tool-visual {
+    background: var(--theme-surface-secondary);
+    color: var(--theme-accent);
+}
+
+:global(html[data-theme="dark"]) .status-chip.active {
+    background: rgba(74, 222, 128, 0.10);
+    color: #4ade80;
+}
+
+:global(html[data-theme="dark"]) .status-chip.inactive {
+    background: rgba(248, 113, 113, 0.10);
+    color: #f87171;
+}
+
+:global(html[data-theme="dark"]) .skeleton-box,
+:global(html[data-theme="dark"]) .skeleton-line {
+    background: var(--theme-surface-elevated);
+}
 </style>

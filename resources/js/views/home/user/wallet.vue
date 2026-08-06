@@ -1184,12 +1184,8 @@ watch(
             rgba(43, 166, 222, 0.06),
             transparent 32%
         ),
-        linear-gradient(
-            180deg,
-            #111315 0%,
-            #15181b 100%
-        );
-    color: #f1f3f5;
+        var(--theme-bg);
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"]) .wallet-header h1,
@@ -1204,7 +1200,7 @@ watch(
 :global(html[data-theme="dark"]) .details-modal__header h2,
 :global(html[data-theme="dark"]) .details-item strong,
 :global(html[data-theme="dark"]) .details-summary strong {
-    color: #f1f3f5;
+    color: var(--theme-text-primary);
 }
 
 :global(html[data-theme="dark"]) .wallet-header p,
@@ -1219,26 +1215,26 @@ watch(
 :global(html[data-theme="dark"]) .details-modal__kicker,
 :global(html[data-theme="dark"]) .details-item span,
 :global(html[data-theme="dark"]) .details-summary span {
-    color: #9299a1;
+    color: var(--theme-text-muted);
 }
 
 :global(html[data-theme="dark"]) .wallet-kicker {
     background: rgba(43, 166, 222, 0.12);
-    color: #2ba6de;
+    color: var(--theme-accent);
 }
 
 :global(html[data-theme="dark"]) .summary-card,
 :global(html[data-theme="dark"]) .wallet-panel,
 :global(html[data-theme="dark"]) .wallet-tabs,
 :global(html[data-theme="dark"]) .error-banner {
-    background: #1b1f23;
-    border-color: rgba(255, 255, 255, 0.09);
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+    background: var(--theme-surface);
+    border-color: var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
 }
 
 :global(html[data-theme="dark"]) .balance-card {
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: 0 22px 48px rgba(0, 0, 0, 0.28);
+    border-color: var(--theme-border-strong);
+    box-shadow: 0 22px 48px var(--theme-shadow);
 }
 
 :global(html[data-theme="dark"]) .balance-card__meta {
@@ -1248,22 +1244,22 @@ watch(
 
 :global(html[data-theme="dark"]) .summary-card__row,
 :global(html[data-theme="dark"]) .pagination-bar {
-    border-color: rgba(255, 255, 255, 0.09);
+    border-color: var(--theme-border);
 }
 
 :global(html[data-theme="dark"]) .summary-chip--soft,
 :global(html[data-theme="dark"]) .type-badge.debit {
     background: rgba(43, 166, 222, 0.13);
-    color: #2ba6de;
+    color: var(--theme-accent);
 }
 
 :global(html[data-theme="dark"]) .wallet-tab {
-    color: #c7ccd1;
+    color: var(--theme-text-muted);
 }
 
 :global(html[data-theme="dark"]) .wallet-tab:hover {
-    color: #f1f3f5;
-    background: #20252a;
+    color: var(--theme-text-primary);
+    background: var(--theme-hover);
 }
 
 :global(html[data-theme="dark"]) .wallet-tab.is-active {
@@ -1275,15 +1271,15 @@ watch(
 :global(html[data-theme="dark"]) .empty-state,
 :global(html[data-theme="dark"]) .details-item,
 :global(html[data-theme="dark"]) .details-summary {
-    background: #20252a;
-    border-color: rgba(255, 255, 255, 0.09);
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border);
 }
 
 :global(html[data-theme="dark"]) .info-card:hover,
 :global(html[data-theme="dark"]) .transaction-card:hover {
-    background: #252b31;
+    background: var(--theme-surface-elevated);
     border-color: rgba(43, 166, 222, 0.42);
-    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+    box-shadow: 0 18px 38px var(--theme-shadow);
 }
 
 :global(html[data-theme="dark"]) .empty-state {
@@ -1293,7 +1289,7 @@ watch(
 :global(html[data-theme="dark"]) .empty-state__icon,
 :global(html[data-theme="dark"]) .details-close {
     background: rgba(43, 166, 222, 0.12);
-    color: #2ba6de;
+    color: var(--theme-accent);
 }
 
 :global(html[data-theme="dark"]) .error-banner {
@@ -1301,12 +1297,12 @@ watch(
 }
 
 :global(html[data-theme="dark"]) .details-overlay {
-    background: rgba(0, 0, 0, 0.62);
+    background: var(--theme-overlay);
 }
 
 :global(html[data-theme="dark"]) .details-modal {
-    background: #252b31;
-    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--theme-surface-elevated);
+    border-color: var(--theme-border-strong);
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.38);
 }
 

@@ -36,4 +36,35 @@ function backToWallet() {
 h1 { color: #154677; }
 p { color: #667085; margin: 14px 0 24px; }
 button { border: 0; border-radius: 10px; background: #154677; color: white; padding: 12px 20px; cursor: pointer; }
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"]) .cancel-page {
+    background: var(--theme-bg);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .cancel-page .card {
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .cancel-page .icon {
+    background: rgba(248, 113, 113, 0.10);
+    color: #f87171;
+}
+
+:global(html[data-theme="dark"]) .cancel-page h1 {
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .cancel-page p {
+    color: var(--theme-text-secondary);
+}
+
+:global(html[data-theme="dark"]) .cancel-page button {
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    color: #ffffff;
+}
 </style>

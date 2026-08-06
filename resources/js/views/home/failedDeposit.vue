@@ -513,4 +513,75 @@ h1 {
 .sec-link:hover {
     color: #154677;
 }
+/* =========================
+   DARK MODE
+========================= */
+:global(html[data-theme="dark"]) .failed-page {
+    background: var(--theme-bg);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .failed-page::before {
+    background:
+        radial-gradient(ellipse 600px 400px at 15% 15%, rgba(248, 113, 113, 0.04), transparent 70%),
+        radial-gradient(ellipse 500px 500px at 85% 85%, rgba(43, 166, 222, 0.035), transparent 70%);
+}
+
+:global(html[data-theme="dark"]) .failed-page .card {
+    background: var(--theme-surface);
+    border-color: var(--theme-border);
+    box-shadow: 0 18px 44px var(--theme-shadow);
+}
+
+:global(html[data-theme="dark"]) .failed-page h1,
+:global(html[data-theme="dark"]) .info-val {
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .failed-page .subtitle {
+    color: var(--theme-text-secondary);
+}
+
+:global(html[data-theme="dark"]) .paypal-badge,
+:global(html[data-theme="dark"]) .info-row {
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border);
+}
+
+:global(html[data-theme="dark"]) .info-icon {
+    background: rgba(248, 113, 113, 0.10);
+    color: #f87171;
+}
+
+:global(html[data-theme="dark"]) .info-label {
+    color: var(--theme-text-muted);
+}
+
+:global(html[data-theme="dark"]) .info-val.red {
+    color: #f87171;
+}
+
+:global(html[data-theme="dark"]) .divider {
+    background: linear-gradient(90deg, transparent, var(--theme-border-strong), transparent);
+}
+
+:global(html[data-theme="dark"]) .btn-support {
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border-strong);
+    color: var(--theme-text-primary);
+}
+
+:global(html[data-theme="dark"]) .btn-support:hover {
+    background: var(--theme-hover);
+    border-color: rgba(43, 166, 222, 0.34);
+    color: var(--theme-accent);
+}
+
+:global(html[data-theme="dark"]) .sec-link {
+    color: var(--theme-text-muted);
+}
+
+:global(html[data-theme="dark"]) .sec-link:hover {
+    color: var(--theme-accent);
+}
 </style>
