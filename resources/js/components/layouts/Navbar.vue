@@ -789,10 +789,7 @@ onBeforeUnmount(() => {
     min-height: 760px;
     overflow: hidden;
     font-family: "Cairo", sans-serif;
-    background:
-        radial-gradient(circle at 18% 18%, rgba(43, 166, 222, 0.22), transparent 30%),
-        radial-gradient(circle at 80% 18%, rgba(21, 70, 119, 0.18), transparent 34%),
-        linear-gradient(135deg, rgba(21, 70, 119, 0.08) 0%, rgba(43, 166, 222, 0.12) 45%, #ffffff 100%);
+    background: #ffffff;
 }
 
 .nb-hero-compact {
@@ -810,24 +807,18 @@ onBeforeUnmount(() => {
     height: 100%;
     object-fit: cover;
     z-index: 1;
-    opacity: 0.045;
-    filter: blur(1px);
+    opacity: 0;
+    filter: none;
     transform: scale(1.02);
+    pointer-events: none;
 }
 
 .nb-hero-overlay {
     position: absolute;
     inset: 0;
     z-index: 2;
-    background:
-        linear-gradient(
-            135deg,
-            rgba(21, 70, 119, 0.12) 0%,
-            rgba(43, 166, 222, 0.14) 40%,
-            rgba(255, 255, 255, 0.94) 100%
-        ),
-        radial-gradient(circle at 74% 22%, rgba(43, 166, 222, 0.20), transparent 36%),
-        radial-gradient(circle at 18% 70%, rgba(21, 70, 119, 0.12), transparent 34%);
+    background: transparent;
+    pointer-events: none;
 }
 
 /* NAVBAR */
