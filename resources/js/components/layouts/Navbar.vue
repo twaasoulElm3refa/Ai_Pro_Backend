@@ -35,7 +35,7 @@
                             <span>{{ t("navbar.home") }}</span>
                         </a>
 
-                        <!-- <button
+                        <button
                             type="button"
                             class="nb-theme-toggle"
                             :title="themeToggleTitle"
@@ -52,7 +52,7 @@
                                 "
                                 aria-hidden="true"
                             ></i>
-                        </button> -->
+                        </button>
                     </nav>
                 </div>
 
