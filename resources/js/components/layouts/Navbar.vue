@@ -15,7 +15,7 @@
                 <div class="nb-brand-zone">
                     <a class="nb-logo" :href="homeUrl" :aria-label="isArabic ? 'العودة إلى الرئيسية' : 'Back to home'">
                         <div class="nb-logo-mark">
-                            <img src="/images/Ai_logo.png" alt="AiPro Logo" width="42" height="42" fetchpriority="high"
+                            <img src="/images/Ai_logo.png" alt="AiPro Logo" width="68" height="68" fetchpriority="high"
                                 decoding="async" />
                         </div>
                     </a>
