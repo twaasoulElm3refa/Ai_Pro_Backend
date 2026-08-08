@@ -3,22 +3,12 @@
         <!-- SEO / LAZY HERO MEDIA -->
         <template v-if="!hideHeader">
             <div class="nb-hero-media" ref="heroVideoCardRef" aria-hidden="true">
-                <img class="nb-hero-bg" :src="heroBackground"
-                    alt="" loading="lazy"
-                    decoding="async" width="1920" height="900" />
+                <img class="nb-hero-bg" :src="heroBackground" alt="" loading="lazy" decoding="async" width="1920"
+                    height="900" />
 
-                <video
-                    v-if="shouldLoadHeroVideo"
-                    class="nb-hero-video"
-                    :class="{ 'is-ready': heroVideoReady }"
-                    :src="heroVideo"
-                    autoplay
-                    muted
-                    loop
-                    playsinline
-                    preload="none"
-                    @loadeddata="heroVideoReady = true"
-                ></video>
+                <video v-if="shouldLoadHeroVideo" class="nb-hero-video" :class="{ 'is-ready': heroVideoReady }"
+                    :src="heroVideo" autoplay muted loop playsinline preload="none"
+                    @loadeddata="heroVideoReady = true"></video>
             </div>
 
             <div class="nb-hero-overlay"></div>
@@ -50,65 +40,44 @@
                             <span>{{ t("navbar.home") }}</span>
                         </a>
 
-                        <button
-                            type="button"
-                            class="nb-theme-toggle"
-                            :title="themeToggleTitle"
-                            :aria-label="themeToggleTitle"
-                            :aria-pressed="currentTheme === 'dark'"
-                            @click.stop="toggleTheme"
-                        >
-                            <i
-                                class="bi"
-                                :class="
-                                    currentTheme === 'dark'
-                                        ? 'bi-sun-fill'
-                                        : 'bi-moon-stars-fill'
-                                "
-                                aria-hidden="true"
-                            ></i>
+                        <button type="button" class="nb-theme-toggle" :title="themeToggleTitle"
+                            :aria-label="themeToggleTitle" :aria-pressed="currentTheme === 'dark'"
+                            @click.stop="toggleTheme">
+                            <i class="bi" :class="currentTheme === 'dark'
+                                    ? 'bi-sun-fill'
+                                    : 'bi-moon-stars-fill'
+                                " aria-hidden="true"></i>
                         </button>
                     </nav>
                 </div>
 
-                <div class="nb-social-center" :aria-label="isArabic ? 'روابط التواصل والمصدر' : 'Social and source links'">
-                    <a
-                        :href="whatsappUrl"
-                        class="nb-social-link"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        :aria-label="isArabic ? 'واتساب' : 'WhatsApp'"
-                    >
+                <div class="nb-social-center"
+                    :aria-label="isArabic ? 'روابط التواصل والمصدر' : 'Social and source links'">
+                    <a :href="whatsappUrl" class="nb-social-link" target="_blank" rel="noopener noreferrer"
+                        :aria-label="isArabic ? 'واتساب' : 'WhatsApp'">
                         <svg viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M13.601 2.326A7.85 7.85 0 0 0 8.002 0C3.582 0 0 3.58 0 7.998c0 1.41.37 2.78 1.073 3.99L0 16l4.12-1.082a7.94 7.94 0 0 0 3.882.99h.004c4.417 0 7.998-3.58 7.998-7.998a7.95 7.95 0 0 0-2.403-5.584ZM8.006 14.55h-.003a6.61 6.61 0 0 1-3.37-.922l-.242-.144-2.445.641.653-2.384-.158-.244a6.55 6.55 0 0 1-1.006-3.499c0-3.612 2.94-6.552 6.555-6.552a6.51 6.51 0 0 1 4.64 1.925 6.51 6.51 0 0 1 1.93 4.638c0 3.613-2.94 6.54-6.554 6.54Zm3.594-4.904c-.197-.099-1.166-.575-1.347-.64-.18-.066-.312-.099-.443.099-.131.197-.509.64-.624.772-.115.131-.23.148-.427.05-.197-.1-.833-.307-1.587-.98-.586-.522-.982-1.168-1.097-1.365-.115-.197-.012-.304.087-.402.089-.089.197-.23.296-.345.099-.115.131-.197.197-.328.066-.132.033-.247-.016-.346-.05-.098-.443-1.068-.607-1.462-.16-.384-.322-.332-.443-.338l-.378-.007a.73.73 0 0 0-.526.247c-.18.197-.69.673-.69 1.64 0 .966.707 1.9.805 2.03.099.132 1.39 2.122 3.368 2.975.471.203.838.324 1.124.414.472.15.902.129 1.242.078.379-.057 1.166-.476 1.33-.936.164-.46.164-.854.115-.936-.05-.082-.18-.131-.377-.23Z" />
+                            <path
+                                d="M13.601 2.326A7.85 7.85 0 0 0 8.002 0C3.582 0 0 3.58 0 7.998c0 1.41.37 2.78 1.073 3.99L0 16l4.12-1.082a7.94 7.94 0 0 0 3.882.99h.004c4.417 0 7.998-3.58 7.998-7.998a7.95 7.95 0 0 0-2.403-5.584ZM8.006 14.55h-.003a6.61 6.61 0 0 1-3.37-.922l-.242-.144-2.445.641.653-2.384-.158-.244a6.55 6.55 0 0 1-1.006-3.499c0-3.612 2.94-6.552 6.555-6.552a6.51 6.51 0 0 1 4.64 1.925 6.51 6.51 0 0 1 1.93 4.638c0 3.613-2.94 6.54-6.554 6.54Zm3.594-4.904c-.197-.099-1.166-.575-1.347-.64-.18-.066-.312-.099-.443.099-.131.197-.509.64-.624.772-.115.131-.23.148-.427.05-.197-.1-.833-.307-1.587-.98-.586-.522-.982-1.168-1.097-1.365-.115-.197-.012-.304.087-.402.089-.089.197-.23.296-.345.099-.115.131-.197.197-.328.066-.132.033-.247-.016-.346-.05-.098-.443-1.068-.607-1.462-.16-.384-.322-.332-.443-.338l-.378-.007a.73.73 0 0 0-.526.247c-.18.197-.69.673-.69 1.64 0 .966.707 1.9.805 2.03.099.132 1.39 2.122 3.368 2.975.471.203.838.324 1.124.414.472.15.902.129 1.242.078.379-.057 1.166-.476 1.33-.936.164-.46.164-.854.115-.936-.05-.082-.18-.131-.377-.23Z" />
                         </svg>
                     </a>
 
                     <span class="nb-social-divider"></span>
 
-                    <a
-                        :href="originalNewsUrl"
-                        class="nb-social-link"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        :aria-label="isArabic ? 'الموقع الإخباري الأصلي' : 'Original news website'"
-                    >
+                    <a :href="originalNewsUrl" class="nb-social-link" target="_blank" rel="noopener noreferrer"
+                        :aria-label="isArabic ? 'الموقع الإخباري الأصلي' : 'Original news website'">
                         <svg viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M0 2.5A1.5 1.5 0 0 1 1.5 1h11A1.5 1.5 0 0 1 14 2.5v.4h.5A1.5 1.5 0 0 1 16 4.4v8.1a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5v-10Zm1.5-.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-10a.5.5 0 0 0-.5-.5h-11Zm12.5 1.9v8.6a1.49 1.49 0 0 1-.085.5h.585a.5.5 0 0 0 .5-.5V4.4a.5.5 0 0 0-.5-.5H14ZM2 3h10v2H2V3Zm0 3h4v6H2V6Zm5 0h5v1H7V6Zm0 2h5v1H7V8Zm0 2h5v1H7v-1Z" />
+                            <path
+                                d="M0 2.5A1.5 1.5 0 0 1 1.5 1h11A1.5 1.5 0 0 1 14 2.5v.4h.5A1.5 1.5 0 0 1 16 4.4v8.1a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5v-10Zm1.5-.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-10a.5.5 0 0 0-.5-.5h-11Zm12.5 1.9v8.6a1.49 1.49 0 0 1-.085.5h.585a.5.5 0 0 0 .5-.5V4.4a.5.5 0 0 0-.5-.5H14ZM2 3h10v2H2V3Zm0 3h4v6H2V6Zm5 0h5v1H7V6Zm0 2h5v1H7V8Zm0 2h5v1H7v-1Z" />
                         </svg>
                     </a>
 
                     <span class="nb-social-divider"></span>
 
-                    <a
-                        :href="twitterUrl"
-                        class="nb-social-link"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        :aria-label="isArabic ? 'منصة إكس' : 'X / Twitter'"
-                    >
+                    <a :href="twitterUrl" class="nb-social-link" target="_blank" rel="noopener noreferrer"
+                        :aria-label="isArabic ? 'منصة إكس' : 'X / Twitter'">
                         <svg viewBox="0 0 16 16" aria-hidden="true">
-                            <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.6.75Zm-.86 13.028h1.36L4.323 2.145H2.865l8.875 11.633Z" />
+                            <path
+                                d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.6.75Zm-.86 13.028h1.36L4.323 2.145H2.865l8.875 11.633Z" />
                         </svg>
                     </a>
                 </div>
@@ -252,7 +221,7 @@
                 <div class="nb-hero-note">
                     <strong>{{ isArabic ? "ابدأ مجانًا" : "Start free" }}</strong>
                     <span>{{ isArabic ? "واكتب أول محتوى لك خلال دقائق." : "and create your first content in minutes."
-                        }}</span>
+                    }}</span>
                 </div>
             </div>
 
@@ -779,7 +748,8 @@ onBeforeUnmount(() => {
     --ai-light: #2ba6de;
 
     position: relative;
-    min-height: 760px;
+    min-height: 100vh;
+    min-height: 100svh;
     overflow: hidden;
     font-family: "Cairo", sans-serif;
     background: #06111d;
@@ -833,12 +803,10 @@ onBeforeUnmount(() => {
     z-index: 2;
     pointer-events: none;
     background:
-        linear-gradient(
-            180deg,
+        linear-gradient(180deg,
             rgba(5, 12, 20, 0.46) 0%,
             rgba(5, 12, 20, 0.58) 48%,
-            rgba(5, 12, 20, 0.68) 100%
-        );
+            rgba(5, 12, 20, 0.68) 100%);
 }
 
 /* NAVBAR */
@@ -1163,12 +1131,10 @@ onBeforeUnmount(() => {
     width: 1.5px;
     height: 38px;
     border-radius: 999px;
-    background: linear-gradient(
-        180deg,
-        transparent,
-        rgba(43, 166, 222, 0.72),
-        transparent
-    );
+    background: linear-gradient(180deg,
+            transparent,
+            rgba(43, 166, 222, 0.72),
+            transparent);
     flex: 0 0 auto;
 }
 
@@ -1621,28 +1587,22 @@ onBeforeUnmount(() => {
 html[data-theme="dark"] .nb-hero,
 html[data-theme="dark"] .nb-hero-compact {
     background:
-        radial-gradient(
-            circle at 18% 18%,
+        radial-gradient(circle at 18% 18%,
             rgba(43, 166, 222, 0.08),
-            transparent 30%
-        ),
-        radial-gradient(
-            circle at 80% 18%,
+            transparent 30%),
+        radial-gradient(circle at 80% 18%,
             rgba(21, 70, 119, 0.10),
-            transparent 34%
-        ),
+            transparent 34%),
         var(--theme-bg);
     color: var(--theme-text-primary);
 }
 
 html[data-theme="dark"] .nb-hero-overlay {
     background:
-        linear-gradient(
-            180deg,
+        linear-gradient(180deg,
             rgba(5, 12, 20, 0.50) 0%,
             rgba(5, 12, 20, 0.60) 48%,
-            rgba(5, 12, 20, 0.70) 100%
-        );
+            rgba(5, 12, 20, 0.70) 100%);
 }
 
 html[data-theme="dark"] .nb-inner {
@@ -2048,7 +2008,7 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
     }
 
     .nb-user-name,
-    .nb-user-btn > .nb-chevron {
+    .nb-user-btn>.nb-chevron {
         display: none;
     }
 
@@ -2242,9 +2202,17 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
     animation: nbSocialEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-.nb-social-link:nth-of-type(1) { animation-delay: 0.25s; }
-.nb-social-link:nth-of-type(2) { animation-delay: 0.36s; }
-.nb-social-link:nth-of-type(3) { animation-delay: 0.47s; }
+.nb-social-link:nth-of-type(1) {
+    animation-delay: 0.25s;
+}
+
+.nb-social-link:nth-of-type(2) {
+    animation-delay: 0.36s;
+}
+
+.nb-social-link:nth-of-type(3) {
+    animation-delay: 0.47s;
+}
 
 .nb-social-link::before {
     content: "";
@@ -2254,14 +2222,12 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
     bottom: -30%;
     left: -78%;
     width: 46%;
-    background: linear-gradient(
-        110deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.24) 30%,
-        rgba(43, 166, 222, 0.18) 52%,
-        rgba(255, 255, 255, 0.42) 72%,
-        transparent 100%
-    );
+    background: linear-gradient(110deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.24) 30%,
+            rgba(43, 166, 222, 0.18) 52%,
+            rgba(255, 255, 255, 0.42) 72%,
+            transparent 100%);
     transform: skewX(-16deg);
     transition: left 0.58s cubic-bezier(0.22, 1, 0.36, 1);
     pointer-events: none;
@@ -2322,13 +2288,28 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
     animation: nbHeroFadeUp 0.62s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-.nb-hero-badge { animation-delay: 0.18s; }
-.nb-hero-copy h1 { animation-delay: 0.28s; }
-.nb-hero-copy p { animation-delay: 0.38s; }
-.nb-hero-actions { animation-delay: 0.48s; }
-.nb-hero-note { animation-delay: 0.58s; }
+.nb-hero-badge {
+    animation-delay: 0.18s;
+}
+
+.nb-hero-copy h1 {
+    animation-delay: 0.28s;
+}
+
+.nb-hero-copy p {
+    animation-delay: 0.38s;
+}
+
+.nb-hero-actions {
+    animation-delay: 0.48s;
+}
+
+.nb-hero-note {
+    animation-delay: 0.58s;
+}
 
 @media (prefers-reduced-motion: reduce) {
+
     .nb-inner,
     .nb-social-link,
     .nb-social-divider,
@@ -2342,6 +2323,4 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
         transition-duration: 0.01ms !important;
     }
 }
-
-
 </style>
