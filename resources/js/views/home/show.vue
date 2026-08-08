@@ -11,7 +11,7 @@
                         {{ loading ? t("user.toolShow.loadingTitle") : tool.title }}
                     </h1>
 
-                    <p class="mt-4 text-base sm:text-lg text-muted">
+                    <p class="tool-description mt-4 text-base sm:text-lg">
                         {{ tool.description }}
                     </p>
                 </div>
@@ -385,6 +385,12 @@ watch(
 
 .text-muted {
     color: #6b7280;
+}
+
+.tool-description {
+    color: #30363d;
+    font-weight: 500;
+    line-height: 1.8;
 }
 
 /* BADGE */
@@ -809,6 +815,12 @@ watch(
         justify-content: center;
         width: 100%;
     }
+
+    .tool-description {
+        color: #2f3439;
+        font-weight: 500;
+        line-height: 1.85;
+    }
 }
 /* =========================
    DARK MODE
@@ -829,6 +841,16 @@ html[data-theme="dark"] .text-muted,
 html[data-theme="dark"] .tool-hero-desc,
 html[data-theme="dark"] .subtool-desc {
     color: var(--theme-text-secondary);
+}
+
+html[data-theme="dark"] .tool-description {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+@media (max-width: 640px) {
+    html[data-theme="dark"] .tool-description {
+        color: rgba(255, 255, 255, 0.82);
+    }
 }
 
 html[data-theme="dark"] .section-sub,
