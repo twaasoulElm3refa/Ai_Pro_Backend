@@ -3,12 +3,18 @@
         <!-- SEO / LAZY HERO MEDIA -->
         <template v-if="!hideHeader">
             <div class="nb-hero-media" ref="heroVideoCardRef" aria-hidden="true">
-                <img class="nb-hero-bg" :src="heroBackground" alt="" loading="lazy" decoding="async" width="1920"
-                    height="900" />
-
                 <video v-if="shouldLoadHeroVideo" class="nb-hero-video" :class="{ 'is-ready': heroVideoReady }"
                     :src="heroVideo" autoplay muted loop playsinline preload="none"
-                    @loadeddata="heroVideoReady = true"></video>
+                    @loadeddata="markHeroVideoReady" @canplay="markHeroVideoReady"
+                    @canplaythrough="markHeroVideoReady" @error="markHeroVideoFailed"></video>
+
+                <div class="nb-hero-loader" :class="{ 'is-hidden': heroVideoReady, 'is-error': heroVideoFailed }">
+                    <div class="nb-loader-orbit">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
             </div>
 
             <div class="nb-hero-overlay"></div>
@@ -259,7 +265,6 @@ const props = defineProps({
 const { t, locale } = useI18n();
 const router = useRouter();
 
-const heroBackground = "/images/hero.png";
 const heroVideo = "/video/Ai_Pro_Video.mp4";
 const whatsappUrl = "https://wa.me/";
 const originalNewsUrl = "https://aiarabic.com";
@@ -276,6 +281,7 @@ const currentTheme = ref("light");
 const heroVideoCardRef = ref(null);
 const shouldLoadHeroVideo = ref(false);
 const heroVideoReady = ref(false);
+const heroVideoFailed = ref(false);
 
 let heroVideoObserver = null;
 let heroVideoTimer = null;
@@ -531,12 +537,24 @@ const deferToIdle = (task) => {
 const loadHeroVideo = () => {
     if (shouldLoadHeroVideo.value) return;
 
+    heroVideoFailed.value = false;
     shouldLoadHeroVideo.value = true;
 
     if (heroVideoObserver) {
         heroVideoObserver.disconnect();
         heroVideoObserver = null;
     }
+};
+
+const markHeroVideoReady = () => {
+    if (heroVideoReady.value) return;
+
+    heroVideoFailed.value = false;
+    heroVideoReady.value = true;
+};
+
+const markHeroVideoFailed = () => {
+    heroVideoFailed.value = true;
 };
 
 const startHeroVideoLazyLoad = () => {
@@ -782,9 +800,12 @@ onBeforeUnmount(() => {
     z-index: 1;
     overflow: hidden;
     pointer-events: none;
+    background:
+        radial-gradient(circle at 50% 46%, rgba(43, 166, 222, 0.16), transparent 24%),
+        radial-gradient(circle at 50% 50%, rgba(21, 70, 119, 0.12), transparent 44%),
+        linear-gradient(135deg, rgba(247, 252, 255, 0.98), rgba(226, 244, 255, 0.96));
 }
 
-.nb-hero-bg,
 .nb-hero-video {
     position: absolute;
     inset: 0;
@@ -796,10 +817,6 @@ onBeforeUnmount(() => {
     pointer-events: none;
 }
 
-.nb-hero-bg {
-    z-index: 1;
-}
-
 .nb-hero-video {
     z-index: 2;
     opacity: 0;
@@ -808,6 +825,83 @@ onBeforeUnmount(() => {
 
 .nb-hero-video.is-ready {
     opacity: 1;
+}
+
+.nb-hero-loader {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    opacity: 1;
+    transition:
+        opacity 0.45s ease,
+        visibility 0s linear 0s;
+    visibility: visible;
+}
+
+.nb-hero-loader.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        opacity 0.45s ease,
+        visibility 0s linear 0.45s;
+}
+
+.nb-loader-orbit {
+    position: relative;
+    width: 92px;
+    height: 92px;
+    border-radius: 999px;
+    background:
+        radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 30%, transparent 31%),
+        conic-gradient(from 90deg, rgba(43, 166, 222, 0), #2ba6de, #62c8f0, rgba(21, 70, 119, 0.18), rgba(43, 166, 222, 0));
+    box-shadow:
+        0 22px 54px rgba(21, 70, 119, 0.18),
+        0 0 42px rgba(43, 166, 222, 0.24);
+    animation: nbLoaderSpin 1.8s cubic-bezier(0.55, 0.08, 0.28, 0.98) infinite;
+}
+
+.nb-loader-orbit::before {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: inherit;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.98), rgba(238, 248, 255, 0.92));
+    box-shadow: inset 0 0 0 1px rgba(43, 166, 222, 0.16);
+}
+
+.nb-loader-orbit span {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #2ba6de;
+    box-shadow: 0 0 18px rgba(43, 166, 222, 0.72);
+    animation: nbLoaderPulse 1.45s ease-in-out infinite;
+}
+
+.nb-loader-orbit span:nth-child(1) {
+    top: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.nb-loader-orbit span:nth-child(2) {
+    right: 10px;
+    bottom: 18px;
+    animation-delay: 0.18s;
+}
+
+.nb-loader-orbit span:nth-child(3) {
+    bottom: 18px;
+    left: 10px;
+    animation-delay: 0.36s;
+}
+
+.nb-hero-loader.is-error .nb-loader-orbit {
+    animation: nbLoaderBreathe 2.4s ease-in-out infinite;
 }
 
 .nb-hero-overlay {
@@ -1618,6 +1712,28 @@ html[data-theme="dark"] .nb-hero-compact {
     color: var(--theme-text-primary);
 }
 
+html[data-theme="dark"] .nb-hero-media {
+    background:
+        radial-gradient(circle at 50% 46%, rgba(43, 166, 222, 0.18), transparent 24%),
+        radial-gradient(circle at 50% 50%, rgba(98, 200, 240, 0.10), transparent 44%),
+        linear-gradient(135deg, #07101b, #101820);
+}
+
+html[data-theme="dark"] .nb-loader-orbit {
+    background:
+        radial-gradient(circle, rgba(18, 26, 36, 0.98) 0 30%, transparent 31%),
+        conic-gradient(from 90deg, rgba(43, 166, 222, 0), #2ba6de, #62c8f0, rgba(255, 255, 255, 0.20), rgba(43, 166, 222, 0));
+    box-shadow:
+        0 24px 62px rgba(0, 0, 0, 0.34),
+        0 0 48px rgba(43, 166, 222, 0.32);
+}
+
+html[data-theme="dark"] .nb-loader-orbit::before {
+    background:
+        radial-gradient(circle at 50% 50%, rgba(21, 29, 39, 0.98), rgba(12, 18, 28, 0.94));
+    box-shadow: inset 0 0 0 1px rgba(98, 200, 240, 0.22);
+}
+
 html[data-theme="dark"] .nb-hero-overlay {
     background:
         linear-gradient(180deg,
@@ -2278,6 +2394,36 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
     }
 }
 
+@keyframes nbLoaderSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes nbLoaderPulse {
+    0%,
+    100% {
+        opacity: 0.42;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+@keyframes nbLoaderBreathe {
+    0%,
+    100% {
+        opacity: 0.72;
+        transform: scale(0.96);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 .nb-inner {
     animation: nbNavEnter 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
@@ -2405,6 +2551,8 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
     .nb-hero-copy p,
     .nb-hero-actions,
     .nb-hero-note,
+    .nb-loader-orbit,
+    .nb-loader-orbit span,
     .nb-hero-overlay {
         animation: none !important;
         transition-duration: 0.01ms !important;
