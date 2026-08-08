@@ -3,10 +3,11 @@
         <!-- SEO / LAZY HERO MEDIA -->
         <template v-if="!hideHeader">
             <div class="nb-hero-media" ref="heroVideoCardRef" aria-hidden="true">
-                <video v-if="shouldLoadHeroVideo" class="nb-hero-video" :class="{ 'is-ready': heroVideoReady }"
-                    :src="heroVideo" autoplay muted loop playsinline preload="none"
-                    @loadeddata="markHeroVideoReady" @canplay="markHeroVideoReady"
-                    @canplaythrough="markHeroVideoReady" @error="markHeroVideoFailed"></video>
+                <video v-if="shouldLoadHeroVideo" ref="heroVideoRef" class="nb-hero-video"
+                    :class="{ 'is-ready': heroVideoReady }" :src="heroVideo" autoplay muted loop playsinline
+                    webkit-playsinline preload="auto" @loadeddata="attemptHeroVideoPlayback"
+                    @canplay="attemptHeroVideoPlayback" @canplaythrough="attemptHeroVideoPlayback"
+                    @playing="markHeroVideoReady" @error="markHeroVideoFailed"></video>
 
                 <div class="nb-hero-loader" :class="{ 'is-hidden': heroVideoReady, 'is-error': heroVideoFailed }">
                     <div class="nb-loader-orbit">
@@ -249,7 +250,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import api from "@/services/ApiClient";
@@ -279,6 +280,7 @@ const THEME_STORAGE_KEY = "theme";
 const currentTheme = ref("light");
 
 const heroVideoCardRef = ref(null);
+const heroVideoRef = ref(null);
 const shouldLoadHeroVideo = ref(false);
 const heroVideoReady = ref(false);
 const heroVideoFailed = ref(false);
@@ -534,11 +536,53 @@ const deferToIdle = (task) => {
     setTimeout(task, 120);
 };
 
+const forceHeroVideoInlinePlayback = (video) => {
+    if (!video) return null;
+
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+
+    try {
+        return video.play();
+    } catch {
+        heroVideoFailed.value = true;
+        return null;
+    }
+};
+
+const attemptHeroVideoPlayback = async () => {
+    await nextTick();
+
+    const playAttempt = forceHeroVideoInlinePlayback(heroVideoRef.value);
+
+    if (playAttempt && typeof playAttempt.then === "function") {
+        playAttempt
+            .then(() => {
+                markHeroVideoReady();
+            })
+            .catch(() => {
+                heroVideoFailed.value = true;
+            });
+        return;
+    }
+
+    if (playAttempt !== null) {
+        markHeroVideoReady();
+    }
+};
+
 const loadHeroVideo = () => {
     if (shouldLoadHeroVideo.value) return;
 
     heroVideoFailed.value = false;
     shouldLoadHeroVideo.value = true;
+    nextTick(() => {
+        attemptHeroVideoPlayback();
+    });
 
     if (heroVideoObserver) {
         heroVideoObserver.disconnect();
