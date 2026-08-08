@@ -44,8 +44,8 @@
                             :aria-label="themeToggleTitle" :aria-pressed="currentTheme === 'dark'"
                             @click.stop="toggleTheme">
                             <i class="bi" :class="currentTheme === 'dark'
-                                    ? 'bi-sun-fill'
-                                    : 'bi-moon-stars-fill'
+                                ? 'bi-sun-fill'
+                                : 'bi-moon-stars-fill'
                                 " aria-hidden="true"></i>
                         </button>
                     </nav>
@@ -63,7 +63,8 @@
 
                     <span class="nb-social-divider"></span>
 
-                    <a :href="originalNewsUrl" class="nb-social-link" target="_blank" rel="noopener noreferrer"
+                    <a :href="originalNewsUrl" class="nb-social-link nb-news-link" target="_blank"
+                        rel="noopener noreferrer"
                         :aria-label="isArabic ? 'الموقع الإخباري الأصلي' : 'Original news website'">
                         <svg viewBox="0 0 16 16" aria-hidden="true">
                             <path
@@ -221,7 +222,7 @@
                 <div class="nb-hero-note">
                     <strong>{{ isArabic ? "ابدأ مجانًا" : "Start free" }}</strong>
                     <span>{{ isArabic ? "واكتب أول محتوى لك خلال دقائق." : "and create your first content in minutes."
-                    }}</span>
+                        }}</span>
                 </div>
             </div>
 
@@ -1789,7 +1790,32 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
 
 @media (max-width: 920px) {
     .nb-social-center {
+        display: flex;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        pointer-events: auto;
+    }
+
+    .nb-social-center > * {
         display: none;
+    }
+
+    .nb-social-center .nb-news-link {
+        display: inline-flex;
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .nb-social-center .nb-news-link svg {
+        width: 21px;
+        height: 21px;
     }
 
     .nb-shell {
