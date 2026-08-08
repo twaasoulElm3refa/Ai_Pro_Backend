@@ -260,7 +260,7 @@ const { t, locale } = useI18n();
 const router = useRouter();
 
 const heroBackground = "/images/hero.png";
-const heroVideo = "/images/video.mp4";
+const heroVideo = "/video/Ai_Pro_Video.mp4";
 const whatsappUrl = "https://wa.me/";
 const originalNewsUrl = "https://aiarabic.com";
 const twitterUrl = "https://x.com/";
