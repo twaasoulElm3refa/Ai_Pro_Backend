@@ -40,14 +40,26 @@
                             <span>{{ t("navbar.home") }}</span>
                         </a>
 
-                        <button type="button" class="nb-theme-toggle" :title="themeToggleTitle"
-                            :aria-label="themeToggleTitle" :aria-pressed="currentTheme === 'dark'"
-                            @click.stop="toggleTheme">
-                            <i class="bi" :class="currentTheme === 'dark'
-                                ? 'bi-sun-fill'
-                                : 'bi-moon-stars-fill'
-                                " aria-hidden="true"></i>
-                        </button>
+                        <div class="nb-mobile-menu-actions">
+                            <button type="button" class="nb-theme-toggle" :title="themeToggleTitle"
+                                :aria-label="themeToggleTitle" :aria-pressed="currentTheme === 'dark'"
+                                @click.stop="toggleTheme">
+                                <i class="bi" :class="currentTheme === 'dark'
+                                    ? 'bi-sun-fill'
+                                    : 'bi-moon-stars-fill'
+                                    " aria-hidden="true"></i>
+                            </button>
+
+                            <a :href="originalNewsUrl" class="nb-mobile-news-link" target="_blank"
+                                rel="noopener noreferrer"
+                                :aria-label="isArabic ? 'الانتقال إلى الموقع الأصلي' : 'Visit original website'"
+                                :title="isArabic ? 'الموقع الأصلي' : 'Original website'">
+                                <svg viewBox="0 0 16 16" aria-hidden="true">
+                                    <path
+                                        d="M0 2.5A1.5 1.5 0 0 1 1.5 1h11A1.5 1.5 0 0 1 14 2.5v.4h.5A1.5 1.5 0 0 1 16 4.4v8.1a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5v-10Zm1.5-.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-10a.5.5 0 0 0-.5-.5H14ZM2 3h10v2H2V3Zm0 3h4v6H2V6Zm5 0h5v1H7V6Zm0 2h5v1H7V8Zm0 2h5v1H7v-1Z" />
+                                </svg>
+                            </a>
+                        </div>
                     </nav>
                 </div>
 
@@ -63,7 +75,7 @@
 
                     <span class="nb-social-divider"></span>
 
-                    <a :href="originalNewsUrl" class="nb-social-link nb-news-link" target="_blank"
+                    <a :href="originalNewsUrl" class="nb-social-link" target="_blank"
                         rel="noopener noreferrer"
                         :aria-label="isArabic ? 'الموقع الإخباري الأصلي' : 'Original news website'">
                         <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -1034,6 +1046,14 @@ onBeforeUnmount(() => {
     outline-offset: 2px;
 }
 
+.nb-mobile-menu-actions {
+    display: contents;
+}
+
+.nb-mobile-news-link {
+    display: none;
+}
+
 /* MOBILE LINKS TOGGLE */
 .nb-links-toggle {
     display: none;
@@ -1712,6 +1732,18 @@ html[data-theme="dark"] .nb-social-link:focus-visible {
     box-shadow: 0 18px 34px var(--theme-shadow);
 }
 
+html[data-theme="dark"] .nb-mobile-news-link {
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-secondary);
+    border-color: var(--theme-border);
+}
+
+html[data-theme="dark"] .nb-mobile-news-link:hover {
+    color: var(--theme-accent);
+    background: var(--theme-hover);
+    border-color: var(--theme-accent);
+}
+
 html[data-theme="dark"] .nb-wallet-btn,
 html[data-theme="dark"] .nb-login-btn {
     background: linear-gradient(135deg, #154677, #2ba6de);
@@ -1790,32 +1822,61 @@ html[data-theme="dark"] .nb-secondary-cta:hover {
 
 @media (max-width: 920px) {
     .nb-social-center {
-        display: flex;
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        align-items: center;
-        justify-content: center;
-        gap: 0;
-        pointer-events: auto;
-    }
-
-    .nb-social-center > * {
         display: none;
     }
 
-    .nb-social-center .nb-news-link {
+    .nb-mobile-menu-actions {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding-top: 6px;
+    }
+
+    .nb-mobile-menu-actions .nb-theme-toggle {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        border-radius: 12px;
+    }
+
+    .nb-mobile-news-link {
         display: inline-flex;
         width: 42px;
         height: 42px;
+        flex: 0 0 42px;
         align-items: center;
         justify-content: center;
+        border-radius: 12px;
+        color: var(--ai-dark);
+        background: rgba(21, 70, 119, 0.05);
+        border: 1px solid rgba(21, 70, 119, 0.14);
+        text-decoration: none;
+        transition:
+            transform 0.2s ease,
+            background-color 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease;
     }
 
-    .nb-social-center .nb-news-link svg {
-        width: 21px;
-        height: 21px;
+    .nb-mobile-news-link svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+        fill: currentColor;
+    }
+
+    .nb-mobile-news-link:hover {
+        transform: translateY(-1px);
+        color: #ffffff;
+        background: #154677;
+        border-color: #154677;
+    }
+
+    .nb-theme-toggle,
+    .nb-mobile-news-link {
+        align-self: center;
     }
 
     .nb-shell {
