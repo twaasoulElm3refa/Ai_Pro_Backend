@@ -7,14 +7,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('main_free_ai_models_translations', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(MainFreeAiModels::class, 'main_free_ai_models_id')->constrained()->cascadeOnDelete();
+
+            $table->foreignIdFor(
+                MainFreeAiModels::class,
+                'main_free_ai_models_id'
+            )
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->string('locale');
 
             $table->text('name');
@@ -24,14 +28,16 @@ return new class extends Migration
             $table->longText('meta_description')->nullable();
 
             $table->string('seo_keywords')->nullable();
+
             $table->timestamps();
-            $table->unique(['main_free_ai_models_id', 'locale']);
+
+            $table->unique(
+                ['main_free_ai_models_id', 'locale'],
+                'free_ai_model_locale_unique'
+            );
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('main_free_ai_models_translations');
