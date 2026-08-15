@@ -75,6 +75,17 @@
                 </span>
             </RouterLink>
 
+            <!-- FREE AI MODELS -->
+            <RouterLink v-if="sidebarItems.freeAiModels" to="/admin/free-ai-models" class="sidebar-btn" @click="$emit('close')">
+                <span class="sidebar-link-content">
+                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none">
+                        <rect x="4" y="6" width="16" height="12" rx="3" stroke="currentColor" stroke-width="1.7" />
+                        <path d="M9 10h.01M15 10h.01M9 14h6M12 3v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                    </svg>
+                    <span>Free AI Models</span>
+                </span>
+            </RouterLink>
+
             <!-- PAYMENTS -->
             <div v-if="sidebarItems.payments" class="sidebar-group">
                 <button class="sidebar-btn dropdown-toggle" :class="{ activeParent: paymentsActive }"
@@ -229,6 +240,7 @@ const sidebarItems = reactive({
     dashboard: true,
     users: true,
     tools: true,
+    freeAiModels: true,
     payments: true,
     costs: true,
     settings: true,

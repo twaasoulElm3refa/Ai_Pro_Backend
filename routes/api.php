@@ -6,6 +6,7 @@ use App\Http\Controllers\api\admin\contact\ContactController;
 use App\Http\Controllers\api\admin\cost\AdminCostController;
 use App\Http\Controllers\api\admin\dashboard\AdminDashboardController;
 use App\Http\Controllers\api\admin\footer\FooterController;
+use App\Http\Controllers\api\admin\freeAiModels\MainFreeAiModelController;
 use App\Http\Controllers\api\admin\payment\AdminPaymentController;
 use App\Http\Controllers\api\admin\tools\MainToolController;
 use App\Http\Controllers\api\admin\tools\SubToolController;
@@ -170,6 +171,13 @@ Route::prefix('admin')->group(function () {
         Route::post('/', [MainToolController::class, 'store']);
         Route::post('/{id}', [MainToolController::class, 'update']);
         Route::delete('/{id}', [MainToolController::class, 'destroy']);
+    });
+    Route::prefix('free-ai-models')->middleware(['auth:sanctum', AdminMiddleware::class, 'throttle:60,1'])->group(function () {
+        Route::get('/', [MainFreeAiModelController::class, 'index']);
+        Route::get('/{id}', [MainFreeAiModelController::class, 'show']);
+        Route::post('/', [MainFreeAiModelController::class, 'store']);
+        Route::post('/{id}', [MainFreeAiModelController::class, 'update']);
+        Route::delete('/{id}', [MainFreeAiModelController::class, 'destroy']);
     });
     Route::prefix('subtools')->middleware(['auth:sanctum', AdminMiddleware::class, 'throttle:60,1'])->group(function () {
         Route::get('/{id}', [SubToolController::class, 'index']);

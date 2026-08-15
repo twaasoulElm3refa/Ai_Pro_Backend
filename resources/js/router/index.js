@@ -225,6 +225,24 @@ const routes = [
         meta: adminMeta,
     },
     {
+        path: "/admin/free-ai-models",
+        name: "admin.free-ai-models.index",
+        component: () => import("../views/admin/free-ai-models/index.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/free-ai-models/create",
+        name: "admin.free-ai-models.create",
+        component: () => import("../views/admin/free-ai-models/create.vue"),
+        meta: adminMeta,
+    },
+    {
+        path: "/admin/free-ai-models/:id/edit",
+        name: "admin.free-ai-models.edit",
+        component: () => import("../views/admin/free-ai-models/edit.vue"),
+        meta: adminMeta,
+    },
+    {
         path: "/admin/payments",
         name: "admin.payments.index",
         component: () => import("../views/admin/payments/PaymentsIndex.vue"),
