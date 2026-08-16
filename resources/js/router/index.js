@@ -20,6 +20,8 @@ const WaitingDeposit = () => import("../views/home/WaitingDeposit.vue");
 const success = () => import("../views/home/successDeposit.vue");
 const failed = () => import("../views/home/failedDeposit.vue");
 const cancelled = () => import("../views/home/CancelledDeposit.vue");
+const FreeAiModelShow = () => import("../views/home/free-ai-models/FreeAiModelShow.vue");
+const FreeAiModelChat = () => import("../views/home/free-ai-models/FreeAiModelChat.vue");
 
 const adminMeta = {
     hideNavbar: true,
@@ -50,6 +52,23 @@ const routes = [
         path: "/:lang/tools",
         component: tools,
         meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
+    },
+    {
+        path: "/:lang/free-ai/:slug",
+        name: "free-ai-model.show",
+        component: FreeAiModelShow,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/free-ai/:slug/chat/:uuid",
+        name: "free-ai-model.chat",
+        component: FreeAiModelChat,
+        meta: {
+            hideNavbar: false,
+            hideFooter: true,
+            hideHeader: true,
+            requiresUserAuth: true,
+        },
     },
     {
         path: "/:lang/subtool/:slug/chat/:uuid?",
@@ -334,6 +353,10 @@ router.beforeEach((to, from, next) => {
         }
 
         return next("/login");
+    }
+
+    if (to.meta.requiresUserAuth && !token) {
+        return next(`/${homeService.getLang()}/auth`);
     }
 
     if (to.matched.some((record) => record.path === "/:lang/auth")) {

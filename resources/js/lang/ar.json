@@ -12,6 +12,32 @@
     "title": "أدوات الذكاء الاصطناعي",
     "description": "اختر الأداة التي تحتاجها"
   },
+  "freeAiModels": {
+    "badge": "نموذج ذكاء اصطناعي مجاني",
+    "back": "رجوع",
+    "loadingModel": "جارٍ تحميل النموذج...",
+    "loadErrorTitle": "النموذج غير متاح",
+    "loadError": "تعذر تحميل نموذج الذكاء الاصطناعي المجاني.",
+    "tryAgain": "حاول مرة أخرى",
+    "noDescription": "لا يوجد وصف متاح لهذا النموذج.",
+    "startChat": "ابدأ المحادثة",
+    "startingChat": "جارٍ بدء المحادثة...",
+    "privateConversation": "ترتبط محادثتك بحسابك بشكل آمن.",
+    "loadingConversation": "جارٍ تحميل المحادثة...",
+    "conversationUnavailable": "المحادثة غير متاحة",
+    "conversationUnavailableDescription": "لم يتم العثور على المحادثة أو أنها لا تخص حسابك.",
+    "backToModel": "العودة إلى النموذج",
+    "model": "النموذج",
+    "newConversation": "محادثة جديدة",
+    "creatingConversation": "جارٍ الإنشاء...",
+    "signedInAs": "مسجل الدخول باسم",
+    "conversationId": "معرّف المحادثة",
+    "emptyChatTitle": "تحدث مع {name}",
+    "emptyChatDescription": "المحادثة جاهزة، وسيتم ربط إرسال الرسائل في مرحلة التكامل القادمة.",
+    "integrationPending": "تكامل رسائل الذكاء الاصطناعي هو الخطوة التالية",
+    "inputPlaceholder": "ستتوفر المراسلة قريباً",
+    "send": "إرسال الرسالة"
+  },
   "auth": {
     "googleCallback": {
       "signingInTitle": "جارٍ تسجيل الدخول باستخدام Google...",

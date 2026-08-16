@@ -12,6 +12,32 @@
         "title": "AI 工具",
         "description": "选择您需要的工具"
     },
+    "freeAiModels": {
+        "badge": "免费 AI 模型",
+        "back": "返回",
+        "loadingModel": "正在加载模型...",
+        "loadErrorTitle": "模型不可用",
+        "loadError": "无法加载此免费 AI 模型。",
+        "tryAgain": "重试",
+        "noDescription": "此模型暂无描述。",
+        "startChat": "开始聊天",
+        "startingChat": "正在开始聊天...",
+        "privateConversation": "您的对话已安全关联到您的帐户。",
+        "loadingConversation": "正在加载对话...",
+        "conversationUnavailable": "对话不可用",
+        "conversationUnavailableDescription": "未找到此对话，或它不属于您的帐户。",
+        "backToModel": "返回模型",
+        "model": "模型",
+        "newConversation": "新对话",
+        "creatingConversation": "正在创建...",
+        "signedInAs": "当前用户",
+        "conversationId": "对话 ID",
+        "emptyChatTitle": "与 {name} 聊天",
+        "emptyChatDescription": "此对话已准备就绪。消息功能将在下一阶段接入。",
+        "integrationPending": "AI 消息集成即将推出",
+        "inputPlaceholder": "消息功能即将开放",
+        "send": "发送消息"
+    },
     "auth": {
         "googleCallback": {
             "signingInTitle": "正在使用 Google 登录...",

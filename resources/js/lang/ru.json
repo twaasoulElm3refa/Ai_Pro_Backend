@@ -12,6 +12,32 @@
         "title": "AI-инструменты",
         "description": "Выберите нужный инструмент"
     },
+    "freeAiModels": {
+        "badge": "Бесплатная ИИ-модель",
+        "back": "Назад",
+        "loadingModel": "Загрузка модели...",
+        "loadErrorTitle": "Модель недоступна",
+        "loadError": "Не удалось загрузить эту бесплатную ИИ-модель.",
+        "tryAgain": "Повторить",
+        "noDescription": "Описание этой модели недоступно.",
+        "startChat": "Начать чат",
+        "startingChat": "Запуск чата...",
+        "privateConversation": "Разговор безопасно связан с вашей учётной записью.",
+        "loadingConversation": "Загрузка разговора...",
+        "conversationUnavailable": "Разговор недоступен",
+        "conversationUnavailableDescription": "Разговор не найден или не принадлежит вашей учётной записи.",
+        "backToModel": "Вернуться к модели",
+        "model": "Модель",
+        "newConversation": "Новый разговор",
+        "creatingConversation": "Создание...",
+        "signedInAs": "Вы вошли как",
+        "conversationId": "ID разговора",
+        "emptyChatTitle": "Чат с {name}",
+        "emptyChatDescription": "Разговор готов. Отправка сообщений будет подключена на следующем этапе.",
+        "integrationPending": "Интеграция ИИ-сообщений — следующий этап",
+        "inputPlaceholder": "Обмен сообщениями скоро станет доступен",
+        "send": "Отправить сообщение"
+    },
     "auth": {
         "googleCallback": {
             "signingInTitle": "Выполняется вход через Google...",

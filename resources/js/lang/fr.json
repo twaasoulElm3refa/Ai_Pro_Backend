@@ -12,6 +12,32 @@
         "title": "Outils IA",
         "description": "Choisissez l'outil dont vous avez besoin"
     },
+    "freeAiModels": {
+        "badge": "Modèle IA gratuit",
+        "back": "Retour",
+        "loadingModel": "Chargement du modèle...",
+        "loadErrorTitle": "Modèle indisponible",
+        "loadError": "Impossible de charger ce modèle IA gratuit.",
+        "tryAgain": "Réessayer",
+        "noDescription": "Aucune description n'est disponible pour ce modèle.",
+        "startChat": "Démarrer la discussion",
+        "startingChat": "Démarrage...",
+        "privateConversation": "Votre conversation est liée de façon sécurisée à votre compte.",
+        "loadingConversation": "Chargement de la conversation...",
+        "conversationUnavailable": "Conversation indisponible",
+        "conversationUnavailableDescription": "Cette conversation est introuvable ou n'appartient pas à votre compte.",
+        "backToModel": "Retour au modèle",
+        "model": "Modèle",
+        "newConversation": "Nouvelle conversation",
+        "creatingConversation": "Création...",
+        "signedInAs": "Connecté en tant que",
+        "conversationId": "ID de conversation",
+        "emptyChatTitle": "Discuter avec {name}",
+        "emptyChatDescription": "Cette conversation est prête. La messagerie sera connectée lors de la prochaine étape.",
+        "integrationPending": "Intégration de la messagerie IA à venir",
+        "inputPlaceholder": "La messagerie sera bientôt disponible",
+        "send": "Envoyer le message"
+    },
     "auth": {
         "googleCallback": {
             "signingInTitle": "Connexion avec Google en cours...",

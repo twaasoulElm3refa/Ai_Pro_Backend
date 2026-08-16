@@ -16,11 +16,12 @@ use App\Http\Controllers\api\auth\ProfileController;
 use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\UserProfileController;
 use App\Http\Controllers\api\auth\WalletController;
-use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\BackgroundRemoverFileController;
-use App\Http\Controllers\api\home\ImageUpscalerFileController;
+use App\Http\Controllers\api\home\ConversationController;
+use App\Http\Controllers\api\home\FreeAiModelController;
 use App\Http\Controllers\api\home\GeneratedImageController;
 use App\Http\Controllers\api\home\HomeController;
+use App\Http\Controllers\api\home\ImageUpscalerFileController;
 use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\payment\DepositController;
 use App\Http\Controllers\api\payment\MoyasarDepositController;
@@ -60,6 +61,16 @@ Route::prefix('v1')->group(function () {
             Route::delete('delete-account', [ProfileController::class, 'deleteAccount']);
             Route::get('conversations', [UserProfileController::class, 'conversations']);
             Route::get('conversation/{uuid}', [UserProfileController::class, 'conversationDetails']);
+        });
+    });
+
+    Route::prefix('free-ai-models')->middleware('throttle:30,1')->group(function () {
+        Route::get('/', [FreeAiModelController::class, 'index']);
+        Route::get('/{slug}', [FreeAiModelController::class, 'show']);
+
+        Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
+            Route::post('/{slug}/conversations', [FreeAiModelController::class, 'storeConversation']);
+            Route::get('/{slug}/conversations/{uuid}', [FreeAiModelController::class, 'showConversation']);
         });
     });
 

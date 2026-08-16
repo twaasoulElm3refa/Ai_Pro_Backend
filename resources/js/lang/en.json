@@ -12,6 +12,32 @@
         "title": "AI Tools",
         "description": "Choose the tool you need"
     },
+    "freeAiModels": {
+        "badge": "Free AI Model",
+        "back": "Back",
+        "loadingModel": "Loading model...",
+        "loadErrorTitle": "Model unavailable",
+        "loadError": "We could not load this free AI model.",
+        "tryAgain": "Try again",
+        "noDescription": "No description is available for this model.",
+        "startChat": "Start Chat",
+        "startingChat": "Starting chat...",
+        "privateConversation": "Your conversation is linked securely to your account.",
+        "loadingConversation": "Loading conversation...",
+        "conversationUnavailable": "Conversation unavailable",
+        "conversationUnavailableDescription": "This conversation was not found or does not belong to your account.",
+        "backToModel": "Back to model",
+        "model": "Model",
+        "newConversation": "New Conversation",
+        "creatingConversation": "Creating...",
+        "signedInAs": "Signed in as",
+        "conversationId": "Conversation ID",
+        "emptyChatTitle": "Chat with {name}",
+        "emptyChatDescription": "This conversation is ready. Message support will be connected in the next integration stage.",
+        "integrationPending": "AI messaging integration coming next",
+        "inputPlaceholder": "Messaging will be available soon",
+        "send": "Send message"
+    },
     "auth": {
         "googleCallback": {
             "signingInTitle": "Signing you in with Google...",
