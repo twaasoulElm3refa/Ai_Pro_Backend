@@ -10,7 +10,7 @@ class ModelsConverstaions extends Model
 {
     use SoftDeletes;
 
-    protected $table = 'models_converstaions';
+    protected $table = 'models_conversations';
 
     protected $guarded = [];
 
