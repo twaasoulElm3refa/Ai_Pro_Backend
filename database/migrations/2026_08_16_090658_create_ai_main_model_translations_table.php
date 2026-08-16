@@ -25,7 +25,7 @@ return new class extends Migration
 
             $table->string('seo_keywords')->nullable();
             $table->timestamps();
-            $table->unique(['main_tools_id', 'locale']);
+            $table->unique(['tool_id', 'locale']);
         });
     }
 
