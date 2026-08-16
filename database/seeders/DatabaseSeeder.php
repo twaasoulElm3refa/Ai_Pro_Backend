@@ -16,18 +16,19 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            userSeeder::class,
-            MainToolSeeder::class,
-            SubToolSeeder::class,
-            ProductDescriptionGeneratorSeeder::class,
-            PromptGeneratorSeeder::class,
-            PromptEnhancerSeeder::class,
-            IdeaGeneratorSeeder::class,
-            HookGeneratorSeeder::class,
-            KeywordGeneratorSeeder::class,
-            ResumeBuilderSeeder::class,
-            ImageGeneratorSeeder::class,
-            ImagePromptGeneratorSeeder::class,
+            // userSeeder::class,
+            // MainToolSeeder::class,
+            // SubToolSeeder::class,
+            // ProductDescriptionGeneratorSeeder::class,
+            // PromptGeneratorSeeder::class,
+            // PromptEnhancerSeeder::class,
+            // IdeaGeneratorSeeder::class,
+            // HookGeneratorSeeder::class,
+            // KeywordGeneratorSeeder::class,
+            // ResumeBuilderSeeder::class,
+            // ImageGeneratorSeeder::class,
+            // ImagePromptGeneratorSeeder::class,
+            AiMainModelSeeder::class
         ]);
     }
 }
