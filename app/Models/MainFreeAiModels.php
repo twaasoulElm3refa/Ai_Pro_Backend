@@ -39,4 +39,9 @@ class MainFreeAiModels extends Model
         return $this->hasOne(MainFreeAiModelsTranslations::class, 'main_free_ai_models_id')
             ->where('locale', app()->getLocale());
     }
+
+    public function model_conversations()
+    {
+        return $this->hasMany(ModelsConverstaions::class,'model_id');
+    }
 }

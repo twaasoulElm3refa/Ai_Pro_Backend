@@ -64,4 +64,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(CostLogger::class,'user_id');
     }
+
+    public function model_conversations()
+    {
+        return $this->hasMany(ModelsConverstaions::class,'user_id');
+    }
 }
