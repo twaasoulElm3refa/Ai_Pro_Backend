@@ -13,7 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('main_free_ai_models', function (Blueprint $table) {
-            $table->foreignIdFor(AiMainModel::class, 'main_tool_id')->default(1)->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(AiMainModel::class, 'main_tool_id')->nullable()->constrained()->cascadeOnDelete();
         });
     }
 

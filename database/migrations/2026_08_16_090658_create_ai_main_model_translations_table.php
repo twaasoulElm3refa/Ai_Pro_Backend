@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('ai_main_model_translations', function (Blueprint $table) {
             $table->id();
-            $table->foreignIdFor(AiMainModel::class, 'tool_id')->default(1)->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(AiMainModel::class, 'tool_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('locale');
 
             $table->text('name');
