@@ -279,22 +279,6 @@
                     </summary>
 
                     <div v-if="isYouTubeSummarizer" class="options-form youtube-options-form">
-                        <div class="transcript-language-field">
-                            <span>{{ youtubeLabels.transcriptLanguages }}</span>
-                            <span class="transcript-language-options">
-                                <label><input v-model="state.transcript_languages" type="checkbox" value="ar" :disabled="isSending"> العربية</label>
-                                <label><input v-model="state.transcript_languages" type="checkbox" value="en" :disabled="isSending"> English</label>
-                            </span>
-                        </div>
-
-                        <label>
-                            <span>{{ youtubeLabels.summaryLanguage }}</span>
-                            <select v-model="state.summary_language" :disabled="isSending">
-                                <option value="Arabic">Arabic</option>
-                                <option value="English">English</option>
-                            </select>
-                        </label>
-
                         <label>
                             <span>{{ youtubeLabels.maxWords }}</span>
                             <input v-model.number="state.max_summary_words" type="number" min="50" max="10000" :disabled="isSending">
@@ -895,9 +879,9 @@ const youtubeLabels = computed(() => isArabic.value ? {
     summaryStyle: "أسلوب الملخص",
     maxWords: "الحد الأقصى للكلمات",
     extraOptions: "خيارات إضافية",
-    videoId: "معرف الفيديو",
-    transcriptLanguage: "لغة النص",
-    transcriptDetails: "تفاصيل النص",
+    videoId: "",
+    transcriptLanguage: "",
+    transcriptDetails:  "",
 } : {
     title: "AI YouTube Summarizer",
     welcome: "Paste a YouTube video URL to get a structured summary from its available transcript.",
