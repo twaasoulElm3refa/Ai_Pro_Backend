@@ -204,12 +204,6 @@
                                         </span>
                                     </div>
                                     <p class="message-content youtube-summary-output">{{ message.content }}</p>
-                                    <dl v-if="youtubeMetadata(message).length" class="youtube-summary-metadata">
-                                        <template v-for="item in youtubeMetadata(message)" :key="item.label">
-                                            <dt>{{ item.label }}</dt>
-                                            <dd>{{ item.value }}</dd>
-                                        </template>
-                                    </dl>
                                 </div>
                             </template>
 
