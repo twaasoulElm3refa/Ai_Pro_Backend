@@ -21,7 +21,7 @@ class ConversationController extends Controller
 {
     use ApiResponse;
 
-    private const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20, 21];
+    private const CHAT4_SUB_TOOL_IDS = [17, 18, 19, 20, 21, 25];
 
     private $conversation;
 

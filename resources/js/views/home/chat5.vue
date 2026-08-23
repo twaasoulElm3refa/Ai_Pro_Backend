@@ -101,7 +101,7 @@
 
                         <div class="message-body" :class="{
                             error: message.is_error,
-                            'card-shell': message.role === 'assistant' && (message.images.length || message.is_error || isPromptGeneratorMessage(message)),
+                            'card-shell': message.role === 'assistant' && (message.images.length || message.is_error || isPromptGeneratorMessage(message) || isYouTubeSummaryMessage(message)),
                         }">
                             <template v-if="message.role === 'assistant' && message.images.length">
                                 <div class="image-response-card">
@@ -195,6 +195,24 @@
                                 </div>
                             </template>
 
+                            <template v-else-if="message.role === 'assistant' && isYouTubeSummaryMessage(message)">
+                                <div class="youtube-summary-card">
+                                    <div class="response-heading">
+                                        <span>
+                                            <i class="bi bi-youtube"></i>
+                                            {{ youtubeLabels.summary }}
+                                        </span>
+                                    </div>
+                                    <p class="message-content youtube-summary-output">{{ message.content }}</p>
+                                    <dl v-if="youtubeMetadata(message).length" class="youtube-summary-metadata">
+                                        <template v-for="item in youtubeMetadata(message)" :key="item.label">
+                                            <dt>{{ item.label }}</dt>
+                                            <dd>{{ item.value }}</dd>
+                                        </template>
+                                    </dl>
+                                </div>
+                            </template>
+
                             <p v-else class="message-content">{{ message.content }}</p>
                         </div>
                     </article>
@@ -217,7 +235,7 @@
                                 <span class="generation-spinner" aria-hidden="true"></span>
                             </div>
 
-                            <div v-if="isPromptGenerator" class="loading-prompt-card">
+                            <div v-if="isPromptGenerator || isYouTubeSummarizer" class="loading-prompt-card">
                                 <span></span>
                                 <span></span>
                                 <span></span>
@@ -253,14 +271,47 @@
 
                 <details v-if="!isBackgroundRemover" class="options-panel">
                     <summary class="options-panel-header">
-                        <span><i class="bi bi-sliders"></i> {{ isPromptGenerator ? promptLabels.settings :
-                            labels.settings }}</span>
+                        <span><i class="bi bi-sliders"></i> {{ isYouTubeSummarizer ? youtubeLabels.settings : (isPromptGenerator ? promptLabels.settings :
+                            labels.settings) }}</span>
                         <span class="options-chevron" aria-hidden="true">
                             <i class="bi bi-chevron-down"></i>
                         </span>
                     </summary>
 
-                    <div v-if="isPromptGenerator" class="options-form prompt-options-form">
+                    <div v-if="isYouTubeSummarizer" class="options-form youtube-options-form">
+                        <div class="transcript-language-field">
+                            <span>{{ youtubeLabels.transcriptLanguages }}</span>
+                            <span class="transcript-language-options">
+                                <label><input v-model="state.transcript_languages" type="checkbox" value="ar" :disabled="isSending"> العربية</label>
+                                <label><input v-model="state.transcript_languages" type="checkbox" value="en" :disabled="isSending"> English</label>
+                            </span>
+                        </div>
+
+                        <label>
+                            <span>{{ youtubeLabels.summaryLanguage }}</span>
+                            <select v-model="state.summary_language" :disabled="isSending">
+                                <option value="Arabic">Arabic</option>
+                                <option value="English">English</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            <span>{{ youtubeLabels.maxWords }}</span>
+                            <input v-model.number="state.max_summary_words" type="number" min="50" max="10000" :disabled="isSending">
+                        </label>
+
+                        <label class="wide">
+                            <span>{{ youtubeLabels.summaryStyle }}</span>
+                            <textarea v-model="state.summary_style" rows="2" :disabled="isSending"></textarea>
+                        </label>
+
+                        <label class="wide">
+                            <span>{{ youtubeLabels.extraOptions }}</span>
+                            <textarea v-model="youtubeExtraOptionsText" rows="2" :disabled="isSending"></textarea>
+                        </label>
+                    </div>
+
+                    <div v-else-if="isPromptGenerator" class="options-form prompt-options-form">
                         <label>
                             <span>{{ promptLabels.language }}</span>
                             <select v-model="state.language" :disabled="isSending">
@@ -466,6 +517,12 @@ const IMAGE_PROMPT_GENERATOR_TOOL = {
     model_key: "image_prompt_generator",
 };
 
+const YOUTUBE_SUMMARIZER_TOOL = {
+    sub_tool_id: 25,
+    tool_key: "youtube_summarizer",
+    model_key: "youtube_summarizer",
+};
+
 const BG_REMOVER_MESSAGE = "Remove the background from the uploaded image and return a transparent PNG.";
 const IMAGE_UPSCALER_MESSAGE = "Upscale the uploaded image.";
 const IMAGE_PROMPT_PREFIX = "Create a professional image prompt for";
@@ -510,6 +567,15 @@ const createPromptGeneratorState = () => ({
     face_policy: "No visible human faces",
     results_count: 1,
     extra_options: ["realistic materials", "8K detail"],
+    last_output: null,
+});
+
+const createYouTubeSummarizerState = () => ({
+    transcript_languages: ["ar", "en"],
+    summary_language: "Arabic",
+    summary_style: "structured summary with a headline and key points",
+    max_summary_words: 1000,
+    extra_options: [],
     last_output: null,
 });
 
@@ -575,6 +641,10 @@ function createDefaultState(subToolId = null) {
 
     if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
         return createPromptGeneratorState();
+    }
+
+    if (resolvedSubToolId === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
+        return createYouTubeSummarizerState();
     }
 
     return createImageGeneratorState();
@@ -754,10 +824,12 @@ const isBackgroundRemover = computed(() => activeSubToolId.value === BACKGROUND_
 const isImageUpscaler = computed(() => activeSubToolId.value === IMAGE_UPSCALER_TOOL.sub_tool_id);
 const isImageGenerator = computed(() => activeSubToolId.value === IMAGE_TOOL.sub_tool_id);
 const isPromptGenerator = computed(() => activeSubToolId.value === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id);
+const isYouTubeSummarizer = computed(() => activeSubToolId.value === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id);
 const activeToolIcon = computed(() => {
     if (isBackgroundRemover.value) return "bi bi-magic";
     if (isImageUpscaler.value) return "bi bi-aspect-ratio";
     if (isPromptGenerator.value) return "bi bi-card-text";
+    if (isYouTubeSummarizer.value) return "bi bi-youtube";
     return "bi bi-image";
 });
 const promptLabels = computed(() => isArabic.value ? {
@@ -805,55 +877,109 @@ const promptLabels = computed(() => isArabic.value ? {
     copyPrompt: "Copy Prompt",
     copied: "Copied",
 });
+const youtubeLabels = computed(() => isArabic.value ? {
+    title: "ملخص يوتيوب بالذكاء الاصطناعي",
+    welcome: "ألصق رابط فيديو يوتيوب للحصول على ملخص منظم يعتمد على النص المتاح.",
+    example: "https://www.youtube.com/watch?v=by12E-0i7qI",
+    placeholder: "ألصق رابط فيديو يوتيوب...",
+    settings: "إعدادات التلخيص",
+    send: "تلخيص الفيديو",
+    generating: "جارٍ جلب النص وتلخيص الفيديو...",
+    generationWait: "قد يستغرق هذا بعض الوقت بحسب توفر النص وطول الفيديو.",
+    generated: "تم إنشاء ملخص الفيديو",
+    genericError: "تعذر تلخيص الفيديو الآن. حاول مرة أخرى.",
+    promptRequired: "ألصق رابط فيديو يوتيوب أولاً.",
+    summary: "ملخص الفيديو",
+    transcriptLanguages: "لغات النص المفضلة",
+    summaryLanguage: "لغة الملخص",
+    summaryStyle: "أسلوب الملخص",
+    maxWords: "الحد الأقصى للكلمات",
+    extraOptions: "خيارات إضافية",
+    videoId: "معرف الفيديو",
+    transcriptLanguage: "لغة النص",
+    transcriptDetails: "تفاصيل النص",
+} : {
+    title: "AI YouTube Summarizer",
+    welcome: "Paste a YouTube video URL to get a structured summary from its available transcript.",
+    example: "https://www.youtube.com/watch?v=by12E-0i7qI",
+    placeholder: "Paste a YouTube video URL...",
+    settings: "Summary settings",
+    send: "Summarize video",
+    generating: "Retrieving the transcript and summarizing the video...",
+    generationWait: "This can take a moment depending on transcript availability and video length.",
+    generated: "Video summary generated",
+    genericError: "The video could not be summarized right now. Please try again.",
+    promptRequired: "Paste a YouTube video URL first.",
+    summary: "Video summary",
+    transcriptLanguages: "Preferred transcript languages",
+    summaryLanguage: "Summary language",
+    summaryStyle: "Summary style",
+    maxWords: "Maximum words",
+    extraOptions: "Extra options",
+    videoId: "Video ID",
+    transcriptLanguage: "Transcript language",
+    transcriptDetails: "Transcript details",
+});
 const activeTitle = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverTitle;
     if (isImageUpscaler.value) return labels.value.upscalerTitle;
     if (isPromptGenerator.value) return promptLabels.value.title;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.title;
     return labels.value.title;
 });
 const activeWelcome = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverWelcome;
     if (isImageUpscaler.value) return labels.value.upscalerWelcome;
     if (isPromptGenerator.value) return promptLabels.value.welcome;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.welcome;
     return labels.value.welcome;
 });
 const activePlaceholder = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverMessagePlaceholder;
     if (isImageUpscaler.value) return labels.value.upscalerMessagePlaceholder;
     if (isPromptGenerator.value) return promptLabels.value.placeholder;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.placeholder;
     return labels.value.placeholder;
 });
 const activeSendLabel = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverSend;
     if (isImageUpscaler.value) return labels.value.upscalerSend;
     if (isPromptGenerator.value) return promptLabels.value.send;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.send;
     return labels.value.send;
 });
 const activeGenerating = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenerating;
     if (isImageUpscaler.value) return labels.value.upscalerGenerating;
     if (isPromptGenerator.value) return promptLabels.value.generating;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.generating;
     return labels.value.generating;
 });
 const activeGenerationWait = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenerationWait;
     if (isImageUpscaler.value) return labels.value.upscalerGenerationWait;
     if (isPromptGenerator.value) return promptLabels.value.generationWait;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.generationWait;
     return labels.value.generationWait;
 });
 const activeGenerated = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenerated;
     if (isImageUpscaler.value) return labels.value.upscalerGenerated;
     if (isPromptGenerator.value) return promptLabels.value.generated;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.generated;
     return labels.value.generated;
 });
 const activeGenericError = computed(() => {
     if (isBackgroundRemover.value) return labels.value.bgRemoverGenericError;
     if (isImageUpscaler.value) return labels.value.upscalerGenericError;
     if (isPromptGenerator.value) return promptLabels.value.genericError;
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.genericError;
     return labels.value.genericError;
 });
-const activePromptRequired = computed(() => isPromptGenerator.value ? promptLabels.value.promptRequired : labels.value.promptRequired);
+const activePromptRequired = computed(() => {
+    if (isYouTubeSummarizer.value) return youtubeLabels.value.promptRequired;
+    return isPromptGenerator.value ? promptLabels.value.promptRequired : labels.value.promptRequired;
+});
 
 const canSend = computed(() => {
     if (isSending.value || creatingConversation.value) return false;
@@ -866,6 +992,12 @@ const canSend = computed(() => {
 });
 
 const promptExtraOptionsText = computed({
+    get: () => normalizeStringList(state.value.extra_options).join(", "),
+    set: (value) => {
+        state.value.extra_options = splitOptions(value);
+    },
+});
+const youtubeExtraOptionsText = computed({
     get: () => normalizeStringList(state.value.extra_options).join(", "),
     set: (value) => {
         state.value.extra_options = splitOptions(value);
@@ -916,6 +1048,14 @@ function toolConfigForSubTool(subToolId = null) {
 
     if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
         return IMAGE_PROMPT_GENERATOR_TOOL;
+    }
+
+    if (resolvedSubToolId === IMAGE_UPSCALER_TOOL.sub_tool_id) {
+        return IMAGE_UPSCALER_TOOL;
+    }
+
+    if (resolvedSubToolId === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
+        return YOUTUBE_SUMMARIZER_TOOL;
     }
 
     return IMAGE_TOOL;
@@ -989,6 +1129,24 @@ function cleanPromptGeneratorState(requestState = {}, regenerate = false) {
     };
 }
 
+function cleanYouTubeSummarizerState(requestState = {}, regenerate = false) {
+    const defaults = createYouTubeSummarizerState();
+    const transcriptLanguages = normalizeStringList(requestState?.transcript_languages)
+        .map((language) => language.toLowerCase())
+        .filter((language) => /^[a-z]{2,3}(?:-[a-z]{2,4})?$/u.test(language));
+    const maxWords = Number(requestState?.max_summary_words || defaults.max_summary_words);
+
+    return {
+        ...defaults,
+        transcript_languages: transcriptLanguages.length ? transcriptLanguages : [...defaults.transcript_languages],
+        summary_language: String(requestState?.summary_language || defaults.summary_language),
+        summary_style: String(requestState?.summary_style || defaults.summary_style),
+        max_summary_words: Number.isFinite(maxWords) ? Math.max(50, Math.min(10000, maxWords)) : defaults.max_summary_words,
+        extra_options: normalizeStringList(requestState?.extra_options),
+        last_output: regenerate ? requestState?.last_output ?? null : null,
+    };
+}
+
 function cleanRequestState(requestState = {}, regenerate = false, subToolId = null) {
     const resolvedSubToolId = resolveStateSubToolId(subToolId);
 
@@ -1014,6 +1172,10 @@ function cleanRequestState(requestState = {}, regenerate = false, subToolId = nu
         return cleanPromptGeneratorState(requestState, regenerate);
     }
 
+    if (resolvedSubToolId === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
+        return cleanYouTubeSummarizerState(requestState, regenerate);
+    }
+
     return {
         ...createImageGeneratorState(),
         provider: requestState?.provider ?? null,
@@ -1033,6 +1195,13 @@ function cleanUiState(source = {}, subToolId = null) {
     const cleanState = cleanRequestState(source, false, resolvedSubToolId);
 
     if (resolvedSubToolId === IMAGE_PROMPT_GENERATOR_TOOL.sub_tool_id) {
+        return {
+            ...cleanState,
+            last_output: source?.last_output ?? null,
+        };
+    }
+
+    if (resolvedSubToolId === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
         return {
             ...cleanState,
             last_output: source?.last_output ?? null,
@@ -1229,7 +1398,7 @@ function textFromResults(results) {
 
 function assistantContentFromResult(result, isPromptTool) {
     if (!isPromptTool) {
-        return String(result.message || "");
+        return String(result.summary || result.message || "");
     }
 
     return String(
@@ -1249,6 +1418,32 @@ function isPromptGeneratorMessage(message) {
         || metadata.tool_key === IMAGE_PROMPT_GENERATOR_TOOL.tool_key
         || metadata.tool === IMAGE_PROMPT_GENERATOR_TOOL.tool_key
         || metadata.model_key === IMAGE_PROMPT_GENERATOR_TOOL.model_key;
+}
+
+function isYouTubeSummaryMessage(message) {
+    const metadata = message?.metadata || {};
+    return Number(metadata.sub_tool_id || message?.sub_tool_id || 0) === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id
+        || metadata.task_key === YOUTUBE_SUMMARIZER_TOOL.tool_key
+        || metadata.tool_key === YOUTUBE_SUMMARIZER_TOOL.tool_key
+        || metadata.tool === YOUTUBE_SUMMARIZER_TOOL.tool_key
+        || metadata.model_key === YOUTUBE_SUMMARIZER_TOOL.model_key;
+}
+
+function youtubeMetadata(message) {
+    const metadata = message?.metadata || {};
+    const items = [];
+    if (metadata.video_id) items.push({ label: youtubeLabels.value.videoId, value: metadata.video_id });
+    if (metadata.transcript_language) {
+        items.push({ label: youtubeLabels.value.transcriptLanguage, value: metadata.transcript_language });
+    }
+    if (metadata.transcript_chars || metadata.transcript_segments) {
+        const details = [
+            metadata.transcript_chars ? `${Number(metadata.transcript_chars).toLocaleString()} chars` : "",
+            metadata.transcript_segments ? `${Number(metadata.transcript_segments).toLocaleString()} segments` : "",
+        ].filter(Boolean).join(" · ");
+        items.push({ label: youtubeLabels.value.transcriptDetails, value: details });
+    }
+    return items;
 }
 
 function buildBgRemoverFormData(conversation, file, userInput = "") {
@@ -1298,6 +1493,7 @@ async function sendMessage(options = {}) {
     const isBgRemover = isBackgroundRemover.value;
     const isUpscaler = isImageUpscaler.value;
     const isPromptTool = isPromptGenerator.value;
+    const isYouTubeTool = isYouTubeSummarizer.value;
     const rawPrompt = String(options.prompt ?? userMessage.value).trim();
     let prompt = rawPrompt;
 
@@ -1381,8 +1577,8 @@ async function sendMessage(options = {}) {
             result = responseData(await chatServices.sendMessage(payload));
         }
 
-        const rawImages = isPromptTool ? [] : (result.images || result.files || []);
-        const images = normalizeGeneratedImages(rawImages);
+        const rawImages = (isPromptTool || isYouTubeTool) ? [] : (result.images || result.files || []);
+        const images = isYouTubeTool ? [] : normalizeGeneratedImages(rawImages);
         const assistantContent = assistantContentFromResult(result, isPromptTool) || (
             isPromptTool ? promptLabels.value.generated : result.message
         );
@@ -1714,7 +1910,9 @@ function goToWallet() {
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 
 function fillExample() {
-    userMessage.value = isPromptGenerator.value ? promptLabels.value.example : labels.value.example;
+    userMessage.value = isYouTubeSummarizer.value
+        ? youtubeLabels.value.example
+        : (isPromptGenerator.value ? promptLabels.value.example : labels.value.example);
     nextTick(autoResize);
 }
 
@@ -2287,12 +2485,41 @@ button:disabled {
     padding: 16px;
 }
 
+.youtube-summary-card {
+    padding: 16px;
+}
+
 .prompt-output {
     padding: 12px 14px;
     border: 1px solid #d8e6f7;
     border-radius: 10px;
     color: var(--ink);
     background: #fbfdff;
+}
+
+.youtube-summary-output {
+    margin: 0;
+    white-space: pre-wrap;
+}
+
+.youtube-summary-metadata {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px 12px;
+    margin: 14px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid #d8e6f7;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.youtube-summary-metadata dt {
+    font-weight: 800;
+}
+
+.youtube-summary-metadata dd {
+    margin: 0;
+    overflow-wrap: anywhere;
 }
 
 .copy-prompt-button {
@@ -2803,8 +3030,37 @@ button:disabled {
     font-weight: 700;
 }
 
+.transcript-language-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
 .options-form label.wide {
     grid-column: span 3;
+}
+
+.transcript-language-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.transcript-language-options label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.transcript-language-options input {
+    width: auto;
+    min-width: auto;
+    padding: 0;
 }
 
 .options-form input,
@@ -3329,6 +3585,7 @@ html[data-theme="dark"] .detector-chat .regenerate-button:hover:not(:disabled) {
 html[data-theme="dark"] .detector-chat .welcome-card,
 html[data-theme="dark"] .detector-chat .message-body,
 html[data-theme="dark"] .detector-chat .prompt-output,
+html[data-theme="dark"] .detector-chat .youtube-summary-output,
 html[data-theme="dark"] .detector-chat .generated-image-card,
 html[data-theme="dark"] .detector-chat .message-body.card-shell.generation-loading,
 html[data-theme="dark"] .detector-chat .loading-prompt-card {

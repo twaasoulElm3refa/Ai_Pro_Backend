@@ -723,6 +723,7 @@ class AiArabicWriterService
         }
 
         $paths = [
+            ['summary'],
             ['reply'],
             ['message'],
             ['content'],
@@ -731,6 +732,7 @@ class AiArabicWriterService
             ['output'],
             ['text'],
 
+            ['data', 'summary'],
             ['data', 'reply'],
             ['data', 'message'],
             ['data', 'content'],

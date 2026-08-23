@@ -28,7 +28,8 @@ class DatabaseSeeder extends Seeder
             // ResumeBuilderSeeder::class,
             // ImageGeneratorSeeder::class,
             // ImagePromptGeneratorSeeder::class,
-            AiMainModelSeeder::class
+            AiMainModelSeeder::class,
+            YouTubeSummarizerSeeder::class,
         ]);
     }
 }

@@ -141,6 +141,12 @@ class ConversationMessageCacheService
                     'usage',
                     'cost',
                     'debug',
+                    'summary',
+                    'video_id',
+                    'transcript_language',
+                    'transcript_chars',
+                    'transcript_segments',
+                    'transcript_is_generated',
                 ] as $key) {
                     if (array_key_exists($key, $metadata)) {
                         $responseMessage[$key] = $metadata[$key];

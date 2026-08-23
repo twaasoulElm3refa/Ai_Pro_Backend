@@ -22,6 +22,7 @@ use App\Services\EmailWriterService;
 use App\Services\GeneratedImageService;
 use App\Services\ImagePromptGeneratorService;
 use App\Services\ImageUpscalerService;
+use App\Services\YouTubeSummarizerService;
 use App\Services\ProductDescriptionGeneratorService;
 use App\Services\ResumeBuilderService;
 use App\Services\ScriptGeneratorService;
@@ -51,6 +52,7 @@ class MessageController extends Controller
     private const SOCIAL_POST_GENERATOR_MODEL_KEY = 'social_post_generator';
     private const SOCIAL_POST_GENERATOR_ENDPOINT = 'tasks/social-post-generator/chat';
     private const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
+    private const YOUTUBE_SUMMARIZER_SUB_TOOL_ID = 25;
 
     private MessageInterface $message;
 
@@ -75,7 +77,8 @@ class MessageController extends Controller
             GeneratedImageService $generatedImageService,
             ImagePromptGeneratorService $imagePromptGeneratorService,
             BackgroundRemoverService $backgroundRemoverService,
-            ImageUpscalerService $imageUpscalerService
+            ImageUpscalerService $imageUpscalerService,
+            YouTubeSummarizerService $youTubeSummarizerService
     )
     {
         Log::info('Message send request received', [
@@ -147,6 +150,11 @@ class MessageController extends Controller
                 $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
                 $requestedModelKey
             );
+            $isYouTubeSummarizer = YouTubeSummarizerService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
+                $requestedModelKey
+            );
 
             if ($isBackgroundRemover && $subToolId !== (int) $conversation->sub_tool_id) {
                 return $this->validationError([
@@ -170,6 +178,12 @@ class MessageController extends Controller
                 return $this->validationError([
                     'sub_tool_id' => ['The selected tool does not match this conversation.'],
                 ], 'Invalid image prompt generation conversation.');
+            }
+
+            if ($isYouTubeSummarizer && $subToolId !== (int) $conversation->sub_tool_id) {
+                return $this->validationError([
+                    'sub_tool_id' => ['The selected tool does not match this conversation.'],
+                ], 'Invalid YouTube summarizer conversation.');
             }
 
             if ($content === '') {
@@ -242,6 +256,13 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Image Prompt Generator Response Ready.'
+                );
+            }
+
+            if ($isYouTubeSummarizer) {
+                return $this->success(
+                    $youTubeSummarizerService->handle($conversation, $data, $content, $userId),
+                    'YouTube Summary Ready.'
                 );
             }
 

@@ -7,6 +7,7 @@ use App\Services\AI\DynamicToolConfigService;
 use App\Services\BackgroundRemoverService;
 use App\Services\ImagePromptGeneratorService;
 use App\Services\ImageUpscalerService;
+use App\Services\YouTubeSummarizerService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +22,7 @@ class MessageRequest extends FormRequest
     private const BACKGROUND_REMOVER_SUB_TOOL_ID = 22;
     private const IMAGE_UPSCALER_SUB_TOOL_ID = 23;
     private const IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID = 24;
+    private const YOUTUBE_SUMMARIZER_SUB_TOOL_ID = 25;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
@@ -164,6 +166,10 @@ class MessageRequest extends FormRequest
             return array_merge($rules, $this->imagePromptGeneratorRules());
         }
 
+        if ($this->isYouTubeSummarizerRequest()) {
+            return array_merge($rules, $this->youTubeSummarizerRules());
+        }
+
         if (in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)) {
             return array_merge($rules, $this->chat3SeoStateRules());
         }
@@ -223,6 +229,38 @@ class MessageRequest extends FormRequest
             'state.text_policy' => ['required', 'string', 'max:150'],
             'state.face_policy' => ['required', 'string', 'max:150'],
             'state.results_count' => ['required', 'integer', 'min:1', 'max:5'],
+            'state.extra_options' => ['nullable', 'array', 'max:20'],
+            'state.extra_options.*' => ['string', 'max:150'],
+            'state.last_output' => ['nullable', 'string', 'max:100000'],
+        ];
+    }
+
+    private function youTubeSummarizerRules(): array
+    {
+        return [
+            'sub_tool_id' => ['required', 'integer', Rule::in([self::YOUTUBE_SUMMARIZER_SUB_TOOL_ID])],
+            'content' => ['nullable', 'string', 'max:2000'],
+            'message' => ['nullable', 'string', 'max:2000'],
+            'user_message' => [
+                'required',
+                'string',
+                'max:2000',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (YouTubeSummarizerService::normalizeYouTubeUrl($value) === null) {
+                        $fail('The '.$attribute.' must be a valid YouTube video URL.');
+                    }
+                },
+            ],
+            'tool' => ['required', Rule::in([YouTubeSummarizerService::TOOL_KEY])],
+            'tool_key' => ['required', Rule::in([YouTubeSummarizerService::TOOL_KEY])],
+            'model_key' => ['required', Rule::in([YouTubeSummarizerService::MODEL_KEY])],
+            'task_key' => ['required', Rule::in([YouTubeSummarizerService::TOOL_KEY])],
+            'state' => ['required', 'array'],
+            'state.transcript_languages' => ['required', 'array', 'min:1', 'max:5'],
+            'state.transcript_languages.*' => ['required', 'string', 'distinct', 'regex:/^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/'],
+            'state.summary_language' => ['required', 'string', 'max:80'],
+            'state.summary_style' => ['required', 'string', 'max:500'],
+            'state.max_summary_words' => ['required', 'integer', 'min:50', 'max:10000'],
             'state.extra_options' => ['nullable', 'array', 'max:20'],
             'state.extra_options.*' => ['string', 'max:150'],
             'state.last_output' => ['nullable', 'string', 'max:100000'],
@@ -290,6 +328,7 @@ class MessageRequest extends FormRequest
         $this->normalizeBackgroundRemoverStateForValidation();
         $this->normalizeImageUpscalerStateForValidation();
         $this->normalizeImagePromptGeneratorStateForValidation();
+        $this->normalizeYouTubeSummarizerStateForValidation();
     }
 
     private function normalizeMessageTextFields(): void
@@ -442,6 +481,21 @@ class MessageRequest extends FormRequest
         ]);
     }
 
+    private function normalizeYouTubeSummarizerStateForValidation(): void
+    {
+        if (! $this->isYouTubeSummarizerRequest()) {
+            return;
+        }
+
+        $state = $this->input('state');
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
+        }
+
+        $this->merge(['state' => is_array($state) ? $state : []]);
+    }
+
     private function isResumeBuilderRequest(): bool
     {
         $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
@@ -480,6 +534,16 @@ class MessageRequest extends FormRequest
         return (int) $this->input('sub_tool_id') === self::IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID
             || $toolKey === ImagePromptGeneratorService::TOOL_KEY
             || $modelKey === ImagePromptGeneratorService::MODEL_KEY;
+    }
+
+    private function isYouTubeSummarizerRequest(): bool
+    {
+        $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
+        $modelKey = strtolower(trim((string) $this->input('model_key')));
+
+        return (int) $this->input('sub_tool_id') === self::YOUTUBE_SUMMARIZER_SUB_TOOL_ID
+            || $toolKey === YouTubeSummarizerService::TOOL_KEY
+            || $modelKey === YouTubeSummarizerService::MODEL_KEY;
     }
 
     private function firstFilledScalar(array $keys): ?string

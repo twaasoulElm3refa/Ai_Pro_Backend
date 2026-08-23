@@ -10,13 +10,19 @@ return new class extends Migration
         $exists = DB::table('sub_tools')->where('id', 23)->exists();
 
         if (!$exists) {
+            $mainToolId = DB::table('main_tools')->orderBy('id')->value('id');
+
+            if (! $mainToolId) {
+                return;
+            }
+
             DB::table('sub_tools')->insert([
                 'id' => 23,
                 'name' => 'Image Upscaler',
                 'slug' => 'ai_image_upscaler',
                 'description' => 'Upscale images using AI.',
-                'main_tool_id' => 7, // Assuming 7 is the image tools category (based on similar tools)
-                'status' => 'active',
+                'main_tool_id' => $mainToolId,
+                'is_active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
