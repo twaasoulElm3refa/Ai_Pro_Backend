@@ -8,33 +8,6 @@
              SIDEBAR
         ========================== -->
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
-
-            <div class="sidebar-quick-actions" :aria-label="labels.quickNavigation">
-                <button
-                    type="button"
-                    class="sidebar-quick-button sidebar-home-button"
-                    :title="labels.home"
-                    @click="goHome"
-                >
-                    <i class="bi bi-house-door-fill"></i>
-                    <span>{{ labels.home }}</span>
-                </button>
-
-                <button
-                    type="button"
-                    class="sidebar-quick-button sidebar-wallet-button"
-                    :title="labels.wallet"
-                    @click="goToWallet"
-                >
-                    <i class="bi bi-wallet2"></i>
-
-                    <span class="sidebar-wallet-copy">
-                        <small>{{ labels.wallet }}</small>
-                        <strong>{{ formattedWalletBalance }}</strong>
-                    </span>
-                </button>
-            </div>
-
             <div class="sidebar-brand">
                 <span class="brand-icon">
                     <i class="bi bi-youtube"></i>
