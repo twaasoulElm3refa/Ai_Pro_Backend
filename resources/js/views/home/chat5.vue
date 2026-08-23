@@ -279,20 +279,7 @@
                     </summary>
 
                     <div v-if="isYouTubeSummarizer" class="options-form youtube-options-form">
-                        <label>
-                            <span>{{ youtubeLabels.maxWords }}</span>
-                            <input v-model.number="state.max_summary_words" type="number" min="50" max="10000" :disabled="isSending">
-                        </label>
 
-                        <label class="wide">
-                            <span>{{ youtubeLabels.summaryStyle }}</span>
-                            <textarea v-model="state.summary_style" rows="2" :disabled="isSending"></textarea>
-                        </label>
-
-                        <label class="wide">
-                            <span>{{ youtubeLabels.extraOptions }}</span>
-                            <textarea v-model="youtubeExtraOptionsText" rows="2" :disabled="isSending"></textarea>
-                        </label>
                     </div>
 
                     <div v-else-if="isPromptGenerator" class="options-form prompt-options-form">
