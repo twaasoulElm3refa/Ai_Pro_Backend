@@ -496,8 +496,8 @@ class TextToSpeechService
             'filename' => $file['filename'],
             'content_type' => $file['content_type'],
             'size_bytes' => $file['size_bytes'],
-            'preview_url' => "/api/v1/generated-images/{$id}/preview",
-            'download_url' => "/api/v1/generated-images/{$id}/download",
+            'preview_url' => "/generated-images/{$id}/preview",
+            'download_url' => "/generated-images/{$id}/download",
         ];
     }
 
