@@ -18,6 +18,8 @@ class ProviderCostBillingService
 
     private const SUPPORTED_SUB_TOOL_IDS = [21, 22, 23];
 
+    private const SPEECH_TO_TEXT_SUB_TOOL_ID = 26;
+
     /**
      * Charge a successful provider response using cost.total_cost only.
      *
@@ -47,6 +49,71 @@ class ProviderCostBillingService
 
         [$totalCost, $currency] = $validatedCost;
 
+        return $this->chargeValidatedCost(
+            $userId,
+            $conversationId,
+            $subToolId,
+            $totalCost,
+            $currency,
+            'cost.total_cost',
+            $providerRequestId,
+            $modelKey
+        );
+    }
+
+    /**
+     * Charge speech-to-text using metadata.provider_cost_usd exclusively.
+     */
+    public function chargeSpeechToTextResponse(
+        int $userId,
+        int $conversationId,
+        int $subToolId,
+        array $providerResponse,
+        string $requestKey,
+        ?string $modelKey = null
+    ): array {
+        if ($subToolId !== self::SPEECH_TO_TEXT_SUB_TOOL_ID) {
+            throw new InvalidArgumentException(
+                "Speech-to-text provider cost billing is not enabled for sub tool {$subToolId}."
+            );
+        }
+
+        $validatedCost = $this->validatedSpeechToTextCost(
+            $providerResponse,
+            $userId,
+            $conversationId,
+            $subToolId
+        );
+
+        if ($validatedCost === null) {
+            return $this->skippedResult('metadata.provider_cost_usd');
+        }
+
+        return $this->chargeValidatedCost(
+            $userId,
+            $conversationId,
+            $subToolId,
+            $validatedCost,
+            'USD',
+            'metadata.provider_cost_usd',
+            $requestKey,
+            $modelKey,
+            true
+        );
+    }
+
+    private function chargeValidatedCost(
+        int $userId,
+        int $conversationId,
+        int $subToolId,
+        BigDecimal $totalCost,
+        string $currency,
+        string $source,
+        ?string $providerRequestId,
+        ?string $modelKey,
+        bool $deduplicateByRequestId = false
+    ): array {
+
         try {
             $pointsToDeduct = $totalCost
                 ->multipliedBy(self::POINTS_PER_USD)
@@ -54,13 +121,14 @@ class ProviderCostBillingService
                 ->toInt();
         } catch (MathException) {
             $this->warnSkipped(
-                'cost.total_cost cannot be converted safely to wallet points',
+                "{$source} cannot be converted safely to wallet points",
                 $userId,
                 $conversationId,
-                $subToolId
+                $subToolId,
+                $source
             );
 
-            return $this->skippedResult();
+            return $this->skippedResult($source);
         }
 
         return DB::transaction(function () use (
@@ -71,8 +139,38 @@ class ProviderCostBillingService
             $modelKey,
             $totalCost,
             $currency,
-            $pointsToDeduct
+            $pointsToDeduct,
+            $source,
+            $deduplicateByRequestId
         ): array {
+            if ($deduplicateByRequestId && $providerRequestId !== null) {
+                $alreadyCharged = CostLogger::query()
+                    ->where('user_id', $userId)
+                    ->where('conversation_id', $conversationId)
+                    ->where('sub_tool_id', $subToolId)
+                    ->where('provider_request_id', $providerRequestId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($alreadyCharged) {
+                    Log::warning('Provider cost billing duplicate request skipped.', [
+                        'user_id' => $userId,
+                        'conversation_id' => $conversationId,
+                        'sub_tool_id' => $subToolId,
+                        'provider_request_id' => $providerRequestId,
+                        'source' => $source,
+                    ]);
+
+                    return [
+                        ...$this->skippedResult($source),
+                        'status' => 'already_charged',
+                        'total_cost' => $totalCost->__toString(),
+                        'currency' => $currency,
+                        'points_to_deduct' => $pointsToDeduct,
+                    ];
+                }
+            }
+
             $wallet = Wallet::query()
                 ->where('user_id', $userId)
                 ->lockForUpdate()
@@ -117,7 +215,7 @@ class ProviderCostBillingService
 
             return [
                 'status' => $pointsToDeduct === 0 ? 'zero_cost' : 'charged',
-                'source' => 'cost.total_cost',
+                'source' => $source,
                 'total_cost' => $totalCost->__toString(),
                 'currency' => $currency,
                 'points_per_usd' => self::POINTS_PER_USD,
@@ -186,11 +284,78 @@ class ProviderCostBillingService
         return [$totalCost, $currency];
     }
 
-    private function skippedResult(): array
+    private function validatedSpeechToTextCost(
+        array $providerResponse,
+        int $userId,
+        int $conversationId,
+        int $subToolId
+    ): ?BigDecimal {
+        $source = 'metadata.provider_cost_usd';
+        $metadata = $providerResponse['metadata'] ?? null;
+
+        if (! is_array($metadata) || ! array_key_exists('provider_cost_usd', $metadata)) {
+            $this->warnSkipped(
+                'metadata.provider_cost_usd is missing; no speech-to-text points were deducted',
+                $userId,
+                $conversationId,
+                $subToolId,
+                $source
+            );
+
+            return null;
+        }
+
+        $rawProviderCost = $metadata['provider_cost_usd'];
+        if (
+            is_bool($rawProviderCost)
+            || ! is_scalar($rawProviderCost)
+            || ! is_numeric(trim((string) $rawProviderCost))
+        ) {
+            $this->warnSkipped(
+                'metadata.provider_cost_usd is not numeric; no speech-to-text points were deducted',
+                $userId,
+                $conversationId,
+                $subToolId,
+                $source
+            );
+
+            return null;
+        }
+
+        try {
+            $providerCost = BigDecimal::of(trim((string) $rawProviderCost));
+        } catch (MathException) {
+            $this->warnSkipped(
+                'metadata.provider_cost_usd is invalid; no speech-to-text points were deducted',
+                $userId,
+                $conversationId,
+                $subToolId,
+                $source
+            );
+
+            return null;
+        }
+
+        if ($providerCost->isNegative()) {
+            $this->warnSkipped(
+                'metadata.provider_cost_usd is negative; no speech-to-text points were deducted',
+                $userId,
+                $conversationId,
+                $subToolId,
+                $source
+            );
+
+            return null;
+        }
+
+        return $providerCost;
+    }
+
+    private function skippedResult(string $source = 'cost.total_cost'): array
     {
         return [
             'status' => 'skipped_invalid_cost',
-            'source' => 'cost.total_cost',
+            'source' => $source,
             'total_cost' => null,
             'currency' => null,
             'points_per_usd' => self::POINTS_PER_USD,
@@ -208,14 +373,19 @@ class ProviderCostBillingService
         string $reason,
         int $userId,
         int $conversationId,
-        int $subToolId
+        int $subToolId,
+        string $source = 'cost.total_cost'
     ): void {
-        Log::warning('Provider cost billing skipped.', [
+        $message = $source === 'metadata.provider_cost_usd'
+            ? 'Speech-to-text provider cost billing skipped.'
+            : 'Provider cost billing skipped.';
+
+        Log::warning($message, [
             'reason' => $reason,
             'user_id' => $userId,
             'conversation_id' => $conversationId,
             'sub_tool_id' => $subToolId,
-            'source' => 'cost.total_cost',
+            'source' => $source,
         ]);
     }
 }

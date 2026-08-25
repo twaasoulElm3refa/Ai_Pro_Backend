@@ -67,6 +67,7 @@ class YouTubeSummarizerFlowTest extends TestCase
         $subTool = SubTools::findOrFail(YouTubeSummarizerService::SUB_TOOL_ID);
 
         $this->assertSame('youtube_summarizer', $subTool->slug);
+        $this->assertSame(6, (int) $subTool->main_tool_id);
         $this->assertSame('youtube_summarizer', data_get($subTool->config, 'tool_key'));
         $this->assertSame('youtube_summarizer', data_get($subTool->config, 'model_key'));
 

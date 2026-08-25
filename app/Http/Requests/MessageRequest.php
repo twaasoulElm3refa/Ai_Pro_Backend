@@ -7,6 +7,7 @@ use App\Services\AI\DynamicToolConfigService;
 use App\Services\BackgroundRemoverService;
 use App\Services\ImagePromptGeneratorService;
 use App\Services\ImageUpscalerService;
+use App\Services\SpeechToTextService;
 use App\Services\YouTubeSummarizerService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -23,6 +24,7 @@ class MessageRequest extends FormRequest
     private const IMAGE_UPSCALER_SUB_TOOL_ID = 23;
     private const IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID = 24;
     private const YOUTUBE_SUMMARIZER_SUB_TOOL_ID = 25;
+    private const SPEECH_TO_TEXT_SUB_TOOL_ID = 26;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
@@ -142,6 +144,7 @@ class MessageRequest extends FormRequest
             'task_options.web_search_total_results' => ['nullable', 'integer', 'min:1', 'max:20'],
             'task_options.max_tokens' => ['nullable', 'integer', 'min:100', 'max:8000'],
             'task_options.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
+            'payload' => ['nullable', 'json', 'max:100000'],
         ];
 
         $subToolId = (int) $this->input('sub_tool_id');
@@ -168,6 +171,10 @@ class MessageRequest extends FormRequest
 
         if ($this->isYouTubeSummarizerRequest()) {
             return array_merge($rules, $this->youTubeSummarizerRules());
+        }
+
+        if ($this->isSpeechToTextRequest()) {
+            return array_merge($rules, $this->speechToTextRules());
         }
 
         if (in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)) {
@@ -280,6 +287,30 @@ class MessageRequest extends FormRequest
         ];
     }
 
+    private function speechToTextRules(): array
+    {
+        return [
+            'payload' => ['required', 'json', 'max:100000'],
+            'sub_tool_id' => ['required', 'integer', Rule::in([self::SPEECH_TO_TEXT_SUB_TOOL_ID])],
+            'content' => ['nullable', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'user_message' => ['required', 'string', 'max:5000'],
+            'file' => [
+                'required',
+                'file',
+                'max:25600',
+                'mimes:mp3,mp4,mpeg,mpga,m4a,wav,webm,ogg,flac',
+            ],
+            'state' => ['required', 'array'],
+            'state.provider' => ['nullable', 'string', 'max:100'],
+            'state.language' => ['required', 'string', 'regex:/^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/'],
+            'state.extra_options' => ['nullable', 'array', 'max:20'],
+            'state.extra_options.*' => ['string', 'max:150'],
+            'state.last_output' => ['nullable', 'string', 'max:100000'],
+            'idempotency_key' => ['nullable', 'uuid'],
+        ];
+    }
+
     private function imageUpscalerRules(): array
     {
         return [
@@ -297,6 +328,7 @@ class MessageRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $this->normalizeMultipartPayload();
         $this->normalizeMessageTextFields();
 
         if (! $this->filled('sub_tool_id')) {
@@ -329,6 +361,37 @@ class MessageRequest extends FormRequest
         $this->normalizeImageUpscalerStateForValidation();
         $this->normalizeImagePromptGeneratorStateForValidation();
         $this->normalizeYouTubeSummarizerStateForValidation();
+    }
+
+    private function normalizeMultipartPayload(): void
+    {
+        $payload = $this->input('payload');
+
+        if (! is_string($payload) || trim($payload) === '') {
+            return;
+        }
+
+        $decoded = json_decode($payload, true);
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
+            return;
+        }
+
+        $decodedSubToolId = (int) ($decoded['sub_tool_id'] ?? 0);
+        $decodedToolKey = strtolower(trim((string) ($decoded['tool_key'] ?? $decoded['tool'] ?? '')));
+        $decodedModelKey = strtolower(trim((string) ($decoded['model_key'] ?? '')));
+        if (
+            $decodedSubToolId !== self::SPEECH_TO_TEXT_SUB_TOOL_ID
+            && $decodedToolKey !== SpeechToTextService::TOOL_KEY
+            && $decodedModelKey !== SpeechToTextService::MODEL_KEY
+        ) {
+            return;
+        }
+
+        if ($this->user()) {
+            $decoded['user_id'] = (int) $this->user()->id;
+        }
+
+        $this->merge($decoded);
     }
 
     private function normalizeMessageTextFields(): void
@@ -544,6 +607,16 @@ class MessageRequest extends FormRequest
         return (int) $this->input('sub_tool_id') === self::YOUTUBE_SUMMARIZER_SUB_TOOL_ID
             || $toolKey === YouTubeSummarizerService::TOOL_KEY
             || $modelKey === YouTubeSummarizerService::MODEL_KEY;
+    }
+
+    private function isSpeechToTextRequest(): bool
+    {
+        $toolKey = strtolower(trim((string) ($this->input('tool_key') ?: $this->input('tool'))));
+        $modelKey = strtolower(trim((string) $this->input('model_key')));
+
+        return (int) $this->input('sub_tool_id') === self::SPEECH_TO_TEXT_SUB_TOOL_ID
+            || $toolKey === SpeechToTextService::TOOL_KEY
+            || $modelKey === SpeechToTextService::MODEL_KEY;
     }
 
     private function firstFilledScalar(array $keys): ?string

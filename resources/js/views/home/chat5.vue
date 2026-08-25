@@ -1220,6 +1220,16 @@ async function fetchProtectedBlob(url) {
 async function loadSubtool() {
     try {
         const data = responseData(await homeService.showSubtool(route.params.slug));
+
+        if (Number(data?.id || data?.sub_tool_id) === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
+            const suffix = route.params.uuid ? `/${route.params.uuid}` : "";
+            await router.replace(
+                `/${homeService.getLang()}/subtool/${route.params.slug}/chat6${suffix}`
+            );
+
+            return;
+        }
+
         currentSubtool.value = data;
     } catch {
         currentSubtool.value = {

@@ -131,6 +131,44 @@ class ProviderCostBillingServiceTest extends TestCase
         }
     }
 
+    public function test_speech_to_text_uses_provider_cost_metadata_and_deduplicates_the_request(): void
+    {
+        [$user, $conversation] = $this->makeContext(26, 1_000);
+        $providerResponse = [
+            'cost' => ['total_cost' => 0.9, 'currency' => 'USD'],
+            'usage' => ['cost' => 0.8],
+            'metadata' => [
+                'provider_cost_usd' => 0.000439365,
+                'usage' => ['cost' => 0.7],
+            ],
+        ];
+
+        $first = $this->billing()->chargeSpeechToTextResponse(
+            $user->id,
+            $conversation->id,
+            26,
+            $providerResponse,
+            'speech-idempotency-key',
+            'openai/whisper-large-v3'
+        );
+        $duplicate = $this->billing()->chargeSpeechToTextResponse(
+            $user->id,
+            $conversation->id,
+            26,
+            $providerResponse,
+            'speech-idempotency-key',
+            'openai/whisper-large-v3'
+        );
+
+        $this->assertSame('metadata.provider_cost_usd', $first['source']);
+        $this->assertSame(439, $first['points_to_deduct']);
+        $this->assertSame(439, $first['points_deducted']);
+        $this->assertSame('already_charged', $duplicate['status']);
+        $this->assertSame(0, $duplicate['points_deducted']);
+        $this->assertSame(561, Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertDatabaseCount('cost_loggers', 1);
+    }
+
     private function billing(): ProviderCostBillingService
     {
         return app(ProviderCostBillingService::class);

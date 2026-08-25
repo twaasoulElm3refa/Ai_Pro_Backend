@@ -147,6 +147,10 @@ class ConversationMessageCacheService
                     'transcript_chars',
                     'transcript_segments',
                     'transcript_is_generated',
+                    'transcript',
+                    'detected_language',
+                    'duration_seconds',
+                    'original_filename',
                 ] as $key) {
                     if (array_key_exists($key, $metadata)) {
                         $responseMessage[$key] = $metadata[$key];

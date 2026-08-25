@@ -12,26 +12,24 @@ class YouTubeSummarizerSeeder extends Seeder
     public function run(): void
     {
         $existing = SubTools::withTrashed()->find(YouTubeSummarizerService::SUB_TOOL_ID);
-        $mainToolId = $existing?->main_tool_id
-            ?? SubTools::withTrashed()
-                ->where('slug', 'ai-text-summarizer')
-                ->value('main_tool_id')
-            ?? MainTools::query()->oldest('id')->value('id');
+        $chat6Tool = MainTools::withTrashed()->find(6);
 
-        if (! $mainToolId) {
-            $mainTool = MainTools::firstOrCreate(
-                ['slug' => 'ai-content-tools'],
-                [
-                    'name' => 'AI Content Tools',
-                    'meta_name' => 'AI Content Tools',
-                    'description' => 'Create, summarize, and improve content with AI.',
-                    'meta_description' => 'AI tools for creating and summarizing content.',
-                    'is_active' => true,
-                    'sort_order' => 1,
-                ]
-            );
-            $mainToolId = $mainTool->id;
+        if (! $chat6Tool) {
+            $chat6Tool = MainTools::forceCreate([
+                'id' => 6,
+                'name' => 'Audio & Video AI Tools',
+                'meta_name' => 'Audio & Video AI Tools',
+                'description' => 'Summarize video and transcribe audio with AI.',
+                'meta_description' => 'AI tools for YouTube summaries and speech-to-text transcription.',
+                'slug' => 'audio-video-ai-tools',
+                'is_active' => true,
+                'sort_order' => 6,
+            ]);
+        } elseif ($chat6Tool->trashed()) {
+            $chat6Tool->restore();
         }
+
+        $mainToolId = $chat6Tool->id;
 
         $config = [
             'tool_key' => YouTubeSummarizerService::TOOL_KEY,

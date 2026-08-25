@@ -10,7 +10,7 @@
         <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
             <div class="sidebar-brand">
                 <span class="brand-icon">
-                    <i class="bi bi-youtube"></i>
+                    <i :class="activeToolIcon"></i>
                 </span>
 
                 <strong>{{ activeTitle }}</strong>
@@ -131,7 +131,7 @@
                     class="welcome-card"
                 >
                     <span class="welcome-icon">
-                        <i class="bi bi-youtube"></i>
+                        <i :class="activeToolIcon"></i>
                     </span>
 
                     <h1>
@@ -163,7 +163,7 @@
                         class="suggestion"
                         @click="fillExample"
                     >
-                        {{ labels.example }}
+                        {{ toolLabels.example }}
                     </button>
                 </div>
 
@@ -210,7 +210,7 @@
                         class="message-row assistant generation-message"
                     >
                         <div class="avatar generation-avatar">
-                            <i class="bi bi-youtube"></i>
+                            <i :class="activeToolIcon"></i>
                         </div>
 
                         <div class="message-body card-shell generation-loading">
@@ -225,11 +225,11 @@
 
                                     <div>
                                         <strong>
-                                            {{ labels.summarizing }}
+                                            {{ activeGenerating }}
                                         </strong>
 
                                         <small>
-                                            {{ labels.summarizingHint }}
+                                            {{ activeGenerationWait }}
                                         </small>
                                     </div>
 
@@ -286,9 +286,6 @@
                     </button>
                 </div>
 
-                <!-- =========================
-                     YOUTUBE OPTIONS
-                ========================== -->
                 <details class="options-panel">
 
                     <summary class="options-panel-header">
@@ -307,88 +304,36 @@
 
                     </summary>
 
-                    <div class="options-form">
-
-                        <!-- Summary Language -->
+                    <div v-if="isYouTubeSummarizer" class="options-form">
                         <label>
-                            <span>
-                                {{ labels.language }}
-                            </span>
-
-                            <select v-model="state.language">
-                                <option value="Auto Detect">
-                                    Auto Detect
-                                </option>
-
-                                <option value="English">
-                                    English
-                                </option>
-
-                                <option value="Arabic">
-                                    Arabic
-                                </option>
+                            <span>{{ toolLabels.summaryLanguage }}</span>
+                            <select v-model="state.summary_language" :disabled="isSending">
+                                <option value="Arabic">Arabic</option>
+                                <option value="English">English</option>
                             </select>
                         </label>
-
-                        <!-- Summary Length -->
                         <label>
-                            <span>
-                                {{ labels.summaryLength }}
-                            </span>
+                            <span>{{ toolLabels.maxWords }}</span>
+                            <input v-model.number="state.max_summary_words" type="number" min="50" max="10000" :disabled="isSending">
+                        </label>
+                        <label class="wide">
+                            <span>{{ toolLabels.summaryStyle }}</span>
+                            <input v-model="state.summary_style" type="text" :disabled="isSending">
+                        </label>
+                        <label class="wide">
+                            <span>{{ toolLabels.transcriptLanguages }}</span>
+                            <input v-model="youtubeTranscriptLanguages" type="text" :disabled="isSending" placeholder="ar, en">
+                        </label>
+                    </div>
 
-                            <select v-model="state.summary_length">
-                                <option value="short">
-                                    {{ labels.short }}
-                                </option>
-
-                                <option value="medium">
-                                    {{ labels.medium }}
-                                </option>
-
-                                <option value="detailed">
-                                    {{ labels.detailed }}
-                                </option>
+                    <div v-else class="options-form">
+                        <label>
+                            <span>{{ toolLabels.language }}</span>
+                            <select v-model="state.language" :disabled="isSending">
+                                <option value="ar">Arabic</option>
+                                <option value="en">English</option>
                             </select>
                         </label>
-
-                        <!-- Summary Style -->
-                        <label>
-                            <span>
-                                {{ labels.summaryStyle }}
-                            </span>
-
-                            <select v-model="state.summary_style">
-                                <option value="key-points">
-                                    {{ labels.keyPoints }}
-                                </option>
-
-                                <option value="paragraphs">
-                                    {{ labels.paragraphs }}
-                                </option>
-
-                                <option value="both">
-                                    {{ labels.both }}
-                                </option>
-                            </select>
-                        </label>
-
-                        <!-- Include Timestamps -->
-                        <label>
-                            <span>
-                                {{ labels.timestamps }}
-                            </span>
-
-                            <select v-model="state.include_timestamps">
-                                <option :value="true">
-                                    {{ labels.yes }}
-                                </option>
-
-                                <option :value="false">
-                                    {{ labels.no }}
-                                </option>
-                            </select>
-                        </label>
-
                     </div>
 
                 </details>
@@ -398,6 +343,34 @@
                 ========================== -->
                 <div class="input-box">
 
+                    <input
+                        ref="fileInputRef"
+                        class="hidden-file-input"
+                        type="file"
+                        accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm,.ogg,.flac,audio/*"
+                        :disabled="isSending"
+                        @change="handleFileSelect"
+                    >
+
+                    <button
+                        v-if="isSpeechToText"
+                        type="button"
+                        class="attach-button"
+                        :disabled="isSending"
+                        :title="toolLabels.selectAudio"
+                        @click="triggerFileInput"
+                    >
+                        <i class="bi bi-paperclip"></i>
+                    </button>
+
+                    <div v-if="isSpeechToText && selectedFile" class="selected-audio-file">
+                        <i class="bi bi-music-note-beamed"></i>
+                        <span>{{ selectedFile.name }}</span>
+                        <button type="button" :disabled="isSending" :title="toolLabels.removeFile" @click="removeSelectedFile">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+
                     <textarea
                         ref="textareaRef"
                         v-model="userMessage"
@@ -406,7 +379,7 @@
                         :placeholder="activePlaceholder"
                         :disabled="isSending"
                         @input="autoResize"
-                        @keydown.enter.exact.prevent="sendMessage"
+                        @keydown.enter.exact.prevent="sendMessage()"
                     ></textarea>
 
                     <button
@@ -458,21 +431,43 @@ import {
 // TOOL CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TOOL_CONFIG = {
-    sub_tool_id: null,
-    tool_key: "",
-    model_key: "",
-    task_key: "",
+const YOUTUBE_SUMMARIZER_TOOL = {
+    sub_tool_id: 25,
+    tool_key: "youtube_summarizer",
+    model_key: "youtube_summarizer",
+    task_key: "youtube_summarizer",
+};
+
+const SPEECH_TO_TEXT_TOOL = {
+    sub_tool_id: 26,
+    tool_key: "speech_to_text",
+    model_key: "speech_to_text",
+    task_key: "speech_to_text",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT STATE
 // ─────────────────────────────────────────────────────────────────────────────
 
-const createDefaultState = () => ({
-    provider: null,
-    last_output: null,
-});
+function createDefaultState(subToolId = YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
+    if (Number(subToolId) === SPEECH_TO_TEXT_TOOL.sub_tool_id) {
+        return {
+            provider: null,
+            language: "ar",
+            extra_options: [],
+            last_output: null,
+        };
+    }
+
+    return {
+        transcript_languages: ["ar", "en"],
+        summary_language: "Arabic",
+        summary_style: "structured summary with a headline and key points",
+        max_summary_words: 1000,
+        extra_options: [],
+        last_output: null,
+    };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPOSABLES
@@ -493,7 +488,11 @@ const conversations = ref([]);
 const messages = ref([]);
 
 const userMessage = ref("");
-const state = ref(createDefaultState());
+const state = ref(createDefaultState(
+    String(route.params.slug) === SPEECH_TO_TEXT_TOOL.tool_key
+        ? SPEECH_TO_TEXT_TOOL.sub_tool_id
+        : YOUTUBE_SUMMARIZER_TOOL.sub_tool_id
+));
 
 const errorMessage = ref("");
 const lastFailedRequest = ref(null);
@@ -510,6 +509,8 @@ const desktopSidebarCollapsed = ref(false);
 
 const messagesContainer = ref(null);
 const textareaRef = ref(null);
+const fileInputRef = ref(null);
+const selectedFile = ref(null);
 
 const previewUrls = ref({});
 const previewLoading = ref({});
@@ -556,10 +557,16 @@ const activeSubToolId = computed(() =>
         activeConversation.value?.sub_tool_id ||
         currentSubtool.value?.id ||
         currentSubtool.value?.sub_tool_id ||
-        TOOL_CONFIG.sub_tool_id ||
-        0
+        (String(route.params.slug) === SPEECH_TO_TEXT_TOOL.tool_key
+            ? SPEECH_TO_TEXT_TOOL.sub_tool_id
+            : YOUTUBE_SUMMARIZER_TOOL.sub_tool_id)
     )
 );
+
+const isSpeechToText = computed(() => activeSubToolId.value === SPEECH_TO_TEXT_TOOL.sub_tool_id);
+const isYouTubeSummarizer = computed(() => activeSubToolId.value === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id);
+const activeToolConfig = computed(() => isSpeechToText.value ? SPEECH_TO_TEXT_TOOL : YOUTUBE_SUMMARIZER_TOOL);
+const activeToolIcon = computed(() => isSpeechToText.value ? "bi bi-mic-fill" : "bi bi-youtube");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LABELS
@@ -765,48 +772,126 @@ const labels = computed(() =>
 // ACTIVE TOOL
 // ─────────────────────────────────────────────────────────────────────────────
 
+const toolLabels = computed(() => {
+    if (isSpeechToText.value) {
+        return isArabic.value ? {
+            title: "تحويل الصوت إلى نص",
+            welcome: "ارفع ملفًا صوتيًا لتحويل الكلام إلى نص دقيق.",
+            example: "Transcribe the uploaded Arabic audio accurately.",
+            placeholder: "تعليمات إضافية اختيارية للتفريغ...",
+            send: "تحويل الصوت إلى نص",
+            generating: "جاري تحويل الصوت إلى نص...",
+            generationWait: "قد يستغرق رفع الملف ومعالجته بضع لحظات.",
+            generated: "تم تحويل الصوت إلى نص",
+            genericError: "تعذر تحويل الصوت إلى نص الآن. حاول مرة أخرى.",
+            fileRequired: "اختر ملفًا صوتيًا أولًا.",
+            language: "لغة الصوت",
+            selectAudio: "اختيار ملف صوتي",
+            removeFile: "إزالة الملف",
+        } : {
+            title: "Speech To Text",
+            welcome: "Upload an audio file to convert its speech into an accurate transcript.",
+            example: "Transcribe the uploaded Arabic audio accurately.",
+            placeholder: "Optional transcription instructions...",
+            send: "Transcribe audio",
+            generating: "Transcribing the uploaded audio...",
+            generationWait: "Uploading and processing the audio may take a few moments.",
+            generated: "Audio transcribed",
+            genericError: "The audio could not be transcribed right now. Please try again.",
+            fileRequired: "Select an audio file first.",
+            language: "Audio language",
+            selectAudio: "Select audio file",
+            removeFile: "Remove file",
+        };
+    }
+
+    return isArabic.value ? {
+        title: "ملخص يوتيوب بالذكاء الاصطناعي",
+        welcome: "ألصق رابط فيديو يوتيوب للحصول على ملخص منظم من النص المتاح.",
+        example: "https://www.youtube.com/watch?v=by12E-0i7qI",
+        placeholder: "ألصق رابط فيديو يوتيوب...",
+        send: "تلخيص الفيديو",
+        generating: "جاري جلب النص وتلخيص الفيديو...",
+        generationWait: "قد يستغرق هذا بعض الوقت حسب طول الفيديو وتوفر النص.",
+        generated: "تم إنشاء ملخص الفيديو",
+        genericError: "تعذر تلخيص الفيديو الآن. حاول مرة أخرى.",
+        promptRequired: "ألصق رابط فيديو يوتيوب أولًا.",
+        summaryLanguage: "لغة الملخص",
+        summaryStyle: "أسلوب الملخص",
+        maxWords: "الحد الأقصى للكلمات",
+        transcriptLanguages: "لغات النص المفضلة",
+    } : {
+        title: "AI YouTube Summarizer",
+        welcome: "Paste a YouTube video URL to get a structured summary from its available transcript.",
+        example: "https://www.youtube.com/watch?v=by12E-0i7qI",
+        placeholder: "Paste a YouTube video URL...",
+        send: "Summarize video",
+        generating: "Retrieving the transcript and summarizing the video...",
+        generationWait: "This can take a moment depending on transcript availability and video length.",
+        generated: "Video summary generated",
+        genericError: "The video could not be summarized right now. Please try again.",
+        promptRequired: "Paste a YouTube video URL first.",
+        summaryLanguage: "Summary language",
+        summaryStyle: "Summary style",
+        maxWords: "Maximum words",
+        transcriptLanguages: "Preferred transcript languages",
+    };
+});
+
 const activeTitle = computed(() =>
     currentSubtool.value?.name ||
     currentSubtool.value?.title ||
-    TOOL_CONFIG.name ||
-    labels.value.title
+    toolLabels.value.title
 );
 
 const activeWelcome = computed(() =>
     currentSubtool.value?.description ||
-    TOOL_CONFIG.description ||
-    labels.value.welcome
+    toolLabels.value.welcome
 );
 
 const activePlaceholder = computed(() =>
-    labels.value.placeholder
+    toolLabels.value.placeholder
 );
 
 const activeSendLabel = computed(() =>
-    labels.value.send
+    toolLabels.value.send
 );
 
 const activeGenerating = computed(() =>
-    labels.value.generating
+    toolLabels.value.generating
 );
 
 const activeGenerationWait = computed(() =>
-    labels.value.generationWait
+    toolLabels.value.generationWait
 );
 
 const activeGenerated = computed(() =>
-    labels.value.generated
+    toolLabels.value.generated
 );
 
 const activeGenericError = computed(() =>
-    labels.value.genericError
+    toolLabels.value.genericError
 );
 
 const canSend = computed(() =>
     !isSending.value &&
     !creatingConversation.value &&
-    Boolean(userMessage.value.trim())
+    (isSpeechToText.value
+        ? Boolean(selectedFile.value)
+        : Boolean(userMessage.value.trim()))
 );
+
+const youtubeTranscriptLanguages = computed({
+    get: () => Array.isArray(state.value.transcript_languages)
+        ? state.value.transcript_languages.join(", ")
+        : "ar, en",
+    set: (value) => {
+        state.value.transcript_languages = String(value || "")
+            .split(",")
+            .map((language) => language.trim().toLowerCase())
+            .filter(Boolean);
+    },
+});
 
 const formattedWalletBalance = computed(() => {
 
@@ -845,7 +930,7 @@ function routePath(uuid = "") {
         ? `/${uuid}`
         : "";
 
-    return `/${homeService.getLang()}/subtool/${route.params.slug}/chat5${suffix}`;
+    return `/${homeService.getLang()}/subtool/${route.params.slug}/chat6${suffix}`;
 }
 
 function responseData(response) {
@@ -869,7 +954,7 @@ function formatConversation(conversation) {
         sub_tool_id: Number(
             conversation?.sub_tool_id ||
             activeSubToolId.value ||
-            TOOL_CONFIG.sub_tool_id ||
+            activeToolConfig.value.sub_tool_id ||
             0
         ),
 
@@ -884,6 +969,14 @@ function mapMessage(message, index) {
     return normalizeImageGenerationMessage(
         message,
         index
+    );
+}
+
+function subToolIdFromMessage(message) {
+    return Number(
+        message?.metadata?.sub_tool_id ||
+        message?.sub_tool_id ||
+        activeSubToolId.value
     );
 }
 
@@ -904,24 +997,23 @@ function normalizeSeed(value) {
         : null;
 }
 
-function cleanRequestState(
-    requestState = {},
-    regenerate = false
-) {
-
-    return {
-        ...createDefaultState(),
-
+function cleanRequestState(requestState = {}, regenerate = false, subToolId = activeSubToolId.value) {
+    const defaults = createDefaultState(subToolId);
+    const cleaned = {
+        ...defaults,
         ...requestState,
-
-        provider:
-            requestState?.provider ?? null,
-
-        last_output:
-            regenerate
-                ? requestState?.last_output ?? null
-                : null,
+        provider: requestState?.provider ?? null,
+        last_output: regenerate ? requestState?.last_output ?? null : null,
     };
+
+    if (Number(subToolId) === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
+        cleaned.transcript_languages = Array.isArray(cleaned.transcript_languages)
+            ? cleaned.transcript_languages.map((language) => String(language).trim().toLowerCase()).filter(Boolean)
+            : [...defaults.transcript_languages];
+        cleaned.max_summary_words = Math.max(50, Math.min(10000, Number(cleaned.max_summary_words || 1000)));
+    }
+
+    return cleaned;
 }
 
 function stateFromMessage(message) {
@@ -935,7 +1027,7 @@ function stateFromMessage(message) {
         typeof candidate === "object"
     ) {
         return {
-            ...createDefaultState(),
+            ...createDefaultState(subToolIdFromMessage(message)),
             ...candidate,
         };
     }
@@ -951,13 +1043,14 @@ function buildPayload(
     prompt,
     conversation,
     requestState,
-    regenerate = false
+    regenerate = false,
+    idempotencyKey = crypto.randomUUID()
 ) {
 
     const subToolId = Number(
         conversation?.sub_tool_id ||
         activeSubToolId.value ||
-        TOOL_CONFIG.sub_tool_id ||
+        activeToolConfig.value.sub_tool_id ||
         0
     );
 
@@ -977,17 +1070,17 @@ function buildPayload(
             subToolId,
 
         tool:
-            TOOL_CONFIG.tool_key,
+            activeToolConfig.value.tool_key,
 
         tool_key:
-            TOOL_CONFIG.tool_key,
+            activeToolConfig.value.tool_key,
 
         model_key:
-            TOOL_CONFIG.model_key,
+            activeToolConfig.value.model_key,
 
         task_key:
-            TOOL_CONFIG.task_key ||
-            TOOL_CONFIG.tool_key,
+            activeToolConfig.value.task_key ||
+            activeToolConfig.value.tool_key,
 
         // Message
         user_message:
@@ -1002,11 +1095,39 @@ function buildPayload(
 
         // Idempotency
         idempotency_key:
-            crypto.randomUUID(),
+            idempotencyKey,
 
         // Debug
         debug: false,
     };
+}
+
+function buildSpeechToTextFormData(conversation, file, requestState, prompt, idempotencyKey) {
+    const payload = {
+        user_id: Number(conversation?.user_id) || null,
+        sub_tool_id: SPEECH_TO_TEXT_TOOL.sub_tool_id,
+        conversation_uuid: conversation.uuid,
+        user_message: prompt || "Transcribe the uploaded Arabic audio accurately.",
+        state: cleanRequestState(requestState, false, SPEECH_TO_TEXT_TOOL.sub_tool_id),
+        debug: false,
+        idempotency_key: idempotencyKey,
+    };
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("payload", JSON.stringify(payload));
+
+    return formData;
+}
+
+function assertSpeechToTextResponse(result) {
+    const isValid = result?.success === true
+        && result?.tool === SPEECH_TO_TEXT_TOOL.tool_key
+        && Number(result?.sub_tool_id) === SPEECH_TO_TEXT_TOOL.sub_tool_id
+        && String(result?.transcript || "").trim() !== "";
+
+    if (!isValid) {
+        throw new Error("The speech-to-text response is invalid or missing its transcript.");
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1023,16 +1144,23 @@ async function loadSubtool() {
             )
         );
 
+        if (![YOUTUBE_SUMMARIZER_TOOL.sub_tool_id, SPEECH_TO_TEXT_TOOL.sub_tool_id].includes(Number(data?.id || data?.sub_tool_id))) {
+            throw new Error("This tool is not available in Chat 6.");
+        }
+
         currentSubtool.value = data;
+        if (!activeConversation.value) {
+            state.value = createDefaultState(Number(data?.id || data?.sub_tool_id));
+        }
 
     } catch {
 
         currentSubtool.value = {
             id:
-                TOOL_CONFIG.sub_tool_id,
+                activeToolConfig.value.sub_tool_id,
 
             sub_tool_id:
-                TOOL_CONFIG.sub_tool_id,
+                activeToolConfig.value.sub_tool_id,
 
             slug:
                 route.params.slug,
@@ -1109,7 +1237,7 @@ async function loadConversationDetails(uuid) {
         state.value =
             latestState
                 ? cleanRequestState(latestState)
-                : createDefaultState();
+                : createDefaultState(activeSubToolId.value);
 
         await loadMessagePreviews();
 
@@ -1179,20 +1307,29 @@ async function ensureConversation() {
 
 async function sendMessage(options = {}) {
 
-    const rawPrompt = String(
+    const enteredPrompt = String(
         options.prompt ??
         userMessage.value
     ).trim();
 
     if (isSending.value) return;
 
-    if (!rawPrompt) {
-
-        errorMessage.value =
-            labels.value.promptRequired;
+    if (isSpeechToText.value && !selectedFile.value) {
+        errorMessage.value = toolLabels.value.fileRequired;
 
         return;
     }
+
+    if (!isSpeechToText.value && !enteredPrompt) {
+
+        errorMessage.value =
+            toolLabels.value.promptRequired;
+
+        return;
+    }
+
+    const rawPrompt = enteredPrompt || "Transcribe the uploaded Arabic audio accurately.";
+    const idempotencyKey = options.idempotencyKey || crypto.randomUUID();
 
     const regenerate =
         Boolean(options.regenerate);
@@ -1201,7 +1338,8 @@ async function sendMessage(options = {}) {
         cleanRequestState(
             options.requestState ||
             state.value,
-            regenerate
+            regenerate,
+            activeSubToolId.value
         );
 
     const optimisticKey =
@@ -1235,7 +1373,9 @@ async function sendMessage(options = {}) {
                         "user",
 
                     content:
-                        rawPrompt,
+                        isSpeechToText.value
+                            ? `🎵 ${selectedFile.value.name}`
+                            : rawPrompt,
 
                     metadata: {
                         state:
@@ -1266,19 +1406,31 @@ async function sendMessage(options = {}) {
                 rawPrompt,
                 conversation,
                 requestState,
-                regenerate
+                regenerate,
+                idempotencyKey
             );
 
         // ─────────────────────────────────────────────
         // API
         // ─────────────────────────────────────────────
 
-        const result =
-            responseData(
-                await chatServices.sendMessage(
-                    payload
+        const result = isSpeechToText.value
+            ? responseData(
+                await chatServices.sendMessageFormData(
+                    buildSpeechToTextFormData(
+                        conversation,
+                        selectedFile.value,
+                        requestState,
+                        rawPrompt,
+                        idempotencyKey
+                    )
                 )
-            );
+            )
+            : responseData(await chatServices.sendMessage(payload));
+
+        if (isSpeechToText.value && result?.success === true) {
+            assertSpeechToTextResponse(result);
+        }
 
         // ─────────────────────────────────────────────
         // Assistant message
@@ -1287,6 +1439,8 @@ async function sendMessage(options = {}) {
         const assistantContent =
             String(
                 result.reply ||
+                result.transcript ||
+                result.summary ||
                 result.message ||
                 result.content ||
                 result.response ||
@@ -1334,6 +1488,10 @@ async function sendMessage(options = {}) {
             assistant
         );
 
+        if (isSpeechToText.value && !assistant.is_error) {
+            removeSelectedFile();
+        }
+
         // ─────────────────────────────────────────────
         // State
         // ─────────────────────────────────────────────
@@ -1357,7 +1515,9 @@ async function sendMessage(options = {}) {
 
                 requestState:
                     cleanRequestState(
-                        requestState
+                        requestState,
+                        false,
+                        activeSubToolId.value
                     ),
 
                 regenerate:
@@ -1379,7 +1539,7 @@ async function sendMessage(options = {}) {
         if (import.meta.env.DEV) {
 
             console.error(
-                "[chat5 send error]",
+                "[chat6 send error]",
                 {
                     status:
                         error?.response?.status,
@@ -1401,6 +1561,8 @@ async function sendMessage(options = {}) {
         errorMessage.value =
             localizeError(message);
 
+        messages.value = messages.value.filter((item) => item.localKey !== optimisticKey);
+
         lastFailedRequest.value = {
 
             prompt:
@@ -1408,11 +1570,14 @@ async function sendMessage(options = {}) {
 
             requestState:
                 cleanRequestState(
-                    requestState
+                    requestState,
+                    false,
+                    activeSubToolId.value
                 ),
 
             regenerate:
                 false,
+            idempotencyKey,
         };
 
     } finally {
@@ -1475,7 +1640,7 @@ function regenerate(message) {
 
     const previousState =
         stateFromMessage(message) ||
-        createDefaultState();
+        createDefaultState(activeSubToolId.value);
 
     sendMessage({
 
@@ -1572,8 +1737,10 @@ async function startNewChat() {
 
         userMessage.value = "";
 
+        removeSelectedFile();
+
         state.value =
-            createDefaultState();
+            createDefaultState(activeSubToolId.value);
 
         errorMessage.value = "";
 
@@ -1657,8 +1824,10 @@ async function deleteConversation(conversation) {
 
             messages.value = [];
 
+            removeSelectedFile();
+
             state.value =
-                createDefaultState();
+                createDefaultState(activeSubToolId.value);
 
             await router.push(
                 routePath()
@@ -2021,11 +2190,28 @@ async function fetchWalletBalance() {
 function fillExample() {
 
     userMessage.value =
-        labels.value.example;
+        toolLabels.value.example;
 
     nextTick(
         autoResize
     );
+}
+
+function triggerFileInput() {
+    fileInputRef.value?.click();
+}
+
+function handleFileSelect(event) {
+    const file = event?.target?.files?.[0] || null;
+    selectedFile.value = file;
+    errorMessage.value = "";
+}
+
+function removeSelectedFile() {
+    selectedFile.value = null;
+    if (fileInputRef.value) {
+        fileInputRef.value.value = "";
+    }
 }
 
 function autoResize() {
@@ -2171,8 +2357,10 @@ watch(
 
             messages.value = [];
 
+            removeSelectedFile();
+
             state.value =
-                createDefaultState();
+                createDefaultState(activeSubToolId.value);
         }
     }
 );
@@ -2200,8 +2388,10 @@ watch(
 
         messages.value = [];
 
+        removeSelectedFile();
+
         state.value =
-            createDefaultState();
+            createDefaultState(activeSubToolId.value);
 
         await initialize();
     }
@@ -3594,6 +3784,34 @@ button:disabled {
     color: var(--navy);
     border-color: var(--blue);
     background: #edf7fc;
+}
+
+.selected-audio-file {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    max-width: 260px;
+    padding: 8px 10px;
+    border: 1px solid #cfdfea;
+    border-radius: 10px;
+    color: var(--ink);
+    background: #f7fbff;
+    font-size: 12px;
+}
+
+.selected-audio-file span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.selected-audio-file button {
+    flex: 0 0 auto;
+    padding: 2px;
+    border: 0;
+    color: var(--muted);
+    background: transparent;
 }
 
 .composer-file-preview {

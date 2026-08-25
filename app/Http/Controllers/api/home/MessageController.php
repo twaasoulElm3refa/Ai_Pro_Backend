@@ -26,6 +26,7 @@ use App\Services\YouTubeSummarizerService;
 use App\Services\ProductDescriptionGeneratorService;
 use App\Services\ResumeBuilderService;
 use App\Services\ScriptGeneratorService;
+use App\Services\SpeechToTextService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -78,7 +79,8 @@ class MessageController extends Controller
             ImagePromptGeneratorService $imagePromptGeneratorService,
             BackgroundRemoverService $backgroundRemoverService,
             ImageUpscalerService $imageUpscalerService,
-            YouTubeSummarizerService $youTubeSummarizerService
+            YouTubeSummarizerService $youTubeSummarizerService,
+            SpeechToTextService $speechToTextService
     )
     {
         Log::info('Message send request received', [
@@ -155,6 +157,11 @@ class MessageController extends Controller
                 $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
                 $requestedModelKey
             );
+            $isSpeechToText = SpeechToTextService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
+                $requestedModelKey
+            );
 
             if ($isBackgroundRemover && $subToolId !== (int) $conversation->sub_tool_id) {
                 return $this->validationError([
@@ -184,6 +191,12 @@ class MessageController extends Controller
                 return $this->validationError([
                     'sub_tool_id' => ['The selected tool does not match this conversation.'],
                 ], 'Invalid YouTube summarizer conversation.');
+            }
+
+            if ($isSpeechToText && $subToolId !== (int) $conversation->sub_tool_id) {
+                return $this->validationError([
+                    'sub_tool_id' => ['The selected tool does not match this conversation.'],
+                ], 'Invalid speech-to-text conversation.');
             }
 
             if ($content === '') {
@@ -263,6 +276,18 @@ class MessageController extends Controller
                 return $this->success(
                     $youTubeSummarizerService->handle($conversation, $data, $content, $userId),
                     'YouTube Summary Ready.'
+                );
+            }
+
+            if ($isSpeechToText) {
+                return $this->success(
+                    $speechToTextService->handle(
+                        $conversation,
+                        $data,
+                        $request->file('file'),
+                        $userId
+                    ),
+                    'Speech To Text Response Ready.'
                 );
             }
 

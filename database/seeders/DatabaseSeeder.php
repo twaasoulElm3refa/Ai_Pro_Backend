@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             // ImagePromptGeneratorSeeder::class,
             AiMainModelSeeder::class,
             YouTubeSummarizerSeeder::class,
+            SpeechToTextSeeder::class,
         ]);
     }
 }
