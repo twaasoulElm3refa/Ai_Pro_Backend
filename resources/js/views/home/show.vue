@@ -299,14 +299,14 @@ const openSubtoolChat = async (subtool) => {
     const chatPage =
         mainToolId === 5
             ? "chat5"
-            : mainToolId === 4
-                ? "chat4"
-                : mainToolId === 3
-                    ? "chat3"
-                    : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
-                        ? "chat2"
-                        : mainToolId === 6
-                            ? "chat6"
+            : mainToolId === 6
+                ? "chat6"
+                : mainToolId === 4
+                    ? "chat4"
+                    : mainToolId === 3
+                        ? "chat3"
+                        : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
+                            ? "chat2"
                             : "chat";
 
     await router.push(
