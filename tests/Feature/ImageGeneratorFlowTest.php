@@ -8,6 +8,7 @@ use App\Models\MainTools;
 use App\Models\Message;
 use App\Models\SubTools;
 use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -104,6 +105,54 @@ class ImageGeneratorFlowTest extends TestCase
                 && $request->url() === self::AI_BASE_URL.'/tasks/generated-files/download/file-1'
                 && $request->header('x-internal-api-key')[0] === self::INTERNAL_KEY;
         });
+    }
+
+    public function test_provider_total_cost_is_deducted_exactly_once_for_the_same_request(): void
+    {
+        [$user, $conversation] = $this->makeContext();
+        $this->fakeSuccessfulGeneration([$this->providerFile('file-1')]);
+        Sanctum::actingAs($user);
+        $idempotencyKey = (string) Str::uuid();
+
+        $this->sendGeneration($conversation, [], null, $idempotencyKey)
+            ->assertOk()
+            ->assertJsonPath('data.success', true);
+        $this->sendGeneration($conversation, [], null, $idempotencyKey)
+            ->assertOk()
+            ->assertJsonPath('data.success', true);
+
+        $this->assertSame(9_400, Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertDatabaseCount('cost_loggers', 1);
+        $this->assertDatabaseHas('messages', [
+            'conversation_id' => $conversation->id,
+            'role' => 'assistant',
+            'is_error' => false,
+        ]);
+
+        $providerCalls = collect(Http::recorded())->filter(
+            fn (array $record): bool => $record[0]->method() === 'POST'
+                && $record[0]->url() === self::AI_BASE_URL.'/tasks/image-generator/chat'
+        );
+        $this->assertCount(1, $providerCalls);
+    }
+
+    public function test_provider_failure_does_not_deduct_wallet_points(): void
+    {
+        [$user, $conversation] = $this->makeContext();
+        Http::fake([
+            self::AI_BASE_URL.'/tasks/image-generator/chat' => Http::response(
+                ['message' => 'Provider failed.'],
+                500
+            ),
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->sendGeneration($conversation)
+            ->assertOk()
+            ->assertJsonPath('data.success', false);
+
+        $this->assertSame(10_000, Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertDatabaseCount('cost_loggers', 0);
     }
 
     public function test_preview_and_download_are_protected_and_do_not_expose_storage_paths(): void
@@ -399,6 +448,13 @@ class ImageGeneratorFlowTest extends TestCase
             'sub_tool_id' => $subTool->id,
             'uuid' => (string) Str::uuid(),
         ]);
+        Wallet::create([
+            'user_id' => $user->id,
+            'uuid' => (string) Str::uuid(),
+            'balance' => 10_000,
+            'payback_balance' => 0,
+            'is_active' => true,
+        ]);
 
         return [$user, $conversation];
     }
@@ -409,8 +465,7 @@ class ImageGeneratorFlowTest extends TestCase
         ?string $prompt = null,
         ?string $idempotencyKey = null,
         bool $regenerate = false
-    )
-    {
+    ) {
         return $this->withHeaders(['X-API-KEY' => self::API_KEY])
             ->postJson('/api/v1/message/send', [
                 'sub_tool_id' => 21,
@@ -466,6 +521,10 @@ class ImageGeneratorFlowTest extends TestCase
             'files' => $files,
             'count' => count($files),
             'request_id' => (string) Str::uuid(),
+            'cost' => [
+                'total_cost' => 0.0006,
+                'currency' => 'USD',
+            ],
             'metadata' => [
                 'size' => '1024x1024',
                 'quality' => 'medium',

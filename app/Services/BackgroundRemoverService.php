@@ -34,7 +34,8 @@ class BackgroundRemoverService
     private const MAX_GENERATED_BYTES = 25 * 1024 * 1024;
 
     public function __construct(
-        private readonly ConversationMessageCacheService $messageCache
+        private readonly ConversationMessageCacheService $messageCache,
+        private readonly ProviderCostBillingService $billingService
     ) {}
 
     public static function supports(int $subToolId, ?string $toolKey = null, ?string $modelKey = null): bool
@@ -346,7 +347,7 @@ class BackgroundRemoverService
         $provider = $aiResult['provider'] ?? data_get($aiResult, 'data.provider');
         $model = $aiResult['model'] ?? data_get($aiResult, 'data.model');
         $requestId = $aiResult['request_id'] ?? data_get($aiResult, 'data.request_id');
-        $cost = $aiResult['cost'] ?? data_get($aiResult, 'metadata.provider_cost_usd');
+        $cost = is_array($aiResult['cost'] ?? null) ? $aiResult['cost'] : [];
         $metadata = is_array($aiResult['metadata'] ?? null) ? $aiResult['metadata'] : [];
         $content = trim((string) ($aiResult['message'] ?? data_get($aiResult, 'data.message') ?? ''))
             ?: 'تمت إزالة الخلفية بنجاح.';
@@ -365,8 +366,18 @@ class BackgroundRemoverService
             $requestId,
             $cost,
             $metadata,
+            $aiResult,
             $userId
         ): Message {
+            $billing = $this->billingService->chargeSuccessfulResponse(
+                $userId,
+                (int) $conversation->id,
+                self::SUB_TOOL_ID,
+                $aiResult,
+                is_scalar($requestId) ? (string) $requestId : null,
+                is_scalar($model) ? (string) $model : null
+            );
+
             $assistantMessage = Message::create([
                 'conversation_id' => $conversation->id,
                 'role' => 'assistant',
@@ -392,6 +403,8 @@ class BackgroundRemoverService
                     'count' => count($publicFiles),
                     'generation' => $metadata,
                     'cost' => $cost,
+                    'points_deducted' => $billing['points_deducted'],
+                    'billing' => $billing,
                 ],
             ]);
 

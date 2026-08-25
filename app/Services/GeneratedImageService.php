@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Conversation;
-use App\Models\CostLogger;
 use App\Models\GeneratedImage;
 use App\Models\Message;
 use Illuminate\Http\Client\Response;
@@ -36,7 +35,8 @@ class GeneratedImageService
 
     public function __construct(
         private readonly AiArabicWriterService $writerService,
-        private readonly ConversationMessageCacheService $messageCache
+        private readonly ConversationMessageCacheService $messageCache,
+        private readonly ProviderCostBillingService $billingService
     ) {}
 
     public static function supports(int $subToolId, ?string $toolKey = null): bool
@@ -264,10 +264,7 @@ class GeneratedImageService
             'image_ids' => array_column($publicImages, 'id'),
         ];
         $usage = $this->normalizeUsage($providerResponse['usage'] ?? $providerPayload['usage'] ?? []);
-        $cost = $this->normalizeCost(
-            $providerResponse['cost'] ?? $providerPayload['cost'] ?? [],
-            data_get($providerPayload, 'metadata.provider_cost_usd')
-        );
+        $cost = $this->normalizeCost($providerResponse['cost'] ?? []);
         $storedPaths = array_column($storedFiles, 'path');
 
         try {
@@ -286,8 +283,18 @@ class GeneratedImageService
                 $generation,
                 $usage,
                 $cost,
+                $providerResponse,
                 $userId
             ): Message {
+                $billing = $this->billingService->chargeSuccessfulResponse(
+                    $userId,
+                    (int) $conversation->id,
+                    self::SUB_TOOL_ID,
+                    $providerResponse,
+                    $requestId,
+                    $model
+                );
+
                 $assistantMessage = Message::create([
                     'conversation_id' => $conversation->id,
                     'role' => 'assistant',
@@ -314,6 +321,8 @@ class GeneratedImageService
                         'generation' => $generation,
                         'usage' => $usage,
                         'cost' => $cost,
+                        'points_deducted' => $billing['points_deducted'],
+                        'billing' => $billing,
                     ],
                 ]);
 
@@ -335,27 +344,6 @@ class GeneratedImageService
                             'provider' => $provider,
                             'model' => $model,
                         ],
-                    ]);
-                }
-
-                if (
-                    (int) ($usage['total_tokens'] ?? 0) > 0
-                    || (float) ($cost['total_cost'] ?? 0) > 0
-                ) {
-                    CostLogger::create([
-                        'conversation_id' => $conversation->id,
-                        'user_id' => $userId,
-                        'sub_tool_id' => self::SUB_TOOL_ID,
-                        'input_tokens' => (int) ($usage['input_tokens'] ?? 0),
-                        'output_tokens' => (int) ($usage['output_tokens'] ?? 0),
-                        'total_tokens' => (int) ($usage['total_tokens'] ?? 0),
-                        'input_cost' => (float) ($cost['input_cost'] ?? 0),
-                        'output_cost' => (float) ($cost['output_cost'] ?? 0),
-                        'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
-                        'total_cost' => (float) ($cost['total_cost'] ?? 0),
-                        'currency' => (string) ($cost['currency'] ?? 'USD'),
-                        'provider_request_id' => $requestId,
-                        'model_key' => $model,
                     ]);
                 }
 
@@ -664,7 +652,7 @@ class GeneratedImageService
         ];
     }
 
-    private function normalizeCost(mixed $cost, mixed $providerCost): array
+    private function normalizeCost(mixed $cost): array
     {
         $cost = is_array($cost) ? $cost : [];
 
@@ -672,7 +660,9 @@ class GeneratedImageService
             'input_cost' => (float) ($cost['input_cost'] ?? 0),
             'output_cost' => (float) ($cost['output_cost'] ?? 0),
             'web_search_cost' => (float) ($cost['web_search_cost'] ?? 0),
-            'total_cost' => (float) ($cost['total_cost'] ?? (is_numeric($providerCost) ? $providerCost : 0)),
+            'total_cost' => is_numeric($cost['total_cost'] ?? null)
+                ? (float) $cost['total_cost']
+                : null,
             'currency' => strtoupper((string) ($cost['currency'] ?? 'USD')),
         ];
     }

@@ -7,6 +7,7 @@ use App\Models\GeneratedImage;
 use App\Models\MainTools;
 use App\Models\SubTools;
 use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
@@ -21,7 +22,9 @@ class BackgroundRemoverFlowTest extends TestCase
     use RefreshDatabase;
 
     private const API_KEY = 'testing-public-api-key';
+
     private const INTERNAL_KEY = 'testing-internal-background-key';
+
     private const AI_BASE_URL = 'https://ai.internal.test';
 
     protected function setUp(): void
@@ -74,6 +77,13 @@ class BackgroundRemoverFlowTest extends TestCase
         $file = GeneratedImage::firstOrFail();
         $this->assertSame(22, $file->sub_tool_id);
         Storage::disk('public')->assertExists($file->path);
+        $this->assertSame(9_400, Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertDatabaseHas('cost_loggers', [
+            'conversation_id' => $conversation->id,
+            'sub_tool_id' => 22,
+            'total_cost' => 0.0006,
+            'currency' => 'USD',
+        ]);
 
         Http::assertSent(function (Request $request): bool {
             return $request->method() === 'POST'
@@ -115,11 +125,20 @@ class BackgroundRemoverFlowTest extends TestCase
             ],
         ]);
 
-        return [$user, Conversation::create([
+        $conversation = Conversation::create([
             'user_id' => $user->id,
             'sub_tool_id' => $subTool->id,
             'uuid' => (string) Str::uuid(),
-        ])];
+        ]);
+        Wallet::create([
+            'user_id' => $user->id,
+            'uuid' => (string) Str::uuid(),
+            'balance' => 10_000,
+            'payback_balance' => 0,
+            'is_active' => true,
+        ]);
+
+        return [$user, $conversation];
     }
 
     private function sendRemoval(Conversation $conversation)
@@ -156,6 +175,10 @@ class BackgroundRemoverFlowTest extends TestCase
                 ]],
                 'count' => 1,
                 'request_id' => (string) Str::uuid(),
+                'cost' => [
+                    'total_cost' => 0.0006,
+                    'currency' => 'USD',
+                ],
                 'metadata' => ['provider_cost_usd' => 0.0006],
             ]),
             self::AI_BASE_URL.'/tasks/generated-files/download/background-file-1' => Http::response(
