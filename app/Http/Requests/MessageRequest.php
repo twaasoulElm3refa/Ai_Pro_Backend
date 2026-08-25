@@ -8,6 +8,7 @@ use App\Services\BackgroundRemoverService;
 use App\Services\ImagePromptGeneratorService;
 use App\Services\ImageUpscalerService;
 use App\Services\SpeechToTextService;
+use App\Services\TextToSpeechService;
 use App\Services\YouTubeSummarizerService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,6 +26,7 @@ class MessageRequest extends FormRequest
     private const IMAGE_PROMPT_GENERATOR_SUB_TOOL_ID = 24;
     private const YOUTUBE_SUMMARIZER_SUB_TOOL_ID = 25;
     private const SPEECH_TO_TEXT_SUB_TOOL_ID = 26;
+    private const TEXT_TO_SPEECH_SUB_TOOL_ID = 27;
     private const CHAT3_SEO_SUB_TOOL_IDS = [13, 14, 15, 16, 17, 18, 20];
 
     /**
@@ -177,6 +179,10 @@ class MessageRequest extends FormRequest
             return array_merge($rules, $this->speechToTextRules());
         }
 
+        if ($subToolId === self::TEXT_TO_SPEECH_SUB_TOOL_ID) {
+            return array_merge($rules, $this->textToSpeechRules());
+        }
+
         if (in_array($subToolId, self::CHAT3_SEO_SUB_TOOL_IDS, true)) {
             return array_merge($rules, $this->chat3SeoStateRules());
         }
@@ -307,6 +313,31 @@ class MessageRequest extends FormRequest
             'state.extra_options' => ['nullable', 'array', 'max:20'],
             'state.extra_options.*' => ['string', 'max:150'],
             'state.last_output' => ['nullable', 'string', 'max:100000'],
+            'idempotency_key' => ['nullable', 'uuid'],
+        ];
+    }
+
+    private function textToSpeechRules(): array
+    {
+        return [
+            'sub_tool_id' => ['required', 'integer', Rule::in([self::TEXT_TO_SPEECH_SUB_TOOL_ID])],
+            'content' => ['nullable', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+            'user_message' => ['required', 'string', 'max:5000'],
+            'tool' => ['nullable', Rule::in([TextToSpeechService::TOOL_KEY])],
+            'tool_key' => ['nullable', Rule::in([TextToSpeechService::TOOL_KEY])],
+            'model_key' => ['nullable', Rule::in([TextToSpeechService::MODEL_KEY])],
+            'task_key' => ['nullable', Rule::in([TextToSpeechService::TOOL_KEY])],
+            'state' => ['required', 'array'],
+            'state.provider' => ['nullable', 'string', 'max:100'],
+            'state.model' => ['nullable', 'string', 'max:200'],
+            'state.voice' => ['required', Rule::in(['alloy'])],
+            'state.response_format' => ['required', Rule::in(['mp3'])],
+            'state.speed' => ['required', 'numeric', 'min:0.25', 'max:4'],
+            'state.extra_options' => ['present', 'array', 'max:20'],
+            'state.extra_options.*' => ['string', 'max:150'],
+            'state.last_output' => ['nullable'],
+            'debug' => ['required', 'boolean'],
             'idempotency_key' => ['nullable', 'uuid'],
         ];
     }

@@ -135,6 +135,7 @@ class ConversationMessageCacheService
                     'normalized_results',
                     'file',
                     'images',
+                    'files',
                     'generation',
                     'failed_files',
                     'count',

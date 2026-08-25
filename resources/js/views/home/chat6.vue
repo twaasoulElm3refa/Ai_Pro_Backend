@@ -198,6 +198,56 @@
                                 {{ message.content }}
                             </p>
 
+                            <div
+                                v-if="message.role === 'assistant' && message.files?.length"
+                                class="audio-results"
+                            >
+                                <section
+                                    v-for="file in message.files"
+                                    :key="file.id"
+                                    class="audio-result-card"
+                                >
+                                    <div class="audio-result-header">
+                                        <span>
+                                            <i class="bi bi-music-note-beamed"></i>
+                                            {{ file.filename }}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            class="audio-download-button"
+                                            :disabled="actionLoading === `download-${file.id}`"
+                                            @click="downloadImage(file)"
+                                        >
+                                            <i class="bi bi-download"></i>
+                                            {{ labels.download }}
+                                        </button>
+                                    </div>
+
+                                    <div v-if="previewLoading[file.id]" class="audio-loading">
+                                        <span class="generation-spinner" aria-hidden="true"></span>
+                                        {{ labels.loading }}
+                                    </div>
+
+                                    <audio
+                                        v-else-if="previewUrls[file.id]"
+                                        controls
+                                        preload="metadata"
+                                        :src="previewUrls[file.id]"
+                                        :aria-label="file.filename"
+                                    ></audio>
+
+                                    <button
+                                        v-else
+                                        type="button"
+                                        class="audio-retry-button"
+                                        @click="loadImagePreview(file)"
+                                    >
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                        {{ labels.previewFailed }}
+                                    </button>
+                                </section>
+                            </div>
+
                         </div>
 
                     </article>
@@ -326,6 +376,25 @@
                         </label>
                     </div>
 
+                    <div v-else-if="isTextToSpeech" class="options-form">
+                        <label>
+                            <span>{{ toolLabels.voice }}</span>
+                            <select v-model="state.voice" :disabled="isSending">
+                                <option value="alloy">alloy</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>{{ toolLabels.format }}</span>
+                            <select v-model="state.response_format" :disabled="isSending">
+                                <option value="mp3">MP3</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>{{ toolLabels.speed }}</span>
+                            <input v-model.number="state.speed" type="number" min="0.25" max="4" step="0.05" :disabled="isSending">
+                        </label>
+                    </div>
+
                     <div v-else class="options-form">
                         <label>
                             <span>{{ toolLabels.language }}</span>
@@ -445,6 +514,13 @@ const SPEECH_TO_TEXT_TOOL = {
     task_key: "speech_to_text",
 };
 
+const TEXT_TO_SPEECH_TOOL = {
+    sub_tool_id: 27,
+    tool_key: "text_to_speech",
+    model_key: "text_to_speech",
+    task_key: "text_to_speech",
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DEFAULT STATE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -454,6 +530,18 @@ function createDefaultState(subToolId = YOUTUBE_SUMMARIZER_TOOL.sub_tool_id) {
         return {
             provider: null,
             language: "ar",
+            extra_options: [],
+            last_output: null,
+        };
+    }
+
+    if (Number(subToolId) === TEXT_TO_SPEECH_TOOL.sub_tool_id) {
+        return {
+            provider: null,
+            model: null,
+            voice: "alloy",
+            response_format: "mp3",
+            speed: 1.0,
             extra_options: [],
             last_output: null,
         };
@@ -491,7 +579,9 @@ const userMessage = ref("");
 const state = ref(createDefaultState(
     String(route.params.slug) === SPEECH_TO_TEXT_TOOL.tool_key
         ? SPEECH_TO_TEXT_TOOL.sub_tool_id
-        : YOUTUBE_SUMMARIZER_TOOL.sub_tool_id
+        : String(route.params.slug) === TEXT_TO_SPEECH_TOOL.tool_key
+            ? TEXT_TO_SPEECH_TOOL.sub_tool_id
+            : YOUTUBE_SUMMARIZER_TOOL.sub_tool_id
 ));
 
 const errorMessage = ref("");
@@ -559,14 +649,25 @@ const activeSubToolId = computed(() =>
         currentSubtool.value?.sub_tool_id ||
         (String(route.params.slug) === SPEECH_TO_TEXT_TOOL.tool_key
             ? SPEECH_TO_TEXT_TOOL.sub_tool_id
-            : YOUTUBE_SUMMARIZER_TOOL.sub_tool_id)
+            : String(route.params.slug) === TEXT_TO_SPEECH_TOOL.tool_key
+                ? TEXT_TO_SPEECH_TOOL.sub_tool_id
+                : YOUTUBE_SUMMARIZER_TOOL.sub_tool_id)
     )
 );
 
 const isSpeechToText = computed(() => activeSubToolId.value === SPEECH_TO_TEXT_TOOL.sub_tool_id);
+const isTextToSpeech = computed(() => activeSubToolId.value === TEXT_TO_SPEECH_TOOL.sub_tool_id);
 const isYouTubeSummarizer = computed(() => activeSubToolId.value === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id);
-const activeToolConfig = computed(() => isSpeechToText.value ? SPEECH_TO_TEXT_TOOL : YOUTUBE_SUMMARIZER_TOOL);
-const activeToolIcon = computed(() => isSpeechToText.value ? "bi bi-mic-fill" : "bi bi-youtube");
+const activeToolConfig = computed(() => {
+    if (isSpeechToText.value) return SPEECH_TO_TEXT_TOOL;
+    if (isTextToSpeech.value) return TEXT_TO_SPEECH_TOOL;
+    return YOUTUBE_SUMMARIZER_TOOL;
+});
+const activeToolIcon = computed(() => {
+    if (isSpeechToText.value) return "bi bi-mic-fill";
+    if (isTextToSpeech.value) return "bi bi-volume-up-fill";
+    return "bi bi-youtube";
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LABELS
@@ -773,6 +874,38 @@ const labels = computed(() =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 const toolLabels = computed(() => {
+    if (isTextToSpeech.value) {
+        return isArabic.value ? {
+            title: "تحويل النص إلى صوت",
+            welcome: "اكتب النص الذي تريد تحويله إلى ملف صوتي قابل للتشغيل والتنزيل.",
+            example: "مرحبًا بكم في منصتنا الجديدة للذكاء الاصطناعي.",
+            placeholder: "اكتب النص المراد تحويله إلى صوت...",
+            send: "إنشاء الصوت",
+            generating: "جارٍ إنشاء الملف الصوتي...",
+            generationWait: "قد يستغرق إنشاء الصوت وتحميله بضع لحظات.",
+            generated: "تم إنشاء الصوت",
+            genericError: "تعذر إنشاء الصوت الآن. حاول مرة أخرى.",
+            promptRequired: "اكتب النص المراد تحويله إلى صوت أولًا.",
+            voice: "الصوت",
+            format: "الصيغة",
+            speed: "السرعة",
+        } : {
+            title: "Text to Voice",
+            welcome: "Enter text to generate a playable and downloadable speech recording.",
+            example: "Welcome to our new artificial intelligence platform.",
+            placeholder: "Enter the text to convert to voice...",
+            send: "Generate voice",
+            generating: "Generating your audio...",
+            generationWait: "Generating and securely loading the audio may take a few moments.",
+            generated: "Audio generated",
+            genericError: "The audio could not be generated right now. Please try again.",
+            promptRequired: "Enter text to convert to voice first.",
+            voice: "Voice",
+            format: "Format",
+            speed: "Speed",
+        };
+    }
+
     if (isSpeechToText.value) {
         return isArabic.value ? {
             title: "تحويل الصوت إلى نص",
@@ -1013,6 +1146,15 @@ function cleanRequestState(requestState = {}, regenerate = false, subToolId = ac
         cleaned.max_summary_words = Math.max(50, Math.min(10000, Number(cleaned.max_summary_words || 1000)));
     }
 
+    if (Number(subToolId) === TEXT_TO_SPEECH_TOOL.sub_tool_id) {
+        cleaned.provider = requestState?.provider ?? null;
+        cleaned.model = requestState?.model ?? null;
+        cleaned.voice = "alloy";
+        cleaned.response_format = "mp3";
+        cleaned.speed = Math.max(0.25, Math.min(4, Number(cleaned.speed || 1)));
+        cleaned.extra_options = [];
+    }
+
     return cleaned;
 }
 
@@ -1056,10 +1198,26 @@ function buildPayload(
 
     const cleanState = cleanRequestState(
         requestState,
-        regenerate
+        regenerate,
+        subToolId
     );
 
+    if (subToolId === TEXT_TO_SPEECH_TOOL.sub_tool_id) {
+        return {
+            user_id: Number(conversation?.user_id) || null,
+            sub_tool_id: TEXT_TO_SPEECH_TOOL.sub_tool_id,
+            conversation_uuid: conversation.uuid,
+            user_message: prompt,
+            state: cleanState,
+            debug: false,
+            idempotency_key: idempotencyKey,
+        };
+    }
+
     return {
+
+        user_id:
+            Number(conversation?.user_id) || null,
 
         // Conversation
         conversation_uuid:
@@ -1130,6 +1288,24 @@ function assertSpeechToTextResponse(result) {
     }
 }
 
+function assertTextToSpeechResponse(result) {
+    const files = Array.isArray(result?.files) ? result.files : [];
+    const isValid = result?.success === true
+        && result?.tool === TEXT_TO_SPEECH_TOOL.tool_key
+        && Number(result?.sub_tool_id) === TEXT_TO_SPEECH_TOOL.sub_tool_id
+        && files.length > 0
+        && files.every((file) =>
+            String(file?.content_type || "").startsWith("audio/")
+            && Boolean(file?.file_id || file?.id)
+            && Boolean(file?.preview_url)
+            && Boolean(file?.download_url)
+        );
+
+    if (!isValid) {
+        throw new Error("The text-to-speech response is invalid or missing its generated audio files.");
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DATA LOADING
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1144,7 +1320,7 @@ async function loadSubtool() {
             )
         );
 
-        if (![YOUTUBE_SUMMARIZER_TOOL.sub_tool_id, SPEECH_TO_TEXT_TOOL.sub_tool_id].includes(Number(data?.id || data?.sub_tool_id))) {
+        if (![YOUTUBE_SUMMARIZER_TOOL.sub_tool_id, SPEECH_TO_TEXT_TOOL.sub_tool_id, TEXT_TO_SPEECH_TOOL.sub_tool_id].includes(Number(data?.id || data?.sub_tool_id))) {
             throw new Error("This tool is not available in Chat 6.");
         }
 
@@ -1432,6 +1608,10 @@ async function sendMessage(options = {}) {
             assertSpeechToTextResponse(result);
         }
 
+        if (isTextToSpeech.value && result?.success === true) {
+            assertTextToSpeechResponse(result);
+        }
+
         // ─────────────────────────────────────────────
         // Assistant message
         // ─────────────────────────────────────────────
@@ -1487,6 +1667,8 @@ async function sendMessage(options = {}) {
         messages.value.push(
             assistant
         );
+
+        await loadPreviewsForMessage(assistant);
 
         if (isSpeechToText.value && !assistant.is_error) {
             removeSelectedFile();
@@ -1856,14 +2038,13 @@ async function loadMessagePreviews() {
 async function loadPreviewsForMessage(message) {
 
     if (
-        message.role !== "assistant" ||
-        !message.images?.length
+        message.role !== "assistant"
     ) {
         return;
     }
 
     await Promise.all(
-        message.images.map(
+        [...(message.images || []), ...(message.files || [])].map(
             loadImagePreview
         )
     );
@@ -2862,6 +3043,66 @@ button:disabled {
     line-height: 1.75;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+}
+
+.audio-results {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+}
+
+.audio-result-card {
+    min-width: min(100%, 28rem);
+    padding: 0.9rem;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.audio-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.audio-result-header > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+}
+
+.audio-result-card audio {
+    display: block;
+    width: 100%;
+}
+
+.audio-download-button,
+.audio-retry-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 0;
+    border-radius: 0.65rem;
+    padding: 0.5rem 0.7rem;
+    color: #fff;
+    background: #4f46e5;
+    cursor: pointer;
+}
+
+.audio-download-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.audio-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 3.25rem;
 }
 
 .image-response-card {

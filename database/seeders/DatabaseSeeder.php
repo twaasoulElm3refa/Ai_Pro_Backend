@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             AiMainModelSeeder::class,
             YouTubeSummarizerSeeder::class,
             SpeechToTextSeeder::class,
+            TextToSpeechSeeder::class,
         ]);
     }
 }

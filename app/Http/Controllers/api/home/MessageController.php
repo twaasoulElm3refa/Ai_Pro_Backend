@@ -27,6 +27,7 @@ use App\Services\ProductDescriptionGeneratorService;
 use App\Services\ResumeBuilderService;
 use App\Services\ScriptGeneratorService;
 use App\Services\SpeechToTextService;
+use App\Services\TextToSpeechService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -80,7 +81,8 @@ class MessageController extends Controller
             BackgroundRemoverService $backgroundRemoverService,
             ImageUpscalerService $imageUpscalerService,
             YouTubeSummarizerService $youTubeSummarizerService,
-            SpeechToTextService $speechToTextService
+            SpeechToTextService $speechToTextService,
+            TextToSpeechService $textToSpeechService
     )
     {
         Log::info('Message send request received', [
@@ -162,6 +164,11 @@ class MessageController extends Controller
                 $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
                 $requestedModelKey
             );
+            $isTextToSpeech = TextToSpeechService::supports(
+                $subToolId,
+                $requestedToolKey !== '' ? $requestedToolKey : $requestedTool,
+                $requestedModelKey
+            );
 
             if ($isBackgroundRemover && $subToolId !== (int) $conversation->sub_tool_id) {
                 return $this->validationError([
@@ -197,6 +204,12 @@ class MessageController extends Controller
                 return $this->validationError([
                     'sub_tool_id' => ['The selected tool does not match this conversation.'],
                 ], 'Invalid speech-to-text conversation.');
+            }
+
+            if ($isTextToSpeech && $subToolId !== (int) $conversation->sub_tool_id) {
+                return $this->validationError([
+                    'sub_tool_id' => ['The selected tool does not match this conversation.'],
+                ], 'Invalid text-to-speech conversation.');
             }
 
             if ($content === '') {
@@ -288,6 +301,13 @@ class MessageController extends Controller
                         $userId
                     ),
                     'Speech To Text Response Ready.'
+                );
+            }
+
+            if ($isTextToSpeech) {
+                return $this->success(
+                    $textToSpeechService->handle($conversation, $data, $content, $userId),
+                    'Text To Speech Response Ready.'
                 );
             }
 

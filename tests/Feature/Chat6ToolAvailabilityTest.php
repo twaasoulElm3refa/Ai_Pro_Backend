@@ -16,6 +16,12 @@ class Chat6ToolAvailabilityTest extends TestCase
         $this->assertStringContainsString('sub_tool_id: 25', $chat6);
         $this->assertStringContainsString('SPEECH_TO_TEXT_TOOL', $chat6);
         $this->assertStringContainsString('sub_tool_id: 26', $chat6);
+        $this->assertStringContainsString('TEXT_TO_SPEECH_TOOL', $chat6);
+        $this->assertStringContainsString('sub_tool_id: 27', $chat6);
+        $this->assertStringContainsString('<audio', $chat6);
+        $this->assertStringContainsString('result?.files', $chat6);
+        $this->assertStringNotContainsString('x-internal-api-key', $chat6);
+        $this->assertStringNotContainsString('INTERNAL_API_KEY', $chat6);
         $this->assertStringContainsString('/chat6${suffix}', $chat6);
         $this->assertStringNotContainsString('/chat5${suffix}', $chat6);
         $this->assertStringContainsString('Number(data?.id || data?.sub_tool_id) === YOUTUBE_SUMMARIZER_TOOL.sub_tool_id', $chat5);
