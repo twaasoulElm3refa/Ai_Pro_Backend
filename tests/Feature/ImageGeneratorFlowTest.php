@@ -88,7 +88,7 @@ class ImageGeneratorFlowTest extends TestCase
 
         $previewUrl = $response->json('data.images.0.preview_url');
         $downloadUrl = $response->json('data.images.0.download_url');
-        $this->assertStringStartsWith('/api/v1/generated-images/', $previewUrl);
+        $this->assertStringStartsWith('/generated-images/', $previewUrl);
         $this->assertStringEndsWith('/preview', $previewUrl);
         $this->assertStringEndsWith('/download', $downloadUrl);
         $this->assertStringNotContainsString(self::INTERNAL_KEY, $response->getContent());
@@ -164,18 +164,18 @@ class ImageGeneratorFlowTest extends TestCase
         $previewUrl = $response->json('data.images.0.preview_url');
         $downloadUrl = $response->json('data.images.0.download_url');
 
-        $this->get($previewUrl)
+        $this->get('/api/v1'.$previewUrl)
             ->assertOk()
             ->assertHeader('Content-Disposition', 'inline; filename="ai-image-1.png"')
             ->assertHeader('X-Content-Type-Options', 'nosniff');
-        $this->get($downloadUrl)
+        $this->get('/api/v1'.$downloadUrl)
             ->assertOk()
             ->assertDownload('ai-image-1.png');
 
         $otherUser = User::factory()->create();
         Sanctum::actingAs($otherUser);
-        $this->get($previewUrl)->assertForbidden();
-        $this->get($downloadUrl)->assertForbidden();
+        $this->get('/api/v1'.$previewUrl)->assertForbidden();
+        $this->get('/api/v1'.$downloadUrl)->assertForbidden();
     }
 
     public function test_it_rejects_a_non_image_file(): void

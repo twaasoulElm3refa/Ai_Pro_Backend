@@ -90,7 +90,7 @@ class TextToSpeechFlowTest extends TestCase
         $body = $response->getContent();
         $this->assertStringNotContainsString(self::INTERNAL_KEY, $body);
         $this->assertStringNotContainsString(self::AI_BASE_URL, $body);
-        $this->assertStringStartsWith('/api/v1/generated-images/', $response->json('data.files.0.preview_url'));
+        $this->assertStringStartsWith('/generated-images/', $response->json('data.files.0.preview_url'));
         $this->assertSame(10_000, Wallet::where('user_id', $user->id)->value('balance'));
         $this->assertDatabaseCount('cost_loggers', 0);
 
@@ -140,19 +140,19 @@ class TextToSpeechFlowTest extends TestCase
         $downloadUrl = $result->json('data.files.0.download_url');
 
         $this->withHeader('Range', 'bytes=0-2')
-            ->get($previewUrl)
+            ->get('/api/v1'.$previewUrl)
             ->assertStatus(206)
             ->assertHeader('Accept-Ranges', 'bytes')
             ->assertHeader('Content-Range', 'bytes 0-2/'.strlen($this->mp3Bytes()))
             ->assertHeader('Content-Type', 'audio/mpeg');
 
-        $this->get($downloadUrl)
+        $this->get('/api/v1'.$downloadUrl)
             ->assertOk()
             ->assertDownload('generated-speech.mp3');
 
         Sanctum::actingAs(User::factory()->create());
-        $this->get($previewUrl)->assertForbidden();
-        $this->get($downloadUrl)->assertForbidden();
+        $this->get('/api/v1'.$previewUrl)->assertForbidden();
+        $this->get('/api/v1'.$downloadUrl)->assertForbidden();
     }
 
     public function test_history_restores_the_secure_audio_file_metadata(): void

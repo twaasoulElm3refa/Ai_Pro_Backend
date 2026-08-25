@@ -450,6 +450,7 @@ import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import api from "@/services/ApiClient";
 import useSeoMeta from "@/composables/useSeoMeta";
+import { toApiRequestUrl } from "@/utils/apiUrl";
 import {
     normalizeGeneratedImages,
     normalizeImageGenerationMessage,
@@ -1201,9 +1202,7 @@ function toApiUrl(url) {
      * حتى لا يصبح:
      * /api/v1/api/v1/generated-images/...
      */
-    return str
-        .replace(/^\/+/, "")
-        .replace(/^api\/v1\/+/, "");
+    return toApiRequestUrl(str, api.defaults.baseURL);
 }
 
 /**
