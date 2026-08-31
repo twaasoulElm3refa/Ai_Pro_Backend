@@ -24,6 +24,7 @@ use App\Http\Controllers\api\home\GeneratedImageController;
 use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\ImageUpscalerFileController;
 use App\Http\Controllers\api\home\MessageController;
+use App\Http\Controllers\api\home\ModelCatalogController;
 use App\Http\Controllers\api\payment\DepositController;
 use App\Http\Controllers\api\payment\MoyasarDepositController;
 use App\Http\Controllers\api\webhook\MoyasarWebhookController;
@@ -74,6 +75,10 @@ Route::prefix('v1')->group(function () {
             Route::get('/{slug}/conversations/{uuid}', [FreeAiModelController::class, 'showConversation']);
         });
     });
+
+    Route::get('model-catalogs/{source}', [ModelCatalogController::class, 'show'])
+        ->where('source', '[a-z0-9_]+')
+        ->middleware('throttle:30,1');
 
     Route::prefix('tools')->middleware(['throttle:30,1'])->group(function () {
         Route::get('/', [HomeController::class, 'index']);

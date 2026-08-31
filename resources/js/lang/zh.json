@@ -36,7 +36,26 @@
         "emptyChatDescription": "此对话已准备就绪。消息功能将在下一阶段接入。",
         "integrationPending": "AI 消息集成即将推出",
         "inputPlaceholder": "消息功能即将开放",
-        "send": "发送消息"
+        "send": "发送消息",
+        "modelSelector": "模型选择器",
+        "chooseCatalogModel": "为此对话选择 AI 模型",
+        "selectedModel": "已选模型",
+        "selectModel": "选择模型",
+        "free": "免费",
+        "paid": "付费",
+        "tierFree": "免费",
+        "tierStandard": "标准",
+        "tierAdvanced": "高级",
+        "modelUnavailable": "不可用",
+        "modelDescriptionFallback": "用于对话和常规任务的 AI 模型。",
+        "recommended": "推荐",
+        "catalogLoading": "正在加载模型...",
+        "catalogUnavailable": "模型目录目前不可用。",
+        "modelAvailable": "可用",
+        "conversationReady": "对话已就绪",
+        "composerUnavailableHint": "在 AI 集成完成前，消息发送功能暂时停用。",
+        "openSidebar": "打开模型详情",
+        "closeSidebar": "关闭模型详情"
     },
     "auth": {
         "googleCallback": {

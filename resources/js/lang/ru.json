@@ -36,7 +36,26 @@
         "emptyChatDescription": "Разговор готов. Отправка сообщений будет подключена на следующем этапе.",
         "integrationPending": "Интеграция ИИ-сообщений — следующий этап",
         "inputPlaceholder": "Обмен сообщениями скоро станет доступен",
-        "send": "Отправить сообщение"
+        "send": "Отправить сообщение",
+        "modelSelector": "Выбор модели",
+        "chooseCatalogModel": "Выберите модель ИИ для этого разговора",
+        "selectedModel": "Выбранная модель",
+        "selectModel": "Выберите модель",
+        "free": "Бесплатно",
+        "paid": "Платно",
+        "tierFree": "Бесплатная",
+        "tierStandard": "Стандартная",
+        "tierAdvanced": "Продвинутая",
+        "modelUnavailable": "Недоступна",
+        "modelDescriptionFallback": "Модель ИИ для разговоров и общих задач.",
+        "recommended": "Рекомендуется",
+        "catalogLoading": "Загрузка моделей...",
+        "catalogUnavailable": "Каталог моделей сейчас недоступен.",
+        "modelAvailable": "Доступна",
+        "conversationReady": "Разговор готов",
+        "composerUnavailableHint": "Отправка сообщений отключена до подключения интеграции ИИ.",
+        "openSidebar": "Открыть сведения о модели",
+        "closeSidebar": "Закрыть сведения о модели"
     },
     "auth": {
         "googleCallback": {

@@ -36,7 +36,26 @@
         "emptyChatDescription": "Cette conversation est prête. La messagerie sera connectée lors de la prochaine étape.",
         "integrationPending": "Intégration de la messagerie IA à venir",
         "inputPlaceholder": "La messagerie sera bientôt disponible",
-        "send": "Envoyer le message"
+        "send": "Envoyer le message",
+        "modelSelector": "Sélecteur de modèle",
+        "chooseCatalogModel": "Choisissez le modèle IA pour cette conversation",
+        "selectedModel": "Modèle sélectionné",
+        "selectModel": "Sélectionner un modèle",
+        "free": "Gratuit",
+        "paid": "Payant",
+        "tierFree": "Gratuit",
+        "tierStandard": "Standard",
+        "tierAdvanced": "Avancé",
+        "modelUnavailable": "Indisponible",
+        "modelDescriptionFallback": "Modèle IA pour les conversations et les tâches générales.",
+        "recommended": "Recommandé",
+        "catalogLoading": "Chargement des modèles...",
+        "catalogUnavailable": "Le catalogue de modèles est actuellement indisponible.",
+        "modelAvailable": "Disponible",
+        "conversationReady": "Conversation prête",
+        "composerUnavailableHint": "L'envoi de messages est désactivé jusqu'à la connexion de l'intégration IA.",
+        "openSidebar": "Ouvrir les détails du modèle",
+        "closeSidebar": "Fermer les détails du modèle"
     },
     "auth": {
         "googleCallback": {

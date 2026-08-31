@@ -112,7 +112,7 @@ class FreeAiModelFlowTest extends TestCase
         $uuid = $createResponse->json('data.uuid');
 
         $this->assertNotEmpty($uuid);
-        $this->assertDatabaseHas('models_converstaions', [
+        $this->assertDatabaseHas('models_conversations', [
             'uuid' => $uuid,
             'user_id' => $user->id,
             'model_id' => $model->id,
@@ -135,7 +135,7 @@ class FreeAiModelFlowTest extends TestCase
             ->json('data.uuid');
 
         $this->assertNotSame($uuid, $secondUuid);
-        $this->assertDatabaseCount('models_converstaions', 2);
+        $this->assertDatabaseCount('models_conversations', 2);
 
         Sanctum::actingAs($otherUser);
 

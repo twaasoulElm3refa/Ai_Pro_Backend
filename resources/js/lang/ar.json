@@ -36,7 +36,26 @@
     "emptyChatDescription": "المحادثة جاهزة، وسيتم ربط إرسال الرسائل في مرحلة التكامل القادمة.",
     "integrationPending": "تكامل رسائل الذكاء الاصطناعي هو الخطوة التالية",
     "inputPlaceholder": "ستتوفر المراسلة قريباً",
-    "send": "إرسال الرسالة"
+    "send": "إرسال الرسالة",
+    "modelSelector": "اختيار النموذج",
+    "chooseCatalogModel": "اختر نموذج الذكاء الاصطناعي لهذه المحادثة",
+    "selectedModel": "النموذج المحدد",
+    "selectModel": "اختر نموذجاً",
+    "free": "مجاني",
+    "paid": "مدفوع",
+    "tierFree": "مجاني",
+    "tierStandard": "قياسي",
+    "tierAdvanced": "متقدم",
+    "modelUnavailable": "غير متاح",
+    "modelDescriptionFallback": "نموذج ذكاء اصطناعي للمحادثات والمهام العامة.",
+    "recommended": "موصى به",
+    "catalogLoading": "جارٍ تحميل النماذج...",
+    "catalogUnavailable": "دليل النماذج غير متاح حالياً.",
+    "modelAvailable": "متاح",
+    "conversationReady": "المحادثة جاهزة",
+    "composerUnavailableHint": "إرسال الرسائل معطل مؤقتاً حتى اكتمال ربط الذكاء الاصطناعي.",
+    "openSidebar": "فتح تفاصيل النموذج",
+    "closeSidebar": "إغلاق تفاصيل النموذج"
   },
   "auth": {
     "googleCallback": {

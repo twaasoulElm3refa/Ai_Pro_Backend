@@ -36,7 +36,26 @@
         "emptyChatDescription": "This conversation is ready. Message support will be connected in the next integration stage.",
         "integrationPending": "AI messaging integration coming next",
         "inputPlaceholder": "Messaging will be available soon",
-        "send": "Send message"
+        "send": "Send message",
+        "modelSelector": "Model selector",
+        "chooseCatalogModel": "Choose the AI model for this conversation",
+        "selectedModel": "Selected model",
+        "selectModel": "Select a model",
+        "free": "Free",
+        "paid": "Paid",
+        "tierFree": "Free",
+        "tierStandard": "Standard",
+        "tierAdvanced": "Advanced",
+        "modelUnavailable": "Unavailable",
+        "modelDescriptionFallback": "AI model for conversations and general tasks.",
+        "recommended": "Recommended",
+        "catalogLoading": "Loading models...",
+        "catalogUnavailable": "Model catalog is currently unavailable.",
+        "modelAvailable": "Available",
+        "conversationReady": "Conversation ready",
+        "composerUnavailableHint": "Message sending is intentionally disabled until AI integration is connected.",
+        "openSidebar": "Open model details",
+        "closeSidebar": "Close model details"
     },
     "auth": {
         "googleCallback": {
