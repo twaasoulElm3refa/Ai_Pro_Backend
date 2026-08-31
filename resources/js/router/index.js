@@ -23,6 +23,7 @@ const failed = () => import("../views/home/failedDeposit.vue");
 const cancelled = () => import("../views/home/CancelledDeposit.vue");
 const FreeAiModelShow = () => import("../views/home/free-ai-models/FreeAiModelShow.vue");
 const FreeAiModelChat = () => import("../views/home/free-ai-models/FreeAiModelChat.vue");
+const showGeneral = () => import("../views/home/generalTools/showGeneral.vue");
 
 const adminMeta = {
     hideNavbar: true,
@@ -42,6 +43,11 @@ const routes = [
     {
         path: "/:lang/",
         component: Home,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/general/chat",
+        component: showGeneral,
         meta: { hideNavbar: false, hideFooter: false },
     },
     {
