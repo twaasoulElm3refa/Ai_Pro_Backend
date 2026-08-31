@@ -6,23 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('sub_tools', function (Blueprint $table) {
-            //
+            $table->string('tier')->nullable();
+            $table->boolean('is_free')->default(false)->after('tier');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('sub_tools', function (Blueprint $table) {
-            //
+            $table->dropColumn([
+                'tier',
+                'is_free',
+            ]);
         });
     }
 };
