@@ -19,6 +19,7 @@ use App\Http\Controllers\api\auth\WalletController;
 use App\Http\Controllers\api\home\BackgroundRemoverFileController;
 use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\FreeAiModelController;
+use App\Http\Controllers\api\home\GeneralChatToolController;
 use App\Http\Controllers\api\home\GeneratedImageController;
 use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\ImageUpscalerFileController;
@@ -97,6 +98,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/{message}/resume-file', [MessageController::class, 'downloadResumeAssistantFile'])
             ->withoutMiddleware(ApiKeyMiddleware::class);
     });
+
+    Route::prefix('general_tools')
+        ->middleware([ 'throttle:45,1'])
+        ->group(function () {
+            Route::get('general-chat-tools', [GeneralChatToolController::class, 'getAll']);
+        });
 
     Route::prefix('generated-images')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         Route::get('/{image}/preview', [GeneratedImageController::class, 'preview']);

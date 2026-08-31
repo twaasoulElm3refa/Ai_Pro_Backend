@@ -10,6 +10,8 @@ use App\Repository\cost\CostInterface;
 use App\Repository\cost\CostRepository;
 use App\Repository\freeAiModels\MainFreeAiModelInterface;
 use App\Repository\freeAiModels\MainFreeAiModelRepository;
+use App\Repository\GeneralTool\GenrealToolInterface;
+use App\Repository\GeneralTool\GenrealToolRepository;
 use App\Repository\Messages\MessageInterface;
 use App\Repository\Messages\MessageRepository;
 use App\Repository\payment\AdminPaymentInterface;
@@ -40,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ConversationInterface::class, ConversationRepository::class);
         $this->app->bind(MessageInterface::class, MessageRepository::class);
         $this->app->bind(CostInterface::class, CostRepository::class);
+        $this->app->bind(GenrealToolInterface::class, GenrealToolRepository::class);
     }
 
     /**
