@@ -54,8 +54,17 @@
         "modelAvailable": "Available",
         "conversationReady": "Conversation ready",
         "composerUnavailableHint": "Message sending is intentionally disabled until AI integration is connected.",
-        "openSidebar": "Open model details",
-        "closeSidebar": "Close model details"
+        "openSidebar": "Open conversation history",
+        "closeSidebar": "Close conversation history",
+        "mainTool": "Free AI tool",
+        "recentConversations": "Recent conversations",
+        "conversationList": "Conversation history",
+        "loadingConversations": "Loading conversations...",
+        "noConversations": "No conversations yet",
+        "defaultModel": "Default model",
+        "modelSaving": "Saving",
+        "deleteConversation": "Delete conversation",
+        "conversation": "Conversation"
     },
     "auth": {
         "googleCallback": {

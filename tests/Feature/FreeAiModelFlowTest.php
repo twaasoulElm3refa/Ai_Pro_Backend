@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\MainFreeAiModels;
 use App\Models\ModelsConverstaions;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -24,6 +25,7 @@ class FreeAiModelFlowTest extends TestCase
                 'database/migrations/2026_08_15_105532_create_main_free_ai_models_table.php',
                 'database/migrations/2026_08_15_105804_create_main_free_ai_models_translations_table.php',
                 'database/migrations/2026_08_16_082611_create_models_converstaions_table.php',
+                'database/migrations/2026_08_31_130000_add_selected_catalog_model_to_models_conversations_table.php',
             ],
         ])->assertExitCode(0);
     }
@@ -144,6 +146,107 @@ class FreeAiModelFlowTest extends TestCase
 
         $this->apiRequest()->get("/api/v1/free-ai-models/other-free-model/conversations/{$uuid}")
             ->assertNotFound();
+    }
+
+    public function test_catalog_selection_is_persisted_and_history_is_scoped_to_the_main_tool(): void
+    {
+        config()->set('model_catalogs.free_ai_tools.chat-writing', 'general_chat');
+        config()->set('model_catalogs.sources.general_chat', [
+            'endpoint' => 'https://catalog.example.test/tasks/general-tools/general_chat/models',
+            'requires_internal_key' => false,
+        ]);
+
+        Http::fake([
+            'catalog.example.test/*' => Http::response([
+                'tool' => 'general_chat',
+                'items' => [
+                    [
+                        'id' => 2,
+                        'name' => 'Qwen Free',
+                        'provider_model_id' => 'qwen/free',
+                        'is_available' => true,
+                        'is_recommended' => true,
+                        'sort_order' => 1,
+                    ],
+                    [
+                        'id' => 14,
+                        'name' => 'GPT-5.6 Sol',
+                        'provider_model_id' => 'openai/gpt-5.6-sol',
+                        'is_available' => true,
+                        'sort_order' => 2,
+                    ],
+                    [
+                        'id' => 99,
+                        'name' => 'Unavailable',
+                        'provider_model_id' => 'vendor/unavailable',
+                        'is_available' => false,
+                        'sort_order' => 3,
+                    ],
+                ],
+            ]),
+        ]);
+
+        $chatTool = $this->createModel('chat-writing', true, 1);
+        $otherTool = $this->createModel('other-tool', true, 2);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+
+        $created = $this->apiRequest()->post('/api/v1/free-ai-models/chat-writing/conversations', [
+            'catalog_model_id' => 2,
+            'provider_model_id' => 'qwen/free',
+        ])->assertOk()
+            ->assertJsonPath('data.catalog_source', 'general_chat')
+            ->assertJsonPath('data.selected_model.id', 2)
+            ->assertJsonPath('data.selected_model.name', 'Qwen Free');
+
+        $uuid = $created->json('data.uuid');
+
+        ModelsConverstaions::create([
+            'user_id' => $user->id,
+            'model_id' => $otherTool->id,
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'is_pinned' => false,
+            'is_archived' => false,
+        ]);
+
+        $this->apiRequest()->get('/api/v1/free-ai-models/chat-writing/conversations')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.uuid', $uuid)
+            ->assertJsonPath('data.0.selected_model.name', 'Qwen Free');
+
+        $this->apiRequest()->patch("/api/v1/free-ai-models/chat-writing/conversations/{$uuid}/model", [
+            'catalog_model_id' => 14,
+            'provider_model_id' => 'openai/gpt-5.6-sol',
+        ])->assertOk()
+            ->assertJsonPath('data.selected_model.id', 14)
+            ->assertJsonPath('data.selected_model.name', 'GPT-5.6 Sol');
+
+        $this->assertDatabaseHas('models_conversations', [
+            'uuid' => $uuid,
+            'user_id' => $user->id,
+            'model_id' => $chatTool->id,
+            'selected_model_source' => 'general_chat',
+            'selected_model_catalog_id' => 14,
+            'selected_provider_model_id' => 'openai/gpt-5.6-sol',
+            'selected_model_name' => 'GPT-5.6 Sol',
+        ]);
+
+        $this->apiRequest()->post('/api/v1/free-ai-models/chat-writing/conversations')
+            ->assertOk()
+            ->assertJsonPath('data.selected_model.id', 14)
+            ->assertJsonPath('data.selected_model.name', 'GPT-5.6 Sol');
+
+        $this->apiRequest()->patch("/api/v1/free-ai-models/chat-writing/conversations/{$uuid}/model", [
+            'catalog_model_id' => 99,
+            'provider_model_id' => 'vendor/unavailable',
+        ])->assertUnprocessable();
+
+        $this->apiRequest()->delete("/api/v1/free-ai-models/chat-writing/conversations/{$uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.uuid', $uuid);
+
+        $this->assertSoftDeleted('models_conversations', ['uuid' => $uuid]);
     }
 
     private function createModel(string $slug, bool $isActive, int $sortOrder): MainFreeAiModels

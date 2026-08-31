@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -47,4 +48,23 @@ test("normalizes snake-case catalog models into the shared frontend contract", (
         sortOrder: 20,
         capabilities: ["chat", "reasoning"],
     });
+});
+
+test("keeps the execution-model selector in the chat composer and off the tool landing page", async () => {
+    const [chat, show] = await Promise.all([
+        readFile("resources/js/views/home/free-ai-models/FreeAiModelChat.vue", "utf8"),
+        readFile("resources/js/views/home/free-ai-models/FreeAiModelShow.vue", "utf8"),
+    ]);
+
+    assert.match(chat, /<FreeAiModelSelector/);
+    assert.match(chat, /class="composer-box"/);
+    assert.match(chat, /:disabled="!conversation\?\.uuid \|\| modelSaving"/);
+    assert.doesNotMatch(show, /FreeAiModelSelector|modelCatalogService/);
+});
+
+test("maps a main Free AI tool to its catalog explicitly", async () => {
+    const mapping = await readFile("resources/js/services/freeAiModels/freeAiCatalogSources.js", "utf8");
+
+    assert.match(mapping, /"chat-writing": "general_chat"/);
+    assert.doesNotMatch(mapping, /replace\(|split\(|includes\(/);
 });

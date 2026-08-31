@@ -54,8 +54,17 @@
         "modelAvailable": "可用",
         "conversationReady": "对话已就绪",
         "composerUnavailableHint": "在 AI 集成完成前，消息发送功能暂时停用。",
-        "openSidebar": "打开模型详情",
-        "closeSidebar": "关闭模型详情"
+        "openSidebar": "打开对话历史",
+        "closeSidebar": "关闭对话历史",
+        "mainTool": "免费 AI 工具",
+        "recentConversations": "最近对话",
+        "conversationList": "对话历史",
+        "loadingConversations": "正在加载对话...",
+        "noConversations": "暂无对话",
+        "defaultModel": "默认模型",
+        "modelSaving": "正在保存",
+        "deleteConversation": "删除对话",
+        "conversation": "对话"
     },
     "auth": {
         "googleCallback": {

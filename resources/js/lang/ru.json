@@ -54,8 +54,17 @@
         "modelAvailable": "Доступна",
         "conversationReady": "Разговор готов",
         "composerUnavailableHint": "Отправка сообщений отключена до подключения интеграции ИИ.",
-        "openSidebar": "Открыть сведения о модели",
-        "closeSidebar": "Закрыть сведения о модели"
+        "openSidebar": "Открыть историю разговоров",
+        "closeSidebar": "Закрыть историю разговоров",
+        "mainTool": "Бесплатный ИИ-инструмент",
+        "recentConversations": "Недавние разговоры",
+        "conversationList": "История разговоров",
+        "loadingConversations": "Загрузка разговоров...",
+        "noConversations": "Разговоров пока нет",
+        "defaultModel": "Модель по умолчанию",
+        "modelSaving": "Сохранение",
+        "deleteConversation": "Удалить разговор",
+        "conversation": "Разговор"
     },
     "auth": {
         "googleCallback": {

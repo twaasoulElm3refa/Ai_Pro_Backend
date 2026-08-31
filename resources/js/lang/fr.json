@@ -54,8 +54,17 @@
         "modelAvailable": "Disponible",
         "conversationReady": "Conversation prête",
         "composerUnavailableHint": "L'envoi de messages est désactivé jusqu'à la connexion de l'intégration IA.",
-        "openSidebar": "Ouvrir les détails du modèle",
-        "closeSidebar": "Fermer les détails du modèle"
+        "openSidebar": "Ouvrir l’historique des conversations",
+        "closeSidebar": "Fermer l’historique des conversations",
+        "mainTool": "Outil IA gratuit",
+        "recentConversations": "Conversations récentes",
+        "conversationList": "Historique des conversations",
+        "loadingConversations": "Chargement des conversations...",
+        "noConversations": "Aucune conversation",
+        "defaultModel": "Modèle par défaut",
+        "modelSaving": "Enregistrement",
+        "deleteConversation": "Supprimer la conversation",
+        "conversation": "Conversation"
     },
     "auth": {
         "googleCallback": {

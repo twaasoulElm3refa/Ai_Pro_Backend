@@ -17,6 +17,7 @@ class ModelsConverstaions extends Model
     protected $casts = [
         'is_pinned' => 'boolean',
         'is_archived' => 'boolean',
+        'selected_model_catalog_id' => 'integer',
     ];
 
     public function user(): BelongsTo

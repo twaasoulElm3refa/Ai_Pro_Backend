@@ -1,266 +1,448 @@
 <template>
-    <section class="free-chat-page" :dir="locale === 'ar' ? 'rtl' : 'ltr'">
-        <div v-if="loading" class="chat-state" aria-live="polite">
-            <span class="spinner-border" aria-hidden="true"></span>
-            <p>{{ t("freeAiModels.loadingConversation") }}</p>
-        </div>
+    <main class="free-ai-chat" :dir="isRtl ? 'rtl' : 'ltr'">
+        <button
+            v-if="sidebarOpen && isMobile"
+            type="button"
+            class="sidebar-overlay"
+            :aria-label="t('freeAiModels.closeSidebar')"
+            @click="sidebarOpen = false"
+        ></button>
 
-        <div v-else-if="loadError" class="chat-state error-state">
-            <i class="bi bi-shield-exclamation"></i>
-            <h1>{{ t("freeAiModels.conversationUnavailable") }}</h1>
-            <p>{{ t("freeAiModels.conversationUnavailableDescription") }}</p>
-            <button type="button" class="primary-button" @click="backToModel">
-                {{ t("freeAiModels.backToModel") }}
-            </button>
-        </div>
-
-        <div v-else class="chat-shell">
-            <aside class="chat-sidebar" :class="{ open: sidebarOpen }">
-                <button
-                    type="button"
-                    class="sidebar-close"
-                    :aria-label="t('freeAiModels.closeSidebar')"
-                    @click="sidebarOpen = false"
-                >
-                    <i class="bi bi-x-lg"></i>
-                </button>
-
-                <div class="model-card">
-                    <img v-if="conversation.model?.image_url" :src="conversation.model.image_url" :alt="modelName" />
-                    <span v-else class="model-icon"><i class="bi bi-stars"></i></span>
-                    <div class="model-card-copy">
-                        <small>{{ t("freeAiModels.model") }}</small>
-                        <strong>{{ modelName }}</strong>
-                    </div>
-                </div>
-
-                <p class="sidebar-description">{{ modelDescription }}</p>
-
-                <div class="sidebar-badges">
-                    <span :class="`tier-${modelTier}`">{{ tierLabel }}</span>
-                    <span :class="modelIsFree ? 'free-state' : 'paid-state'">
-                        <i :class="modelIsFree ? 'bi bi-unlock' : 'bi bi-lock'"></i>
-                        {{ modelIsFree ? t("freeAiModels.free") : t("freeAiModels.paid") }}
+        <aside class="conversation-sidebar" :class="{ open: sidebarOpen, collapsed: desktopSidebarCollapsed }">
+            <div class="sidebar-heading">
+                <div class="tool-identity">
+                    <span class="tool-avatar">
+                        <img v-if="mainTool.image_url" :src="mainTool.image_url" :alt="mainTool.name" />
+                        <i v-else class="bi bi-stars"></i>
+                    </span>
+                    <span class="tool-copy">
+                        <small>{{ t("freeAiModels.mainTool") }}</small>
+                        <strong>{{ mainTool.name || readableSlug }}</strong>
                     </span>
                 </div>
-
-                <button type="button" class="new-chat-button" :disabled="creatingConversation" @click="newConversation">
-                    <span v-if="creatingConversation" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                    <i v-else class="bi bi-plus-lg"></i>
-                    {{ creatingConversation ? t("freeAiModels.creatingConversation") : t("freeAiModels.newConversation") }}
+                <button type="button" class="icon-button sidebar-close" :aria-label="t('freeAiModels.closeSidebar')" @click="closeSidebar">
+                    <i class="bi" :class="isMobile ? 'bi-x-lg' : collapseIcon"></i>
                 </button>
+            </div>
 
-                <div class="conversation-info">
-                    <div>
-                        <span class="info-icon"><i class="bi bi-person"></i></span>
-                        <p>
-                            <small>{{ t("freeAiModels.signedInAs") }}</small>
-                            <strong>{{ conversation.user?.name }}</strong>
-                        </p>
-                    </div>
-                    <div>
-                        <span class="info-icon"><i class="bi bi-hash"></i></span>
-                        <p>
-                            <small>{{ t("freeAiModels.conversationId") }}</small>
-                            <code>{{ shortUuid }}</code>
-                        </p>
-                    </div>
+            <button type="button" class="new-conversation-button" :disabled="creatingConversation" @click="newConversation">
+                <span v-if="creatingConversation" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                <i v-else class="bi bi-plus-lg"></i>
+                {{ creatingConversation ? t("freeAiModels.creatingConversation") : t("freeAiModels.newConversation") }}
+            </button>
+
+            <div class="history-heading">
+                <span>{{ t("freeAiModels.recentConversations") }}</span>
+                <span>{{ conversations.length }}</span>
+            </div>
+
+            <div class="history-list" :aria-label="t('freeAiModels.conversationList')">
+                <div v-if="loadingConversations" class="history-state">
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    {{ t("freeAiModels.loadingConversations") }}
                 </div>
-            </aside>
-
-            <button
-                v-if="sidebarOpen"
-                type="button"
-                class="sidebar-overlay"
-                :aria-label="t('freeAiModels.closeSidebar')"
-                @click="sidebarOpen = false"
-            ></button>
-
-            <main class="chat-workspace">
-                <header class="chat-header">
+                <div v-else-if="!conversations.length" class="history-state">
+                    <i class="bi bi-chat-square-text"></i>
+                    {{ t("freeAiModels.noConversations") }}
+                </div>
+                <article
+                    v-for="item in conversations"
+                    v-else
+                    :key="item.uuid"
+                    class="history-item"
+                    :class="{ active: item.uuid === activeUuid }"
+                >
+                    <button type="button" class="history-open" @click="openConversation(item)">
+                        <i class="bi bi-chat-left-text"></i>
+                        <span>
+                            <strong>{{ conversationTitle(item) }}</strong>
+                            <small>{{ item.selected_model?.name || t("freeAiModels.defaultModel") }}</small>
+                        </span>
+                    </button>
                     <button
                         type="button"
-                        class="mobile-menu-button"
-                        :aria-label="t('freeAiModels.openSidebar')"
-                        @click="sidebarOpen = true"
+                        class="history-delete"
+                        :disabled="deletingUuid === item.uuid"
+                        :aria-label="t('freeAiModels.deleteConversation')"
+                        @click="deleteConversation(item)"
                     >
-                        <i class="bi bi-layout-sidebar-inset"></i>
+                        <span v-if="deletingUuid === item.uuid" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        <i v-else class="bi bi-trash3"></i>
                     </button>
+                </article>
+            </div>
+        </aside>
 
-                    <div class="header-model">
-                        <span class="online-dot"></span>
-                        <div>
-                            <small>{{ t("freeAiModels.modelAvailable") }}</small>
-                            <strong>{{ modelName }}</strong>
+        <section class="chat-workspace">
+            <header class="workspace-header">
+                <div class="header-leading">
+                    <button
+                        v-if="isMobile || desktopSidebarCollapsed"
+                        type="button"
+                        class="icon-button"
+                        :aria-label="t('freeAiModels.openSidebar')"
+                        @click="openSidebar"
+                    >
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <span class="header-avatar">
+                        <img v-if="mainTool.image_url" :src="mainTool.image_url" :alt="mainTool.name" />
+                        <i v-else class="bi bi-stars"></i>
+                    </span>
+                    <span class="header-copy">
+                        <strong>{{ mainTool.name || readableSlug }}</strong>
+                        <small>
+                            <span class="status-dot"></span>
+                            {{ selectedModel?.name || t("freeAiModels.defaultModel") }}
+                            <span v-if="modelSaving"> · {{ t("freeAiModels.modelSaving") }}</span>
+                        </small>
+                    </span>
+                </div>
+                <button type="button" class="back-button" @click="backToTool">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>{{ t("freeAiModels.backToModel") }}</span>
+                </button>
+            </header>
+
+            <div v-if="loadingConversation" class="conversation-state" aria-live="polite">
+                <span class="spinner-border" aria-hidden="true"></span>
+                <p>{{ t("freeAiModels.loadingConversation") }}</p>
+            </div>
+            <div v-else-if="loadError" class="conversation-state error-state">
+                <i class="bi bi-exclamation-triangle"></i>
+                <h1>{{ t("freeAiModels.conversationUnavailable") }}</h1>
+                <p>{{ t("freeAiModels.conversationUnavailableDescription") }}</p>
+                <button type="button" class="retry-button" @click="loadConversation">
+                    {{ t("freeAiModels.tryAgain") }}
+                </button>
+            </div>
+            <section v-else class="messages" :aria-label="t('freeAiModels.conversation')">
+                <div class="empty-conversation">
+                    <span class="empty-icon"><i class="bi bi-chat-dots"></i></span>
+                    <h1>{{ t("freeAiModels.emptyChatTitle", { name: mainTool.name || readableSlug }) }}</h1>
+                    <p>{{ t("freeAiModels.emptyChatDescription") }}</p>
+                    <span class="pending-pill"><i class="bi bi-clock-history"></i>{{ t("freeAiModels.integrationPending") }}</span>
+                </div>
+            </section>
+
+            <footer class="composer-area">
+                <div class="composer-shell">
+                    <div class="composer-box">
+                        <FreeAiModelSelector
+                            :models="catalogModels"
+                            :selected-model="selectedModel"
+                            :loading="catalogLoading"
+                            :error="catalogError"
+                            :disabled="!conversation?.uuid || modelSaving"
+                            @select="selectExecutionModel"
+                            @retry="loadCatalog(true)"
+                        />
+                        <div class="message-compose-row">
+                            <textarea
+                                rows="1"
+                                :placeholder="t('freeAiModels.inputPlaceholder')"
+                                :aria-label="t('freeAiModels.inputPlaceholder')"
+                                disabled
+                            ></textarea>
+                            <button type="button" class="send-button" disabled :aria-label="t('freeAiModels.send')">
+                                <i class="bi bi-send-fill"></i>
+                            </button>
                         </div>
                     </div>
-
-                    <div class="header-badges">
-                        <span :class="`tier-${modelTier}`">{{ tierLabel }}</span>
-                        <span :class="modelIsFree ? 'free-state' : 'paid-state'">
-                            {{ modelIsFree ? t("freeAiModels.free") : t("freeAiModels.paid") }}
-                        </span>
-                    </div>
-
-                    <button type="button" class="back-button" @click="backToModel">
-                        <i class="bi bi-arrow-left"></i>
-                        <span>{{ t("freeAiModels.backToModel") }}</span>
-                    </button>
-                </header>
-
-                <div class="messages-area">
-                    <div class="empty-chat">
-                        <span class="empty-icon"><i class="bi bi-chat-square-text"></i></span>
-                        <span class="ready-label">
-                            <span class="online-dot"></span>
-                            {{ t("freeAiModels.conversationReady") }}
-                        </span>
-                        <h1>{{ t("freeAiModels.emptyChatTitle", { name: modelName }) }}</h1>
-                        <p class="empty-description">{{ modelDescription }}</p>
-                        <p>{{ t("freeAiModels.emptyChatDescription") }}</p>
-                        <span class="coming-soon">
-                            <i class="bi bi-clock-history"></i>
-                            {{ t("freeAiModels.integrationPending") }}
-                        </span>
-                    </div>
+                    <p class="composer-hint"><i class="bi bi-info-circle"></i>{{ t("freeAiModels.composerUnavailableHint") }}</p>
                 </div>
-
-                <footer class="composer">
-                    <div class="composer-box">
-                        <textarea :placeholder="t('freeAiModels.inputPlaceholder')" disabled rows="1"></textarea>
-                        <button type="button" disabled :aria-label="t('freeAiModels.send')">
-                            <i class="bi bi-send-fill"></i>
-                        </button>
-                    </div>
-                    <p><i class="bi bi-info-circle"></i>{{ t("freeAiModels.composerUnavailableHint") }}</p>
-                </footer>
-            </main>
-        </div>
-    </section>
+            </footer>
+        </section>
+    </main>
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
 import homeService from "@/services/home/homeService";
 import freeAiModelService from "@/services/freeAiModels/freeAiModelService";
-import { readSelectedCatalogModel } from "@/services/modelCatalog/selectedModelStorage";
+import { getFreeAiCatalogSource } from "@/services/freeAiModels/freeAiCatalogSources";
+import modelCatalogService from "@/services/modelCatalog/modelCatalogService";
+import { readSelectedCatalogModel, saveSelectedCatalogModel } from "@/services/modelCatalog/selectedModelStorage";
+import FreeAiModelSelector from "@/components/free-ai-models/FreeAiModelSelector.vue";
 
-const CATALOG_SOURCE = "general_chat";
-
+const MOBILE_BREAKPOINT = 900;
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
 
-const conversation = ref({});
-const catalogModel = ref(readSelectedCatalogModel(CATALOG_SOURCE, route.params.slug));
-const loading = ref(true);
+const conversation = ref(null);
+const conversations = ref([]);
+const loadingConversation = ref(true);
+const loadingConversations = ref(true);
 const loadError = ref(false);
 const creatingConversation = ref(false);
+const deletingUuid = ref(null);
+const catalogModels = ref([]);
+const catalogLoading = ref(false);
+const catalogError = ref(false);
+const selectedModel = ref(null);
+const modelSaving = ref(false);
 const sidebarOpen = ref(false);
+const desktopSidebarCollapsed = ref(false);
+const viewportWidth = ref(typeof window === "undefined" ? 1200 : window.innerWidth);
+let loadedCatalogSource = null;
 
-const shortUuid = computed(() => String(conversation.value.uuid || "").slice(0, 12));
-const modelName = computed(() => catalogModel.value?.name || conversation.value.model?.name || t("freeAiModels.model"));
-const modelDescription = computed(() =>
-    catalogModel.value?.description
-    || conversation.value.model?.description
-    || t("freeAiModels.modelDescriptionFallback")
-);
-const modelTier = computed(() => catalogModel.value?.tier || "free");
-const modelIsFree = computed(() => catalogModel.value ? catalogModel.value.isFree === true : true);
-const tierLabel = computed(() => {
-    const key = {
-        free: "tierFree",
-        standard: "tierStandard",
-        advanced: "tierAdvanced",
-    }[modelTier.value] || "tierStandard";
+const activeUuid = computed(() => String(route.params.uuid || ""));
+const pageSlug = computed(() => String(route.params.slug || ""));
+const catalogSource = computed(() => getFreeAiCatalogSource(pageSlug.value));
+const isMobile = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT);
+const isRtl = computed(() => locale.value === "ar");
+const readableSlug = computed(() => pageSlug.value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
+const mainTool = computed(() => conversation.value?.model || {});
+const collapseIcon = computed(() => (isRtl.value ? "bi-chevron-right" : "bi-chevron-left"));
 
-    return t(`freeAiModels.${key}`);
-});
-
-const seoTitle = computed(() =>
-    conversation.value.model?.meta_title
-    || conversation.value.model?.name
-    || catalogModel.value?.name
-    || "AI Pro"
-);
-const seoDescription = computed(() =>
-    conversation.value.model?.meta_description
-    || conversation.value.model?.description
-    || catalogModel.value?.description
-    || ""
-);
-const seoKeywords = computed(() => conversation.value.model?.seo_keywords || "");
-
+const seoTitle = computed(() => mainTool.value.meta_title || mainTool.value.name || "AI Pro");
+const seoDescription = computed(() => mainTool.value.meta_description || mainTool.value.description || "");
+const seoKeywords = computed(() => mainTool.value.seo_keywords || "");
 useSeoMeta({ title: seoTitle, description: seoDescription, keywords: seoKeywords });
 
-async function loadConversation() {
-    loading.value = true;
-    loadError.value = false;
-    sidebarOpen.value = false;
+const modelKey = (model) => String(model?.providerModelId || model?.provider_model_id || model?.id || "");
 
+function catalogMatch(selection) {
+    if (!selection) return null;
+    return catalogModels.value.find((model) => {
+        const sameId = String(model.id ?? "") === String(selection.id ?? "");
+        const requestedProvider = selection.provider_model_id || selection.providerModelId;
+        return sameId && (!requestedProvider || model.providerModelId === requestedProvider);
+    }) || null;
+}
+
+function selectedSnapshot(selection) {
+    if (!selection?.name) return null;
+    return {
+        id: selection.id ?? null,
+        name: selection.name,
+        providerModelId: selection.provider_model_id || selection.providerModelId || "",
+        tier: "standard",
+        isFree: false,
+        isAvailable: true,
+        isRecommended: false,
+    };
+}
+
+function defaultCatalogModel() {
+    if (!catalogSource.value) return null;
+    const remembered = readSelectedCatalogModel(catalogSource.value, pageSlug.value);
+    const rememberedMatch = catalogMatch(remembered);
+    if (rememberedMatch?.isAvailable) return rememberedMatch;
+    return catalogModels.value.find((model) => model.isAvailable && model.isRecommended)
+        || catalogModels.value.find((model) => model.isAvailable)
+        || null;
+}
+
+function syncSelectedModel() {
+    const persisted = conversation.value?.selected_model;
+    selectedModel.value = catalogMatch(persisted) || selectedSnapshot(persisted) || defaultCatalogModel();
+}
+
+async function loadCatalog(force = false) {
+    const source = catalogSource.value;
+    if (!source) {
+        catalogModels.value = [];
+        catalogError.value = true;
+        selectedModel.value = selectedSnapshot(conversation.value?.selected_model);
+        return;
+    }
+    if (!force && loadedCatalogSource === source && catalogModels.value.length) return;
+
+    catalogLoading.value = true;
+    catalogError.value = false;
     try {
-        const response = await freeAiModelService.getConversation(route.params.slug, route.params.uuid);
-        conversation.value = response?.data || {};
+        const result = await modelCatalogService.getModels(source, {
+            fallbackDescription: t("freeAiModels.modelDescriptionFallback"),
+        });
+        catalogModels.value = result.models;
+        loadedCatalogSource = source;
+        syncSelectedModel();
     } catch {
-        conversation.value = {};
+        catalogError.value = true;
+        selectedModel.value = selectedSnapshot(conversation.value?.selected_model);
+    } finally {
+        catalogLoading.value = false;
+    }
+}
+
+async function loadConversation() {
+    loadingConversation.value = true;
+    loadError.value = false;
+    try {
+        const response = await freeAiModelService.getConversation(pageSlug.value, activeUuid.value);
+        conversation.value = response?.data || null;
+        syncSelectedModel();
+    } catch {
+        conversation.value = null;
         loadError.value = true;
     } finally {
-        loading.value = false;
+        loadingConversation.value = false;
     }
+}
+
+async function loadConversations() {
+    loadingConversations.value = true;
+    try {
+        const response = await freeAiModelService.getConversations(pageSlug.value);
+        conversations.value = Array.isArray(response?.data) ? response.data : [];
+    } catch {
+        conversations.value = [];
+    } finally {
+        loadingConversations.value = false;
+    }
+}
+
+function summaryFromConversation(item) {
+    return {
+        uuid: item.uuid,
+        title: null,
+        is_pinned: Boolean(item.is_pinned),
+        created_at: item.created_at,
+        updated_at: item.updated_at || item.created_at,
+        selected_model: item.selected_model || null,
+    };
+}
+
+function upsertConversationSummary(item) {
+    const summary = summaryFromConversation(item);
+    conversations.value = [summary, ...conversations.value.filter((entry) => entry.uuid !== summary.uuid)];
+}
+
+function conversationTitle(item) {
+    return item.title || `${t("freeAiModels.newConversation")} · ${String(item.uuid).slice(0, 6)}`;
+}
+
+async function openConversation(item) {
+    if (item.uuid === activeUuid.value) {
+        sidebarOpen.value = false;
+        return;
+    }
+    sidebarOpen.value = false;
+    await router.push({ name: "free-ai-model.chat", params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: item.uuid } });
 }
 
 async function newConversation() {
     if (creatingConversation.value) return;
     creatingConversation.value = true;
-
     try {
-        const response = await freeAiModelService.createConversation(route.params.slug);
-        const uuid = response?.data?.uuid;
-
-        if (!uuid) throw new Error("Missing conversation UUID");
-
+        const chosen = selectedModel.value?.isAvailable ? selectedModel.value : null;
+        const response = await freeAiModelService.createConversation(pageSlug.value, chosen);
+        const created = response?.data;
+        if (!created?.uuid) throw new Error("Missing conversation UUID");
+        upsertConversationSummary(created);
         sidebarOpen.value = false;
-        await router.replace({
-            name: "free-ai-model.chat",
-            params: { lang: homeService.getLang(), slug: route.params.slug, uuid },
-        });
+        await router.push({ name: "free-ai-model.chat", params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: created.uuid } });
     } catch {
-        // ApiClient displays the request error and keeps the current conversation open.
+        // ApiClient provides the shared request error feedback.
     } finally {
         creatingConversation.value = false;
     }
 }
 
-function backToModel() {
-    sidebarOpen.value = false;
-    router.push({
-        name: "free-ai-model.show",
-        params: { lang: homeService.getLang(), slug: route.params.slug },
-    });
+async function deleteConversation(item) {
+    if (deletingUuid.value) return;
+    deletingUuid.value = item.uuid;
+    try {
+        await freeAiModelService.deleteConversation(pageSlug.value, item.uuid);
+        conversations.value = conversations.value.filter((entry) => entry.uuid !== item.uuid);
+        if (item.uuid === activeUuid.value) {
+            const next = conversations.value[0];
+            if (next) await openConversation(next);
+            else await newConversation();
+        }
+    } catch {
+        // ApiClient provides the shared request error feedback.
+    } finally {
+        deletingUuid.value = null;
+    }
 }
 
-watch(
-    () => [route.params.slug, route.params.uuid],
-    ([slug], [previousSlug] = []) => {
-        if (slug !== previousSlug) {
-            catalogModel.value = readSelectedCatalogModel(CATALOG_SOURCE, slug);
-        }
-        loadConversation();
-    },
-    { immediate: true }
-);
+async function selectExecutionModel(model) {
+    if (!conversation.value?.uuid || !model?.isAvailable || modelSaving.value || modelKey(model) === modelKey(selectedModel.value)) return;
+    const previous = selectedModel.value;
+    selectedModel.value = model;
+    modelSaving.value = true;
+    try {
+        const response = await freeAiModelService.updateConversationModel(pageSlug.value, activeUuid.value, model);
+        conversation.value = response?.data || conversation.value;
+        syncSelectedModel();
+        upsertConversationSummary(conversation.value);
+        if (catalogSource.value) saveSelectedCatalogModel(catalogSource.value, pageSlug.value, selectedModel.value);
+    } catch {
+        selectedModel.value = previous;
+    } finally {
+        modelSaving.value = false;
+    }
+}
+
+function openSidebar() {
+    if (isMobile.value) sidebarOpen.value = true;
+    else desktopSidebarCollapsed.value = false;
+}
+
+function closeSidebar() {
+    if (isMobile.value) sidebarOpen.value = false;
+    else desktopSidebarCollapsed.value = true;
+}
+
+function backToTool() {
+    router.push({ name: "free-ai-model.show", params: { lang: homeService.getLang(), slug: pageSlug.value } });
+}
+
+function handleResize() {
+    viewportWidth.value = window.innerWidth;
+    if (!isMobile.value) sidebarOpen.value = false;
+}
+
+function handleLanguageChanged() {
+    loadedCatalogSource = null;
+    catalogModels.value = [];
+    loadCatalog(true);
+}
+
+onMounted(() => {
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("lang-changed", handleLanguageChanged);
+    Promise.all([loadCatalog(), loadConversations(), loadConversation()]);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener("resize", handleResize);
+    window.removeEventListener("lang-changed", handleLanguageChanged);
+    document.body.style.overflow = "";
+});
+
+watch(sidebarOpen, (open) => {
+    if (isMobile.value) document.body.style.overflow = open ? "hidden" : "";
+});
+
+watch(activeUuid, (uuid, previousUuid) => {
+    if (uuid && uuid !== previousUuid) loadConversation();
+});
+
+watch(pageSlug, (slug, previousSlug) => {
+    if (!slug || slug === previousSlug) return;
+    conversation.value = null;
+    conversations.value = [];
+    catalogModels.value = [];
+    selectedModel.value = null;
+    loadedCatalogSource = null;
+    Promise.all([loadCatalog(), loadConversations(), loadConversation()]);
+});
 </script>
 
 <style scoped>
-.free-chat-page {
-    --navbar-offset: 70px;
+.free-ai-chat {
+    --navbar-height: 118px;
     width: 100%;
-    height: calc(100dvh - var(--navbar-offset));
+    height: calc(100dvh - var(--navbar-height));
     min-height: 0;
-    padding: 10px 12px;
+    display: flex;
     overflow: hidden;
     color: var(--theme-text-primary);
     background: var(--theme-bg);
@@ -275,306 +457,316 @@ button {
     cursor: pointer;
 }
 
-button:disabled,
-textarea:disabled {
-    cursor: not-allowed;
-}
-
-.chat-shell {
-    width: min(100%, 1600px);
-    height: 100%;
-    min-height: 0;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 282px minmax(0, 1fr);
-    overflow: hidden;
-    border: 1px solid var(--theme-border);
-    border-radius: 22px;
-    background: var(--theme-surface);
-    box-shadow: 0 16px 52px var(--theme-shadow);
-}
-
-.chat-sidebar {
+.conversation-sidebar {
     position: relative;
-    z-index: 40;
-    min-width: 0;
+    z-index: 20;
+    width: 292px;
+    min-width: 292px;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 22px 18px;
-    overflow-y: auto;
-    color: #ffffff;
-    background:
-        radial-gradient(circle at 18% 4%, rgba(98, 200, 240, 0.2), transparent 31%),
-        linear-gradient(165deg, #154677 0%, #11385f 100%);
+    padding: 14px 12px;
+    overflow: hidden;
+    border-inline-end: 1px solid var(--theme-border);
+    background: var(--theme-surface);
+    transition: width 0.22s ease, min-width 0.22s ease, padding 0.22s ease;
 }
 
-.sidebar-close {
-    display: none;
+.conversation-sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    padding-inline: 0;
+    border-inline-end: 0;
 }
 
-.model-card {
+.conversation-sidebar.collapsed > * {
+    visibility: hidden;
+}
+
+.sidebar-heading,
+.tool-identity,
+.header-leading {
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 11px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.model-card img,
-.model-icon {
-    width: 48px;
-    height: 48px;
-    flex: 0 0 48px;
-    border-radius: 14px;
+.sidebar-heading {
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 2px 13px;
+}
+
+.tool-identity,
+.header-leading {
+    gap: 10px;
+}
+
+.tool-avatar,
+.header-avatar {
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    color: #fff;
+    background: linear-gradient(145deg, #154677, #2ba6de);
+}
+
+.tool-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+}
+
+.tool-avatar img,
+.header-avatar img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
 }
 
-.model-icon {
-    display: grid;
-    place-items: center;
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.12);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-    font-size: 19px;
-}
-
-.model-card-copy {
+.tool-copy,
+.header-copy {
     min-width: 0;
 }
 
-.model-card-copy small,
-.model-card-copy strong {
+.tool-copy small,
+.tool-copy strong,
+.header-copy strong,
+.header-copy small {
     display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.model-card-copy small {
-    color: rgba(255, 255, 255, 0.62);
-    font-size: 10px;
+.tool-copy small {
+    color: var(--theme-text-muted);
+    font-size: 9px;
+    font-weight: 800;
     text-transform: uppercase;
 }
 
-.model-card-copy strong {
-    margin-top: 3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 14px;
+.tool-copy strong {
+    margin-top: 2px;
+    font-size: 13px;
 }
 
-.sidebar-description {
-    display: -webkit-box;
-    margin: 0;
-    overflow: hidden;
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 12px;
-    line-height: 1.65;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+.icon-button {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 38px;
+    border: 1px solid var(--theme-border);
+    border-radius: 11px;
+    color: var(--theme-text-secondary);
+    background: var(--theme-surface-secondary);
 }
 
-.sidebar-badges,
-.header-badges {
+.icon-button:hover {
+    color: var(--theme-accent);
+    border-color: var(--theme-border-strong);
+    background: var(--theme-hover);
+}
+
+.new-conversation-button {
+    width: 100%;
+    min-height: 44px;
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 7px;
-}
-
-.sidebar-badges span,
-.header-badges span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 8px;
-    border-radius: 999px;
-    font-size: 9px;
-    font-weight: 800;
-}
-
-.sidebar-badges span {
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.new-chat-button,
-.primary-button {
-    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 45px;
-    padding: 11px 15px;
     border: 0;
-    border-radius: 13px;
-    color: #154677;
-    background: #ffffff;
-    font-size: 13px;
-    font-weight: 850;
-    box-shadow: 0 11px 25px rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    color: #fff;
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: 0 10px 22px rgba(21, 70, 119, 0.2);
 }
 
-.new-chat-button:disabled {
+.new-conversation-button:disabled {
+    cursor: wait;
     opacity: 0.65;
 }
 
-.conversation-info {
-    display: grid;
-    gap: 10px;
-    margin-top: auto;
-    padding: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.07);
+.history-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 20px 6px 8px;
+    color: var(--theme-text-muted);
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
 }
 
-.conversation-info > div {
+.history-list {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--theme-border-strong) transparent;
+}
+
+.history-state {
+    display: grid;
+    place-items: center;
+    gap: 8px;
+    padding: 34px 12px;
+    color: var(--theme-text-muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+.history-state i {
+    font-size: 23px;
+}
+
+.history-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 4px;
+    padding: 3px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+}
+
+.history-item:hover,
+.history-item.active {
+    border-color: var(--theme-border);
+    background: var(--theme-hover);
+}
+
+.history-item.active {
+    box-shadow: inset 3px 0 0 var(--theme-accent);
+}
+
+[dir="rtl"] .history-item.active {
+    box-shadow: inset -3px 0 0 var(--theme-accent);
+}
+
+.history-open {
     min-width: 0;
+    flex: 1;
     display: flex;
     align-items: center;
     gap: 9px;
+    padding: 8px 6px;
+    border: 0;
+    color: var(--theme-text-primary);
+    background: transparent;
+    text-align: start;
 }
 
-.info-icon {
-    width: 29px;
-    height: 29px;
-    display: grid;
-    place-items: center;
-    flex: 0 0 29px;
-    border-radius: 9px;
-    background: rgba(255, 255, 255, 0.1);
+.history-open > i {
+    flex: 0 0 auto;
+    color: var(--theme-text-muted);
 }
 
-.conversation-info p {
+.history-open > span {
     min-width: 0;
-    margin: 0;
 }
 
-.conversation-info small,
-.conversation-info strong,
-.conversation-info code {
+.history-open strong,
+.history-open small {
     display: block;
-}
-
-.conversation-info small {
-    color: rgba(255, 255, 255, 0.58);
-    font-size: 9px;
-}
-
-.conversation-info strong,
-.conversation-info code {
-    margin-top: 1px;
     overflow: hidden;
-    color: #ffffff;
-    font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.conversation-info code {
-    direction: ltr;
-    text-align: start;
+.history-open strong {
+    font-size: 11px;
+}
+
+.history-open small {
+    margin-top: 3px;
+    color: var(--theme-text-muted);
+    font-size: 9px;
+}
+
+.history-delete {
+    width: 31px;
+    height: 31px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 31px;
+    border: 0;
+    border-radius: 9px;
+    color: var(--theme-text-muted);
+    background: transparent;
+    opacity: 0;
+}
+
+.history-item:hover .history-delete,
+.history-item.active .history-delete,
+.history-delete:focus-visible {
+    opacity: 1;
+}
+
+.history-delete:hover {
+    color: var(--app-danger);
+    background: var(--theme-surface-secondary);
 }
 
 .chat-workspace {
     min-width: 0;
     min-height: 0;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
-    background: var(--theme-bg-secondary);
 }
 
-.chat-header {
-    min-width: 0;
-    min-height: 64px;
+.workspace-header {
+    min-height: 68px;
+    flex: 0 0 68px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 14px;
     padding: 10px 18px;
     border-bottom: 1px solid var(--theme-border);
     background: var(--theme-surface);
 }
 
-.header-model {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.header-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
 }
 
-.header-model > div {
-    min-width: 0;
-}
-
-.header-model small,
-.header-model strong {
-    display: block;
-}
-
-.header-model small {
-    color: var(--app-success);
-    font-size: 9px;
-    font-weight: 800;
-    text-transform: uppercase;
-}
-
-.header-model strong {
-    max-width: min(42vw, 560px);
-    margin-top: 2px;
-    overflow: hidden;
-    color: var(--theme-text-primary);
+.header-copy strong {
     font-size: 14px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-.online-dot {
-    width: 8px;
-    height: 8px;
-    flex: 0 0 8px;
+.header-copy small {
+    margin-top: 3px;
+    color: var(--theme-text-muted);
+    font-size: 10px;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    display: inline-block;
+    margin-inline-end: 4px;
     border-radius: 50%;
     background: var(--app-success);
-    box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.12);
-}
-
-.header-badges {
-    margin-inline-start: auto;
-}
-
-.header-badges span {
-    border: 1px solid var(--theme-border);
-    background: var(--theme-surface-secondary);
-}
-
-.tier-free,
-.free-state {
-    color: var(--app-success);
-}
-
-.tier-standard {
-    color: var(--theme-accent);
-}
-
-.tier-advanced {
-    color: var(--theme-primary);
-}
-
-.paid-state {
-    color: var(--theme-text-secondary);
 }
 
 .back-button,
-.mobile-menu-button {
+.retry-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
-    min-height: 39px;
-    padding: 8px 11px;
+    min-height: 38px;
+    padding: 8px 12px;
     border: 1px solid var(--theme-border);
     border-radius: 11px;
     color: var(--theme-text-secondary);
@@ -587,167 +779,167 @@ textarea:disabled {
     transform: rotate(180deg);
 }
 
-.mobile-menu-button {
-    display: none;
-}
-
-.messages-area {
+.messages {
     min-height: 0;
+    flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    overscroll-behavior: contain;
+    background:
+        radial-gradient(circle at 50% 30%, rgba(43, 166, 222, 0.07), transparent 34%),
+        var(--theme-bg);
 }
 
-.empty-chat {
-    width: min(100%, 650px);
+.empty-conversation,
+.conversation-state {
+    width: min(620px, calc(100% - 32px));
     min-height: 100%;
+    margin: 0 auto;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex-direction: column;
-    margin: 0 auto;
-    padding: 28px 20px;
+    padding: 36px 0;
     text-align: center;
 }
 
 .empty-icon {
-    width: 70px;
-    height: 70px;
+    width: 62px;
+    height: 62px;
     display: grid;
     place-items: center;
-    margin-bottom: 15px;
     border: 1px solid var(--theme-border);
-    border-radius: 22px;
-    color: #ffffff;
-    background: linear-gradient(145deg, #154677, #2ba6de);
-    box-shadow: 0 15px 32px rgba(21, 70, 119, 0.2);
-    font-size: 26px;
-}
-
-.ready-label,
-.coming-soon {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 10px;
-    border: 1px solid var(--theme-border);
-    border-radius: 999px;
+    border-radius: 20px;
+    color: var(--theme-accent);
     background: var(--theme-surface);
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 26px;
+    box-shadow: 0 16px 36px var(--theme-shadow);
 }
 
-.ready-label {
-    color: var(--app-success);
+.empty-conversation h1,
+.conversation-state h1 {
+    margin: 19px 0 8px;
+    font-size: clamp(1.35rem, 3vw, 2rem);
 }
 
-.empty-chat h1 {
-    margin: 14px 0 8px;
-    overflow-wrap: anywhere;
-    color: var(--theme-text-primary);
-    font-size: clamp(1.65rem, 3.2vw, 2.5rem);
-}
-
-.empty-chat p {
-    max-width: 570px;
-    margin: 5px 0;
-    color: var(--theme-text-muted);
+.empty-conversation p,
+.conversation-state p {
+    max-width: 520px;
+    margin: 0;
+    color: var(--theme-text-secondary);
     font-size: 13px;
     line-height: 1.7;
 }
 
-.empty-chat .empty-description {
-    color: var(--theme-text-secondary);
-    font-size: 14px;
-}
-
-.coming-soon {
-    margin-top: 14px;
-    color: var(--theme-accent);
-    background: var(--theme-surface-secondary);
-}
-
-.composer {
-    padding: 12px max(18px, calc((100% - 980px) / 2)) 10px;
-    border-top: 1px solid var(--theme-border);
-    background: var(--theme-surface);
-}
-
-.composer-box {
-    display: flex;
+.pending-pill {
+    display: inline-flex;
     align-items: center;
-    gap: 9px;
-    padding: 7px;
-    border: 1px solid var(--theme-border);
-    border-radius: 16px;
-    background: var(--theme-input-bg);
-    box-shadow: 0 7px 22px var(--theme-shadow);
-    opacity: 0.72;
-}
-
-.composer textarea {
-    min-width: 0;
-    min-height: 42px;
-    flex: 1;
-    resize: none;
-    padding: 10px;
-    border: 0;
-    outline: 0;
-    color: var(--theme-text-muted);
-    background: transparent;
-}
-
-.composer button {
-    width: 43px;
-    height: 43px;
-    flex: 0 0 43px;
-    display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 13px;
-    color: var(--theme-text-muted);
-    background: var(--theme-surface-elevated);
-}
-
-.composer > p {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     gap: 6px;
-    margin: 7px 0 0;
+    margin-top: 17px;
+    padding: 7px 11px;
+    border: 1px solid var(--theme-border);
+    border-radius: 999px;
     color: var(--theme-text-muted);
-    font-size: 10px;
+    background: var(--theme-surface);
+    font-size: 9px;
+    font-weight: 800;
 }
 
-.chat-state {
-    width: min(100%, 760px);
-    height: 100%;
-    margin: 0 auto;
-    display: grid;
-    place-items: center;
-    align-content: center;
-    gap: 13px;
-    color: var(--theme-text-primary);
-    text-align: center;
+.conversation-state {
+    flex: 1;
+    gap: 10px;
 }
 
-.chat-state p,
-.chat-state h1 {
+.conversation-state > p,
+.conversation-state > h1 {
     margin: 0;
-}
-
-.chat-state p {
-    color: var(--theme-text-secondary);
 }
 
 .error-state > i {
     color: var(--app-danger);
-    font-size: 42px;
+    font-size: 34px;
 }
 
-.error-state .primary-button {
-    margin-top: 6px;
-    color: #ffffff;
+.retry-button {
+    margin-top: 8px;
+}
+
+.composer-area {
+    flex: 0 0 auto;
+    padding: 12px 18px 10px;
+    border-top: 1px solid var(--theme-border);
+    background: var(--theme-surface);
+}
+
+.composer-shell {
+    width: min(980px, 100%);
+    margin: 0 auto;
+}
+
+.composer-box {
+    display: flex;
+    align-items: stretch;
+    overflow: visible;
+    border: 1px solid var(--theme-border-strong);
+    border-radius: 16px;
+    background: var(--theme-surface-elevated);
+    box-shadow: 0 10px 28px var(--theme-shadow);
+}
+
+.message-compose-row {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 7px 6px 10px;
+}
+
+.message-compose-row textarea {
+    min-width: 0;
+    min-height: 38px;
+    max-height: 100px;
+    flex: 1;
+    resize: none;
+    padding: 9px 6px;
+    border: 0;
+    outline: 0;
+    color: var(--theme-text-secondary);
+    background: transparent;
+    font-size: 12px;
+}
+
+.message-compose-row textarea:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+}
+
+.send-button {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 38px;
+    border: 0;
+    border-radius: 11px;
+    color: #fff;
     background: linear-gradient(135deg, #154677, #2ba6de);
+}
+
+.send-button:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.55);
+    opacity: 0.45;
+}
+
+.composer-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 7px 0 0;
+    color: var(--theme-text-muted);
+    font-size: 8px;
+    text-align: center;
 }
 
 .sidebar-overlay {
@@ -755,116 +947,118 @@ textarea:disabled {
 }
 
 @media (max-width: 900px) {
-    .free-chat-page {
-        padding: 0;
+    .free-ai-chat {
+        --navbar-height: 104px;
     }
 
-    .chat-shell {
-        grid-template-columns: minmax(0, 1fr);
-        border-inline: 0;
-        border-radius: 0;
-    }
-
-    .chat-sidebar {
+    .conversation-sidebar,
+    .conversation-sidebar.collapsed {
         position: fixed;
-        inset-block-start: var(--navbar-offset);
+        inset-block-start: var(--navbar-height);
         inset-block-end: 0;
         inset-inline-start: 0;
-        width: min(310px, 87vw);
-        transform: translateX(-110%);
+        z-index: 80;
+        width: min(310px, 88vw);
+        min-width: min(310px, 88vw);
+        padding: 14px 12px;
+        border-inline-end: 1px solid var(--theme-border);
+        visibility: visible;
+        transform: translateX(-105%);
         transition: transform 0.22s ease;
-        box-shadow: 18px 0 44px rgba(0, 0, 0, 0.22);
+        box-shadow: 12px 0 36px var(--theme-shadow);
     }
 
-    .free-chat-page[dir="rtl"] .chat-sidebar {
-        transform: translateX(110%);
+    [dir="rtl"] .conversation-sidebar,
+    [dir="rtl"] .conversation-sidebar.collapsed {
+        transform: translateX(105%);
+        box-shadow: -12px 0 36px var(--theme-shadow);
     }
 
-    .chat-sidebar.open {
+    .conversation-sidebar.open,
+    [dir="rtl"] .conversation-sidebar.open {
         transform: translateX(0);
     }
 
-    .sidebar-close {
-        position: absolute;
-        inset-block-start: 10px;
-        inset-inline-end: 10px;
-        width: 34px;
-        height: 34px;
-        display: grid;
-        place-items: center;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 10px;
-        color: #ffffff;
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .model-card {
-        padding-inline-end: 38px;
+    .conversation-sidebar.collapsed > * {
+        visibility: visible;
     }
 
     .sidebar-overlay {
         position: fixed;
-        inset-block-start: var(--navbar-offset);
+        inset-block-start: var(--navbar-height);
         inset-block-end: 0;
         inset-inline: 0;
-        z-index: 30;
+        z-index: 70;
         display: block;
         border: 0;
-        background: var(--theme-overlay);
+        background: rgba(4, 16, 29, 0.48);
+        cursor: default;
     }
 
-    .mobile-menu-button {
-        display: inline-flex;
-        flex: 0 0 auto;
-        padding-inline: 10px;
+    .workspace-header {
+        padding-inline: 12px;
     }
 }
 
-@media (max-width: 600px) {
-    .chat-header {
-        gap: 9px;
-        padding: 9px 10px;
+@media (max-width: 640px) {
+    .free-ai-chat {
+        --navbar-height: 90px;
     }
 
-    .header-model strong {
-        max-width: calc(100vw - 190px);
+    .workspace-header {
+        min-height: 62px;
+        flex-basis: 62px;
+        padding: 8px 9px;
+    }
+
+    .header-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 11px;
+    }
+
+    .header-copy strong {
+        max-width: 38vw;
         font-size: 12px;
     }
 
-    .header-badges {
-        display: none;
+    .header-copy small {
+        max-width: 44vw;
+        font-size: 8px;
     }
 
     .back-button {
-        margin-inline-start: auto;
+        width: 36px;
+        min-height: 36px;
+        padding: 0;
     }
 
     .back-button span {
         display: none;
     }
 
-    .messages-area {
-        padding: 14px 11px;
+    .composer-area {
+        padding: 8px 9px 7px;
     }
 
-    .empty-chat {
-        padding: 18px 10px;
+    .composer-box {
+        flex-direction: column;
+        border-radius: 14px;
     }
 
-    .empty-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 18px;
+    .message-compose-row {
+        min-height: 50px;
+        padding: 5px 6px 5px 9px;
     }
 
-    .composer {
-        padding-inline: 10px;
+    .composer-hint {
+        margin-top: 5px;
+        font-size: 7px;
     }
 
-    .composer > p {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    .empty-conversation {
+        width: calc(100% - 24px);
+        padding-block: 26px;
     }
 }
 </style>

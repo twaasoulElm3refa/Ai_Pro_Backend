@@ -71,8 +71,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/{slug}', [FreeAiModelController::class, 'show']);
 
         Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
+            Route::get('/{slug}/conversations', [FreeAiModelController::class, 'conversations']);
             Route::post('/{slug}/conversations', [FreeAiModelController::class, 'storeConversation']);
             Route::get('/{slug}/conversations/{uuid}', [FreeAiModelController::class, 'showConversation']);
+            Route::patch('/{slug}/conversations/{uuid}/model', [FreeAiModelController::class, 'updateConversationModel']);
+            Route::delete('/{slug}/conversations/{uuid}', [FreeAiModelController::class, 'destroyConversation']);
         });
     });
 

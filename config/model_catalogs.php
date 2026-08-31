@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'free_ai_tools' => [
+        'chat-writing' => 'general_chat',
+    ],
+
     'sources' => [
         'general_chat' => [
             'endpoint' => env(

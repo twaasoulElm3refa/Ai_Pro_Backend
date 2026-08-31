@@ -54,8 +54,17 @@
     "modelAvailable": "متاح",
     "conversationReady": "المحادثة جاهزة",
     "composerUnavailableHint": "إرسال الرسائل معطل مؤقتاً حتى اكتمال ربط الذكاء الاصطناعي.",
-    "openSidebar": "فتح تفاصيل النموذج",
-    "closeSidebar": "إغلاق تفاصيل النموذج"
+    "openSidebar": "فتح سجل المحادثات",
+    "closeSidebar": "إغلاق سجل المحادثات",
+    "mainTool": "أداة ذكاء اصطناعي مجانية",
+    "recentConversations": "المحادثات الأخيرة",
+    "conversationList": "سجل المحادثات",
+    "loadingConversations": "جارٍ تحميل المحادثات...",
+    "noConversations": "لا توجد محادثات بعد",
+    "defaultModel": "النموذج الافتراضي",
+    "modelSaving": "جارٍ الحفظ",
+    "deleteConversation": "حذف المحادثة",
+    "conversation": "المحادثة"
   },
   "auth": {
     "googleCallback": {
