@@ -24,6 +24,7 @@ const cancelled = () => import("../views/home/CancelledDeposit.vue");
 const FreeAiModelShow = () => import("../views/home/free-ai-models/FreeAiModelShow.vue");
 const FreeAiModelChat = () => import("../views/home/free-ai-models/FreeAiModelChat.vue");
 const showGeneral = () => import("../views/home/generalTools/showGeneral.vue");
+const GeneralChat = () => import("../views/home/generalTools/GeneralChat.vue");
 
 const adminMeta = {
     hideNavbar: true,
@@ -49,6 +50,12 @@ const routes = [
         path: "/:lang/general/chat",
         component: showGeneral,
         meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/general-chat/:slug",
+        name: "general-chat",
+        component: GeneralChat,
+        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
     },
     {
         path: "/:lang/tool/:slug",
