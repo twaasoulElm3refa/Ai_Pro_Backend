@@ -114,6 +114,30 @@ class ModelCatalogProxyTest extends TestCase
         ];
     }
 
+    public function test_proxy_accepts_the_real_top_level_code_sample_and_preserves_nullable_fields(): void
+    {
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-code-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        $endpoint = config('model_catalogs.sources.general_code.endpoint');
+        Http::preventStrayRequests();
+        Http::fake([$endpoint => Http::response($sample)]);
+
+        $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
+            ->getJson('/api/v1/model-catalogs/general_code')
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.tool', 'general_code')
+            ->assertJsonCount(7, 'data.items')
+            ->assertJsonPath('data.items', $sample['items'])
+            ->assertJsonPath('data.items.0.name', 'Qwen3 Coder Next')
+            ->assertJsonPath('data.items.0.description', null)
+            ->assertJsonPath('data.items.0.pricing', null)
+            ->assertJsonMissingPath('data.data');
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) => $request->url() === $endpoint
+            && $request->hasHeader('x-internal-api-key', 'server-only-test-key'));
+    }
+
     public function test_code_tool_mapping_is_explicit_and_keeps_the_existing_chat_mapping(): void
     {
         $key = 'FREE_AI_GENERAL_CODE_TOOL_SLUG';
@@ -129,8 +153,12 @@ class ModelCatalogProxyTest extends TestCase
                 if ($slug === 'catalog-test-tool') {
                     $this->assertSame('general_code', $catalogs['free_ai_tools'][$slug]);
                 } else {
-                    $this->assertSame(['chat-writing' => 'general_chat'], $catalogs['free_ai_tools']);
+                    $this->assertSame([
+                        'chat-writing' => 'general_chat',
+                        'programming-technology' => 'general_code',
+                    ], $catalogs['free_ai_tools']);
                 }
+                $this->assertSame('general_code', $catalogs['free_ai_tools']['programming-technology']);
             }
         } finally {
             if ($previousEnv === null) {

@@ -1,0 +1,728 @@
+{
+  "tool": "general_code",
+  "items": [
+    {
+      "id": 3,
+      "provider": "openrouter",
+      "provider_model_id": "qwen/qwen3-coder-next",
+      "name": "Qwen3 Coder Next",
+      "description": null,
+      "tool_key": "general_code",
+      "operation": "text_generation",
+      "tier": "standard",
+      "is_free": false,
+      "capabilities": [
+        "coding",
+        "agents"
+      ],
+      "parameter_schema": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "required": false
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 12000,
+          "default": 4000,
+          "required": false
+        },
+        "quality_mode": {
+          "type": "enum",
+          "values": [
+            "fast",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced"
+        },
+        "reasoning_effort": {
+          "type": "enum",
+          "values": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "none"
+        },
+        "language": {
+          "type": "string",
+          "nullable": true
+        },
+        "task_mode": {
+          "type": "enum",
+          "values": [
+            "generate",
+            "explain",
+            "debug",
+            "review",
+            "refactor",
+            "test"
+          ],
+          "default": "generate"
+        },
+        "programming_language": {
+          "type": "string",
+          "nullable": true
+        },
+        "include_explanation": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_tests": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "recommended_parameters": {
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "quality_mode": "balanced",
+        "reasoning_effort": "none",
+        "task_mode": "generate",
+        "include_explanation": true,
+        "include_tests": false
+      },
+      "pricing": null,
+      "is_available": true,
+      "is_recommended": true,
+      "sort_order": 10,
+      "pricing_updated_at": null,
+      "provider_updated_at": null
+    },
+    {
+      "id": 18,
+      "provider": "openrouter",
+      "provider_model_id": "deepseek/deepseek-v4-flash-0731",
+      "name": "DeepSeek V4 Flash 0731",
+      "description": "Cost-efficient coding and reasoning model with one-million-token context.",
+      "tool_key": "general_code",
+      "operation": "text_generation",
+      "tier": "standard",
+      "is_free": false,
+      "capabilities": [
+        "code_generation",
+        "code_review",
+        "debugging",
+        "reasoning",
+        "agentic_coding",
+        "tools",
+        "long_context"
+      ],
+      "parameter_schema": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "required": false
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 12000,
+          "default": 4000,
+          "required": false
+        },
+        "quality_mode": {
+          "type": "enum",
+          "values": [
+            "fast",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced"
+        },
+        "reasoning_effort": {
+          "type": "enum",
+          "values": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "none"
+        },
+        "language": {
+          "type": "string",
+          "nullable": true
+        },
+        "task_mode": {
+          "type": "enum",
+          "values": [
+            "generate",
+            "explain",
+            "debug",
+            "review",
+            "refactor",
+            "test"
+          ],
+          "default": "generate"
+        },
+        "programming_language": {
+          "type": "string",
+          "nullable": true
+        },
+        "include_explanation": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_tests": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "recommended_parameters": {
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "quality_mode": "balanced",
+        "reasoning_effort": "none",
+        "task_mode": "generate",
+        "include_explanation": true,
+        "include_tests": false
+      },
+      "pricing": {
+        "currency": "USD",
+        "unit": "1M_tokens",
+        "input": 0.14,
+        "output": 0.28
+      },
+      "is_available": true,
+      "is_recommended": true,
+      "sort_order": 30,
+      "pricing_updated_at": "2026-08-20T13:15:34",
+      "provider_updated_at": "2026-08-20T13:15:34"
+    },
+    {
+      "id": 16,
+      "provider": "openrouter",
+      "provider_model_id": "poolside/laguna-s-2.1:free",
+      "name": "Laguna S 2.1 Free",
+      "description": "Free software engineering model optimized for coding agents.",
+      "tool_key": "general_code",
+      "operation": "text_generation",
+      "tier": "free",
+      "is_free": true,
+      "capabilities": [
+        "code_generation",
+        "code_review",
+        "debugging",
+        "reasoning",
+        "agentic_coding",
+        "tools"
+      ],
+      "parameter_schema": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "required": false
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 12000,
+          "default": 4000,
+          "required": false
+        },
+        "quality_mode": {
+          "type": "enum",
+          "values": [
+            "fast",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced"
+        },
+        "reasoning_effort": {
+          "type": "enum",
+          "values": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "none"
+        },
+        "language": {
+          "type": "string",
+          "nullable": true
+        },
+        "task_mode": {
+          "type": "enum",
+          "values": [
+            "generate",
+            "explain",
+            "debug",
+            "review",
+            "refactor",
+            "test"
+          ],
+          "default": "generate"
+        },
+        "programming_language": {
+          "type": "string",
+          "nullable": true
+        },
+        "include_explanation": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_tests": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "recommended_parameters": {
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "quality_mode": "balanced",
+        "reasoning_effort": "none",
+        "task_mode": "generate",
+        "include_explanation": true,
+        "include_tests": false
+      },
+      "pricing": {
+        "currency": "USD",
+        "unit": "1M_tokens",
+        "input": 0,
+        "output": 0
+      },
+      "is_available": true,
+      "is_recommended": false,
+      "sort_order": 10,
+      "pricing_updated_at": "2026-08-20T13:15:34",
+      "provider_updated_at": "2026-08-20T13:15:34"
+    },
+    {
+      "id": 17,
+      "provider": "openrouter",
+      "provider_model_id": "cohere/north-mini-code:free",
+      "name": "North Mini Code Free",
+      "description": "Free agentic coding model for code generation and terminal tasks.",
+      "tool_key": "general_code",
+      "operation": "text_generation",
+      "tier": "free",
+      "is_free": true,
+      "capabilities": [
+        "code_generation",
+        "debugging",
+        "agentic_coding",
+        "terminal",
+        "reasoning",
+        "tools"
+      ],
+      "parameter_schema": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "required": false
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 12000,
+          "default": 4000,
+          "required": false
+        },
+        "quality_mode": {
+          "type": "enum",
+          "values": [
+            "fast",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced"
+        },
+        "reasoning_effort": {
+          "type": "enum",
+          "values": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "none"
+        },
+        "language": {
+          "type": "string",
+          "nullable": true
+        },
+        "task_mode": {
+          "type": "enum",
+          "values": [
+            "generate",
+            "explain",
+            "debug",
+            "review",
+            "refactor",
+            "test"
+          ],
+          "default": "generate"
+        },
+        "programming_language": {
+          "type": "string",
+          "nullable": true
+        },
+        "include_explanation": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_tests": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "recommended_parameters": {
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "quality_mode": "balanced",
+        "reasoning_effort": "none",
+        "task_mode": "generate",
+        "include_explanation": true,
+        "include_tests": false
+      },
+      "pricing": {
+        "currency": "USD",
+        "unit": "1M_tokens",
+        "input": 0,
+        "output": 0
+      },
+      "is_available": true,
+      "is_recommended": false,
+      "sort_order": 20,
+      "pricing_updated_at": "2026-08-20T13:15:34",
+      "provider_updated_at": "2026-08-20T13:15:34"
+    },
+    {
+      "id": 19,
+      "provider": "openrouter",
+      "provider_model_id": "bytedance-seed/seed-2.0-code",
+      "name": "Seed 2.0 Code",
+      "description": "Coding-specialized model for software engineering and agentic development.",
+      "tool_key": "general_code",
+      "operation": "text_generation",
+      "tier": "standard",
+      "is_free": false,
+      "capabilities": [
+        "code_generation",
+        "frontend",
+        "debugging",
+        "multilingual_code",
+        "agentic_coding",
+        "tools"
+      ],
+      "parameter_schema": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "required": false
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 12000,
+          "default": 4000,
+          "required": false
+        },
+        "quality_mode": {
+          "type": "enum",
+          "values": [
+            "fast",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced"
+        },
+        "reasoning_effort": {
+          "type": "enum",
+          "values": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "none"
+        },
+        "language": {
+          "type": "string",
+          "nullable": true
+        },
+        "task_mode": {
+          "type": "enum",
+          "values": [
+            "generate",
+            "explain",
+            "debug",
+            "review",
+            "refactor",
+            "test"
+          ],
+          "default": "generate"
+        },
+        "programming_language": {
+          "type": "string",
+          "nullable": true
+        },
+        "include_explanation": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_tests": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "recommended_parameters": {
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "quality_mode": "balanced",
+        "reasoning_effort": "none",
+        "task_mode": "generate",
+        "include_explanation": true,
+        "include_tests": false
+      },
+      "pricing": {
+        "currency": "USD",
+        "unit": "1M_tokens",
+        "input": 0.5,
+        "output": 3
+      },
+      "is_available": true,
+      "is_recommended": false,
+      "sort_order": 40,
+      "pricing_updated_at": "2026-08-20T13:15:34",
+      "provider_updated_at": "2026-08-20T13:15:34"
+    },
+    {
+      "id": 20,
+      "provider": "openrouter",
+      "provider_model_id": "openai/gpt-5.6-sol",
+      "name": "GPT-5.6 Sol",
+      "description": "Premium OpenAI model for complex software engineering and debugging.",
+      "tool_key": "general_code",
+      "operation": "text_generation",
+      "tier": "advanced",
+      "is_free": false,
+      "capabilities": [
+        "code_generation",
+        "code_review",
+        "debugging",
+        "architecture",
+        "reasoning",
+        "agentic_coding",
+        "tools",
+        "long_context"
+      ],
+      "parameter_schema": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "required": false
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 12000,
+          "default": 4000,
+          "required": false
+        },
+        "quality_mode": {
+          "type": "enum",
+          "values": [
+            "fast",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced"
+        },
+        "reasoning_effort": {
+          "type": "enum",
+          "values": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "none"
+        },
+        "language": {
+          "type": "string",
+          "nullable": true
+        },
+        "task_mode": {
+          "type": "enum",
+          "values": [
+            "generate",
+            "explain",
+            "debug",
+            "review",
+            "refactor",
+            "test"
+          ],
+          "default": "generate"
+        },
+        "programming_language": {
+          "type": "string",
+          "nullable": true
+        },
+        "include_explanation": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_tests": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "recommended_parameters": {
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "quality_mode": "balanced",
+        "reasoning_effort": "none",
+        "task_mode": "generate",
+        "include_explanation": true,
+        "include_tests": false
+      },
+      "pricing": {
+        "currency": "USD",
+        "unit": "1M_tokens",
+        "input": 5,
+        "output": 30
+      },
+      "is_available": true,
+      "is_recommended": false,
+      "sort_order": 50,
+      "pricing_updated_at": "2026-08-20T13:15:34",
+      "provider_updated_at": "2026-08-20T13:15:34"
+    },
+    {
+      "id": 21,
+      "provider": "openrouter",
+      "provider_model_id": "anthropic/claude-opus-5",
+      "name": "Claude Opus 5",
+      "description": "Premium model for coding agents, review, debugging and complex software tasks.",
+      "tool_key": "general_code",
+      "operation": "text_generation",
+      "tier": "advanced",
+      "is_free": false,
+      "capabilities": [
+        "code_generation",
+        "code_review",
+        "debugging",
+        "architecture",
+        "reasoning",
+        "agentic_coding",
+        "tools",
+        "long_context"
+      ],
+      "parameter_schema": {
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.5,
+          "required": false
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 12000,
+          "default": 4000,
+          "required": false
+        },
+        "quality_mode": {
+          "type": "enum",
+          "values": [
+            "fast",
+            "balanced",
+            "high"
+          ],
+          "default": "balanced"
+        },
+        "reasoning_effort": {
+          "type": "enum",
+          "values": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "none"
+        },
+        "language": {
+          "type": "string",
+          "nullable": true
+        },
+        "task_mode": {
+          "type": "enum",
+          "values": [
+            "generate",
+            "explain",
+            "debug",
+            "review",
+            "refactor",
+            "test"
+          ],
+          "default": "generate"
+        },
+        "programming_language": {
+          "type": "string",
+          "nullable": true
+        },
+        "include_explanation": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_tests": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "recommended_parameters": {
+        "temperature": 0.5,
+        "max_tokens": 4000,
+        "quality_mode": "balanced",
+        "reasoning_effort": "none",
+        "task_mode": "generate",
+        "include_explanation": true,
+        "include_tests": false
+      },
+      "pricing": {
+        "currency": "USD",
+        "unit": "1M_tokens",
+        "input": 5,
+        "output": 25
+      },
+      "is_available": true,
+      "is_recommended": false,
+      "sort_order": 60,
+      "pricing_updated_at": "2026-08-20T13:15:34",
+      "provider_updated_at": "2026-08-20T13:15:34"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 20,
+    "total": 7,
+    "last_page": 1
+  }
+}

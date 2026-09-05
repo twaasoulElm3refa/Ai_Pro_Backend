@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import axios from "axios";
+import { toApiRequestUrl } from "../../resources/js/utils/apiUrl.js";
 import { getModelCatalogSource } from "../../resources/js/services/modelCatalog/modelCatalogSources.js";
 import { getFreeAiCatalogSource } from "../../resources/js/services/freeAiModels/freeAiCatalogSources.js";
 import { readSelectedCatalogModel, saveSelectedCatalogModel } from "../../resources/js/services/modelCatalog/selectedModelStorage.js";
@@ -270,4 +272,68 @@ test("a late chat catalog cannot overwrite the code page's unavailable state", a
     assert.equal(page.catalogModels.value.length, 0);
     assert.equal(page.selectedModel.value, null);
     assert.equal(page.conversation.value.uuid, "code-uuid");
+});
+
+test("missing server mapping reproduces unavailable before any catalog HTTP request", async () => {
+    const page = await chatHarness({
+        route: { params: { slug: "programming-technology", uuid: "fixture-uuid" } },
+        api: { getConversation: async () => ({ data: {
+            uuid: "fixture-uuid", model: { slug: "programming-technology" }, catalog_source: null,
+        } }) },
+        catalogs: { getModels: async () => assert.fail("An unmapped tool never reaches the proxy") },
+    });
+    await page.loadConversation();
+    assert.equal(page.catalogError.value, true);
+    assert.equal(page.catalogModels.value.length, 0);
+});
+
+test("the real seven-model sample reaches the composer's selector state and survives selection reload", async () => {
+    const sample = JSON.parse(await readFile("tests/Fixtures/general-code-catalog.json", "utf8"));
+    const requests = [];
+    const catalogs = await catalogServiceWithApi({ get: async (endpoint) => {
+        // Same envelope returned by ModelCatalogController; Axios adds the outer data.
+        requests.push(axios.getUri({ baseURL: "/api/v1", url: toApiRequestUrl(endpoint, "/api/v1") }));
+        return { data: { status: "success", message: "", data: sample } };
+    } });
+    const route = { params: { slug: "programming-technology", uuid: "fixture-uuid" } };
+    let persisted = { uuid: route.params.uuid, model: { slug: route.params.slug }, catalog_source: "general_code", selected_model: null };
+    const api = {
+        getConversation: async () => ({ data: structuredClone(persisted) }),
+        updateConversationModel: async (slug, uuid, model) => {
+            assert.equal(slug, "programming-technology");
+            assert.equal(uuid, "fixture-uuid");
+            persisted = { ...persisted, selected_model: {
+                source: "general_code", id: model.id, provider_model_id: model.providerModelId, name: model.name,
+            } };
+            return { data: structuredClone(persisted) };
+        },
+    };
+    const page = await chatHarness({ route, api, catalogs });
+    await page.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(requests, ["/api/v1/model-catalogs/general_code"]);
+    assert.equal(page.catalogError.value, false);
+    assert.equal(page.catalogLoading.value, false);
+    assert.equal(page.catalogModels.value.length, 7);
+    assert.deepEqual(Array.from(page.catalogModels.value, (model) => model.id), [3, 16, 17, 18, 19, 20, 21]);
+    assert.equal(page.selectedModel.value.name, "Qwen3 Coder Next");
+    assert.equal(page.selectedModel.value.description, "freeAiModels.modelDescriptionFallback");
+    for (const model of page.catalogModels.value) {
+        for (const [field, type] of Object.entries({
+            id: "number", providerModelId: "string", name: "string", description: "string",
+            tier: "string", isFree: "boolean", isAvailable: "boolean", isRecommended: "boolean", sortOrder: "number",
+        })) assert.equal(typeof model[field], type, `${model.name}: ${field}`);
+        assert.equal(model.isAvailable, true);
+        assert.equal(model.toolKey, "general_code");
+        for (const field of ["parameter_schema", "recommended_parameters", "pricing"]) assert.equal(field in model, false);
+    }
+    const template = await readFile("resources/js/views/home/free-ai-models/FreeAiModelChat.vue", "utf8");
+    assert.match(template, /<FreeAiModelSelector[\s\S]*?:models="catalogModels"/);
+    await page.selectExecutionModel(page.catalogModels.value.find((model) => model.id === 17));
+    const reloaded = await chatHarness({ route, api, catalogs });
+    await reloaded.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(reloaded.catalogError.value, false);
+    assert.equal(reloaded.selectedModel.value.id, 17);
+    assert.equal(reloaded.selectedModel.value.name, "North Mini Code Free");
 });

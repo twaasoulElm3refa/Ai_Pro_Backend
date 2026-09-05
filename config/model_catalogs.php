@@ -5,6 +5,7 @@ $codeToolSlug = trim((string) env('FREE_AI_GENERAL_CODE_TOOL_SLUG', ''));
 return [
     'free_ai_tools' => [
         'chat-writing' => 'general_chat',
+        'programming-technology' => 'general_code',
         // Additional verified tool slugs can be mapped to sources here.
     ] + ($codeToolSlug !== '' ? [$codeToolSlug => 'general_code'] : []),
 
