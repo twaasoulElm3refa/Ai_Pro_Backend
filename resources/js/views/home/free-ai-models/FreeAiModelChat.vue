@@ -189,10 +189,12 @@ const sidebarOpen = ref(false);
 const desktopSidebarCollapsed = ref(false);
 const viewportWidth = ref(typeof window === "undefined" ? 1200 : window.innerWidth);
 let loadedCatalogSource = null;
+let catalogRequestId = 0;
+let conversationRequestId = 0;
 
 const activeUuid = computed(() => String(route.params.uuid || ""));
 const pageSlug = computed(() => String(route.params.slug || ""));
-const catalogSource = computed(() => getFreeAiCatalogSource(pageSlug.value));
+const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value));
 const isMobile = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT);
 const isRtl = computed(() => locale.value === "ar");
 const readableSlug = computed(() => pageSlug.value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
@@ -245,55 +247,72 @@ function syncSelectedModel() {
 
 async function loadCatalog(force = false) {
     const source = catalogSource.value;
+    const slug = pageSlug.value;
     if (!source) {
+        catalogRequestId++;
         catalogModels.value = [];
+        catalogLoading.value = false;
         catalogError.value = true;
         selectedModel.value = selectedSnapshot(conversation.value?.selected_model);
         return;
     }
     if (!force && loadedCatalogSource === source && catalogModels.value.length) return;
 
+    const requestId = ++catalogRequestId;
     catalogLoading.value = true;
     catalogError.value = false;
     try {
         const result = await modelCatalogService.getModels(source, {
             fallbackDescription: t("freeAiModels.modelDescriptionFallback"),
         });
+        if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value) return;
         catalogModels.value = result.models;
         loadedCatalogSource = source;
         syncSelectedModel();
     } catch {
+        if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value) return;
+        catalogModels.value = [];
         catalogError.value = true;
         selectedModel.value = selectedSnapshot(conversation.value?.selected_model);
     } finally {
-        catalogLoading.value = false;
+        if (requestId === catalogRequestId) catalogLoading.value = false;
     }
 }
 
 async function loadConversation() {
+    const requestId = ++conversationRequestId;
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
+    const isCurrent = () => requestId === conversationRequestId && slug === pageSlug.value && uuid === activeUuid.value;
     loadingConversation.value = true;
     loadError.value = false;
     try {
-        const response = await freeAiModelService.getConversation(pageSlug.value, activeUuid.value);
+        const response = await freeAiModelService.getConversation(slug, uuid);
+        if (!isCurrent()) return;
         conversation.value = response?.data || null;
         syncSelectedModel();
+        loadCatalog();
     } catch {
+        if (!isCurrent()) return;
         conversation.value = null;
         loadError.value = true;
     } finally {
-        loadingConversation.value = false;
+        if (isCurrent()) loadingConversation.value = false;
     }
 }
 
 async function loadConversations() {
+    const slug = pageSlug.value;
     loadingConversations.value = true;
     try {
-        const response = await freeAiModelService.getConversations(pageSlug.value);
+        const response = await freeAiModelService.getConversations(slug);
+        if (slug !== pageSlug.value) return;
         conversations.value = Array.isArray(response?.data) ? response.data : [];
     } catch {
+        if (slug !== pageSlug.value) return;
         conversations.value = [];
     } finally {
-        loadingConversations.value = false;
+        if (slug === pageSlug.value) loadingConversations.value = false;
     }
 }
 
@@ -365,16 +384,19 @@ async function deleteConversation(item) {
 async function selectExecutionModel(model) {
     if (!conversation.value?.uuid || !model?.isAvailable || modelSaving.value || modelKey(model) === modelKey(selectedModel.value)) return;
     const previous = selectedModel.value;
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
     selectedModel.value = model;
     modelSaving.value = true;
     try {
-        const response = await freeAiModelService.updateConversationModel(pageSlug.value, activeUuid.value, model);
+        const response = await freeAiModelService.updateConversationModel(slug, uuid, model);
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         conversation.value = response?.data || conversation.value;
         syncSelectedModel();
         upsertConversationSummary(conversation.value);
         if (catalogSource.value) saveSelectedCatalogModel(catalogSource.value, pageSlug.value, selectedModel.value);
     } catch {
-        selectedModel.value = previous;
+        if (slug === pageSlug.value && uuid === activeUuid.value) selectedModel.value = previous;
     } finally {
         modelSaving.value = false;
     }
@@ -408,10 +430,12 @@ function handleLanguageChanged() {
 onMounted(() => {
     window.addEventListener("resize", handleResize);
     window.addEventListener("lang-changed", handleLanguageChanged);
-    Promise.all([loadCatalog(), loadConversations(), loadConversation()]);
+    Promise.all([loadConversations(), loadConversation()]);
 });
 
 onBeforeUnmount(() => {
+    catalogRequestId++;
+    conversationRequestId++;
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("lang-changed", handleLanguageChanged);
     document.body.style.overflow = "";
@@ -421,18 +445,20 @@ watch(sidebarOpen, (open) => {
     if (isMobile.value) document.body.style.overflow = open ? "hidden" : "";
 });
 
-watch(activeUuid, (uuid, previousUuid) => {
-    if (uuid && uuid !== previousUuid) loadConversation();
-});
-
-watch(pageSlug, (slug, previousSlug) => {
-    if (!slug || slug === previousSlug) return;
-    conversation.value = null;
-    conversations.value = [];
-    catalogModels.value = [];
-    selectedModel.value = null;
-    loadedCatalogSource = null;
-    Promise.all([loadCatalog(), loadConversations(), loadConversation()]);
+watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
+    if (!slug || !uuid || (slug === previousSlug && uuid === previousUuid)) return;
+    if (slug !== previousSlug) {
+        catalogRequestId++;
+        conversation.value = null;
+        conversations.value = [];
+        catalogModels.value = [];
+        selectedModel.value = null;
+        loadedCatalogSource = null;
+        catalogLoading.value = false;
+        catalogError.value = false;
+        loadConversations();
+    }
+    loadConversation();
 });
 </script>
 

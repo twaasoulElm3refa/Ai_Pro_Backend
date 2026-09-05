@@ -9,6 +9,7 @@ use App\Models\MainFreeAiModels;
 use App\Models\ModelsConverstaions;
 use App\Services\ModelCatalogService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -244,8 +245,7 @@ class FreeAiModelController extends Controller
                 ]);
 
             $selected = $recentSelection && $recentSelection->selected_model_source === $source
-                ? $items->first(fn (array $item) =>
-                    $this->catalogBoolean($item['is_available'] ?? true)
+                ? $items->first(fn (array $item) => $this->catalogBoolean($item['is_available'] ?? true)
                     && (
                         (string) ($item['id'] ?? '') === (string) $recentSelection->selected_model_catalog_id
                         || (
@@ -256,8 +256,7 @@ class FreeAiModelController extends Controller
                 )
                 : null;
 
-            $selected ??= $items->first(fn (array $item) =>
-                $this->catalogBoolean($item['is_available'] ?? true)
+            $selected ??= $items->first(fn (array $item) => $this->catalogBoolean($item['is_available'] ?? true)
                 && $this->catalogBoolean($item['is_recommended'] ?? false)
             ) ?? $items->first(fn (array $item) => $this->catalogBoolean($item['is_available'] ?? true));
 
@@ -285,7 +284,15 @@ class FreeAiModelController extends Controller
 
         $catalogModelId = (string) $request->input('catalog_model_id');
         $providerModelId = trim((string) $request->input('provider_model_id', ''));
-        $items = $this->catalogs->getModels($source)['items'] ?? [];
+        try {
+            $items = $this->catalogs->getModels($source)['items'] ?? [];
+        } catch (Throwable $exception) {
+            Log::warning('Unable to validate the selected Free AI catalog model.', [
+                'source' => $source,
+                'exception' => $exception::class,
+            ]);
+            throw new HttpResponseException($this->error('Model catalog is currently unavailable.', 502));
+        }
 
         $selected = collect($items)->first(function (array $item) use ($catalogModelId, $providerModelId): bool {
             if ((string) ($item['id'] ?? '') !== $catalogModelId) {

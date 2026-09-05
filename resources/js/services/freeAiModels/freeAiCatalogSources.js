@@ -1,8 +1,5 @@
-const FREE_AI_CATALOG_SOURCES = Object.freeze({
-    "chat-writing": "general_chat",
-});
-
-export const getFreeAiCatalogSource = (toolSlug) =>
-    FREE_AI_CATALOG_SOURCES[String(toolSlug || "").trim()] || null;
-
-export default FREE_AI_CATALOG_SOURCES;
+// Laravel's conversation payload is the source of truth for tool-to-catalog mapping.
+export const getFreeAiCatalogSource = (conversation) => {
+    const source = conversation?.catalog_source;
+    return typeof source === "string" ? source.trim() || null : null;
+};
