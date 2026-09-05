@@ -71,6 +71,7 @@ test("keeps the execution-model selector in the chat composer and off the tool l
 test("uses the server catalog mapping without guessing from tool names or slugs", () => {
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_chat" }), "general_chat");
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_code" }), "general_code");
+    assert.equal(getFreeAiCatalogSource({ catalog_source: "general_translation" }), "general_translation");
     assert.equal(getFreeAiCatalogSource({ model: { slug: "chat-writing" } }), null);
     assert.equal(getFreeAiCatalogSource({ catalog_source: null }), null);
     assert.equal(getFreeAiCatalogSource(null), null);
@@ -86,8 +87,8 @@ async function catalogServiceWithApi(api) {
     );
 }
 
-test("both catalog sources use the Laravel proxy and reject unknown sources", () => {
-    for (const source of ["general_chat", "general_code"]) {
+test("all catalog sources use the Laravel proxy and reject unknown sources", () => {
+    for (const source of ["general_chat", "general_code", "general_translation"]) {
         assert.equal(getModelCatalogSource(source).endpoint, `/model-catalogs/${source}`);
         assert.equal(getModelCatalogSource(source).usesServerProxy, true);
     }
@@ -160,6 +161,57 @@ test("invalid code responses reject instead of yielding chat models", async () =
     await assert.rejects(service.getModels("general_code"), /Invalid model catalog response/);
 });
 
+test("the real translation fixture normalizes all models, nullable descriptions, flags, and stable order", async () => {
+    const sample = JSON.parse(await readFile("tests/Fixtures/general-translation-catalog.json", "utf8"));
+    const calls = [];
+    const service = await catalogServiceWithApi({ get: async (endpoint) => {
+        calls.push(endpoint);
+        return { data: { status: "success", data: sample } };
+    } });
+
+    const result = await service.getModels("general_translation", { fallbackDescription: "Fallback description" });
+    assert.deepEqual(calls, ["/model-catalogs/general_translation"]);
+    assert.equal(result.tool, "general_translation");
+    assert.equal(result.models.length, 7);
+    assert.deepEqual(Array.from(result.models, (model) => model.sortOrder), [10, 10, 20, 30, 40, 50, 60]);
+    assert.deepEqual(Array.from(result.models, (model) => model.id), [4, 22, 23, 24, 25, 26, 27]);
+
+    const router = result.models.find((model) => model.name === "Free Translation Router");
+    assert.ok(router);
+    assert.equal(router.description, "Fallback description");
+    assert.equal(router.isFree, true);
+    assert.equal(router.isAvailable, true);
+    assert.equal(router.isRecommended, false);
+    assert.equal(result.models.find((model) => model.isRecommended)?.name, "Qwen3 Max");
+    assert.equal(result.models.some((model) => model.isFree), true);
+    assert.equal(result.models.some((model) => !model.isFree), true);
+    for (const item of sample.items) {
+        const model = result.models.find((candidate) => candidate.id === item.id);
+        assert.ok(model);
+        assert.equal(model.isFree, item.is_free);
+        assert.equal(model.isAvailable, item.is_available);
+        assert.equal(model.isRecommended, item.is_recommended);
+        assert.equal(model.sortOrder, item.sort_order);
+        assert.equal(model.toolKey, "general_translation");
+        for (const field of ["parameter_schema", "recommended_parameters", "pricing", "pagination"]) {
+            assert.equal(field in model, false);
+        }
+    }
+});
+
+test("a failed translation catalog cannot reuse another source cache", async () => {
+    const calls = [];
+    const service = await catalogServiceWithApi({ get: async (endpoint) => {
+        calls.push(endpoint);
+        if (endpoint.endsWith("general_translation")) throw new Error("Translation unavailable");
+        return { data: { data: { tool: "general_chat", items: [{ id: 1, name: "Chat only" }] } } };
+    } });
+
+    await service.getModels("general_chat");
+    await assert.rejects(service.getModels("general_translation"), /Translation unavailable/);
+    assert.deepEqual(calls, ["/model-catalogs/general_chat", "/model-catalogs/general_translation"]);
+});
+
 test("remembered selections are isolated by catalog source and tool", (context) => {
     const entries = new Map();
     const previous = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
@@ -203,6 +255,60 @@ async function chatHarness({ route, api, catalogs, remembered = null }) {
     );
     return { ...state, saved, routeChanged: watches.find(({ source }) => Array.isArray(source)).callback };
 }
+
+test("the shared page loads, switches, and restores translation catalog models", async () => {
+    const sample = JSON.parse(await readFile("tests/Fixtures/general-translation-catalog.json", "utf8"));
+    const catalogs = await catalogServiceWithApi({ get: async (endpoint) => {
+        assert.equal(endpoint, "/model-catalogs/general_translation");
+        return { data: { status: "success", data: sample } };
+    } });
+    const route = { params: { slug: "translation", uuid: "translation-uuid" } };
+    let persisted = {
+        uuid: route.params.uuid,
+        model: { slug: route.params.slug },
+        catalog_source: "general_translation",
+        selected_model: null,
+    };
+    const api = {
+        getConversation: async () => ({ data: structuredClone(persisted) }),
+        updateConversationModel: async (slug, uuid, model) => {
+            assert.equal(slug, "translation");
+            assert.equal(uuid, "translation-uuid");
+            persisted = { ...persisted, selected_model: {
+                source: "general_translation",
+                id: model.id,
+                provider_model_id: model.providerModelId,
+                name: model.name,
+            } };
+            return { data: structuredClone(persisted) };
+        },
+    };
+
+    const page = await chatHarness({ route, api, catalogs });
+    await page.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(page.catalogError.value, false);
+    assert.equal(page.catalogModels.value.length, 7);
+    assert.equal(page.selectedModel.value.name, "Qwen3 Max");
+
+    const switched = page.catalogModels.value.find((model) => model.name === "Free Translation Router");
+    await page.selectExecutionModel(switched);
+    assert.equal(page.selectedModel.value.id, switched.id);
+    assert.equal(page.saved[0][0], "general_translation");
+    assert.equal(page.saved[0][1], "translation");
+
+    const reloaded = await chatHarness({ route, api, catalogs });
+    await reloaded.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(reloaded.catalogError.value, false);
+    assert.equal(reloaded.selectedModel.value.id, switched.id);
+    assert.equal(reloaded.selectedModel.value.name, "Free Translation Router");
+
+    const selector = await readFile("resources/js/components/free-ai-models/FreeAiModelSelector.vue", "utf8");
+    assert.match(selector, /@click="handleTrigger"/);
+    assert.match(selector, /v-for="model in models"/);
+    assert.match(selector, /@click="choose\(model\)"/);
+});
 
 test("the shared page loads the server-selected code source and persists a model through existing APIs", async () => {
     const route = { params: { slug: "test-tool", uuid: "test-conversation" } };

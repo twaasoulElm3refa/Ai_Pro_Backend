@@ -252,7 +252,7 @@ class FreeAiModelFlowTest extends TestCase
 
     public static function catalogSources(): array
     {
-        return [['general_chat'], ['general_code']];
+        return [['general_chat'], ['general_code'], ['general_translation']];
     }
 
     public function test_verified_programming_slug_uses_default_mapping_and_persists_real_sample_selection(): void
@@ -291,6 +291,57 @@ class FreeAiModelFlowTest extends TestCase
             ->assertJsonPath('data.catalog_source', 'general_code')
             ->assertJsonPath('data.selected_model.id', 17)
             ->assertJsonPath('data.selected_model.provider_model_id', 'cohere/north-mini-code:free');
+        Http::assertNotSent(fn ($request) => $request->url() !== $endpoint);
+    }
+
+    public function test_verified_translation_slug_uses_its_catalog_and_persists_selection_on_reload(): void
+    {
+        // Verified by GET https://pro.aiarabic.com/api/v1/free-ai-models (English locale).
+        $slug = 'translation';
+        $this->assertSame('general_translation', config("model_catalogs.free_ai_tools.{$slug}"));
+        config()->set('services.aiarabic.internal_api_key', 'server-only-test-key');
+        $endpoint = config('model_catalogs.sources.general_translation.endpoint');
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-translation-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        Http::preventStrayRequests();
+        Http::fake([$endpoint => Http::response($sample)]);
+        $tool = $this->createModel($slug, true, 1);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/{$slug}/conversations";
+
+        $uuid = $this->apiRequest()->postJson($url)->assertOk()
+            ->assertJsonPath('data.model.slug', $slug)
+            ->assertJsonPath('data.catalog_source', 'general_translation')
+            ->assertJsonPath('data.selected_model.id', 25)
+            ->assertJsonPath('data.selected_model.name', 'Qwen3 Max')
+            ->json('data.uuid');
+
+        $this->apiRequest()->patchJson("{$url}/{$uuid}/model", [
+            'catalog_model_id' => 4,
+            'provider_model_id' => 'openrouter/free',
+        ])->assertOk()
+            ->assertJsonPath('data.selected_model.source', 'general_translation')
+            ->assertJsonPath('data.selected_model.name', 'Free Translation Router');
+
+        $this->assertDatabaseHas('models_conversations', [
+            'uuid' => $uuid,
+            'model_id' => $tool->id,
+            'user_id' => $user->id,
+            'selected_model_source' => 'general_translation',
+            'selected_model_catalog_id' => 4,
+            'selected_provider_model_id' => 'openrouter/free',
+            'selected_model_name' => 'Free Translation Router',
+        ]);
+
+        $this->apiRequest()->getJson("{$url}/{$uuid}")->assertOk()
+            ->assertJsonPath('data.catalog_source', 'general_translation')
+            ->assertJsonPath('data.selected_model.id', 4)
+            ->assertJsonPath('data.selected_model.provider_model_id', 'openrouter/free')
+            ->assertJsonPath('data.selected_model.name', 'Free Translation Router');
+
+        $this->apiRequest()->postJson($url)->assertOk()
+            ->assertJsonPath('data.selected_model.source', 'general_translation')
+            ->assertJsonPath('data.selected_model.id', 4);
         Http::assertNotSent(fn ($request) => $request->url() !== $endpoint);
     }
 
@@ -368,6 +419,31 @@ class FreeAiModelFlowTest extends TestCase
             ->assertJsonPath('data.catalog_source', 'general_code')
             ->assertJsonPath('data.selected_model', null)->json('data.uuid');
         $selection = ['catalog_model_id' => 17, 'provider_model_id' => 'fixture/code'];
+        $this->apiRequest()->postJson($url, $selection)->assertStatus(502);
+        $this->apiRequest()->patchJson("{$url}/{$uuid}/model", $selection)->assertStatus(502);
+        $this->apiRequest()->getJson("{$url}/{$uuid}")->assertOk()->assertJsonPath('data.selected_model', null);
+        $this->assertDatabaseCount('models_conversations', 1);
+        Http::assertNotSent(fn ($request) => $request->url() !== $endpoint);
+    }
+
+    public function test_translation_default_failure_does_not_select_another_catalog_model(): void
+    {
+        $slug = 'translation';
+        config()->set('services.aiarabic.internal_api_key', 'server-only-test-key');
+        $endpoint = config('model_catalogs.sources.general_translation.endpoint');
+        Http::preventStrayRequests();
+        Http::fake([$endpoint => Http::response(['message' => 'Unavailable'], 503)]);
+        $this->createModel($slug, true, 1);
+        Sanctum::actingAs(User::factory()->create());
+
+        $url = "/api/v1/free-ai-models/{$slug}/conversations";
+        $uuid = $this->apiRequest()->postJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.catalog_source', 'general_translation')
+            ->assertJsonPath('data.selected_model', null)
+            ->json('data.uuid');
+
+        $selection = ['catalog_model_id' => 25, 'provider_model_id' => 'qwen/qwen3-max'];
         $this->apiRequest()->postJson($url, $selection)->assertStatus(502);
         $this->apiRequest()->patchJson("{$url}/{$uuid}/model", $selection)->assertStatus(502);
         $this->apiRequest()->getJson("{$url}/{$uuid}")->assertOk()->assertJsonPath('data.selected_model', null);

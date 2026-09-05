@@ -138,6 +138,43 @@ class ModelCatalogProxyTest extends TestCase
             && $request->hasHeader('x-internal-api-key', 'server-only-test-key'));
     }
 
+    public function test_translation_proxy_accepts_the_real_top_level_sample_and_uses_the_server_only_key(): void
+    {
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-translation-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        $endpoint = config('model_catalogs.sources.general_translation.endpoint');
+
+        $this->assertSame(
+            'https://api.aiarabic.com/tasks/general-tools/general_translation/models',
+            $endpoint
+        );
+
+        Http::preventStrayRequests();
+        Http::fake([$endpoint => Http::response($sample)]);
+
+        $response = $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
+            ->getJson('/api/v1/model-catalogs/general_translation')
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.tool', 'general_translation')
+            ->assertJsonCount(7, 'data.items')
+            ->assertJsonPath('data.items', $sample['items'])
+            ->assertJsonPath('data.items.1.name', 'Free Translation Router')
+            ->assertJsonPath('data.items.1.description', null)
+            ->assertJsonPath('data.items.1.is_free', true)
+            ->assertJsonPath('data.items.0.is_available', true)
+            ->assertJsonPath('data.items.0.is_recommended', true)
+            ->assertJsonPath('data.items.0.sort_order', 40)
+            ->assertJsonPath('data.items.0.parameter_schema.source_language.default', 'auto')
+            ->assertJsonPath('data.items.0.parameter_schema.target_language.required', true)
+            ->assertJsonPath('data.items.0.recommended_parameters.preserve_formatting', true)
+            ->assertJsonMissingPath('data.data');
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) => $request->url() === $endpoint
+            && $request->hasHeader('x-internal-api-key', 'server-only-test-key'));
+        $this->assertStringNotContainsString('server-only-test-key', $response->getContent());
+    }
+
     public function test_code_tool_mapping_is_explicit_and_keeps_the_existing_chat_mapping(): void
     {
         $key = 'FREE_AI_GENERAL_CODE_TOOL_SLUG';
@@ -156,9 +193,11 @@ class ModelCatalogProxyTest extends TestCase
                     $this->assertSame([
                         'chat-writing' => 'general_chat',
                         'programming-technology' => 'general_code',
+                        'translation' => 'general_translation',
                     ], $catalogs['free_ai_tools']);
                 }
                 $this->assertSame('general_code', $catalogs['free_ai_tools']['programming-technology']);
+                $this->assertSame('general_translation', $catalogs['free_ai_tools']['translation']);
             }
         } finally {
             if ($previousEnv === null) {
@@ -184,6 +223,20 @@ class ModelCatalogProxyTest extends TestCase
 
         $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
             ->getJson('/api/v1/model-catalogs/general_code')
+            ->assertStatus(502)
+            ->assertJsonPath('message', 'Model catalog is currently unavailable.');
+
+        Http::assertNotSent(fn (Request $request) => $request->url() !== $endpoint);
+    }
+
+    public function test_translation_failure_returns_502_without_requesting_another_catalog(): void
+    {
+        $endpoint = config('model_catalogs.sources.general_translation.endpoint');
+        Http::preventStrayRequests();
+        Http::fake([$endpoint => Http::response(['message' => 'Unavailable'], 503)]);
+
+        $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
+            ->getJson('/api/v1/model-catalogs/general_translation')
             ->assertStatus(502)
             ->assertJsonPath('message', 'Model catalog is currently unavailable.');
 

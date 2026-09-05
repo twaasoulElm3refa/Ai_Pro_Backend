@@ -7,6 +7,10 @@ export const MODEL_CATALOG_SOURCES = Object.freeze({
         endpoint: "/model-catalogs/general_code",
         usesServerProxy: true,
     }),
+    general_translation: Object.freeze({
+        endpoint: "/model-catalogs/general_translation",
+        usesServerProxy: true,
+    }),
 });
 
 export const getModelCatalogSource = (sourceKey) => {

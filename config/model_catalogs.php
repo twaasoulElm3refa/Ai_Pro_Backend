@@ -6,6 +6,7 @@ return [
     'free_ai_tools' => [
         'chat-writing' => 'general_chat',
         'programming-technology' => 'general_code',
+        'translation' => 'general_translation',
         // Additional verified tool slugs can be mapped to sources here.
     ] + ($codeToolSlug !== '' ? [$codeToolSlug => 'general_code'] : []),
 
@@ -24,6 +25,15 @@ return [
                 'MODEL_CATALOG_GENERAL_CODE_URL',
                 rtrim(env('AIARABIC_BASE_URL', 'https://api.aiarabic.com'), '/')
                     .'/tasks/general-tools/general_code/models'
+            ),
+            'requires_internal_key' => true,
+            'internal_key_config' => 'services.aiarabic.internal_api_key',
+        ],
+        'general_translation' => [
+            'endpoint' => env(
+                'MODEL_CATALOG_GENERAL_TRANSLATION_URL',
+                rtrim(env('AIARABIC_BASE_URL', 'https://api.aiarabic.com'), '/')
+                    .'/tasks/general-tools/general_translation/models'
             ),
             'requires_internal_key' => true,
             'internal_key_config' => 'services.aiarabic.internal_api_key',
