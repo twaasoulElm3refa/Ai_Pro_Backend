@@ -1,0 +1,1732 @@
+FREE AI MODELS — ACTUAL CODE ARCHITECTURE ANALYSIS
+==================================================
+
+تاريخ التحليل: 2026-09-07
+نوع العمل: تحليل فقط. لم يتم تعديل أي كود تنفيذي.
+جذر المشروع: C:\xampp\htdocs\Ai_Pro_Backend
+
+ملاحظة عن المسارات:
+كل مسار نسبي مذكور أدناه يبدأ من جذر المشروع أعلاه، ولذلك فهو File Path حقيقي داخل المشروع.
+
+
+الخلاصة التنفيذية
+=================
+
+1) FreeAiModelShow.vue هي Landing/Details page لأداة Free AI رئيسية مخزنة في جدول
+   main_free_ai_models. تحمل بيانات العرض وSEO بالـ slug، ثم تنشئ conversation وتنتقل إلى صفحة الدردشة.
+
+2) FreeAiModelChat.vue تنفذ حاليًا:
+   - تحميل conversation واحدة.
+   - تحميل قائمة conversations للمستخدم والأداة نفسها.
+   - إنشاء وحذف conversation.
+   - تحميل execution-model catalog من خدمة خارجية عن طريق Laravel proxy.
+   - اختيار execution model وحفظ snapshot منه في models_conversations.
+
+3) FreeAiModelChat.vue لا ترسل رسائل AI حاليًا. الـ textarea وزر الإرسال يحملان disabled حرفيًا،
+   ولا توجد message state أو sendMessage function أو POST chat endpoint مستعمل من الصفحة. الواجهة تعرض
+   integrationPending وcomposerUnavailableHint. لذلك لا يوجد في هذا الجزء من المشروع تدفق فعلي:
+   prompt -> provider -> assistant response.
+
+4) endpoint الخارجي:
+   GET /tasks/general-tools/{tool_key}/models
+   ليس Laravel route داخل هذا repository. هذا المشروع يتعامل معه كخدمة خارجية على api.aiarabic.com،
+   ويعرضه للواجهة عبر proxy محلي:
+   GET /api/v1/model-catalogs/{source}
+
+5) general_code وgeneral_translation ليسا سجلات Models محلية ولا routes Vue. إنهما source/tool keys
+   في config/model_catalogs.php، ويربط كل واحد منهما endpoint catalog خارجيًا.
+
+6) provider وprovider_model_id يصلان من catalog الخارجي. لكن التنفيذ الحالي يحفظ فقط
+   provider_model_id مع catalog ID والاسم والمصدر. لا توجد عملية اختيار Provider أو استدعاء OpenRouter/OpenAI
+   من Free AI flow لأن إرسال الرسالة نفسه غير منفذ.
+
+7) يوجد نظام آخر منفصل اسمه General Tools في:
+   resources/js/views/home/generalTools/showGeneral.vue
+   resources/js/views/home/generalTools/GeneralChat.vue
+   هذا النظام يقرأ sub_tools حيث main_tool_id = 8، ودردشته Local-only في ذاكرة Vue. لا يجب الخلط بينه
+   وبين model catalog keys المسماة general_code/general_translation.
+
+
+A. ARCHITECTURE OVERVIEW
+========================
+
+البنية الحالية تتكون من ثلاث طبقات من البيانات المنفصلة:
+
+أ) Main Free AI Tool metadata
+----------------------------
+
+المصدر: قاعدة البيانات المحلية.
+
+MainFreeAiModels / main_free_ai_models
+    -> slug, name, description, image, SEO, is_active, sort_order
+    -> translations من main_free_ai_models_translations
+    -> تعرضها FreeAiModelShow.vue وFreeAiModelChat.vue كهوية الأداة الرئيسية.
+
+مهم: الحقل conversation.model في response هو Main Free AI Tool، وليس execution model المختار.
+
+ب) Conversation shell + selected model snapshot
+-----------------------------------------------
+
+المصدر: قاعدة البيانات المحلية.
+
+ModelsConverstaions / models_conversations
+    -> user_id, model_id, uuid, pinned/archive flags
+    -> selected_model_source
+    -> selected_model_catalog_id
+    -> selected_provider_model_id
+    -> selected_model_name
+
+هذا الجدول لا يحتوي messages ولا parameters ولا provider مستقلًا.
+
+ج) Execution Model Catalog
+--------------------------
+
+المصدر: HTTP service خارجي، وليس قاعدة بيانات هذا المشروع.
+
+Vue
+  -> GET /api/v1/model-catalogs/general_code أو general_translation
+  -> ModelCatalogController
+  -> ModelCatalogService
+  -> GET https://api.aiarabic.com/tasks/general-tools/{source}/models
+  -> يعاد catalog إلى Vue
+  -> يتحول من snake_case إلى camelCase جزئيًا
+  -> يظهر داخل FreeAiModelSelector
+
+المشهد الكامل الموجود حاليًا:
+
+Browser route
+  -> FreeAiModelShow.vue
+  -> main tool metadata من DB
+  -> إنشاء models_conversations row
+  -> FreeAiModelChat.vue
+  -> conversation + history من DB
+  -> catalog خارجي عن طريق Laravel proxy
+  -> حفظ selected execution model snapshot في DB
+  -> يتوقف التدفق هنا؛ لا توجد رسالة ولا AI completion.
+
+
+B. FRONTEND FILES MAP
+=====================
+
+B1. Vue Router
+--------------
+
+الملف:
+resources/js/router/index.js
+
+Route العرض، lines 71-75:
+- URL: /:lang/free-ai/:slug
+- route name: free-ai-model.show
+- component: FreeAiModelShow
+- params: lang, slug
+- query params: لا يوجد اعتماد على route.query.
+- meta: navbar ظاهر وfooter ظاهر.
+
+Route الدردشة، lines 77-85:
+- URL: /:lang/free-ai/:slug/chat/:uuid
+- route name: free-ai-model.chat
+- component: FreeAiModelChat
+- params: lang, slug, uuid
+- uuid مطلوب في هذا route وليس optional.
+- query params: لا يوجد اعتماد على route.query.
+- meta.requiresUserAuth = true.
+
+Navigation guard، lines 326-394:
+- يقرأ auth_token وuser_role من localStorage.
+- يزامن route.params.lang مع homeService وvue-i18n.
+- إذا دخل المستخدم free-ai-model.chat بلا auth_token ينتقل إلى /{lang}/auth.
+- هذا guard حماية UX فقط؛ حماية backend الفعلية هي auth:sanctum.
+
+لا توجد route props مضبوطة بـ props: true. الصفحتان تقرآن params مباشرة عن طريق useRoute().
+
+B2. FreeAiModelShow.vue
+-----------------------
+
+الملف:
+resources/js/views/home/free-ai-models/FreeAiModelShow.vue
+
+الوظيفة:
+- تعرض معلومات Main Free AI Tool.
+- تعرض loading card أو error card أو hero.
+- تحمل SEO ديناميكيًا.
+- تتحقق من وجود auth_token قبل بدء الدردشة.
+- تنشئ conversation ثم تنتقل إلى free-ai-model.chat.
+
+Imports، lines 54-59:
+- Vue: computed, onMounted, ref, watch.
+- vue-i18n: useI18n.
+- vue-router: useRoute, useRouter.
+- composable: resources/js/composables/useSeoMeta.js.
+- service: resources/js/services/home/homeService.js.
+- API service: resources/js/services/freeAiModels/freeAiModelService.js.
+
+Props: لا يوجد defineProps.
+Emits: لا يوجد defineEmits.
+Store/Pinia/Vuex: لا يوجد.
+
+State، lines 65-68:
+- model = ref({})
+- loading = ref(true)
+- loadError = ref(false)
+- startingChat = ref(false)
+
+Computed، lines 70-72:
+- seoTitle
+- seoDescription
+- seoKeywords
+
+Composable:
+- useSeoMeta({ title, description, keywords }) يراقب القيم داخليًا عبر watchEffect ويحدث document.title
+  وmeta description وmeta keywords.
+
+Functions:
+
+loadModel()، lines 76-89:
+- يضبط loading=true وloadError=false.
+- يستدعي freeAiModelService.getModel(route.params.slug).
+- عند النجاح: model = response.data.
+- عند الفشل: model={} وloadError=true.
+- finally: loading=false.
+
+startChat()، lines 91-120:
+- يمنع double click بواسطة startingChat.
+- إذا لم يوجد auth_token: router.push('/{lang}/auth').
+- يستدعي createConversation(route.params.slug) بدون selected model.
+- يأخذ response.data.uuid.
+- ينتقل بالاسم free-ai-model.chat ومعه lang, slug, uuid.
+- الخطأ لا يعرض state محلية؛ يعتمد فقط على ApiClient toast.
+
+Lifecycle:
+- onMounted(loadModel)، line 122.
+
+Watcher، lines 124-130:
+- يراقب route.params.slug.
+- إذا تغير slug إلى قيمة صحيحة يستدعي loadModel() من جديد.
+
+الانتقال إلى صفحة الدردشة:
+FreeAiModelShow.startChat()
+  -> POST /api/v1/free-ai-models/{slug}/conversations
+  -> uuid من response
+  -> router.push({ name: 'free-ai-model.chat', params: { lang, slug, uuid } })
+
+B3. FreeAiModelChat.vue
+-----------------------
+
+الملف:
+resources/js/views/home/free-ai-models/FreeAiModelChat.vue
+
+الوظيفة الفعلية:
+- conversation sidebar.
+- create/open/delete conversation.
+- تحميل main tool identity من conversation.model.
+- تحميل execution model catalog.
+- اختيار model وتحديث conversation.
+- responsive sidebar + SEO + language reload.
+- لا توجد وظيفة إرسال رسالة.
+
+Imports، lines 160-169:
+- Vue: computed, onBeforeUnmount, onMounted, ref, watch.
+- vue-i18n: useI18n.
+- vue-router: useRoute, useRouter.
+- useSeoMeta.
+- homeService.
+- freeAiModelService.
+- getFreeAiCatalogSource.
+- modelCatalogService.
+- readSelectedCatalogModel وsaveSelectedCatalogModel.
+- FreeAiModelSelector.vue.
+
+Props: لا يوجد defineProps.
+Emits: لا يوجد defineEmits.
+Store/Pinia/Vuex: لا يوجد.
+
+State refs، lines 176-190:
+- conversation
+- conversations
+- loadingConversation
+- loadingConversations
+- loadError
+- creatingConversation
+- deletingUuid
+- catalogModels
+- catalogLoading
+- catalogError
+- selectedModel
+- modelSaving
+- sidebarOpen
+- desktopSidebarCollapsed
+- viewportWidth
+
+Non-reactive control state، lines 191-193:
+- loadedCatalogSource
+- catalogRequestId
+- conversationRequestId
+
+Computed، lines 195-206:
+- activeUuid = route.params.uuid
+- pageSlug = route.params.slug
+- catalogSource = conversation.catalog_source عن طريق getFreeAiCatalogSource()
+- isMobile
+- isRtl
+- readableSlug
+- mainTool = conversation.model أو {}
+- collapseIcon
+- seoTitle
+- seoDescription
+- seoKeywords
+
+Functions الخاصة بالـ catalog/selection:
+- modelKey(model)، line 209.
+- catalogMatch(selection)، lines 211-218.
+- selectedSnapshot(selection)، lines 220-231.
+- defaultCatalogModel()، lines 233-241.
+- syncSelectedModel()، lines 243-246.
+- loadCatalog(force)، lines 248-280.
+- selectExecutionModel(model)، lines 384-403.
+
+خوارزمية اختيار model في Vue:
+1. conversation.selected_model المطابق لعنصر catalog الحالي.
+2. إن لم يكن catalog محملًا/المطابقة غير موجودة: snapshot مختصر من conversation.selected_model.
+3. إذا لا يوجد persisted selection: model محفوظ في sessionStorage لنفس source + page slug إذا كان متاحًا.
+4. أول isAvailable && isRecommended.
+5. أول isAvailable.
+6. null.
+
+ملاحظة: persisted backend selection له الأولوية على sessionStorage.
+
+Functions الخاصة بالـ conversations:
+- loadConversation()، lines 282-302.
+- loadConversations()، lines 304-317.
+- summaryFromConversation()، lines 319-328.
+- upsertConversationSummary()، lines 330-333.
+- conversationTitle()، lines 335-337.
+- openConversation()، lines 339-346.
+- newConversation()، lines 348-364.
+- deleteConversation()، lines 366-382.
+
+Functions الخاصة بالواجهة:
+- openSidebar(), closeSidebar(), backToTool(), handleResize(), handleLanguageChanged().
+
+Lifecycle، lines 430-442:
+- onMounted:
+  - resize listener.
+  - lang-changed listener.
+  - يشغل loadConversations() وloadConversation() معًا عبر Promise.all.
+- onBeforeUnmount:
+  - يزيد request IDs حتى تصبح النتائج القديمة stale.
+  - يزيل listeners.
+  - يعيد document.body.style.overflow.
+
+Watchers:
+- sidebarOpen، lines 444-446: يمنع body scrolling عند فتح sidebar على mobile.
+- [pageSlug, activeUuid]، lines 448-462:
+  - عند تغير slug يمسح conversation/history/catalog/selection state.
+  - يعيد history إذا تغير slug.
+  - يعيد loadConversation دائمًا عند route صالح جديد.
+
+Stale request handling:
+- request IDs تمنع response قديمًا من الكتابة فوق route أحدث.
+- هذا ليس cancel حقيقيًا؛ HTTP request نفسه يستمر.
+- لا يوجد AbortController.
+
+حالة الرسائل في القالب، lines 119-152:
+- منطقة messages لا تستخدم v-for للرسائل.
+- تعرض empty-conversation دائمًا بعد تحميل conversation بنجاح.
+- تعرض integrationPending.
+- textarea يحمل disabled حرفيًا.
+- send button يحمل disabled حرفيًا.
+- لا يوجد v-model للـ prompt.
+- لا يوجد @click أو @keydown للإرسال.
+
+إذًا في FreeAiModelChat:
+- messages state: غير موجودة.
+- user message rendering: غير موجود.
+- assistant message rendering: غير موجود.
+- prompt storage: غير موجود.
+- loading للرد: غير موجود.
+- provider response error UI: غير موجود.
+
+B4. FreeAiModelSelector.vue
+--------------------------
+
+الملف:
+resources/js/components/free-ai-models/FreeAiModelSelector.vue
+
+Props، lines 60-66:
+- models: Array, default []
+- selectedModel: Object|null
+- loading: Boolean
+- error: Boolean
+- disabled: Boolean
+
+Emits، line 68:
+- select
+- retry
+
+Internal state:
+- selectorRef
+- open
+
+Computed:
+- triggerLabel
+
+Functions:
+- modelKey, isSelected, tierLabel.
+- close, handleTrigger, openAndFocus, choose.
+- handleOutsidePointer, handleEscape.
+
+Lifecycle:
+- onMounted يضيف pointerdown وkeydown listeners.
+- onBeforeUnmount يزيل listeners.
+
+Behavior:
+- unavailable model يظهر لكنه disabled.
+- isRecommended يظهر كعلامة.
+- tier وisFree يعرضان label فقط.
+- عند catalog error وقائمة فارغة، الضغط على trigger يصدر retry.
+- عند الاختيار يصدر select(model)، والـ parent ينفذ selectExecutionModel().
+
+B5. Frontend services
+---------------------
+
+1. resources/js/services/freeAiModels/freeAiModelService.js
+
+Methods:
+- getModels() -> GET /free-ai-models
+- getModel(slug) -> GET /free-ai-models/{slug}
+- getConversations(slug) -> GET /free-ai-models/{slug}/conversations
+- createConversation(slug, selectedModel) -> POST /free-ai-models/{slug}/conversations
+- getConversation(slug, uuid) -> GET /free-ai-models/{slug}/conversations/{uuid}
+- updateConversationModel(slug, uuid, selectedModel)
+  -> PATCH /free-ai-models/{slug}/conversations/{uuid}/model
+- deleteConversation(slug, uuid)
+  -> DELETE /free-ai-models/{slug}/conversations/{uuid}
+
+كل paths أعلاه تضاف إلى Axios baseURL /api/v1.
+
+ملاحظة Unused:
+- getModels() موجود، لكن البحث داخل resources/js لم يجد caller له في الواجهة العامة الحالية.
+- لا يوجد داخل المشروع رابط UI ظاهر ينقل إلى free-ai-model.show؛ الـ route موجود ويمكن فتحه مباشرة أو
+  قد يُستخدم من caller خارج الملفات الحالية.
+
+2. resources/js/services/freeAiModels/freeAiCatalogSources.js
+
+- getFreeAiCatalogSource(conversation) يعيد conversation.catalog_source فقط.
+- لا يخمن source من slug أو اسم الأداة.
+- backend هو source of truth للربط.
+
+3. resources/js/services/modelCatalog/modelCatalogSources.js
+
+الـ sources المسجلة:
+- general_chat -> /model-catalogs/general_chat
+- general_code -> /model-catalogs/general_code
+- general_translation -> /model-catalogs/general_translation
+
+كلها usesServerProxy=true.
+Unknown source يرمي Error ولا يرسل HTTP request.
+
+4. resources/js/services/modelCatalog/modelCatalogService.js
+
+- requestCatalog(sourceKey) يطلب local Laravel proxy.
+- cache = Map باسم catalogRequests.
+- cache key = sourceKey + current language.
+- يخزن Promise الناجح بلا TTL حتى إعادة تحميل module/page.
+- إذا فشل request يحذف cache entry حتى يمكن retry.
+- getModels() ينفذ normalize ثم stable sort حسب sortOrder وبعده original index.
+
+ملاحظة دقيقة عن force retry:
+- loadCatalog(true) يتجاوز loadedCatalogSource داخل component.
+- لكنه لا يمسح catalogRequests داخل modelCatalogService.
+- بعد فشل request سيحدث HTTP retry لأن failed promise يُحذف.
+- بعد نجاح request، force يعيد القيمة cached ولا يفرض network refetch فعليًا.
+
+5. resources/js/services/modelCatalog/modelCatalogNormalizer.js
+
+يحول:
+- is_free -> isFree
+- provider_model_id -> providerModelId
+- tool_key -> toolKey
+- is_available -> isAvailable
+- is_recommended -> isRecommended
+- sort_order -> sortOrder
+
+ويحتفظ بـ:
+- id, name, description, tier, provider, operation, capabilities.
+
+ولا يحتفظ بـ:
+- parameter_schema
+- recommended_parameters
+- pricing
+- pricing_updated_at
+- provider_updated_at
+
+الاختبار tests/Frontend/modelCatalog.test.mjs يؤكد صراحة غياب أول ثلاثة حقول بعد normalization.
+
+6. resources/js/services/modelCatalog/selectedModelStorage.js
+
+- key: free-ai:selected-model:{sourceKey}:{pageSlug}
+- storage: sessionStorage وليس localStorage ولا Pinia.
+- يحفظ model object كاملًا بعد PATCH ناجح.
+- القراءة تتحمل JSON فاسد أو storage غير متاح.
+
+7. resources/js/services/ApiClient.js
+
+- Axios baseURL: /api/v1.
+- Headers الثابتة/المضافة:
+  - Accept: application/json
+  - Accept-Language: من localStorage lang
+  - X-API-KEY: من PUBLIC_API_KEY constant في الملف
+  - Authorization: Bearer {auth_token} إذا كان token موجودًا والطلب ليس public auth URL
+  - X-Device-Fingerprint: visitorId من FingerprintJS إن أمكن
+  - Content-Type: application/json يضبطه Axios تلقائيًا للـ JSON payloads
+
+- ApiClient لا يرسل x-internal-api-key؛ هذا المفتاح يبقى على الخادم فقط.
+
+B6. لا توجد Frontend store
+--------------------------
+
+لا تستخدم الصفحتان Pinia/Vuex/store. State موزعة بين:
+- component refs/computed.
+- route params.
+- localStorage: auth token, language, device fingerprint.
+- sessionStorage: selected model snapshot.
+- backend DB: conversation + persisted selected model snapshot.
+
+
+C. BACKEND FILES MAP
+====================
+
+C1. Routes
+----------
+
+الملف:
+routes/api.php، lines 69-84
+
+Public main-tool routes:
+- GET /api/v1/free-ai-models
+  -> FreeAiModelController@index
+- GET /api/v1/free-ai-models/{slug}
+  -> FreeAiModelController@show
+
+Authenticated conversation routes:
+- GET /api/v1/free-ai-models/{slug}/conversations
+  -> conversations
+- POST /api/v1/free-ai-models/{slug}/conversations
+  -> storeConversation
+- GET /api/v1/free-ai-models/{slug}/conversations/{uuid}
+  -> showConversation
+- PATCH /api/v1/free-ai-models/{slug}/conversations/{uuid}/model
+  -> updateConversationModel
+- DELETE /api/v1/free-ai-models/{slug}/conversations/{uuid}
+  -> destroyConversation
+
+Catalog proxy route:
+- GET /api/v1/model-catalogs/{source}
+  -> ModelCatalogController@show
+- route constraint: [a-z0-9_]+
+
+Route names:
+- جميع Laravel routes أعلاه غير مسماة؛ php artisan route:list أعاد name=null.
+
+C2. Global middleware
+---------------------
+
+bootstrap/app.php، lines 26-30:
+- ApiKeyMiddleware
+- AcceptLanguage
+- Utf8JsonResponse
+
+app/Http/Middleware/ApiKeyMiddleware.php:
+- يقرأ env('API_KEY').
+- يقارن X-API-KEY بـ hash_equals.
+- missing/invalid -> 401: {status:'error', message:'Must provide valid api key'}.
+
+app/Http/Middleware/AcceptLanguage.php:
+- يقبل en, ar, fr, zh, ru.
+- أي قيمة أخرى تصبح en.
+- يضبط app locale المستخدم في translations.
+
+C3. FreeAiModelController
+-------------------------
+
+الملف:
+app/Http/Controllers/api/home/FreeAiModelController.php
+
+Public flow لا يستخدم repository أو MainFreeAiModelService؛ controller يستعلم Eloquent مباشرة.
+
+Constructor:
+- يحقن App\Services\ModelCatalogService.
+
+index()، lines 25-36:
+- activeModelsQuery().
+- where is_active=true.
+- orderBy sort_order ثم id.
+- FreeAiModelResource::collection.
+
+show(slug)، lines 38-52:
+- active model by slug.
+- غير موجود أو inactive -> 404.
+- موجود -> FreeAiModelResource.
+
+storeConversation()، lines 54-85:
+- يتحقق أن main tool active وموجود.
+- validates catalog_model_id nullable وprovider_model_id nullable string max 255.
+- إن أرسل catalog_model_id: requestedCatalogSelection().
+- غير ذلك: defaultCatalogSelection().
+- ينشئ row عبر $request->user()->model_conversations()->create().
+- user_id وmodel_id يحددهما الخادم؛ أي user_id/model_id من client لا يستخدم.
+- uuid = Str::uuid().
+
+conversations()، lines 87-118:
+- filters user_id + model_id + is_archived=false.
+- order pinned desc ثم created_at desc.
+- يعيد summaries بلا messages وبـ title=null.
+
+showConversation()، lines 120-144:
+- filters uuid + authenticated user_id + model_id الخاص بالـ slug.
+- يمنع الوصول لمحادثة مستخدم آخر أو أداة أخرى بإرجاع 404.
+
+updateConversationModel()، lines 146-177:
+- نفس ownership filters.
+- catalog_model_id required.
+- يعيد التحقق من model ضد catalog الخارجي.
+- يحدث selected-model snapshot.
+
+destroyConversation()، lines 179-202:
+- نفس ownership filters.
+- Soft delete للـ conversation.
+
+Private functions المهمة:
+- activeModelsQuery()
+- catalogSourceFor()
+- defaultCatalogSelection()
+- requestedCatalogSelection()
+- catalogSelectionAttributes()
+- catalogBoolean()
+- selectedModelPayload()
+- conversationSummary()
+- conversationPayload()
+
+C4. FreeAiModelResource
+-----------------------
+
+الملف:
+app/Http/Resources/FreeAiModelResource.php
+
+Response fields:
+- slug
+- name
+- description
+- image_url
+- meta_title
+- meta_description
+- seo_keywords
+
+Locale resolution:
+requested locale translation
+  -> English translation fallback
+  -> base main_free_ai_models fields.
+
+لا يعرض id أو is_active أو sort_order أو main_tool_id للواجهة العامة.
+
+C5. Model catalog backend
+-------------------------
+
+الملفات:
+- app/Http/Controllers/api/home/ModelCatalogController.php
+- app/Services/ModelCatalogService.php
+- config/model_catalogs.php
+
+ModelCatalogController@show(source):
+- source معروف وupstream صالح -> success envelope.
+- source غير موجود في config -> 404 Model catalog source not found.
+- timeout/upstream/invalid payload -> 502 Model catalog is currently unavailable.
+
+ModelCatalogService@getModels(sourceKey):
+- يقرأ config("model_catalogs.sources.{sourceKey}").
+- يرفض source غير معروف.
+- يبني server-only x-internal-api-key من services.aiarabic.internal_api_key.
+- Http::acceptJson().
+- timeout = max(2, MODEL_CATALOG_TIMEOUT)، default 20 seconds.
+- retry(2, 250, null, false).
+- GET endpoint.
+- يقبل فقط successful response يحتوي top-level items array.
+- يعيد فقط:
+  { tool: payload.tool أو sourceKey, items: array_values(payload.items) }
+- لا يغير حقول كل item؛ proxy يحافظ عليها كما وصلت.
+
+config/model_catalogs.php، الربط الحالي:
+- chat-writing -> general_chat
+- programming-technology -> general_code
+- translation -> general_translation
+- FREE_AI_GENERAL_CODE_TOOL_SLUG يمكنه إضافة slug آخر إلى general_code.
+
+Endpoints الافتراضية:
+- general_chat:
+  https://api.aiarabic.com/tasks/general-tools/general_chat/models
+- general_code:
+  https://api.aiarabic.com/tasks/general-tools/general_code/models
+- general_translation:
+  https://api.aiarabic.com/tasks/general-tools/general_translation/models
+
+يمكن تغييرها عبر:
+- MODEL_CATALOG_GENERAL_CHAT_URL
+- MODEL_CATALOG_GENERAL_CODE_URL
+- MODEL_CATALOG_GENERAL_TRANSLATION_URL
+- AIARABIC_BASE_URL
+
+حد repository:
+لا توجد route/controller/service محلية للـ upstream URL
+/tasks/general-tools/{tool_key}/models. مصدر بياناته الداخلي (DB/config/provider registry/array) غير موجود في هذا
+repository، ولذلك لا يمكن إثباته من هذا المشروع. المثبت هنا أنه External HTTP API فقط.
+
+C6. Admin CRUD الخاص بـ Main Free AI Tools
+-------------------------------------------
+
+Routes:
+routes/api.php، lines 201-207
+- GET/POST /api/admin/free-ai-models
+- GET/POST/DELETE /api/admin/free-ai-models/{id}
+- auth:sanctum + AdminMiddleware + throttle 60/min.
+
+Files:
+- app/Http/Controllers/api/admin/freeAiModels/MainFreeAiModelController.php
+- app/Services/FreeAiModels/MainFreeAiModelService.php
+- app/Repository/freeAiModels/MainFreeAiModelInterface.php
+- app/Repository/freeAiModels/MainFreeAiModelRepository.php
+- app/Http/Requests/FreeAiModelRequest.php
+- app/Http/Requests/FreeAiModelUpdateRequest.php
+- app/Providers/AppServiceProvider.php، binding في line 39.
+
+Admin create flow:
+Controller@store
+  -> MainFreeAiModelService@store
+  -> optional image stored on public disk
+  -> slug = Str::slug(name) + '-' + random 6 chars
+  -> SeoService generates metadata
+  -> repository creates MainFreeAiModels
+  -> TranslateFreeAiModelJob dispatched.
+
+مشكلة مهمة للـ catalog mapping:
+الـ mapping يستخدم exact slug. والـ Admin create يولد random suffix. لذلك أداة Admin جديدة لن تتصل تلقائيًا
+بـ general_code/general_translation؛ يجب أن يضاف slug الفعلي إلى config mapping أو يتغير تصميم الربط لاحقًا.
+
+
+D. MODELS LOADING FLOW
+======================
+
+D1. Main Free AI model metadata
+-------------------------------
+
+FreeAiModelShow.onMounted
+  -> loadModel()
+  -> freeAiModelService.getModel(route.params.slug)
+  -> ApiClient GET /api/v1/free-ai-models/{slug}
+  -> routes/api.php
+  -> FreeAiModelController@show
+  -> activeModelsQuery()
+  -> main_free_ai_models + translations
+  -> FreeAiModelResource
+  -> ApiResponse::success
+  -> response.data assigned to model ref
+  -> loading disappears
+  -> hero/SEO rendered.
+
+Actual success shape:
+{
+  "status": "success",
+  "message": "Free AI model fetched successfully.",
+  "data": {
+    "slug": "programming-technology",
+    "name": "...",
+    "description": "...",
+    "image_url": "... or null",
+    "meta_title": "...",
+    "meta_description": "...",
+    "seo_keywords": "... or null"
+  }
+}
+
+D2. Execution models catalog
+----------------------------
+
+FreeAiModelChat.loadConversation()
+  -> GET conversation
+  -> conversation.catalog_source من backend config mapping
+  -> loadCatalog()
+  -> modelCatalogService.getModels(source)
+  -> modelCatalogSources resolves /model-catalogs/{source}
+  -> GET /api/v1/model-catalogs/{source}
+  -> ModelCatalogController@show
+  -> ModelCatalogService@getModels
+  -> x-internal-api-key added server-side
+  -> GET external /tasks/general-tools/{source}/models
+  -> external {tool, items}
+  -> Laravel {status, message, data:{tool,items}}
+  -> parseCatalogPayload
+  -> normalizeCatalogModel لكل item
+  -> stable sort
+  -> catalogModels ref
+  -> FreeAiModelSelector receives models prop
+  -> options rendered.
+
+D3. Actual upstream item shape
+------------------------------
+
+الـ fixtures الحقيقية في:
+- tests/Fixtures/general-code-catalog.json
+- tests/Fixtures/general-translation-catalog.json
+
+تحتوي items على:
+- id
+- provider
+- provider_model_id
+- name
+- description
+- tool_key
+- operation
+- tier
+- is_free
+- capabilities
+- parameter_schema
+- recommended_parameters
+- pricing
+- is_available
+- is_recommended
+- sort_order
+- pricing_updated_at
+- provider_updated_at
+
+مثال مختصر مطابق للبنية الفعلية:
+{
+  "id": 17,
+  "provider": "openrouter",
+  "provider_model_id": "cohere/north-mini-code:free",
+  "name": "North Mini Code Free",
+  "tool_key": "general_code",
+  "operation": "text_generation",
+  "tier": "free",
+  "is_free": true,
+  "capabilities": ["coding", "agents"],
+  "parameter_schema": {"temperature": {...}, "max_tokens": {...}},
+  "recommended_parameters": {"temperature": 0.5, "max_tokens": 4000},
+  "is_available": true,
+  "is_recommended": false,
+  "sort_order": 20
+}
+
+D4. Origin/use of each important value
+---------------------------------------
+
+tool_key:
+- يأتي داخل item من external endpoint.
+- المصدر الفعلي المستخدم لاختيار endpoint هو conversation.catalog_source، وليس item.tool_key.
+- frontend يحوله إلى toolKey لكنه لا يستخدمه في request أو selector.
+
+provider:
+- يأتي من external catalog.
+- frontend يحتفظ به في normalized model.
+- لا يرسله عند اختيار model ولا يخزنه models_conversations.
+- لا يستخدم لاختيار provider في Free AI flow الحالي.
+
+provider_model_id:
+- يأتي من external catalog.
+- يتحول إلى providerModelId.
+- يستخدم كـ UI/model identity fallback.
+- يرسل مع catalog_model_id عند create/update selection.
+- backend يستخدمه لتأكيد أن ID وprovider model متطابقان.
+- يخزن في selected_provider_model_id.
+
+name:
+- display name من catalog.
+- يخزن snapshot في selected_model_name.
+
+tier:
+- يقبل frontend free/standard/advanced فقط؛ غير ذلك يصبح standard.
+- يعرض في selector.
+- لا يوجد filtering أو authorization بناءً عليه.
+
+is_free:
+- normalizeCatalogBoolean؛ default false.
+- يعرض Free/Paid في selector.
+- لا يمنع اختيار paid model.
+- لا يستخدم backend في validation أو limits.
+
+is_available:
+- frontend default true إذا القيمة مفقودة.
+- unavailable item يبقى ظاهرًا لكنه disabled.
+- backend default true أيضًا عند فحص item مفقود الحقل.
+- requested selection يرفض false.
+- default selection يتجاهل false.
+
+is_recommended:
+- frontend/backend يستخدمانه لاختيار default المتاح.
+- لا يمنح صلاحية خاصة.
+
+sort_order:
+- Laravel proxy لا يرتب items.
+- backend defaultCatalogSelection يرتب تصاعديًا قبل fallback selection.
+- frontend يرتب تصاعديًا مع stable original-index tie breaker.
+
+capabilities:
+- frontend يحتفظ بها كـ array.
+- selector لا يعرضها.
+- لا تستخدم في validation أو request أو provider execution.
+
+parameters:
+- لا يوجد حقل عام اسمه parameters في current model contract.
+- الموجود upstream هو parameter_schema وrecommended_parameters.
+- Laravel proxy يحافظ عليهما في response.
+- modelCatalogNormalizer يحذفهما عند تحويل item إلى catalogModels.
+- لا توجد controls لهما في FreeAiModelChat.
+- لا ترسل temperature أو max_tokens أو أي parameters.
+
+D5. Filtering الحقيقي
+---------------------
+
+داخل هذا repository لا يوجد filtering لقائمة catalog حسب:
+- is_free
+- tier
+- provider
+- tool_key
+
+الموجود فقط:
+- source يختار endpoint مستقلًا.
+- is_available يمنع الاختيار ويؤثر في default.
+- is_recommended يؤثر في default.
+- sort_order يرتب.
+
+إذا كانت خدمة /tasks/general-tools/{tool_key}/models تنفذ filtering إضافيًا، فكودها ليس موجودًا هنا.
+
+D6. Default selection في backend
+--------------------------------
+
+عند POST create conversation بلا catalog_model_id:
+1. resolve source من exact free-ai slug mapping.
+2. fetch catalog الخارجي.
+3. sort by sort_order.
+4. يبحث عن أحدث conversation لنفس user + main free tool تحمل source/selection.
+5. يعيد الاختيار السابق إن كان item ما زال available ويطابق ID أو provider_model_id.
+6. وإلا أول available recommended.
+7. وإلا أول available.
+8. وإلا null.
+
+إذا فشل catalog عند default selection:
+- يسجل warning.
+- ينشئ conversation بنجاح ولكن selected_model=null.
+
+إذا أرسل client اختيارًا صريحًا وفشل catalog:
+- request يفشل 502.
+- لا ينشئ/يعدل selection.
+
+
+E. CHAT REQUEST FLOW
+====================
+
+E1. النتيجة المؤكدة
+--------------------
+
+لا يوجد Chat Message Request Flow في FreeAiModelChat.vue الآن.
+
+لا يوجد:
+- HTTP METHOD لإرسال prompt.
+- URL لإرسال prompt.
+- request body فيه prompt/messages/model/provider/tool_key.
+- response assistant content.
+- state update للرسائل.
+- UI rendering للرد.
+
+ولذلك أي payload مثل:
+{
+  "model": "...",
+  "provider": "...",
+  "provider_model_id": "...",
+  "tool_key": "...",
+  "messages": [...],
+  "prompt": "...",
+  "parameters": {...},
+  "temperature": 0.5,
+  "max_tokens": 4000
+}
+غير موجود في هذا flow.
+
+E2. Actual HTTP operations التي تستعملها الصفحة
+------------------------------------------------
+
+1) Load main model:
+GET /api/v1/free-ai-models/{slug}
+Body: none.
+
+2) Create conversation من Landing page:
+POST /api/v1/free-ai-models/{slug}/conversations
+Actual body من startChat():
+{}
+
+3) Create conversation من Chat page عند وجود selected model:
+POST /api/v1/free-ai-models/{slug}/conversations
+Actual body:
+{
+  "catalog_model_id": 17,
+  "provider_model_id": "cohere/north-mini-code:free"
+}
+
+4) List conversations:
+GET /api/v1/free-ai-models/{slug}/conversations
+Body: none.
+
+Response data item:
+{
+  "uuid": "...",
+  "title": null,
+  "is_pinned": false,
+  "created_at": "ISO-8601",
+  "updated_at": "ISO-8601",
+  "selected_model": {
+    "source": "general_code",
+    "id": 17,
+    "provider_model_id": "cohere/north-mini-code:free",
+    "name": "North Mini Code Free"
+  }
+}
+
+5) Load conversation:
+GET /api/v1/free-ai-models/{slug}/conversations/{uuid}
+Body: none.
+
+Actual response envelope:
+{
+  "status": "success",
+  "message": "Free AI model conversation fetched successfully.",
+  "data": {
+    "uuid": "...",
+    "is_pinned": false,
+    "is_archived": false,
+    "created_at": "ISO-8601",
+    "catalog_source": "general_code",
+    "selected_model": {
+      "source": "general_code",
+      "id": 17,
+      "provider_model_id": "cohere/north-mini-code:free",
+      "name": "North Mini Code Free"
+    },
+    "model": {
+      "slug": "programming-technology",
+      "name": "...",
+      "description": "...",
+      "image_url": null,
+      "meta_title": "...",
+      "meta_description": "...",
+      "seo_keywords": null
+    },
+    "user": {"id": 123, "name": "..."}
+  }
+}
+
+6) Change execution model:
+PATCH /api/v1/free-ai-models/{slug}/conversations/{uuid}/model
+Actual body:
+{
+  "catalog_model_id": 17,
+  "provider_model_id": "cohere/north-mini-code:free"
+}
+
+Response: نفس conversation payload الكامل أعلاه مع selected_model الجديد.
+
+Frontend state update:
+- optimistic selectedModel=model.
+- modelSaving=true.
+- response.data -> conversation.
+- syncSelectedModel().
+- sidebar summary upsert.
+- saveSelectedCatalogModel() في sessionStorage.
+- failure -> rollback إلى previous.
+
+7) Delete conversation:
+DELETE /api/v1/free-ai-models/{slug}/conversations/{uuid}
+Body: none.
+Response data: {"uuid":"..."}.
+
+E3. Streaming / SSE / WebSocket
+-------------------------------
+
+- Free AI flow لا يستخدم streaming أو SSE أو WebSocket.
+- يوجد route عام آخر GET /api/v1/conversation/{uuid}/stream في routes/api.php، لكنه يخص
+  App\Models\Conversation ونظام sub-tools، ولا تستورده أو تستدعيه FreeAiModelChat.vue.
+
+E4. Abort, retry, regeneration, IDs
+-----------------------------------
+
+- AbortController: غير موجود.
+- cancel request: غير موجود.
+- stale response suppression: موجود عبر catalogRequestId وconversationRequestId.
+- upstream catalog retry: موجود server-side؛ محاولتان بفاصل 250ms.
+- UI retry:
+  - Show load retry.
+  - Conversation load retry.
+  - Catalog retry.
+- Chat message retry: غير موجود لأن message send غير موجود.
+- regeneration: غير موجود.
+- conversation ID: نعم، UUID يولده backend ويحفظه في DB وroute.params.uuid.
+- numeric conversation id: داخلي في DB ولا يرسل للصفحة.
+- message ID: غير موجود في Free AI flow.
+- session/chat ID مستقل: لا يوجد غير conversation UUID.
+
+E5. المسارات الشبيهة لكنها غير متصلة
+-------------------------------------
+
+resources/js/services/chat/chatServices.js يحتوي:
+- POST /api/v1/message/send
+
+والـ backend هو:
+- app/Http/Controllers/api/home/MessageController.php
+- App\Models\Conversation
+- App\Models\Message
+- tables conversations/messages
+
+لكن FreeAiModelChat.vue:
+- لا يستورد chatServices.
+- يستخدم ModelsConverstaions/models_conversations بدل Conversation/conversations.
+- لا توجد علاقة messages في ModelsConverstaions.
+
+إذًا /message/send ليس hidden Free AI endpoint ولا يجوز اعتباره جزءًا من هذا flow.
+
+النظام الآخر resources/js/views/home/generalTools/GeneralChat.vue أيضًا لا يرسل إلى backend؛
+sendMessage() فيه يضيف user message إلى local array فقط ويصف نفسه في UI بأنه local only.
+
+
+F. AI PROVIDER FLOW
+===================
+
+F1. الموجود فعليًا
+------------------
+
+الـ catalog fixtures الحالية تعرض provider=openrouter لكل general_code/general_translation models.
+provider_model_id يحمل identifier الذي يفهمه gateway، مثل:
+- qwen/qwen3-coder-next
+- deepseek/deepseek-v4-flash-0731
+- openai/gpt-5.6-sol
+- anthropic/claude-opus-5
+- openrouter/free
+- google/gemma-4-31b-it:free
+
+العلاقة:
+- name: اسم عرض بشري.
+- provider: gateway/catalog provider، حاليًا openrouter في fixtures.
+- provider_model_id: identifier الفعلي المفترض تمريره عند التنفيذ مستقبلًا.
+- catalog_model_id: ID لسجل catalog الخارجي.
+- source/tool_key: نوع المهمة/catalog، مثل general_code.
+
+F2. غير الموجود
+---------------
+
+لا توجد في Free AI flow الحالي:
+- ProviderFactory أو registry محلي.
+- switch بين OpenRouter/OpenAI/Anthropic/Google.
+- API key لمزود completion مستخدم من FreeAiModelController.
+- POST إلى AI provider.
+- تحويل selected model إلى provider request.
+- messages/prompt/parameters request.
+- provider response parsing أو usage billing.
+
+الـ selected_provider_model_id مخزن فقط؛ لا يستهلكه أي service للتنفيذ في هذا module.
+
+وعليه يكون التدفق الحقيقي:
+Catalog provider/model metadata
+  -> اختيار المستخدم
+  -> validation against catalog
+  -> snapshot in models_conversations
+  -> STOP
+
+وليس:
+selected model -> OpenRouter -> AI response.
+
+
+G. AUTHENTICATION & LIMITS
+==========================
+
+G1. Authentication
+------------------
+
+Public بدون user login:
+- GET /api/v1/free-ai-models
+- GET /api/v1/free-ai-models/{slug}
+- GET /api/v1/model-catalogs/{source}
+
+لكنها ليست مفتوحة بلا API key؛ global ApiKeyMiddleware يطلب X-API-KEY.
+
+Login مطلوب:
+- list/create/show/update/delete Free AI conversations.
+- backend middleware: auth:sanctum.
+- frontend: Authorization Bearer auth_token.
+- frontend chat route guard: requiresUserAuth.
+- Landing page نفسها public، لكن startChat يعيد غير المسجل إلى /{lang}/auth.
+
+Ownership:
+- كل conversation query يقيد user_id بـ request->user()->id.
+- slug يقيد model_id أيضًا.
+- محاولة UUID لمستخدم أو أداة أخرى تعيد 404.
+
+G2. Rate limits
+---------------
+
+- public Free AI group: throttle:30,1.
+- authenticated conversation routes تظهر فعليًا في route:list مع throttle:30,1.
+- catalog proxy: throttle:30,1.
+- admin CRUD: throttle:60,1.
+
+Laravel throttle الافتراضي يحدد المفتاح عادة بالمستخدم المصادق أو IP للزائر.
+
+G3. Limits غير الموجودة في Free AI module
+------------------------------------------
+
+لم يوجد في FreeAiModelController/ModelCatalogController/routes الخاصة به:
+- daily limit.
+- usage quota.
+- token limit.
+- free request counter.
+- wallet deduction.
+- IP-specific custom business limit غير throttle.
+- device-fingerprint limit.
+- فصل صلاحية free model عن paid model.
+
+X-Device-Fingerprint يرسله ApiClient عمومًا، لكن Free AI backend لا يقرأه.
+AI_CONVERSATION_TOKEN_LIMIT وخدمات billing الموجودة في أجزاء أخرى لا تُستخدم هنا.
+
+
+H. DATABASE TABLES
+==================
+
+H1. main_free_ai_models
+-----------------------
+
+Migration:
+database/migrations/2026_08_15_105532_create_main_free_ai_models_table.php
+
+Model:
+app/Models/MainFreeAiModels.php
+
+Columns:
+- id
+- name unique
+- meta_name nullable
+- description nullable
+- meta_description nullable
+- image nullable
+- slug unique
+- is_active default true
+- sort_order default 0
+- timestamps
+- deleted_at
+
+Migration إضافية:
+database/migrations/2026_08_16_091103_add_main_tool_id_to_main_free_ai_models_table.php
+
+تضيف:
+- main_tool_id nullable FK -> ai_main_models، cascade delete.
+
+لكن main_tool_id حاليًا:
+- غير موجود في MainFreeAiModels::$fillable.
+- لا توجد relation له في MainFreeAiModels.
+- لا يعيده FreeAiModelResource.
+- لا تستخدمه FreeAiModelController أو Admin requests.
+لذلك يبدو Legacy/Unused في flow المدروس.
+
+H2. main_free_ai_models_translations
+------------------------------------
+
+Migration:
+database/migrations/2026_08_15_105804_create_main_free_ai_models_translations_table.php
+
+Model:
+app/Models/MainFreeAiModelsTranslations.php
+
+Columns:
+- id
+- main_free_ai_models_id FK cascade delete
+- locale
+- name
+- description
+- meta_title
+- meta_description
+- seo_keywords
+- timestamps
+- unique(main_free_ai_models_id, locale)
+
+H3. models_conversations
+-----------------------
+
+Migrations:
+- database/migrations/2026_08_16_082611_create_models_converstaions_table.php
+- database/migrations/2026_08_31_130000_add_selected_catalog_model_to_models_conversations_table.php
+
+Model:
+app/Models/ModelsConverstaions.php
+
+Columns النهائية المهمة:
+- id
+- user_id FK users
+- model_id FK main_free_ai_models
+- uuid unique
+- is_pinned
+- is_archived
+- selected_model_source nullable
+- selected_model_catalog_id nullable
+- selected_provider_model_id nullable
+- selected_model_name nullable
+- timestamps
+- deleted_at
+
+Indexes:
+- user_id + is_archived
+- user_id + created_at
+- user_id + model_id + is_archived + created_at
+
+ملاحظات:
+- class name واسم migration يحتويان typo: ModelsConverstaions / converstaions.
+- table name الصريح صحيح: models_conversations.
+- down() في migration الإنشاء يحاول dropIfExists('models_converstaions') بالتهجئة الخاطئة؛ هذا defect في rollback.
+
+H4. users
+---------
+
+User model:
+app/Models/User.php
+
+Relation:
+model_conversations() -> hasMany ModelsConverstaions by user_id.
+
+H5. Catalog models/providers/usage/messages
+-------------------------------------------
+
+- لا يوجد local table يحفظ catalog items الخاصة بـ general_code/general_translation.
+- لا توجد local table تربط catalog ID بخصائص capabilities/parameters/pricing.
+- models_conversations يحفظ snapshot محدودًا فقط.
+- providers table موجود للنظام القديم/الآخر الخاص بـ SubTools، لكنه غير مستعمل في Free AI flow.
+- conversations وmessages وcost_loggers تخص chat/sub-tool system الآخر، وليست مرتبطة بـ models_conversations.
+- Free AI flow لا يكتب usage أو messages أو provider calls.
+
+ai_main_models وai_main_model_translations موجودان، لكن current Free AI public flow لا يستخدمهما، باستثناء
+وجود FK main_tool_id غير المستعمل الموضح أعلاه.
+
+
+I. ERROR HANDLING
+=================
+
+I1. Frontend shared ApiClient
+-----------------------------
+
+resources/js/services/ApiClient.js، response interceptor lines 119-192:
+
+- Network/no response:
+  toast مشكلة اتصال، ثم Promise.reject.
+- 400: warning طلب غير صحيح.
+- 401:
+  toast تسجيل الدخول، حذف auth_token، redirect بعد 1.5 ثانية إلى /{lang}/auth.
+- 403: toast غير مسموح.
+- 404: toast المورد غير موجود.
+- 422:
+  يقرأ response.data.errors، ويعرض كل field error.
+- 429: toast محاولات كثيرة.
+- 500: toast server error.
+- 502/503/504: toast server unavailable.
+- غير ذلك: unexpected error toast.
+
+I2. Page-specific behavior
+--------------------------
+
+Main model missing/inactive:
+- backend 404 Free AI model not found.
+- ApiClient 404 toast.
+- FreeAiModelShow: loadError card + Try Again.
+
+Conversation missing/not owned/wrong slug:
+- backend 404 Free AI model conversation not found.
+- ApiClient toast.
+- FreeAiModelChat: loadError card + Try Again.
+
+Conversation list failure:
+- ApiClient toast.
+- component يمسح conversations ويعرض no conversations؛ لا توجد sidebar error state منفصلة.
+
+Catalog source missing:
+- conversation.catalog_source=null.
+- لا يرسل frontend catalog HTTP request.
+- catalogError=true وقائمة فارغة.
+
+Unknown frontend source:
+- getModelCatalogSource يرمي Unknown model catalog source.
+- catalogError=true.
+
+Unknown backend source:
+- ModelCatalogController -> 404.
+
+Catalog timeout/upstream 5xx/invalid JSON shape/missing items:
+- ModelCatalogService يرمي بعد retries.
+- ModelCatalogController -> 502
+  {status:'error', message:'Model catalog is currently unavailable.', errors:null}.
+- frontend catalogModels=[] وcatalogError=true.
+- selector يصدر retry عند الضغط.
+
+Explicit selection بينما catalog unavailable:
+- FreeAiModelController -> 502.
+- optimistic frontend selection يرجع إلى previous.
+
+Catalog model missing:
+- ID غير موجود -> 422.
+- ID صحيح وprovider_model_id غير مطابق -> 422.
+- is_available=false -> 422.
+- رسالة field: The selected catalog model is unavailable.
+
+Main free tool بلا catalog mapping عند explicit selection:
+- 422 على catalog_model_id:
+  This Free AI tool does not have a configured model catalog.
+
+Default selection/catalog failure:
+- conversation تُنشأ 200 مع selected_model=null.
+- warning فقط في backend log.
+- chat page تحاول proxy catalog مرة أخرى وقد تظهر catalogError.
+
+Provider error:
+- غير قابل للحدوث داخل Free AI message flow الحالي لأنه لا يوجد provider call.
+- الأخطاء من external model catalog تصنف Catalog error/502، لا AI completion provider error.
+
+Chat timeout/message validation:
+- غير موجودان في Free AI flow لعدم وجود message endpoint.
+
+
+J. FULL END-TO-END FLOW
+=======================
+
+J1. فتح صفحة الأداة
+-------------------
+
+User opens /{lang}/free-ai/{slug}
+  -> Vue Router route free-ai-model.show
+  -> FreeAiModelShow.vue mounted
+  -> loadModel()
+  -> freeAiModelService.getModel(slug)
+  -> ApiClient
+  -> GET /api/v1/free-ai-models/{slug}
+  -> global API key + language middleware
+  -> FreeAiModelController@show
+  -> activeModelsQuery()
+  -> MainFreeAiModels DB query
+  -> translations for requested locale + English
+  -> FreeAiModelResource
+  -> {status,message,data}
+  -> model ref updated
+  -> SEO + hero rendered.
+
+J2. بدء conversation من Landing
+--------------------------------
+
+User clicks Start Chat
+  -> startChat()
+  -> check localStorage.auth_token
+  -> no token: /{lang}/auth
+  -> token exists:
+  -> POST /api/v1/free-ai-models/{slug}/conversations with {}
+  -> auth:sanctum + throttle
+  -> FreeAiModelController@storeConversation
+  -> active main tool by slug
+  -> catalogSourceFor(model)
+  -> config model_catalogs.free_ai_tools.{slug}
+  -> defaultCatalogSelection()
+  -> ModelCatalogService@getModels(source)
+  -> GET external /tasks/general-tools/{source}/models
+  -> choose recent valid / recommended / first available
+  -> insert models_conversations row with UUID and selected snapshot
+  -> conversation payload returned
+  -> Vue reads data.uuid
+  -> router.push free-ai-model.chat with lang+slug+uuid.
+
+J3. فتح صفحة الدردشة
+--------------------
+
+Vue Router checks requiresUserAuth
+  -> FreeAiModelChat.vue mounted
+  -> in parallel:
+     loadConversations()
+       -> GET /api/v1/free-ai-models/{slug}/conversations
+       -> DB summaries -> sidebar
+     loadConversation()
+       -> GET /api/v1/free-ai-models/{slug}/conversations/{uuid}
+       -> DB conversation + main model + catalog_source + selected_model
+       -> conversation ref
+       -> syncSelectedModel snapshot
+       -> loadCatalog()
+          -> GET /api/v1/model-catalogs/{source}
+          -> Laravel proxy
+          -> external /tasks/general-tools/{source}/models
+          -> normalize + sort
+          -> catalogModels
+          -> sync selected model against live catalog
+          -> FreeAiModelSelector rendered.
+
+J4. اختيار model
+----------------
+
+User opens FreeAiModelSelector
+  -> selector emits select(model)
+  -> FreeAiModelChat.selectExecutionModel(model)
+  -> optimistic selectedModel
+  -> PATCH /api/v1/free-ai-models/{slug}/conversations/{uuid}/model
+  -> FreeAiModelController@updateConversationModel
+  -> fetch same external catalog for validation
+  -> validate ID + optional provider_model_id + is_available
+  -> update selected snapshot in models_conversations
+  -> conversation payload returned
+  -> conversation/selectedModel/sidebar updated
+  -> sessionStorage selection saved.
+
+J5. إرسال رسالة — الحالة الفعلية
+--------------------------------
+
+User sees composer
+  -> textarea disabled
+  -> send button disabled
+  -> integrationPending displayed
+  -> لا event handler
+  -> لا API request
+  -> لا backend chat controller للـ models_conversations
+  -> لا provider call
+  -> لا assistant response
+  -> لا message render.
+
+إذن المثال المطلوب نظريًا:
+User sends prompt
+  -> POST ...
+  -> Backend
+  -> AI Provider
+  -> Response
+  -> Assistant message rendered
+
+غير موجود بعد في الكود الحالي، ولا يمكن ملء POST/Request/Response حقيقيين دون اختلاق معلومات.
+
+
+K. DUPLICATION, LEGACY, AND RISKS
+=================================
+
+K1. Repeated catalog HTTP work
+------------------------------
+
+نفس catalog قد يطلب أكثر من مرة:
+- عند إنشاء conversation بلا explicit model لتحديد default.
+- مرة أخرى من FreeAiModelChat لعرض القائمة.
+- عند كل PATCH model لتأكيد أن الاختيار صالح.
+
+ModelCatalogService في backend لا يضيف application cache، بينما frontend cache لا يفيد طلبات backend الداخلية.
+
+K2. Duplicated normalization/sorting
+------------------------------------
+
+- catalogBoolean موجود في PHP.
+- normalizeCatalogBoolean موجود في JS.
+- sort_order يستخدم في backend default selection وفي frontend display sorting.
+
+هذا مقصود جزئيًا لأن backend لا يثق في client، لكنه يعني ضرورة إبقاء defaults متوافقة.
+
+K3. Two different “General” systems
+-----------------------------------
+
+System 1 — Free AI catalog sources:
+- config/model_catalogs.php
+- ModelCatalogService
+- general_chat/general_code/general_translation
+- external /tasks/general-tools/.../models
+
+System 2 — General Chat Tools UI:
+- showGeneral.vue
+- GeneralChat.vue
+- generalChatService.js
+- GeneralChatToolController
+- GenrealToolRepository
+- SubTools where main_tool_id=8
+- local-only messages
+
+الأسماء متشابهة لكن data models وroutes والسلوك مختلفون.
+
+K4. Unused/legacy findings
+--------------------------
+
+- freeAiModelService.getModels() لا يملك caller داخل resources/js حاليًا.
+- main_free_ai_models.main_tool_id غير مستعمل في public/admin Free AI code الحالي.
+- ai_main_models ليست مصدر execution model catalog.
+- providers table ليست مستخدمة في Free AI flow.
+- generic conversations/messages/provider/billing flow منفصل، وليس fallback تلقائيًا.
+- typo rollback في create_models_converstaions migration.
+
+K5. Data-contract gaps
+----------------------
+
+- catalog يرسل parameter_schema/recommended_parameters/pricing لكن frontend normalizer يحذفها.
+- provider موجود في frontend model لكنه لا يحفظ ولا يرسل.
+- capabilities محفوظة في state لكن لا تعرض ولا تطبق.
+- is_free/tier للعرض فقط؛ paid models يمكن اختيارها ولا يوجد billing في هذا module.
+- is_available missing defaults to true في frontend وbackend.
+- conversation titles دائمًا null؛ sidebar يبني fallback من أول 6 أحرف UUID.
+- create admin slug random يجعل config mapping اليدوي عرضة للكسر/النسيان.
+
+
+L. HOW TO ADD A NEW GENERAL TOOL
+===============================
+
+هذا القسم يصف الخطوات وفق architecture الحالية فقط، بدون تنفيذ.
+
+أولًا: تحديد نوع الإضافة
+------------------------
+
+الحالة 1: Main Free AI Tool جديد يستخدم catalog موجودًا مثل general_code
+------------------------------------------------------------------------
+
+1. إنشاء row في main_free_ai_models (يدويًا أو عبر Admin CRUD)، مع name/description/slug/is_active/sort_order.
+2. إنشاء translations في main_free_ai_models_translations أو ترك English/base fallback.
+3. تسجيل exact generated slug في:
+   config/model_catalogs.php -> free_ai_tools
+   مثال منطقي: 'actual-new-slug' => 'general_code'.
+4. لا يلزم source جديد في modelCatalogSources.js لأن general_code موجود أصلًا.
+5. التحقق أن external general_code endpoint يعيد items صالحة.
+6. إضافة Feature test يثبت mapping وإنشاء conversation والاختيار/reload.
+7. إضافة Frontend test يثبت أن conversation.catalog_source يحمّل catalog الصحيح.
+
+تنبيه:
+إذا تم الإنشاء من Admin، MainFreeAiModelService يولد slug بـ random suffix. يجب قراءة slug النهائي وربطه،
+لا افتراض أن slug يساوي name.
+
+الحالة 2: Tool جديد له source/tool_key خارجي جديد
+------------------------------------------------
+
+مثال افتراضي: general_research.
+
+في خدمة aiarabic الخارجية (repository غير متاح هنا):
+1. إضافة GET /tasks/general-tools/general_research/models.
+2. ضمان top-level response:
+   {"tool":"general_research","items":[...]}
+3. كل item يحتاج على الأقل ID ثابتًا وname وprovider_model_id وis_available وsort_order.
+4. إذا ستستخدم الخصائص الحالية بالكامل، وفر tier/is_free/is_recommended/capabilities.
+5. حافظ على x-internal-api-key authorization كما يتوقع هذا proxy.
+
+في Laravel backend الحالي:
+6. إضافة source في config/model_catalogs.php -> sources:
+   - endpoint أو env URL.
+   - requires_internal_key.
+   - internal_key_config.
+7. إضافة exact Free AI slug -> general_research في free_ai_tools.
+8. route ModelCatalogController لا يحتاج route جديدًا؛ {source} generic.
+9. ModelCatalogService لا يحتاج class جديدًا طالما response contract نفسه.
+
+في Vue frontend:
+10. إضافة general_research إلى MODEL_CATALOG_SOURCES في:
+    resources/js/services/modelCatalog/modelCatalogSources.js
+    endpoint: /model-catalogs/general_research.
+11. لا تعدل getFreeAiCatalogSource؛ فهو generic ويثق بـ conversation.catalog_source.
+12. FreeAiModelChat وFreeAiModelSelector يمكنهما عرض الـ source الجديد دون component جديد إذا نفس العقد.
+
+في الاختبارات:
+13. إضافة fixture حقيقية للـ response.
+14. تمديد tests/Feature/ModelCatalogProxyTest.php:
+    - URL الصحيح.
+    - internal key server-only.
+    - invalid upstream -> 502.
+15. تمديد tests/Feature/FreeAiModelFlowTest.php:
+    - exact slug mapping.
+    - default selection.
+    - unavailable/mismatch 422.
+    - persisted selection and reload.
+16. تمديد tests/Frontend/modelCatalog.test.mjs:
+    - source registration.
+    - normalization/sort.
+    - route change race safety.
+
+الحالة 3: المقصود إضافة أداة إلى /{lang}/general/chat
+----------------------------------------------------
+
+هذا مسار مختلف تمامًا:
+1. إضافة SubTools row مرتبط بـ main_tool_id=8.
+2. GeneralChatToolController/GenrealToolRepository سيعيده إذا الحقول متوافقة.
+3. showGeneral.vue سيعرضه بعد normalize/filter is_active+slug.
+4. GeneralChat.vue سيخزن messages في Vue فقط.
+5. هذا لا يضيف general_code/general_translation catalog، ولا Free AI conversation، ولا AI provider execution.
+
+قبل أي تنفيذ يجب حسم أي معنى هو المقصود من “General Tool”. بالنسبة للنمط المذكور في الطلب
+general_code/general_translation، الحالة 1 أو 2 هي الصحيحة، وليست الحالة 3.
+
+إضافة message execution مستقبلًا ليست جزءًا آليًا من catalog pattern
+---------------------------------------------------------------
+
+حتى بعد إضافة source جديد، النظام سيظل يختار model فقط. لتفعيل AI chat يلزم تصميم جديد غير موجود حاليًا، يشمل:
+- Route POST خاص بمحادثات models_conversations.
+- FormRequest/DTO لعقد prompt/messages/parameters.
+- ownership validation.
+- إعادة جلب/تحقق selected catalog model server-side.
+- provider dispatch باستخدام provider + provider_model_id.
+- parameter_schema validation وrecommended defaults.
+- messages table أو relation مناسبة لـ models_conversations.
+- usage/rate/free-vs-paid policy.
+- response أو SSE contract.
+- frontend draft/messages/loading/error/cancel/regenerate implementation.
+
+هذه ليست “ملفات ناقصة يمكن تخمينها”، بل gap معماري حقيقي في الحالة الحالية.
+
+
+M. VERIFICATION PERFORMED
+========================
+
+تم تشغيل الاختبارات بدون تغيير الكود:
+
+1. npm run test:frontend
+- 45 tests passed.
+- 0 failed.
+- شملت normalization، source isolation، stable sorting، persisted selection، race safety، والـ real fixtures.
+
+2. php artisan test tests/Feature/ModelCatalogProxyTest.php tests/Feature/FreeAiModelFlowTest.php
+- 20 tests passed.
+- 238 assertions.
+- 0 failed.
+- شملت proxy headers، real code/translation samples، mapping، authentication/ownership، default selection،
+  persistence، unavailable models، و502 isolation.
+
+3. php artisan route:list --path=free-ai-models --json
+- أكد methods، URIs، controllers، middleware، وأن Laravel route names تساوي null.
+
+
+FINAL ACTUAL FLOW IN ONE VIEW
+=============================
+
+User opens /{lang}/free-ai/{slug}
+  -> Vue Router
+  -> FreeAiModelShow.vue
+  -> loadModel()
+  -> freeAiModelService.getModel(slug)
+  -> GET /api/v1/free-ai-models/{slug}
+  -> FreeAiModelController@show
+  -> MainFreeAiModels + translations
+  -> FreeAiModelResource
+  -> model displayed
+  -> user clicks Start Chat
+  -> auth token check
+  -> POST /api/v1/free-ai-models/{slug}/conversations {}
+  -> FreeAiModelController@storeConversation
+  -> slug -> config catalog source
+  -> ModelCatalogService
+  -> GET external /tasks/general-tools/{source}/models
+  -> default available model selected
+  -> models_conversations row + UUID + selection snapshot
+  -> router.push free-ai-model.chat
+  -> FreeAiModelChat.vue
+  -> GET conversation history + active conversation
+  -> conversation.catalog_source
+  -> GET /api/v1/model-catalogs/{source}
+  -> ModelCatalogController
+  -> ModelCatalogService
+  -> external model catalog
+  -> normalized/sorted catalogModels
+  -> FreeAiModelSelector
+  -> user changes model
+  -> PATCH conversation model with catalog_model_id + provider_model_id
+  -> catalog revalidation
+  -> snapshot saved in models_conversations
+  -> selector/header/sidebar updated
+  -> composer remains disabled
+  -> END: no prompt request, no provider execution, no assistant message.
+

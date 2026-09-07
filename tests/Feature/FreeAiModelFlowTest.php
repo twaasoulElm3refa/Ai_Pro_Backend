@@ -345,6 +345,48 @@ class FreeAiModelFlowTest extends TestCase
         Http::assertNotSent(fn ($request) => $request->url() !== $endpoint);
     }
 
+    public function test_verified_media_slug_uses_the_filtered_catalog_and_persists_image_model_selection(): void
+    {
+        $slug = 'images-video';
+        $this->assertSame('general_media', config("model_catalogs.free_ai_tools.{$slug}"));
+        config()->set('services.aiarabic.internal_api_key', 'server-only-test-key');
+        $endpoint = config('model_catalogs.sources.general_media.endpoint');
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-media-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        Http::preventStrayRequests();
+        Http::fake(["{$endpoint}*" => Http::response($sample)]);
+        $tool = $this->createModel($slug, true, 1);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/{$slug}/conversations";
+
+        $uuid = $this->apiRequest()->postJson($url)->assertOk()
+            ->assertJsonPath('data.model.slug', $slug)
+            ->assertJsonPath('data.catalog_source', 'general_media')
+            ->assertJsonPath('data.selected_model.id', 7)
+            ->assertJsonPath('data.selected_model.provider_model_id', 'runware:400@4')
+            ->json('data.uuid');
+
+        $this->apiRequest()->patchJson("{$url}/{$uuid}/model", [
+            'catalog_model_id' => 28,
+            'provider_model_id' => 'bfl:5@1',
+        ])->assertOk()
+            ->assertJsonPath('data.selected_model.source', 'general_media')
+            ->assertJsonPath('data.selected_model.name', 'FLUX.2 Pro');
+
+        $this->assertDatabaseHas('models_conversations', [
+            'uuid' => $uuid,
+            'model_id' => $tool->id,
+            'user_id' => $user->id,
+            'selected_model_source' => 'general_media',
+            'selected_model_catalog_id' => 28,
+            'selected_provider_model_id' => 'bfl:5@1',
+            'selected_model_name' => 'FLUX.2 Pro',
+        ]);
+
+        Http::assertSent(fn ($request) => $request->url() === "{$endpoint}?operation=image_generation"
+            && $request->data() === ['operation' => 'image_generation']);
+    }
+
     #[DataProvider('catalogSources')]
     public function test_catalog_defaults_switching_and_reload_use_the_tools_source(string $source): void
     {

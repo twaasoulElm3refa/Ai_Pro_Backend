@@ -23,6 +23,7 @@ const failed = () => import("../views/home/failedDeposit.vue");
 const cancelled = () => import("../views/home/CancelledDeposit.vue");
 const FreeAiModelShow = () => import("../views/home/free-ai-models/FreeAiModelShow.vue");
 const FreeAiModelChat = () => import("../views/home/free-ai-models/FreeAiModelChat.vue");
+const FreeAiModelMediaChat = () => import("../views/home/free-ai-models/FreeAiModelMediaChat.vue");
 const showGeneral = () => import("../views/home/generalTools/showGeneral.vue");
 const GeneralChat = () => import("../views/home/generalTools/GeneralChat.vue");
 
@@ -82,6 +83,18 @@ const routes = [
             hideFooter: true,
             hideHeader: true,
             requiresUserAuth: true,
+        },
+    },
+    {
+        path: "/:lang/free-ai/:slug/media/:uuid",
+        name: "free-ai-model.media-chat",
+        component: FreeAiModelMediaChat,
+        meta: {
+            hideNavbar: false,
+            hideFooter: true,
+            hideHeader: true,
+            requiresUserAuth: true,
+            catalogSource: "general_media",
         },
     },
     {

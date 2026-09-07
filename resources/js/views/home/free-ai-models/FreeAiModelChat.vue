@@ -200,6 +200,8 @@ const isRtl = computed(() => locale.value === "ar");
 const readableSlug = computed(() => pageSlug.value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
 const mainTool = computed(() => conversation.value?.model || {});
 const collapseIcon = computed(() => (isRtl.value ? "bi-chevron-right" : "bi-chevron-left"));
+const conversationRouteName = computed(() => String(route.name || "free-ai-model.chat"));
+const requiredCatalogSource = computed(() => String(route.meta?.catalogSource || "").trim() || null);
 
 const seoTitle = computed(() => mainTool.value.meta_title || mainTool.value.name || "AI Pro");
 const seoDescription = computed(() => mainTool.value.meta_description || mainTool.value.description || "");
@@ -248,7 +250,7 @@ function syncSelectedModel() {
 async function loadCatalog(force = false) {
     const source = catalogSource.value;
     const slug = pageSlug.value;
-    if (!source) {
+    if (!source || (requiredCatalogSource.value && source !== requiredCatalogSource.value)) {
         catalogRequestId++;
         catalogModels.value = [];
         catalogLoading.value = false;
@@ -342,7 +344,7 @@ async function openConversation(item) {
         return;
     }
     sidebarOpen.value = false;
-    await router.push({ name: "free-ai-model.chat", params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: item.uuid } });
+    await router.push({ name: conversationRouteName.value, params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: item.uuid } });
 }
 
 async function newConversation() {
@@ -355,7 +357,7 @@ async function newConversation() {
         if (!created?.uuid) throw new Error("Missing conversation UUID");
         upsertConversationSummary(created);
         sidebarOpen.value = false;
-        await router.push({ name: "free-ai-model.chat", params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: created.uuid } });
+        await router.push({ name: conversationRouteName.value, params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: created.uuid } });
     } catch {
         // ApiClient provides the shared request error feedback.
     } finally {

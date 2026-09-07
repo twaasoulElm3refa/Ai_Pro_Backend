@@ -1,0 +1,58 @@
+{
+  "tool": "general_media",
+  "items": [
+    {
+      "id": 7,
+      "provider": "runware",
+      "provider_model_id": "runware:400@4",
+      "name": "Runware Fast Image",
+      "description": "Fast economical text-to-image",
+      "tool_key": "general_media",
+      "operation": "image_generation",
+      "tier": "standard",
+      "is_free": false,
+      "capabilities": ["text_to_image"],
+      "parameter_schema": {
+        "size": {"type": "enum", "values": ["1024x1024", "1024x768", "768x1024"], "default": "1024x1024"},
+        "quality": {"type": "enum", "values": ["low", "medium", "high"], "default": "medium"},
+        "count": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1},
+        "output_format": {"type": "enum", "values": ["png", "jpg", "webp"], "default": "webp"},
+        "seed": {"type": "integer", "nullable": true}
+      },
+      "recommended_parameters": {"size": "1024x1024", "quality": "medium", "count": 1, "output_format": "webp"},
+      "pricing": {"mode": "dynamic", "source": "runware_response"},
+      "is_available": true,
+      "is_recommended": true,
+      "sort_order": 10,
+      "pricing_updated_at": null,
+      "provider_updated_at": null
+    },
+    {
+      "id": 28,
+      "provider": "runware",
+      "provider_model_id": "bfl:5@1",
+      "name": "FLUX.2 Pro",
+      "description": "High-quality image generation",
+      "tool_key": "general_media",
+      "operation": "image_generation",
+      "tier": "advanced",
+      "is_free": false,
+      "capabilities": ["text_to_image", "high_quality"],
+      "parameter_schema": {
+        "size": {"type": "enum", "values": ["1024x1024", "1024x768", "768x1024"], "default": "1024x1024"},
+        "quality": {"type": "enum", "values": ["medium", "high"], "default": "high"},
+        "count": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1},
+        "output_format": {"type": "enum", "values": ["png", "jpg", "webp"], "default": "webp"},
+        "seed": {"type": "integer", "nullable": true}
+      },
+      "recommended_parameters": {"size": "1024x1024", "quality": "high", "count": 1, "output_format": "webp"},
+      "pricing": {"mode": "dynamic", "source": "runware_response"},
+      "is_available": true,
+      "is_recommended": false,
+      "sort_order": 20,
+      "pricing_updated_at": "2026-08-20T13:15:34",
+      "provider_updated_at": "2026-08-20T13:15:34"
+    }
+  ],
+  "pagination": {"page": 1, "per_page": 20, "total": 2, "last_page": 1}
+}

@@ -175,6 +175,44 @@ class ModelCatalogProxyTest extends TestCase
         $this->assertStringNotContainsString('server-only-test-key', $response->getContent());
     }
 
+    public function test_media_proxy_sends_the_image_generation_filter_and_preserves_the_full_contract(): void
+    {
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-media-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        $endpoint = config('model_catalogs.sources.general_media.endpoint');
+
+        $this->assertSame(
+            'https://api.aiarabic.com/tasks/general-tools/general_media/models',
+            $endpoint
+        );
+        $this->assertSame(
+            ['operation' => 'image_generation'],
+            config('model_catalogs.sources.general_media.query')
+        );
+
+        Http::preventStrayRequests();
+        Http::fake(["{$endpoint}*" => Http::response($sample)]);
+
+        $response = $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
+            ->getJson('/api/v1/model-catalogs/general_media')
+            ->assertOk()
+            ->assertJsonPath('data.tool', 'general_media')
+            ->assertJsonCount(2, 'data.items')
+            ->assertJsonPath('data.items.0.provider', 'runware')
+            ->assertJsonPath('data.items.0.operation', 'image_generation')
+            ->assertJsonPath('data.items.0.parameter_schema.size.default', '1024x1024')
+            ->assertJsonPath('data.items.0.recommended_parameters.output_format', 'webp')
+            ->assertJsonPath('data.items.0.pricing.source', 'runware_response')
+            ->assertJsonPath('data.pagination.total', 2);
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) => $request->method() === 'GET'
+            && $request->url() === "{$endpoint}?operation=image_generation"
+            && $request->data() === ['operation' => 'image_generation']
+            && $request->hasHeader('x-internal-api-key', 'server-only-test-key')
+        );
+        $this->assertStringNotContainsString('server-only-test-key', $response->getContent());
+    }
+
     public function test_code_tool_mapping_is_explicit_and_keeps_the_existing_chat_mapping(): void
     {
         $key = 'FREE_AI_GENERAL_CODE_TOOL_SLUG';
@@ -193,10 +231,12 @@ class ModelCatalogProxyTest extends TestCase
                     $this->assertSame([
                         'chat-writing' => 'general_chat',
                         'programming-technology' => 'general_code',
+                        'images-video' => 'general_media',
                         'translation' => 'general_translation',
                     ], $catalogs['free_ai_tools']);
                 }
                 $this->assertSame('general_code', $catalogs['free_ai_tools']['programming-technology']);
+                $this->assertSame('general_media', $catalogs['free_ai_tools']['images-video']);
                 $this->assertSame('general_translation', $catalogs['free_ai_tools']['translation']);
             }
         } finally {

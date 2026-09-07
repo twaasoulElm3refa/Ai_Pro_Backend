@@ -17,6 +17,11 @@ const parseCatalogPayload = (response) => {
     return {
         tool: String(payload.tool || ""),
         items: payload.items,
+        pagination: payload.pagination
+            && typeof payload.pagination === "object"
+            && !Array.isArray(payload.pagination)
+            ? payload.pagination
+            : null,
     };
 };
 
@@ -55,6 +60,7 @@ const modelCatalogService = {
         return {
             tool: catalog.tool || sourceKey,
             models,
+            pagination: catalog.pagination,
         };
     },
 };

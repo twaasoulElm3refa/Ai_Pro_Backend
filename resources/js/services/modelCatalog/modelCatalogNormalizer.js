@@ -17,6 +17,17 @@ const normalizeSortOrder = (value) => {
     return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
 };
 
+const normalizeCatalogObject = (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    return { ...value };
+};
+
+const normalizeNullableString = (value) => {
+    if (value === null || value === undefined) return null;
+    const normalized = String(value).trim();
+    return normalized || null;
+};
+
 export const normalizeCatalogModel = (model = {}, options = {}) => {
     const description = typeof model.description === "string" ? model.description.trim() : "";
     const tier = String(model.tier || "standard").trim().toLowerCase();
@@ -37,5 +48,10 @@ export const normalizeCatalogModel = (model = {}, options = {}) => {
         capabilities: Array.isArray(model.capabilities)
             ? model.capabilities.filter((capability) => capability !== null && capability !== undefined)
             : [],
+        parameterSchema: normalizeCatalogObject(model.parameter_schema),
+        recommendedParameters: normalizeCatalogObject(model.recommended_parameters),
+        pricing: normalizeCatalogObject(model.pricing),
+        pricingUpdatedAt: normalizeNullableString(model.pricing_updated_at),
+        providerUpdatedAt: normalizeNullableString(model.provider_updated_at),
     };
 };

@@ -10,7 +10,7 @@ use RuntimeException;
 class ModelCatalogService
 {
     /**
-     * @return array{tool: string, items: array<int, mixed>}
+     * @return array{tool: string, items: array<int, mixed>, pagination?: array<string, mixed>}
      *
      * @throws ConnectionException
      */
@@ -26,6 +26,12 @@ class ModelCatalogService
 
         if ($endpoint === '') {
             throw new RuntimeException('Model catalog endpoint is not configured.');
+        }
+
+        $query = $source['query'] ?? [];
+
+        if (! is_array($query)) {
+            throw new RuntimeException('Model catalog query configuration must be an array.');
         }
 
         $headers = [];
@@ -45,7 +51,7 @@ class ModelCatalogService
             ->withHeaders($headers)
             ->timeout(max(2, (int) config('model_catalogs.timeout', 20)))
             ->retry(2, 250, null, false)
-            ->get($endpoint);
+            ->get($endpoint, $query);
 
         $payload = $response->json();
 
@@ -53,9 +59,15 @@ class ModelCatalogService
             throw new RuntimeException('The model catalog service returned an invalid response.');
         }
 
-        return [
+        $catalog = [
             'tool' => (string) ($payload['tool'] ?? $sourceKey),
             'items' => array_values($payload['items']),
         ];
+
+        if (is_array($payload['pagination'] ?? null)) {
+            $catalog['pagination'] = $payload['pagination'];
+        }
+
+        return $catalog;
     }
 }

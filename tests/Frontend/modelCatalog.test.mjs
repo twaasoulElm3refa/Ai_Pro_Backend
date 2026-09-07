@@ -37,6 +37,11 @@ test("normalizes snake-case catalog models into the shared frontend contract", (
         is_recommended: 1,
         sort_order: "20",
         capabilities: ["chat", "reasoning"],
+        parameter_schema: { temperature: { type: "number", default: 0.5 } },
+        recommended_parameters: { temperature: 0.5 },
+        pricing: { mode: "fixed" },
+        pricing_updated_at: "2026-08-20T13:15:34",
+        provider_updated_at: null,
     }, { fallbackDescription: "Fallback description" });
 
     assert.deepEqual(model, {
@@ -53,6 +58,11 @@ test("normalizes snake-case catalog models into the shared frontend contract", (
         isRecommended: true,
         sortOrder: 20,
         capabilities: ["chat", "reasoning"],
+        parameterSchema: { temperature: { type: "number", default: 0.5 } },
+        recommendedParameters: { temperature: 0.5 },
+        pricing: { mode: "fixed" },
+        pricingUpdatedAt: "2026-08-20T13:15:34",
+        providerUpdatedAt: null,
     });
 });
 
@@ -68,10 +78,25 @@ test("keeps the execution-model selector in the chat composer and off the tool l
     assert.doesNotMatch(show, /FreeAiModelSelector|modelCatalogService/);
 });
 
+test("uses a dedicated media route while reusing the shared Free AI conversation shell", async () => {
+    const [mediaPage, router, show] = await Promise.all([
+        readFile("resources/js/views/home/free-ai-models/FreeAiModelMediaChat.vue", "utf8"),
+        readFile("resources/js/router/index.js", "utf8"),
+        readFile("resources/js/views/home/free-ai-models/FreeAiModelShow.vue", "utf8"),
+    ]);
+
+    assert.match(mediaPage, /<FreeAiModelChat\s*\/>/);
+    assert.match(router, /path: "\/:lang\/free-ai\/:slug\/media\/:uuid"/);
+    assert.match(router, /name: "free-ai-model\.media-chat"/);
+    assert.match(router, /catalogSource: "general_media"/);
+    assert.match(show, /catalog_source === "general_media"/);
+});
+
 test("uses the server catalog mapping without guessing from tool names or slugs", () => {
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_chat" }), "general_chat");
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_code" }), "general_code");
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_translation" }), "general_translation");
+    assert.equal(getFreeAiCatalogSource({ catalog_source: "general_media" }), "general_media");
     assert.equal(getFreeAiCatalogSource({ model: { slug: "chat-writing" } }), null);
     assert.equal(getFreeAiCatalogSource({ catalog_source: null }), null);
     assert.equal(getFreeAiCatalogSource(null), null);
@@ -88,7 +113,7 @@ async function catalogServiceWithApi(api) {
 }
 
 test("all catalog sources use the Laravel proxy and reject unknown sources", () => {
-    for (const source of ["general_chat", "general_code", "general_translation"]) {
+    for (const source of ["general_chat", "general_code", "general_translation", "general_media"]) {
         assert.equal(getModelCatalogSource(source).endpoint, `/model-catalogs/${source}`);
         assert.equal(getModelCatalogSource(source).usesServerProxy, true);
     }
@@ -97,7 +122,7 @@ test("all catalog sources use the Laravel proxy and reject unknown sources", () 
     }
 });
 
-test("code items use shared normalization and stable sorting without execution metadata", async () => {
+test("code items use shared normalization, stable sorting, and preserved execution metadata", async () => {
     const calls = [];
     const service = await catalogServiceWithApi({
         get: async (endpoint) => {
@@ -130,9 +155,11 @@ test("code items use shared normalization and stable sorting without execution m
         description: "Code description", toolKey: "general_code", operation: "code_generation",
         tier: "free", isFree: true, capabilities: ["code"], isAvailable: true,
         isRecommended: true, sortOrder: 5,
+        parameterSchema: {}, recommendedParameters: {}, pricing: {},
+        pricingUpdatedAt: "unused", providerUpdatedAt: "unused",
     });
     assert.equal(result.models[1].isAvailable, false);
-    assert.equal("pagination" in result, false);
+    assert.deepEqual(result.pagination, { next: "unused" });
     await service.getModels("general_code");
     assert.equal(calls.length, 1);
 });
@@ -193,10 +220,41 @@ test("the real translation fixture normalizes all models, nullable descriptions,
         assert.equal(model.isRecommended, item.is_recommended);
         assert.equal(model.sortOrder, item.sort_order);
         assert.equal(model.toolKey, "general_translation");
-        for (const field of ["parameter_schema", "recommended_parameters", "pricing", "pagination"]) {
+        assert.deepEqual(model.parameterSchema, item.parameter_schema);
+        assert.deepEqual(model.recommendedParameters, item.recommended_parameters);
+        assert.deepEqual(model.pricing, item.pricing);
+        assert.equal(model.pricingUpdatedAt, item.pricing_updated_at);
+        assert.equal(model.providerUpdatedAt, item.provider_updated_at);
+        for (const field of ["parameter_schema", "recommended_parameters", "pagination"]) {
             assert.equal(field in model, false);
         }
     }
+});
+
+test("normalizes the real media catalog without losing image-generation metadata or pagination", async () => {
+    const sample = JSON.parse(await readFile("tests/Fixtures/general-media-catalog.json", "utf8"));
+    const calls = [];
+    const service = await catalogServiceWithApi({ get: async (endpoint) => {
+        calls.push(endpoint);
+        return { data: { status: "success", data: sample } };
+    } });
+
+    const result = await service.getModels("general_media");
+    assert.deepEqual(calls, ["/model-catalogs/general_media"]);
+    assert.equal(result.tool, "general_media");
+    assert.equal(result.models.length, 2);
+    assert.deepEqual(result.pagination, sample.pagination);
+    assert.deepEqual(Array.from(result.models, (model) => model.id), [7, 28]);
+
+    const recommended = result.models[0];
+    assert.equal(recommended.provider, "runware");
+    assert.equal(recommended.providerModelId, "runware:400@4");
+    assert.equal(recommended.operation, "image_generation");
+    assert.deepEqual(recommended.capabilities, ["text_to_image"]);
+    assert.deepEqual(recommended.parameterSchema, sample.items[0].parameter_schema);
+    assert.deepEqual(recommended.recommendedParameters, sample.items[0].recommended_parameters);
+    assert.deepEqual(recommended.pricing, sample.items[0].pricing);
+    assert.equal(recommended.isRecommended, true);
 });
 
 test("a failed translation catalog cannot reuse another source cache", async () => {
@@ -431,7 +489,9 @@ test("the real seven-model sample reaches the composer's selector state and surv
         })) assert.equal(typeof model[field], type, `${model.name}: ${field}`);
         assert.equal(model.isAvailable, true);
         assert.equal(model.toolKey, "general_code");
-        for (const field of ["parameter_schema", "recommended_parameters", "pricing"]) assert.equal(field in model, false);
+        assert.deepEqual(model.parameterSchema, sample.items.find((item) => item.id === model.id).parameter_schema);
+        assert.deepEqual(model.recommendedParameters, sample.items.find((item) => item.id === model.id).recommended_parameters);
+        assert.deepEqual(model.pricing, sample.items.find((item) => item.id === model.id).pricing);
     }
     const template = await readFile("resources/js/views/home/free-ai-models/FreeAiModelChat.vue", "utf8");
     assert.match(template, /<FreeAiModelSelector[\s\S]*?:models="catalogModels"/);
