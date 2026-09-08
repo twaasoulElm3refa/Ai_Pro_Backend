@@ -244,7 +244,8 @@ function defaultCatalogModel() {
 
 function syncSelectedModel() {
     const persisted = conversation.value?.selected_model;
-    selectedModel.value = catalogMatch(persisted) || selectedSnapshot(persisted) || defaultCatalogModel();
+    const persistedMatch = catalogMatch(persisted);
+    selectedModel.value = persistedMatch?.isAvailable ? persistedMatch : defaultCatalogModel();
 }
 
 async function loadCatalog(force = false) {

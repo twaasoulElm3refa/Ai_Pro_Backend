@@ -101,9 +101,12 @@ async function startChat() {
     try {
         const response = await freeAiModelService.createConversation(route.params.slug);
         const uuid = response?.data?.uuid;
-        const conversationRouteName = response?.data?.catalog_source === "general_media"
-            ? "free-ai-model.media-chat"
-            : "free-ai-model.chat";
+        const conversationRoutes = {
+            general_media: "free-ai-model.media-chat",
+            general_audio: "free-ai-model.audio-chat",
+        };
+        const conversationRouteName = conversationRoutes[response?.data?.catalog_source]
+            || "free-ai-model.chat";
 
         if (!uuid) throw new Error("Missing conversation UUID");
 

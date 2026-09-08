@@ -89,7 +89,21 @@ test("uses a dedicated media route while reusing the shared Free AI conversation
     assert.match(router, /path: "\/:lang\/free-ai\/:slug\/media\/:uuid"/);
     assert.match(router, /name: "free-ai-model\.media-chat"/);
     assert.match(router, /catalogSource: "general_media"/);
-    assert.match(show, /catalog_source === "general_media"/);
+    assert.match(show, /general_media: "free-ai-model\.media-chat"/);
+});
+
+test("uses an authenticated dedicated audio route with the shared Free AI conversation shell", async () => {
+    const [audioPage, router, show] = await Promise.all([
+        readFile("resources/js/views/home/free-ai-models/FreeAiSpeechToTextChat.vue", "utf8"),
+        readFile("resources/js/router/index.js", "utf8"),
+        readFile("resources/js/views/home/free-ai-models/FreeAiModelShow.vue", "utf8"),
+    ]);
+
+    assert.match(audioPage, /<FreeAiModelChat\s*\/>/);
+    assert.match(router, /path: "\/:lang\/free-ai\/:slug\/audio\/:uuid"/);
+    assert.match(router, /name: "free-ai-model\.audio-chat"/);
+    assert.match(router, /component: FreeAiSpeechToTextChat,[\s\S]*?requiresUserAuth: true,[\s\S]*?catalogSource: "general_audio"/);
+    assert.match(show, /general_audio: "free-ai-model\.audio-chat"/);
 });
 
 test("uses the server catalog mapping without guessing from tool names or slugs", () => {
@@ -97,6 +111,7 @@ test("uses the server catalog mapping without guessing from tool names or slugs"
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_code" }), "general_code");
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_translation" }), "general_translation");
     assert.equal(getFreeAiCatalogSource({ catalog_source: "general_media" }), "general_media");
+    assert.equal(getFreeAiCatalogSource({ catalog_source: "general_audio" }), "general_audio");
     assert.equal(getFreeAiCatalogSource({ model: { slug: "chat-writing" } }), null);
     assert.equal(getFreeAiCatalogSource({ catalog_source: null }), null);
     assert.equal(getFreeAiCatalogSource(null), null);
@@ -113,7 +128,7 @@ async function catalogServiceWithApi(api) {
 }
 
 test("all catalog sources use the Laravel proxy and reject unknown sources", () => {
-    for (const source of ["general_chat", "general_code", "general_translation", "general_media"]) {
+    for (const source of ["general_chat", "general_code", "general_translation", "general_media", "general_audio"]) {
         assert.equal(getModelCatalogSource(source).endpoint, `/model-catalogs/${source}`);
         assert.equal(getModelCatalogSource(source).usesServerProxy, true);
     }
@@ -257,6 +272,56 @@ test("normalizes the real media catalog without losing image-generation metadata
     assert.equal(recommended.isRecommended, true);
 });
 
+test("normalizes the real audio catalog with stable sorting and complete speech metadata", async () => {
+    const sample = JSON.parse(await readFile("tests/Fixtures/general-audio-catalog.json", "utf8"));
+    const calls = [];
+    const service = await catalogServiceWithApi({ get: async (endpoint) => {
+        calls.push(endpoint);
+        return { data: { status: "success", data: sample } };
+    } });
+
+    const result = await service.getModels("general_audio", { fallbackDescription: "Fallback description" });
+    assert.deepEqual(calls, ["/model-catalogs/general_audio"]);
+    assert.equal(result.tool, "general_audio");
+    assert.equal(result.models.length, 8);
+    assert.deepEqual(result.pagination, sample.pagination);
+    assert.deepEqual(Array.from(result.models, (model) => model.id), [5, 34, 6, 35, 36, 37, 38, 39]);
+    assert.deepEqual(Array.from(result.models, (model) => model.name), [
+        "Whisper Large V3",
+        "Nemotron 3.5 ASR Streaming 0.6B",
+        "GPT-4o Mini Transcribe",
+        "Qwen3 ASR 0.6B",
+        "Whisper Large V3 Turbo",
+        "Qwen3 ASR 1.7B",
+        "GPT Transcribe",
+        "Chirp 3",
+    ]);
+
+    for (const item of sample.items) {
+        const model = result.models.find((candidate) => candidate.id === item.id);
+        assert.ok(model);
+        assert.equal(model.provider, item.provider);
+        assert.equal(model.providerModelId, item.provider_model_id);
+        assert.equal(model.operation, "speech_to_text");
+        assert.equal(model.isFree, item.is_free);
+        assert.equal(model.isAvailable, item.is_available);
+        assert.equal(model.isRecommended, item.is_recommended);
+        assert.equal(model.sortOrder, item.sort_order);
+        assert.deepEqual(model.capabilities, item.capabilities);
+        assert.deepEqual(model.parameterSchema, item.parameter_schema);
+        assert.deepEqual(model.recommendedParameters, item.recommended_parameters);
+        assert.deepEqual(model.pricing, item.pricing);
+    }
+
+    assert.equal(result.models[0].description, "Fallback description");
+    assert.equal(result.models[0].isRecommended, true);
+    assert.equal(result.models[1].isFree, true);
+    assert.equal(result.models.find((model) => model.id === 6).parameterSchema.language.nullable, true);
+    assert.equal(result.models.find((model) => model.id === 36).pricing.audio_per_hour, 0.04);
+    assert.equal(result.models.find((model) => model.id === 35).pricing.audio_per_second, 0.000003);
+    assert.equal(result.models.find((model) => model.id === 38).pricing.audio_per_minute, 0.0045);
+});
+
 test("a failed translation catalog cannot reuse another source cache", async () => {
     const calls = [];
     const service = await catalogServiceWithApi({ get: async (endpoint) => {
@@ -366,6 +431,88 @@ test("the shared page loads, switches, and restores translation catalog models",
     assert.match(selector, /@click="handleTrigger"/);
     assert.match(selector, /v-for="model in models"/);
     assert.match(selector, /@click="choose\(model\)"/);
+});
+
+test("the speech-to-text page loads API models and restores the conversation selection", async () => {
+    const sample = JSON.parse(await readFile("tests/Fixtures/general-audio-catalog.json", "utf8"));
+    const catalogs = await catalogServiceWithApi({ get: async (endpoint) => {
+        assert.equal(endpoint, "/model-catalogs/general_audio");
+        return { data: { status: "success", data: sample } };
+    } });
+    const route = {
+        name: "free-ai-model.audio-chat",
+        params: { slug: "speech-catalog-test-tool", uuid: "audio-uuid" },
+        meta: { catalogSource: "general_audio" },
+    };
+    let persisted = {
+        uuid: route.params.uuid,
+        model: { slug: route.params.slug },
+        catalog_source: "general_audio",
+        selected_model: null,
+    };
+    const api = {
+        getConversation: async () => ({ data: structuredClone(persisted) }),
+        updateConversationModel: async (slug, uuid, model) => {
+            assert.equal(slug, "speech-catalog-test-tool");
+            assert.equal(uuid, "audio-uuid");
+            persisted = { ...persisted, selected_model: {
+                source: "general_audio",
+                id: model.id,
+                provider_model_id: model.providerModelId,
+                name: model.name,
+            } };
+            return { data: structuredClone(persisted) };
+        },
+    };
+
+    const page = await chatHarness({ route, api, catalogs });
+    await page.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(page.catalogError.value, false);
+    assert.equal(page.catalogModels.value.length, 8);
+    assert.equal(page.selectedModel.value.name, "Whisper Large V3");
+    for (const name of [
+        "Whisper Large V3", "GPT-4o Mini Transcribe", "Whisper Large V3 Turbo",
+        "Nemotron 3.5 ASR Streaming 0.6B", "Qwen3 ASR 0.6B", "Qwen3 ASR 1.7B",
+        "GPT Transcribe", "Chirp 3",
+    ]) assert.ok(page.catalogModels.value.some((model) => model.name === name), name);
+
+    const qwen = page.catalogModels.value.find((model) => model.id === 35);
+    await page.selectExecutionModel(qwen);
+    assert.equal(page.saved[0][0], "general_audio");
+    assert.equal(page.saved[0][1], "speech-catalog-test-tool");
+
+    const reloaded = await chatHarness({ route, api, catalogs });
+    await reloaded.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(reloaded.selectedModel.value.id, 35);
+    assert.equal(reloaded.selectedModel.value.name, "Qwen3 ASR 0.6B");
+});
+
+test("an unavailable persisted model falls back to the source-scoped session model", async () => {
+    const models = [
+        normalizeCatalogModel({ id: 5, name: "Unavailable persisted", provider_model_id: "audio/old", is_available: false }),
+        normalizeCatalogModel({ id: 34, name: "Remembered audio", provider_model_id: "audio/remembered", is_available: true }),
+        normalizeCatalogModel({ id: 6, name: "Recommended audio", provider_model_id: "audio/recommended", is_available: true, is_recommended: true }),
+    ];
+    const page = await chatHarness({
+        route: {
+            name: "free-ai-model.audio-chat",
+            params: { slug: "speech-catalog-test-tool", uuid: "audio-uuid" },
+            meta: { catalogSource: "general_audio" },
+        },
+        api: { getConversation: async () => ({ data: {
+            uuid: "audio-uuid",
+            catalog_source: "general_audio",
+            selected_model: { id: 5, provider_model_id: "audio/old", name: "Unavailable persisted" },
+        } }) },
+        catalogs: { getModels: async () => ({ tool: "general_audio", models }) },
+        remembered: { id: 34, providerModelId: "audio/remembered", name: "Remembered audio" },
+    });
+
+    await page.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(page.selectedModel.value.id, 34);
 });
 
 test("the shared page loads the server-selected code source and persists a model through existing APIs", async () => {

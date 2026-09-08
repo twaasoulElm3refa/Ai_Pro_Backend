@@ -387,6 +387,62 @@ class FreeAiModelFlowTest extends TestCase
             && $request->data() === ['operation' => 'image_generation']);
     }
 
+    public function test_audio_catalog_conversation_selects_persists_and_restores_a_speech_model(): void
+    {
+        // Verified by GET https://pro.aiarabic.com/api/v1/free-ai-models (English locale).
+        $slug = 'audio-voice';
+        $this->assertSame('general_audio', config("model_catalogs.free_ai_tools.{$slug}"));
+        config()->set('services.aiarabic.internal_api_key', 'server-only-test-key');
+        $endpoint = config('model_catalogs.sources.general_audio.endpoint');
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-audio-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        Http::preventStrayRequests();
+        Http::fake(["{$endpoint}*" => Http::response($sample)]);
+        $tool = $this->createModel($slug, true, 1);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/{$slug}/conversations";
+
+        $uuid = $this->apiRequest()->postJson($url)->assertOk()
+            ->assertJsonPath('data.model.slug', $slug)
+            ->assertJsonPath('data.catalog_source', 'general_audio')
+            ->assertJsonPath('data.selected_model.id', 5)
+            ->assertJsonPath('data.selected_model.provider_model_id', 'openai/whisper-large-v3')
+            ->json('data.uuid');
+
+        $this->apiRequest()->patchJson("{$url}/{$uuid}/model", [
+            'catalog_model_id' => 35,
+            'provider_model_id' => 'qwen/qwen3-asr-0.6b',
+        ])->assertOk()
+            ->assertJsonPath('data.selected_model.source', 'general_audio')
+            ->assertJsonPath('data.selected_model.name', 'Qwen3 ASR 0.6B');
+
+        $this->assertDatabaseHas('models_conversations', [
+            'uuid' => $uuid,
+            'model_id' => $tool->id,
+            'user_id' => $user->id,
+            'selected_model_source' => 'general_audio',
+            'selected_model_catalog_id' => 35,
+            'selected_provider_model_id' => 'qwen/qwen3-asr-0.6b',
+            'selected_model_name' => 'Qwen3 ASR 0.6B',
+        ]);
+
+        $this->apiRequest()->getJson("{$url}/{$uuid}")->assertOk()
+            ->assertJsonPath('data.catalog_source', 'general_audio')
+            ->assertJsonPath('data.selected_model.id', 35)
+            ->assertJsonPath('data.selected_model.name', 'Qwen3 ASR 0.6B');
+
+        $this->apiRequest()->getJson($url)->assertOk()
+            ->assertJsonPath('data.0.uuid', $uuid)
+            ->assertJsonPath('data.0.selected_model.id', 35);
+
+        $this->apiRequest()->postJson($url)->assertOk()
+            ->assertJsonPath('data.selected_model.source', 'general_audio')
+            ->assertJsonPath('data.selected_model.id', 35);
+
+        Http::assertSent(fn ($request) => $request->url() === "{$endpoint}?operation=speech_to_text"
+            && $request->data() === ['operation' => 'speech_to_text']);
+    }
+
     #[DataProvider('catalogSources')]
     public function test_catalog_defaults_switching_and_reload_use_the_tools_source(string $source): void
     {

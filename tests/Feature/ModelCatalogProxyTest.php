@@ -213,6 +213,92 @@ class ModelCatalogProxyTest extends TestCase
         $this->assertStringNotContainsString('server-only-test-key', $response->getContent());
     }
 
+    public function test_audio_proxy_sends_the_speech_to_text_filter_and_preserves_the_full_contract(): void
+    {
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-audio-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        $endpoint = config('model_catalogs.sources.general_audio.endpoint');
+
+        $this->assertSame(
+            'https://api.aiarabic.com/tasks/general-tools/general_audio/models',
+            $endpoint
+        );
+        $this->assertSame(
+            ['operation' => 'speech_to_text'],
+            config('model_catalogs.sources.general_audio.query')
+        );
+
+        Http::preventStrayRequests();
+        Http::fake(["{$endpoint}*" => Http::response($sample)]);
+
+        $response = $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
+            ->getJson('/api/v1/model-catalogs/general_audio')
+            ->assertOk()
+            ->assertJsonPath('data.tool', 'general_audio')
+            ->assertJsonCount(8, 'data.items')
+            ->assertJsonPath('data.items.0.name', 'Whisper Large V3')
+            ->assertJsonPath('data.items.1.name', 'GPT-4o Mini Transcribe')
+            ->assertJsonPath('data.items.2.name', 'Whisper Large V3 Turbo')
+            ->assertJsonPath('data.items.3.name', 'Nemotron 3.5 ASR Streaming 0.6B')
+            ->assertJsonPath('data.items.4.name', 'Qwen3 ASR 0.6B')
+            ->assertJsonPath('data.items.5.name', 'Qwen3 ASR 1.7B')
+            ->assertJsonPath('data.items.6.name', 'GPT Transcribe')
+            ->assertJsonPath('data.items.7.name', 'Chirp 3')
+            ->assertJsonPath('data.items.0.provider', 'openrouter')
+            ->assertJsonPath('data.items.0.provider_model_id', 'openai/whisper-large-v3')
+            ->assertJsonPath('data.items.0.operation', 'speech_to_text')
+            ->assertJsonPath('data.items.1.parameter_schema.language.nullable', true)
+            ->assertJsonPath('data.items.1.recommended_parameters.include_segments', false)
+            ->assertJsonPath('data.items.2.pricing.audio_per_hour', 0.04)
+            ->assertJsonPath('data.items.4.capabilities.4', 'timestamps')
+            ->assertJsonPath('data.pagination.total', 8);
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) => $request->method() === 'GET'
+            && $request->url() === "{$endpoint}?operation=speech_to_text"
+            && $request->data() === ['operation' => 'speech_to_text']
+            && $request->hasHeader('x-internal-api-key', 'server-only-test-key')
+        );
+        $this->assertStringNotContainsString('server-only-test-key', $response->getContent());
+    }
+
+    public function test_audio_tool_mapping_keeps_the_verified_slug_and_supports_an_optional_additional_slug(): void
+    {
+        $key = 'FREE_AI_GENERAL_AUDIO_TOOL_SLUG';
+        $previousEnv = $_ENV[$key] ?? null;
+        $previousServer = $_SERVER[$key] ?? null;
+        $previousProcess = getenv($key);
+
+        try {
+            foreach (['', 'verified-speech-tool'] as $slug) {
+                $_ENV[$key] = $_SERVER[$key] = $slug;
+                putenv("{$key}={$slug}");
+                $catalogs = require config_path('model_catalogs.php');
+
+                $this->assertSame('general_audio', $catalogs['free_ai_tools']['audio-voice']);
+                if ($slug === '') {
+                    $this->assertArrayNotHasKey('verified-speech-tool', $catalogs['free_ai_tools']);
+                } else {
+                    $this->assertSame('general_audio', $catalogs['free_ai_tools'][$slug]);
+                }
+
+                $this->assertSame('general_media', $catalogs['free_ai_tools']['images-video']);
+                $this->assertSame('general_translation', $catalogs['free_ai_tools']['translation']);
+            }
+        } finally {
+            if ($previousEnv === null) {
+                unset($_ENV[$key]);
+            } else {
+                $_ENV[$key] = $previousEnv;
+            }
+            if ($previousServer === null) {
+                unset($_SERVER[$key]);
+            } else {
+                $_SERVER[$key] = $previousServer;
+            }
+            putenv($previousProcess === false ? $key : "{$key}={$previousProcess}");
+        }
+    }
+
     public function test_code_tool_mapping_is_explicit_and_keeps_the_existing_chat_mapping(): void
     {
         $key = 'FREE_AI_GENERAL_CODE_TOOL_SLUG';
@@ -232,11 +318,13 @@ class ModelCatalogProxyTest extends TestCase
                         'chat-writing' => 'general_chat',
                         'programming-technology' => 'general_code',
                         'images-video' => 'general_media',
+                        'audio-voice' => 'general_audio',
                         'translation' => 'general_translation',
                     ], $catalogs['free_ai_tools']);
                 }
                 $this->assertSame('general_code', $catalogs['free_ai_tools']['programming-technology']);
                 $this->assertSame('general_media', $catalogs['free_ai_tools']['images-video']);
+                $this->assertSame('general_audio', $catalogs['free_ai_tools']['audio-voice']);
                 $this->assertSame('general_translation', $catalogs['free_ai_tools']['translation']);
             }
         } finally {

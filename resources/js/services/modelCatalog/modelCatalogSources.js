@@ -15,6 +15,10 @@ export const MODEL_CATALOG_SOURCES = Object.freeze({
         endpoint: "/model-catalogs/general_media",
         usesServerProxy: true,
     }),
+    general_audio: Object.freeze({
+        endpoint: "/model-catalogs/general_audio",
+        usesServerProxy: true,
+    }),
 });
 
 export const getModelCatalogSource = (sourceKey) => {

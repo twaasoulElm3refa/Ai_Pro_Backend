@@ -2,17 +2,20 @@
 
 $codeToolSlug = trim((string) env('FREE_AI_GENERAL_CODE_TOOL_SLUG', ''));
 $mediaToolSlug = trim((string) env('FREE_AI_GENERAL_MEDIA_TOOL_SLUG', ''));
+$audioToolSlug = trim((string) env('FREE_AI_GENERAL_AUDIO_TOOL_SLUG', ''));
 
 return [
     'free_ai_tools' => [
         'chat-writing' => 'general_chat',
         'programming-technology' => 'general_code',
         'images-video' => 'general_media',
+        'audio-voice' => 'general_audio',
         'translation' => 'general_translation',
         // Additional verified tool slugs can be mapped to sources here.
     ]
         + ($codeToolSlug !== '' ? [$codeToolSlug => 'general_code'] : [])
-        + ($mediaToolSlug !== '' ? [$mediaToolSlug => 'general_media'] : []),
+        + ($mediaToolSlug !== '' ? [$mediaToolSlug => 'general_media'] : [])
+        + ($audioToolSlug !== '' ? [$audioToolSlug => 'general_audio'] : []),
 
     'sources' => [
         'general_chat' => [
@@ -50,6 +53,18 @@ return [
             ),
             'query' => [
                 'operation' => 'image_generation',
+            ],
+            'requires_internal_key' => true,
+            'internal_key_config' => 'services.aiarabic.internal_api_key',
+        ],
+        'general_audio' => [
+            'endpoint' => env(
+                'MODEL_CATALOG_GENERAL_AUDIO_URL',
+                rtrim(env('AIARABIC_BASE_URL', 'https://api.aiarabic.com'), '/')
+                    .'/tasks/general-tools/general_audio/models'
+            ),
+            'query' => [
+                'operation' => 'speech_to_text',
             ],
             'requires_internal_key' => true,
             'internal_key_config' => 'services.aiarabic.internal_api_key',
