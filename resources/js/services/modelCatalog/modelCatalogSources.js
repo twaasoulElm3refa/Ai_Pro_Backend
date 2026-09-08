@@ -18,6 +18,8 @@ export const MODEL_CATALOG_SOURCES = Object.freeze({
     general_audio: Object.freeze({
         endpoint: "/model-catalogs/general_audio",
         usesServerProxy: true,
+        defaultOperation: "speech_to_text",
+        operations: Object.freeze(["speech_to_text", "text_to_speech"]),
     }),
 });
 

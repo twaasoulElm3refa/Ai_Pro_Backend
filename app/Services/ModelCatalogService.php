@@ -14,7 +14,7 @@ class ModelCatalogService
      *
      * @throws ConnectionException
      */
-    public function getModels(string $sourceKey): array
+    public function getModels(string $sourceKey, ?string $operation = null): array
     {
         $source = config("model_catalogs.sources.{$sourceKey}");
 
@@ -22,17 +22,29 @@ class ModelCatalogService
             throw new InvalidArgumentException('Unknown model catalog source.');
         }
 
-        $endpoint = trim((string) ($source['endpoint'] ?? ''));
+        $resolvedOperation = $this->resolveOperationFromConfig($source, $operation);
+        $operationConfig = $resolvedOperation !== null
+            ? ($source['operations'][$resolvedOperation] ?? [])
+            : [];
+
+        if (! is_array($operationConfig)) {
+            throw new RuntimeException('Model catalog operation configuration must be an array.');
+        }
+
+        $endpoint = trim((string) ($operationConfig['endpoint'] ?? $source['endpoint'] ?? ''));
 
         if ($endpoint === '') {
             throw new RuntimeException('Model catalog endpoint is not configured.');
         }
 
-        $query = $source['query'] ?? [];
+        $baseQuery = $source['query'] ?? [];
+        $operationQuery = $operationConfig['query'] ?? [];
 
-        if (! is_array($query)) {
+        if (! is_array($baseQuery) || ! is_array($operationQuery)) {
             throw new RuntimeException('Model catalog query configuration must be an array.');
         }
+
+        $query = array_merge($baseQuery, $operationQuery);
 
         $headers = [];
 
@@ -69,5 +81,48 @@ class ModelCatalogService
         }
 
         return $catalog;
+    }
+
+    public function resolveOperation(string $sourceKey, ?string $operation = null): ?string
+    {
+        $source = config("model_catalogs.sources.{$sourceKey}");
+
+        if (! is_array($source)) {
+            throw new InvalidArgumentException('Unknown model catalog source.');
+        }
+
+        return $this->resolveOperationFromConfig($source, $operation);
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     */
+    private function resolveOperationFromConfig(array $source, ?string $operation): ?string
+    {
+        $operations = $source['operations'] ?? [];
+
+        if (! is_array($operations)) {
+            throw new RuntimeException('Model catalog operations configuration must be an array.');
+        }
+
+        $requested = trim((string) $operation);
+
+        if ($operations === []) {
+            if ($requested !== '') {
+                throw new InvalidArgumentException('Unknown model catalog operation.');
+            }
+
+            return null;
+        }
+
+        $resolved = $requested !== ''
+            ? $requested
+            : trim((string) ($source['default_operation'] ?? ''));
+
+        if ($resolved === '' || ! array_key_exists($resolved, $operations)) {
+            throw new InvalidArgumentException('Unknown model catalog operation.');
+        }
+
+        return $resolved;
     }
 }

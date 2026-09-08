@@ -13,6 +13,13 @@
         "description": "Choisissez l'outil dont vous avez besoin"
     },
     "freeAiModels": {
+        "chooseAudioOperation": "Choisissez comment utiliser Voice & Audio",
+        "speechToText": "Audio en texte",
+        "speechToTextDescription": "Convertissez l’audio en texte écrit",
+        "audioToText": "Audio → Texte",
+        "textToSpeech": "Texte en audio",
+        "textToSpeechDescription": "Convertissez le texte écrit en voix naturelle",
+        "textToAudio": "Texte → Audio",
         "badge": "Modèle IA gratuit",
         "back": "Retour",
         "loadingModel": "Chargement du modèle...",

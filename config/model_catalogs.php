@@ -63,8 +63,18 @@ return [
                 rtrim(env('AIARABIC_BASE_URL', 'https://api.aiarabic.com'), '/')
                     .'/tasks/general-tools/general_audio/models'
             ),
-            'query' => [
-                'operation' => 'speech_to_text',
+            'default_operation' => 'speech_to_text',
+            'operations' => [
+                'speech_to_text' => [
+                    'query' => [
+                        'operation' => 'speech_to_text',
+                    ],
+                ],
+                'text_to_speech' => [
+                    'query' => [
+                        'operation' => 'text_to_speech',
+                    ],
+                ],
             ],
             'requires_internal_key' => true,
             'internal_key_config' => 'services.aiarabic.internal_api_key',

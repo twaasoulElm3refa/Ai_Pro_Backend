@@ -13,6 +13,13 @@
         "description": "选择您需要的工具"
     },
     "freeAiModels": {
+        "chooseAudioOperation": "选择语音与音频的使用方式",
+        "speechToText": "语音转文字",
+        "speechToTextDescription": "将音频转换为书面文字",
+        "audioToText": "音频 → 文字",
+        "textToSpeech": "文字转语音",
+        "textToSpeechDescription": "将书面文字转换为自然语音",
+        "textToAudio": "文字 → 音频",
         "badge": "免费 AI 模型",
         "back": "返回",
         "loadingModel": "正在加载模型...",

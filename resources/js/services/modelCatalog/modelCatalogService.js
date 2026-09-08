@@ -25,12 +25,30 @@ const parseCatalogPayload = (response) => {
     };
 };
 
-const requestCatalog = (sourceKey) => {
+const resolveCatalogOperation = (source, requestedOperation) => {
+    const requested = String(requestedOperation || "").trim();
+    const supported = Array.isArray(source.operations) ? source.operations : [];
+
+    if (!supported.length) {
+        if (requested) throw new Error("This model catalog does not support operations");
+        return null;
+    }
+
+    const operation = requested || String(source.defaultOperation || "").trim();
+    if (!operation || !supported.includes(operation)) {
+        throw new Error(`Unknown model catalog operation: ${operation || requested}`);
+    }
+
+    return operation;
+};
+
+const requestCatalog = (sourceKey, requestedOperation = null) => {
     const source = getModelCatalogSource(sourceKey);
-    const cacheKey = `${sourceKey}:${currentLanguage()}`;
+    const operation = resolveCatalogOperation(source, requestedOperation);
+    const cacheKey = `${sourceKey}:${operation || "default"}:${currentLanguage()}`;
 
     if (!catalogRequests.has(cacheKey)) {
-        const request = api.get(source.endpoint)
+        const request = api.get(source.endpoint, operation ? { params: { operation } } : undefined)
             .then(parseCatalogPayload)
             .catch((error) => {
                 catalogRequests.delete(cacheKey);
@@ -45,7 +63,9 @@ const requestCatalog = (sourceKey) => {
 
 const modelCatalogService = {
     async getModels(sourceKey, options = {}) {
-        const catalog = await requestCatalog(sourceKey);
+        const source = getModelCatalogSource(sourceKey);
+        const operation = resolveCatalogOperation(source, options.operation);
+        const catalog = await requestCatalog(sourceKey, operation);
 
         const models = catalog.items
             .map((item, index) => ({
@@ -61,6 +81,7 @@ const modelCatalogService = {
             tool: catalog.tool || sourceKey,
             models,
             pagination: catalog.pagination,
+            operation,
         };
     },
 };

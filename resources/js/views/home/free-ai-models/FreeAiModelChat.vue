@@ -188,7 +188,7 @@ const modelSaving = ref(false);
 const sidebarOpen = ref(false);
 const desktopSidebarCollapsed = ref(false);
 const viewportWidth = ref(typeof window === "undefined" ? 1200 : window.innerWidth);
-let loadedCatalogSource = null;
+let loadedCatalogKey = null;
 let catalogRequestId = 0;
 let conversationRequestId = 0;
 
@@ -202,6 +202,10 @@ const mainTool = computed(() => conversation.value?.model || {});
 const collapseIcon = computed(() => (isRtl.value ? "bi-chevron-right" : "bi-chevron-left"));
 const conversationRouteName = computed(() => String(route.name || "free-ai-model.chat"));
 const requiredCatalogSource = computed(() => String(route.meta?.catalogSource || "").trim() || null);
+const requiredCatalogOperation = computed(() => String(route.meta?.catalogOperation || "").trim() || null);
+const catalogOperation = computed(() =>
+    String(conversation.value?.catalog_operation || requiredCatalogOperation.value || "").trim() || null
+);
 
 const seoTitle = computed(() => mainTool.value.meta_title || mainTool.value.name || "AI Pro");
 const seoDescription = computed(() => mainTool.value.meta_description || mainTool.value.description || "");
@@ -234,7 +238,7 @@ function selectedSnapshot(selection) {
 
 function defaultCatalogModel() {
     if (!catalogSource.value) return null;
-    const remembered = readSelectedCatalogModel(catalogSource.value, pageSlug.value);
+    const remembered = readSelectedCatalogModel(catalogSource.value, pageSlug.value, catalogOperation.value);
     const rememberedMatch = catalogMatch(remembered);
     if (rememberedMatch?.isAvailable) return rememberedMatch;
     return catalogModels.value.find((model) => model.isAvailable && model.isRecommended)
@@ -250,8 +254,12 @@ function syncSelectedModel() {
 
 async function loadCatalog(force = false) {
     const source = catalogSource.value;
+    const operation = catalogOperation.value;
     const slug = pageSlug.value;
-    if (!source || (requiredCatalogSource.value && source !== requiredCatalogSource.value)) {
+    const operationMismatch = requiredCatalogOperation.value
+        && conversation.value?.catalog_operation
+        && conversation.value.catalog_operation !== requiredCatalogOperation.value;
+    if (!source || (requiredCatalogSource.value && source !== requiredCatalogSource.value) || operationMismatch) {
         catalogRequestId++;
         catalogModels.value = [];
         catalogLoading.value = false;
@@ -259,7 +267,8 @@ async function loadCatalog(force = false) {
         selectedModel.value = selectedSnapshot(conversation.value?.selected_model);
         return;
     }
-    if (!force && loadedCatalogSource === source && catalogModels.value.length) return;
+    const catalogKey = `${source}:${operation || "default"}`;
+    if (!force && loadedCatalogKey === catalogKey && catalogModels.value.length) return;
 
     const requestId = ++catalogRequestId;
     catalogLoading.value = true;
@@ -267,13 +276,14 @@ async function loadCatalog(force = false) {
     try {
         const result = await modelCatalogService.getModels(source, {
             fallbackDescription: t("freeAiModels.modelDescriptionFallback"),
+            operation,
         });
-        if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value) return;
+        if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value || operation !== catalogOperation.value) return;
         catalogModels.value = result.models;
-        loadedCatalogSource = source;
+        loadedCatalogKey = catalogKey;
         syncSelectedModel();
     } catch {
-        if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value) return;
+        if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value || operation !== catalogOperation.value) return;
         catalogModels.value = [];
         catalogError.value = true;
         selectedModel.value = selectedSnapshot(conversation.value?.selected_model);
@@ -290,7 +300,7 @@ async function loadConversation() {
     loadingConversation.value = true;
     loadError.value = false;
     try {
-        const response = await freeAiModelService.getConversation(slug, uuid);
+        const response = await freeAiModelService.getConversation(slug, uuid, requiredCatalogOperation.value);
         if (!isCurrent()) return;
         conversation.value = response?.data || null;
         syncSelectedModel();
@@ -308,7 +318,7 @@ async function loadConversations() {
     const slug = pageSlug.value;
     loadingConversations.value = true;
     try {
-        const response = await freeAiModelService.getConversations(slug);
+        const response = await freeAiModelService.getConversations(slug, requiredCatalogOperation.value);
         if (slug !== pageSlug.value) return;
         conversations.value = Array.isArray(response?.data) ? response.data : [];
     } catch {
@@ -326,6 +336,7 @@ function summaryFromConversation(item) {
         is_pinned: Boolean(item.is_pinned),
         created_at: item.created_at,
         updated_at: item.updated_at || item.created_at,
+        catalog_operation: item.catalog_operation || catalogOperation.value,
         selected_model: item.selected_model || null,
     };
 }
@@ -353,7 +364,11 @@ async function newConversation() {
     creatingConversation.value = true;
     try {
         const chosen = selectedModel.value?.isAvailable ? selectedModel.value : null;
-        const response = await freeAiModelService.createConversation(pageSlug.value, chosen);
+        const response = await freeAiModelService.createConversation(
+            pageSlug.value,
+            chosen,
+            requiredCatalogOperation.value
+        );
         const created = response?.data;
         if (!created?.uuid) throw new Error("Missing conversation UUID");
         upsertConversationSummary(created);
@@ -370,7 +385,7 @@ async function deleteConversation(item) {
     if (deletingUuid.value) return;
     deletingUuid.value = item.uuid;
     try {
-        await freeAiModelService.deleteConversation(pageSlug.value, item.uuid);
+        await freeAiModelService.deleteConversation(pageSlug.value, item.uuid, requiredCatalogOperation.value);
         conversations.value = conversations.value.filter((entry) => entry.uuid !== item.uuid);
         if (item.uuid === activeUuid.value) {
             const next = conversations.value[0];
@@ -392,12 +407,24 @@ async function selectExecutionModel(model) {
     selectedModel.value = model;
     modelSaving.value = true;
     try {
-        const response = await freeAiModelService.updateConversationModel(slug, uuid, model);
+        const response = await freeAiModelService.updateConversationModel(
+            slug,
+            uuid,
+            model,
+            requiredCatalogOperation.value
+        );
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         conversation.value = response?.data || conversation.value;
         syncSelectedModel();
         upsertConversationSummary(conversation.value);
-        if (catalogSource.value) saveSelectedCatalogModel(catalogSource.value, pageSlug.value, selectedModel.value);
+        if (catalogSource.value) {
+            saveSelectedCatalogModel(
+                catalogSource.value,
+                pageSlug.value,
+                selectedModel.value,
+                catalogOperation.value
+            );
+        }
     } catch {
         if (slug === pageSlug.value && uuid === activeUuid.value) selectedModel.value = previous;
     } finally {
@@ -425,7 +452,7 @@ function handleResize() {
 }
 
 function handleLanguageChanged() {
-    loadedCatalogSource = null;
+    loadedCatalogKey = null;
     catalogModels.value = [];
     loadCatalog(true);
 }
@@ -456,7 +483,7 @@ watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
         conversations.value = [];
         catalogModels.value = [];
         selectedModel.value = null;
-        loadedCatalogSource = null;
+        loadedCatalogKey = null;
         catalogLoading.value = false;
         catalogError.value = false;
         loadConversations();

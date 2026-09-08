@@ -6,6 +6,7 @@ use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Services\ModelCatalogService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
@@ -16,11 +17,17 @@ class ModelCatalogController extends Controller
 
     public function __construct(private readonly ModelCatalogService $catalogs) {}
 
-    public function show(string $source): JsonResponse
+    public function show(Request $request, string $source): JsonResponse
     {
         try {
+            $operation = $request->query('operation');
+
+            if ($operation !== null && ! is_string($operation)) {
+                throw new InvalidArgumentException('Invalid model catalog operation.');
+            }
+
             return $this->success(
-                $this->catalogs->getModels($source),
+                $this->catalogs->getModels($source, $operation),
                 'Model catalog fetched successfully.'
             );
         } catch (InvalidArgumentException) {

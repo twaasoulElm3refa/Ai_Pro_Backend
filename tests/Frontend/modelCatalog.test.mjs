@@ -89,7 +89,7 @@ test("uses a dedicated media route while reusing the shared Free AI conversation
     assert.match(router, /path: "\/:lang\/free-ai\/:slug\/media\/:uuid"/);
     assert.match(router, /name: "free-ai-model\.media-chat"/);
     assert.match(router, /catalogSource: "general_media"/);
-    assert.match(show, /general_media: "free-ai-model\.media-chat"/);
+    assert.match(show, /source === "general_media"[\s\S]*?"free-ai-model\.media-chat"/);
 });
 
 test("uses an authenticated dedicated audio route with the shared Free AI conversation shell", async () => {
@@ -102,8 +102,95 @@ test("uses an authenticated dedicated audio route with the shared Free AI conver
     assert.match(audioPage, /<FreeAiModelChat\s*\/>/);
     assert.match(router, /path: "\/:lang\/free-ai\/:slug\/audio\/:uuid"/);
     assert.match(router, /name: "free-ai-model\.audio-chat"/);
-    assert.match(router, /component: FreeAiSpeechToTextChat,[\s\S]*?requiresUserAuth: true,[\s\S]*?catalogSource: "general_audio"/);
-    assert.match(show, /general_audio: "free-ai-model\.audio-chat"/);
+    assert.match(router, /component: FreeAiSpeechToTextChat,[\s\S]*?requiresUserAuth: true,[\s\S]*?catalogSource: "general_audio",[\s\S]*?catalogOperation: "speech_to_text"/);
+    assert.match(show, /source === "general_audio"[\s\S]*?"free-ai-model\.audio-chat"/);
+});
+
+test("Voice & Audio exposes two localized choices and a dedicated authenticated TTS route", async () => {
+    const [ttsPage, router, show] = await Promise.all([
+        readFile("resources/js/views/home/free-ai-models/FreeAiTextToSpeechChat.vue", "utf8"),
+        readFile("resources/js/router/index.js", "utf8"),
+        readFile("resources/js/views/home/free-ai-models/FreeAiModelShow.vue", "utf8"),
+    ]);
+
+    assert.match(ttsPage, /<FreeAiModelChat\s*\/>/);
+    assert.match(router, /path: "\/:lang\/free-ai\/:slug\/text-to-speech\/:uuid"/);
+    assert.match(router, /name: "free-ai-model\.text-to-speech-chat"/);
+    assert.match(router, /component: FreeAiTextToSpeechChat,[\s\S]*?requiresUserAuth: true,[\s\S]*?catalogSource: "general_audio",[\s\S]*?catalogOperation: "text_to_speech"/);
+    assert.match(show, /v-if="isVoiceAudio" class="audio-operation-picker"/);
+    assert.match(show, /@click="startChat\('speech_to_text'\)"/);
+    assert.match(show, /@click="startChat\('text_to_speech'\)"/);
+    assert.match(show, /isVoiceAudio = computed\(\(\) => model\.value\.slug === "audio-voice"\)/);
+    assert.match(show, /createConversation\([\s\S]*?route\.params\.slug,[\s\S]*?null,[\s\S]*?catalogOperation/);
+    assert.match(show, /<div v-else class="model-actions">/);
+});
+
+async function showHarness({ authenticated = true, responseOperation = "speech_to_text" } = {}) {
+    const page = await readFile("resources/js/views/home/free-ai-models/FreeAiModelShow.vue", "utf8");
+    const script = page.match(/<script setup>([\s\S]*?)<\/script>/)[1];
+    const pushes = [];
+    const creates = [];
+    const state = runInNewContext(
+        script.replace(/^import .*;\r?\n/gm, "") + "\n({ startChat, model, startingOperation, isVoiceAudio });",
+        {
+            ref: (value) => ({ value }),
+            computed: (getter) => ({ get value() { return getter(); } }),
+            watch() {}, onMounted() {}, useSeoMeta() {},
+            useRoute: () => ({ params: { slug: "audio-voice" } }),
+            useRouter: () => ({ push: async (target) => pushes.push(target) }),
+            useI18n: () => ({ t: (key) => key, locale: { value: "en" } }),
+            homeService: { getLang: () => "en" },
+            localStorage: { getItem: () => authenticated ? "token" : null },
+            freeAiModelService: {
+                createConversation: async (...args) => {
+                    creates.push(args);
+                    return { data: {
+                        uuid: `${responseOperation}-uuid`,
+                        catalog_source: "general_audio",
+                        catalog_operation: responseOperation,
+                    } };
+                },
+            },
+        }
+    );
+    state.model.value = { slug: "audio-voice", name: "Voice & Audio" };
+    return { ...state, pushes, creates };
+}
+
+test("Voice & Audio creates no conversation until an operation is selected", async () => {
+    const undecided = await showHarness();
+    await undecided.startChat();
+    assert.equal(undecided.creates.length, 0);
+
+    const speech = await showHarness({ responseOperation: "speech_to_text" });
+    await speech.startChat("speech_to_text");
+    assert.deepEqual(speech.creates[0], ["audio-voice", null, "speech_to_text"]);
+    assert.equal(speech.pushes[0].name, "free-ai-model.audio-chat");
+
+    const voice = await showHarness({ responseOperation: "text_to_speech" });
+    await voice.startChat("text_to_speech");
+    assert.deepEqual(voice.creates[0], ["audio-voice", null, "text_to_speech"]);
+    assert.equal(voice.pushes[0].name, "free-ai-model.text-to-speech-chat");
+
+    const guest = await showHarness({ authenticated: false });
+    await guest.startChat("text_to_speech");
+    assert.equal(guest.creates.length, 0);
+    assert.equal(guest.pushes[0], "/en/auth");
+});
+
+test("all supported locales include the Voice & Audio operation labels", async () => {
+    const keys = [
+        "chooseAudioOperation", "speechToText", "speechToTextDescription", "audioToText",
+        "textToSpeech", "textToSpeechDescription", "textToAudio",
+    ];
+
+    for (const locale of ["en", "ar", "fr", "ru", "zh"]) {
+        const messages = JSON.parse(await readFile(`resources/js/lang/${locale}.json`, "utf8"));
+        for (const key of keys) {
+            assert.equal(typeof messages.freeAiModels[key], "string", `${locale}.${key}`);
+            assert.ok(messages.freeAiModels[key].trim(), `${locale}.${key}`);
+        }
+    }
 });
 
 test("uses the server catalog mapping without guessing from tool names or slugs", () => {
@@ -275,14 +362,15 @@ test("normalizes the real media catalog without losing image-generation metadata
 test("normalizes the real audio catalog with stable sorting and complete speech metadata", async () => {
     const sample = JSON.parse(await readFile("tests/Fixtures/general-audio-catalog.json", "utf8"));
     const calls = [];
-    const service = await catalogServiceWithApi({ get: async (endpoint) => {
-        calls.push(endpoint);
+    const service = await catalogServiceWithApi({ get: async (endpoint, config) => {
+        calls.push([endpoint, config?.params?.operation]);
         return { data: { status: "success", data: sample } };
     } });
 
     const result = await service.getModels("general_audio", { fallbackDescription: "Fallback description" });
-    assert.deepEqual(calls, ["/model-catalogs/general_audio"]);
+    assert.deepEqual(calls, [["/model-catalogs/general_audio", "speech_to_text"]]);
     assert.equal(result.tool, "general_audio");
+    assert.equal(result.operation, "speech_to_text");
     assert.equal(result.models.length, 8);
     assert.deepEqual(result.pagination, sample.pagination);
     assert.deepEqual(Array.from(result.models, (model) => model.id), [5, 34, 6, 35, 36, 37, 38, 39]);
@@ -322,6 +410,47 @@ test("normalizes the real audio catalog with stable sorting and complete speech 
     assert.equal(result.models.find((model) => model.id === 38).pricing.audio_per_minute, 0.0045);
 });
 
+test("loads a separate text-to-speech catalog cache and preserves its real metadata", async () => {
+    const speechSample = JSON.parse(await readFile("tests/Fixtures/general-audio-catalog.json", "utf8"));
+    const voiceSample = JSON.parse(await readFile("tests/Fixtures/general-audio-text-to-speech-catalog.json", "utf8"));
+    const calls = [];
+    const service = await catalogServiceWithApi({ get: async (endpoint, config) => {
+        const operation = config?.params?.operation;
+        calls.push([endpoint, operation]);
+        return { data: { status: "success", data: operation === "text_to_speech" ? voiceSample : speechSample } };
+    } });
+
+    const speech = await service.getModels("general_audio", { operation: "speech_to_text" });
+    const voice = await service.getModels("general_audio", { operation: "text_to_speech" });
+    assert.deepEqual(calls, [
+        ["/model-catalogs/general_audio", "speech_to_text"],
+        ["/model-catalogs/general_audio", "text_to_speech"],
+    ]);
+    assert.equal(speech.models[0].name, "Whisper Large V3");
+    assert.equal(voice.operation, "text_to_speech");
+    assert.deepEqual(Array.from(voice.models, (model) => model.id), [56, 8, 9, 40, 41, 42, 43]);
+
+    const recommended = voice.models[0];
+    assert.equal(recommended.name, "GPT-4o Mini TTS");
+    assert.equal(recommended.providerModelId, "openai/gpt-4o-mini-tts-2025-12-15");
+    assert.equal(recommended.operation, "text_to_speech");
+    assert.deepEqual(recommended.capabilities, ["text_to_speech", "multilingual", "speed_control"]);
+    assert.deepEqual(recommended.parameterSchema, voiceSample.items[0].parameter_schema);
+    assert.deepEqual(recommended.recommendedParameters, voiceSample.items[0].recommended_parameters);
+    assert.deepEqual(recommended.pricing, voiceSample.items[0].pricing);
+    assert.equal(voice.models.find((model) => model.id === 8).isFree, true);
+    assert.equal(voice.models.find((model) => model.id === 9).isAvailable, false);
+    assert.equal(voice.models.find((model) => model.id === 41).pricing.per_million_characters, 15);
+
+    await service.getModels("general_audio", { operation: "speech_to_text" });
+    await service.getModels("general_audio", { operation: "text_to_speech" });
+    assert.equal(calls.length, 2);
+    await assert.rejects(
+        service.getModels("general_audio", { operation: "voice_conversion" }),
+        /Unknown model catalog operation/
+    );
+});
+
 test("a failed translation catalog cannot reuse another source cache", async () => {
     const calls = [];
     const service = await catalogServiceWithApi({ get: async (endpoint) => {
@@ -335,7 +464,7 @@ test("a failed translation catalog cannot reuse another source cache", async () 
     assert.deepEqual(calls, ["/model-catalogs/general_chat", "/model-catalogs/general_translation"]);
 });
 
-test("remembered selections are isolated by catalog source and tool", (context) => {
+test("remembered selections are isolated by catalog source, operation, and tool", (context) => {
     const entries = new Map();
     const previous = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
     Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: {
@@ -348,9 +477,13 @@ test("remembered selections are isolated by catalog source and tool", (context) 
     });
     saveSelectedCatalogModel("general_chat", "test-tool", { id: 1, name: "Chat" });
     saveSelectedCatalogModel("general_code", "test-tool", { id: 1, name: "Code" });
+    saveSelectedCatalogModel("general_audio", "audio-voice", { id: 5, name: "Speech" }, "speech_to_text");
+    saveSelectedCatalogModel("general_audio", "audio-voice", { id: 56, name: "Voice" }, "text_to_speech");
     assert.equal(readSelectedCatalogModel("general_chat", "test-tool").name, "Chat");
     assert.equal(readSelectedCatalogModel("general_code", "test-tool").name, "Code");
     assert.equal(readSelectedCatalogModel("general_code", "another-tool"), null);
+    assert.equal(readSelectedCatalogModel("general_audio", "audio-voice", "speech_to_text").name, "Speech");
+    assert.equal(readSelectedCatalogModel("general_audio", "audio-voice", "text_to_speech").name, "Voice");
 });
 
 async function chatHarness({ route, api, catalogs, remembered = null }) {
@@ -435,26 +568,32 @@ test("the shared page loads, switches, and restores translation catalog models",
 
 test("the speech-to-text page loads API models and restores the conversation selection", async () => {
     const sample = JSON.parse(await readFile("tests/Fixtures/general-audio-catalog.json", "utf8"));
-    const catalogs = await catalogServiceWithApi({ get: async (endpoint) => {
+    const catalogs = await catalogServiceWithApi({ get: async (endpoint, config) => {
         assert.equal(endpoint, "/model-catalogs/general_audio");
+        assert.equal(config.params.operation, "speech_to_text");
         return { data: { status: "success", data: sample } };
     } });
     const route = {
         name: "free-ai-model.audio-chat",
         params: { slug: "speech-catalog-test-tool", uuid: "audio-uuid" },
-        meta: { catalogSource: "general_audio" },
+        meta: { catalogSource: "general_audio", catalogOperation: "speech_to_text" },
     };
     let persisted = {
         uuid: route.params.uuid,
         model: { slug: route.params.slug },
         catalog_source: "general_audio",
+        catalog_operation: "speech_to_text",
         selected_model: null,
     };
     const api = {
-        getConversation: async () => ({ data: structuredClone(persisted) }),
-        updateConversationModel: async (slug, uuid, model) => {
+        getConversation: async (slug, uuid, operation) => {
+            assert.equal(operation, "speech_to_text");
+            return { data: structuredClone(persisted) };
+        },
+        updateConversationModel: async (slug, uuid, model, operation) => {
             assert.equal(slug, "speech-catalog-test-tool");
             assert.equal(uuid, "audio-uuid");
+            assert.equal(operation, "speech_to_text");
             persisted = { ...persisted, selected_model: {
                 source: "general_audio",
                 id: model.id,
@@ -481,12 +620,73 @@ test("the speech-to-text page loads API models and restores the conversation sel
     await page.selectExecutionModel(qwen);
     assert.equal(page.saved[0][0], "general_audio");
     assert.equal(page.saved[0][1], "speech-catalog-test-tool");
+    assert.equal(page.saved[0][3], "speech_to_text");
 
     const reloaded = await chatHarness({ route, api, catalogs });
     await reloaded.loadConversation();
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(reloaded.selectedModel.value.id, 35);
     assert.equal(reloaded.selectedModel.value.name, "Qwen3 ASR 0.6B");
+});
+
+test("the text-to-speech page loads only TTS models and restores its own selection", async () => {
+    const sample = JSON.parse(await readFile("tests/Fixtures/general-audio-text-to-speech-catalog.json", "utf8"));
+    const catalogs = await catalogServiceWithApi({ get: async (endpoint, config) => {
+        assert.equal(endpoint, "/model-catalogs/general_audio");
+        assert.equal(config.params.operation, "text_to_speech");
+        return { data: { status: "success", data: sample } };
+    } });
+    const route = {
+        name: "free-ai-model.text-to-speech-chat",
+        params: { slug: "audio-voice", uuid: "voice-uuid" },
+        meta: { catalogSource: "general_audio", catalogOperation: "text_to_speech" },
+    };
+    let persisted = {
+        uuid: route.params.uuid,
+        model: { slug: route.params.slug },
+        catalog_source: "general_audio",
+        catalog_operation: "text_to_speech",
+        selected_model: null,
+    };
+    const api = {
+        getConversation: async (slug, uuid, operation) => {
+            assert.equal(operation, "text_to_speech");
+            return { data: structuredClone(persisted) };
+        },
+        updateConversationModel: async (slug, uuid, model, operation) => {
+            assert.equal(slug, "audio-voice");
+            assert.equal(uuid, "voice-uuid");
+            assert.equal(operation, "text_to_speech");
+            persisted = { ...persisted, selected_model: {
+                source: "general_audio",
+                id: model.id,
+                provider_model_id: model.providerModelId,
+                name: model.name,
+            } };
+            return { data: structuredClone(persisted) };
+        },
+    };
+
+    const page = await chatHarness({ route, api, catalogs });
+    await page.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(page.catalogError.value, false);
+    assert.equal(page.catalogModels.value.length, 7);
+    assert.equal(page.catalogModels.value.every((model) => model.operation === "text_to_speech"), true);
+    assert.equal(page.selectedModel.value.id, 56);
+
+    const flux = page.catalogModels.value.find((model) => model.id === 8);
+    const unavailable = page.catalogModels.value.find((model) => model.id === 9);
+    await page.selectExecutionModel(unavailable);
+    assert.equal(page.selectedModel.value.id, 56);
+    await page.selectExecutionModel(flux);
+    assert.equal(page.saved[0][3], "text_to_speech");
+
+    const reloaded = await chatHarness({ route, api, catalogs });
+    await reloaded.loadConversation();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(reloaded.selectedModel.value.id, 8);
+    assert.equal(reloaded.selectedModel.value.name, "Flux TTS Free");
 });
 
 test("an unavailable persisted model falls back to the source-scoped session model", async () => {
@@ -499,11 +699,12 @@ test("an unavailable persisted model falls back to the source-scoped session mod
         route: {
             name: "free-ai-model.audio-chat",
             params: { slug: "speech-catalog-test-tool", uuid: "audio-uuid" },
-            meta: { catalogSource: "general_audio" },
+            meta: { catalogSource: "general_audio", catalogOperation: "speech_to_text" },
         },
         api: { getConversation: async () => ({ data: {
             uuid: "audio-uuid",
             catalog_source: "general_audio",
+            catalog_operation: "speech_to_text",
             selected_model: { id: 5, provider_model_id: "audio/old", name: "Unavailable persisted" },
         } }) },
         catalogs: { getModels: async () => ({ tool: "general_audio", models }) },

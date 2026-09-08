@@ -13,6 +13,13 @@
         "description": "Выберите нужный инструмент"
     },
     "freeAiModels": {
+        "chooseAudioOperation": "Выберите способ работы с голосом и аудио",
+        "speechToText": "Речь в текст",
+        "speechToTextDescription": "Преобразуйте аудио в письменный текст",
+        "audioToText": "Аудио → Текст",
+        "textToSpeech": "Текст в речь",
+        "textToSpeechDescription": "Преобразуйте письменный текст в естественную речь",
+        "textToAudio": "Текст → Аудио",
         "badge": "Бесплатная ИИ-модель",
         "back": "Назад",
         "loadingModel": "Загрузка модели...",

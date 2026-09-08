@@ -64,17 +64,21 @@ class FreeAiModelController extends Controller
         $request->validate([
             'catalog_model_id' => ['nullable'],
             'provider_model_id' => ['nullable', 'string', 'max:255'],
+            'catalog_operation' => ['nullable', 'string', 'max:64'],
         ]);
 
+        $operation = $this->catalogOperationForRequest($model, $request);
+
         $selection = $request->filled('catalog_model_id')
-            ? $this->requestedCatalogSelection($model, $request)
-            : $this->defaultCatalogSelection($model, $request);
+            ? $this->requestedCatalogSelection($model, $request, $operation)
+            : $this->defaultCatalogSelection($model, $request, $operation);
 
         $conversation = $request->user()->model_conversations()->create([
             'model_id' => $model->id,
             'uuid' => (string) Str::uuid(),
             'is_pinned' => false,
             'is_archived' => false,
+            'catalog_operation' => $operation,
             ...($selection ?? []),
         ]);
 
@@ -94,10 +98,19 @@ class FreeAiModelController extends Controller
             return $this->notFound('Free AI model not found.');
         }
 
-        $conversations = ModelsConverstaions::query()
+        $request->validate([
+            'catalog_operation' => ['nullable', 'string', 'max:64'],
+        ]);
+        $operation = $this->catalogOperationForRequest($model, $request);
+
+        $conversationsQuery = ModelsConverstaions::query()
             ->where('user_id', $request->user()->id)
             ->where('model_id', $model->id)
-            ->where('is_archived', false)
+            ->where('is_archived', false);
+
+        $this->scopeConversationOperation($conversationsQuery, $model, $operation);
+
+        $conversations = $conversationsQuery
             ->orderByDesc('is_pinned')
             ->orderByDesc('created_at')
             ->get([
@@ -107,11 +120,12 @@ class FreeAiModelController extends Controller
                 'created_at',
                 'updated_at',
                 'selected_model_source',
+                'catalog_operation',
                 'selected_model_catalog_id',
                 'selected_provider_model_id',
                 'selected_model_name',
             ])
-            ->map(fn (ModelsConverstaions $conversation) => $this->conversationSummary($conversation))
+            ->map(fn (ModelsConverstaions $conversation) => $this->conversationSummary($conversation, $model))
             ->values();
 
         return $this->success($conversations, 'Free AI model conversations fetched successfully.');
@@ -127,11 +141,18 @@ class FreeAiModelController extends Controller
             return $this->notFound('Free AI model not found.');
         }
 
-        $conversation = ModelsConverstaions::query()
+        $request->validate([
+            'catalog_operation' => ['nullable', 'string', 'max:64'],
+        ]);
+        $operation = $this->catalogOperationForRequest($model, $request);
+
+        $conversationQuery = ModelsConverstaions::query()
             ->where('uuid', $uuid)
             ->where('user_id', $request->user()->id)
-            ->where('model_id', $model->id)
-            ->first();
+            ->where('model_id', $model->id);
+
+        $this->scopeConversationOperation($conversationQuery, $model, $operation);
+        $conversation = $conversationQuery->first();
 
         if (! $conversation) {
             return $this->notFound('Free AI model conversation not found.');
@@ -153,22 +174,26 @@ class FreeAiModelController extends Controller
             return $this->notFound('Free AI model not found.');
         }
 
-        $conversation = ModelsConverstaions::query()
+        $request->validate([
+            'catalog_model_id' => ['required'],
+            'provider_model_id' => ['nullable', 'string', 'max:255'],
+            'catalog_operation' => ['nullable', 'string', 'max:64'],
+        ]);
+        $operation = $this->catalogOperationForRequest($model, $request);
+
+        $conversationQuery = ModelsConverstaions::query()
             ->where('uuid', $uuid)
             ->where('user_id', $request->user()->id)
-            ->where('model_id', $model->id)
-            ->first();
+            ->where('model_id', $model->id);
+
+        $this->scopeConversationOperation($conversationQuery, $model, $operation);
+        $conversation = $conversationQuery->first();
 
         if (! $conversation) {
             return $this->notFound('Free AI model conversation not found.');
         }
 
-        $request->validate([
-            'catalog_model_id' => ['required'],
-            'provider_model_id' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $conversation->update($this->requestedCatalogSelection($model, $request));
+        $conversation->update($this->requestedCatalogSelection($model, $request, $operation));
 
         return $this->success(
             $this->conversationPayload($request, $conversation->fresh(), $model),
@@ -186,11 +211,18 @@ class FreeAiModelController extends Controller
             return $this->notFound('Free AI model not found.');
         }
 
-        $conversation = ModelsConverstaions::query()
+        $request->validate([
+            'catalog_operation' => ['nullable', 'string', 'max:64'],
+        ]);
+        $operation = $this->catalogOperationForRequest($model, $request);
+
+        $conversationQuery = ModelsConverstaions::query()
             ->where('uuid', $uuid)
             ->where('user_id', $request->user()->id)
-            ->where('model_id', $model->id)
-            ->first();
+            ->where('model_id', $model->id);
+
+        $this->scopeConversationOperation($conversationQuery, $model, $operation);
+        $conversation = $conversationQuery->first();
 
         if (! $conversation) {
             return $this->notFound('Free AI model conversation not found.');
@@ -219,7 +251,7 @@ class FreeAiModelController extends Controller
         return is_string($source) && $source !== '' ? $source : null;
     }
 
-    private function defaultCatalogSelection(MainFreeAiModels $model, Request $request): ?array
+    private function catalogOperationForRequest(MainFreeAiModels $model, Request $request): ?string
     {
         $source = $this->catalogSourceFor($model);
 
@@ -227,19 +259,88 @@ class FreeAiModelController extends Controller
             return null;
         }
 
+        $operation = $request->input('catalog_operation', $request->query('catalog_operation'));
+
         try {
-            $items = collect($this->catalogs->getModels($source)['items'] ?? [])
+            return $this->catalogs->resolveOperation(
+                $source,
+                is_string($operation) ? $operation : null
+            );
+        } catch (\InvalidArgumentException) {
+            throw ValidationException::withMessages([
+                'catalog_operation' => ['The selected catalog operation is not supported.'],
+            ]);
+        }
+    }
+
+    private function operationForConversation(
+        ModelsConverstaions $conversation,
+        MainFreeAiModels $model
+    ): ?string {
+        if (is_string($conversation->catalog_operation) && $conversation->catalog_operation !== '') {
+            return $conversation->catalog_operation;
+        }
+
+        $source = $this->catalogSourceFor($model);
+
+        return $source ? $this->catalogs->resolveOperation($source) : null;
+    }
+
+    private function scopeConversationOperation(
+        Builder $query,
+        MainFreeAiModels $model,
+        ?string $operation
+    ): void {
+        $source = $this->catalogSourceFor($model);
+        $defaultOperation = $source ? $this->catalogs->resolveOperation($source) : null;
+
+        if ($operation === null) {
+            $query->whereNull('catalog_operation');
+
+            return;
+        }
+
+        if ($operation === $defaultOperation) {
+            $query->where(function (Builder $query) use ($operation): void {
+                $query->where('catalog_operation', $operation)
+                    ->orWhereNull('catalog_operation');
+            });
+
+            return;
+        }
+
+        $query->where('catalog_operation', $operation);
+    }
+
+    private function defaultCatalogSelection(
+        MainFreeAiModels $model,
+        Request $request,
+        ?string $operation
+    ): ?array {
+        $source = $this->catalogSourceFor($model);
+
+        if (! $source) {
+            return null;
+        }
+
+        try {
+            $items = collect($this->catalogs->getModels($source, $operation)['items'] ?? [])
                 ->sortBy(fn (array $item) => (int) ($item['sort_order'] ?? PHP_INT_MAX))
                 ->values();
 
-            $recentSelection = ModelsConverstaions::query()
+            $recentSelectionQuery = ModelsConverstaions::query()
                 ->where('user_id', $request->user()->id)
                 ->where('model_id', $model->id)
                 ->whereNotNull('selected_model_source')
                 ->whereNotNull('selected_model_name')
-                ->latest('updated_at')
+                ->latest('updated_at');
+
+            $this->scopeConversationOperation($recentSelectionQuery, $model, $operation);
+
+            $recentSelection = $recentSelectionQuery
                 ->first([
                     'selected_model_source',
+                    'catalog_operation',
                     'selected_model_catalog_id',
                     'selected_provider_model_id',
                 ]);
@@ -265,6 +366,7 @@ class FreeAiModelController extends Controller
             Log::warning('Unable to resolve the default Free AI catalog model.', [
                 'free_ai_model_id' => $model->id,
                 'source' => $source,
+                'operation' => $operation,
                 'exception' => $exception::class,
             ]);
 
@@ -272,8 +374,11 @@ class FreeAiModelController extends Controller
         }
     }
 
-    private function requestedCatalogSelection(MainFreeAiModels $model, Request $request): array
-    {
+    private function requestedCatalogSelection(
+        MainFreeAiModels $model,
+        Request $request,
+        ?string $operation
+    ): array {
         $source = $this->catalogSourceFor($model);
 
         if (! $source) {
@@ -285,10 +390,11 @@ class FreeAiModelController extends Controller
         $catalogModelId = (string) $request->input('catalog_model_id');
         $providerModelId = trim((string) $request->input('provider_model_id', ''));
         try {
-            $items = $this->catalogs->getModels($source)['items'] ?? [];
+            $items = $this->catalogs->getModels($source, $operation)['items'] ?? [];
         } catch (Throwable $exception) {
             Log::warning('Unable to validate the selected Free AI catalog model.', [
                 'source' => $source,
+                'operation' => $operation,
                 'exception' => $exception::class,
             ]);
             throw new HttpResponseException($this->error('Model catalog is currently unavailable.', 502));
@@ -348,14 +454,17 @@ class FreeAiModelController extends Controller
         ];
     }
 
-    private function conversationSummary(ModelsConverstaions $conversation): array
-    {
+    private function conversationSummary(
+        ModelsConverstaions $conversation,
+        MainFreeAiModels $model
+    ): array {
         return [
             'uuid' => $conversation->uuid,
             'title' => null,
             'is_pinned' => (bool) $conversation->is_pinned,
             'created_at' => $conversation->created_at?->toISOString(),
             'updated_at' => $conversation->updated_at?->toISOString(),
+            'catalog_operation' => $this->operationForConversation($conversation, $model),
             'selected_model' => $this->selectedModelPayload($conversation),
         ];
     }
@@ -371,6 +480,7 @@ class FreeAiModelController extends Controller
             'is_archived' => (bool) $conversation->is_archived,
             'created_at' => $conversation->created_at?->toISOString(),
             'catalog_source' => $this->catalogSourceFor($model),
+            'catalog_operation' => $this->operationForConversation($conversation, $model),
             'selected_model' => $this->selectedModelPayload($conversation),
             'model' => new FreeAiModelResource($model),
             'user' => [

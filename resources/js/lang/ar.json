@@ -13,6 +13,13 @@
     "description": "اختر الأداة التي تحتاجها"
   },
   "freeAiModels": {
+    "chooseAudioOperation": "اختر كيف تريد استخدام الصوت والصوتيات",
+    "speechToText": "تحويل الصوت إلى نص",
+    "speechToTextDescription": "حوّل الملفات الصوتية إلى نص مكتوب",
+    "audioToText": "صوت ← نص",
+    "textToSpeech": "تحويل النص إلى صوت",
+    "textToSpeechDescription": "حوّل النص المكتوب إلى صوت طبيعي",
+    "textToAudio": "نص ← صوت",
     "badge": "نموذج ذكاء اصطناعي مجاني",
     "back": "رجوع",
     "loadingModel": "جارٍ تحميل النموذج...",

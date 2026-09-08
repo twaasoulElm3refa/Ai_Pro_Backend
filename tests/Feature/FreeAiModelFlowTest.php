@@ -27,6 +27,7 @@ class FreeAiModelFlowTest extends TestCase
                 'database/migrations/2026_08_15_105804_create_main_free_ai_models_translations_table.php',
                 'database/migrations/2026_08_16_082611_create_models_converstaions_table.php',
                 'database/migrations/2026_08_31_130000_add_selected_catalog_model_to_models_conversations_table.php',
+                'database/migrations/2026_09_08_120000_add_catalog_operation_to_models_conversations_table.php',
             ],
         ])->assertExitCode(0);
     }
@@ -387,60 +388,116 @@ class FreeAiModelFlowTest extends TestCase
             && $request->data() === ['operation' => 'image_generation']);
     }
 
-    public function test_audio_catalog_conversation_selects_persists_and_restores_a_speech_model(): void
+    public function test_audio_conversations_are_isolated_by_operation_and_restore_their_own_models(): void
     {
         // Verified by GET https://pro.aiarabic.com/api/v1/free-ai-models (English locale).
         $slug = 'audio-voice';
         $this->assertSame('general_audio', config("model_catalogs.free_ai_tools.{$slug}"));
         config()->set('services.aiarabic.internal_api_key', 'server-only-test-key');
         $endpoint = config('model_catalogs.sources.general_audio.endpoint');
-        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-audio-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        $speechModels = json_decode(file_get_contents(base_path('tests/Fixtures/general-audio-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        $voiceModels = json_decode(file_get_contents(base_path('tests/Fixtures/general-audio-text-to-speech-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
         Http::preventStrayRequests();
-        Http::fake(["{$endpoint}*" => Http::response($sample)]);
+        Http::fake(["{$endpoint}*" => function ($request) use ($speechModels, $voiceModels) {
+            return Http::response(
+                ($request->data()['operation'] ?? null) === 'text_to_speech' ? $voiceModels : $speechModels
+            );
+        }]);
         $tool = $this->createModel($slug, true, 1);
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $url = "/api/v1/free-ai-models/{$slug}/conversations";
 
-        $uuid = $this->apiRequest()->postJson($url)->assertOk()
-            ->assertJsonPath('data.model.slug', $slug)
+        $speechUuid = $this->apiRequest()->postJson($url, [
+            'catalog_operation' => 'speech_to_text',
+        ])->assertOk()
             ->assertJsonPath('data.catalog_source', 'general_audio')
+            ->assertJsonPath('data.catalog_operation', 'speech_to_text')
             ->assertJsonPath('data.selected_model.id', 5)
-            ->assertJsonPath('data.selected_model.provider_model_id', 'openai/whisper-large-v3')
             ->json('data.uuid');
 
-        $this->apiRequest()->patchJson("{$url}/{$uuid}/model", [
+        $voiceUuid = $this->apiRequest()->postJson($url, [
+            'catalog_operation' => 'text_to_speech',
+        ])->assertOk()
+            ->assertJsonPath('data.catalog_source', 'general_audio')
+            ->assertJsonPath('data.catalog_operation', 'text_to_speech')
+            ->assertJsonPath('data.selected_model.id', 56)
+            ->assertJsonPath('data.selected_model.name', 'GPT-4o Mini TTS')
+            ->json('data.uuid');
+
+        $this->apiRequest()->patchJson("{$url}/{$speechUuid}/model?catalog_operation=speech_to_text", [
             'catalog_model_id' => 35,
             'provider_model_id' => 'qwen/qwen3-asr-0.6b',
-        ])->assertOk()
-            ->assertJsonPath('data.selected_model.source', 'general_audio')
-            ->assertJsonPath('data.selected_model.name', 'Qwen3 ASR 0.6B');
+            'catalog_operation' => 'speech_to_text',
+        ])->assertOk()->assertJsonPath('data.selected_model.name', 'Qwen3 ASR 0.6B');
+
+        $this->apiRequest()->patchJson("{$url}/{$voiceUuid}/model?catalog_operation=text_to_speech", [
+            'catalog_model_id' => 8,
+            'provider_model_id' => 'deepgram/flux-tts:free',
+            'catalog_operation' => 'text_to_speech',
+        ])->assertOk()->assertJsonPath('data.selected_model.name', 'Flux TTS Free');
+
+        $this->apiRequest()->patchJson("{$url}/{$voiceUuid}/model?catalog_operation=text_to_speech", [
+            'catalog_model_id' => 9,
+            'provider_model_id' => 'fish-audio/s2.1-pro-free:free',
+            'catalog_operation' => 'text_to_speech',
+        ])->assertUnprocessable();
 
         $this->assertDatabaseHas('models_conversations', [
-            'uuid' => $uuid,
-            'model_id' => $tool->id,
-            'user_id' => $user->id,
-            'selected_model_source' => 'general_audio',
+            'uuid' => $speechUuid,
+            'catalog_operation' => 'speech_to_text',
             'selected_model_catalog_id' => 35,
-            'selected_provider_model_id' => 'qwen/qwen3-asr-0.6b',
-            'selected_model_name' => 'Qwen3 ASR 0.6B',
+        ]);
+        $this->assertDatabaseHas('models_conversations', [
+            'uuid' => $voiceUuid,
+            'catalog_operation' => 'text_to_speech',
+            'selected_model_catalog_id' => 8,
         ]);
 
-        $this->apiRequest()->getJson("{$url}/{$uuid}")->assertOk()
-            ->assertJsonPath('data.catalog_source', 'general_audio')
-            ->assertJsonPath('data.selected_model.id', 35)
-            ->assertJsonPath('data.selected_model.name', 'Qwen3 ASR 0.6B');
+        $legacyUuid = (string) \Illuminate\Support\Str::uuid();
+        ModelsConverstaions::create([
+            'user_id' => $user->id,
+            'model_id' => $tool->id,
+            'uuid' => $legacyUuid,
+            'is_pinned' => false,
+            'is_archived' => false,
+            'selected_model_source' => 'general_audio',
+            'selected_model_catalog_id' => 5,
+            'selected_provider_model_id' => 'openai/whisper-large-v3',
+            'selected_model_name' => 'Whisper Large V3',
+        ]);
 
-        $this->apiRequest()->getJson($url)->assertOk()
-            ->assertJsonPath('data.0.uuid', $uuid)
-            ->assertJsonPath('data.0.selected_model.id', 35);
+        $speechHistory = $this->apiRequest()
+            ->getJson("{$url}?catalog_operation=speech_to_text")
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->json('data');
+        $voiceHistory = $this->apiRequest()
+            ->getJson("{$url}?catalog_operation=text_to_speech")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->json('data');
 
-        $this->apiRequest()->postJson($url)->assertOk()
-            ->assertJsonPath('data.selected_model.source', 'general_audio')
-            ->assertJsonPath('data.selected_model.id', 35);
+        $this->assertEqualsCanonicalizing([$speechUuid, $legacyUuid], array_column($speechHistory, 'uuid'));
+        $this->assertSame([$voiceUuid], array_column($voiceHistory, 'uuid'));
+        $this->assertSame('speech_to_text', collect($speechHistory)->firstWhere('uuid', $legacyUuid)['catalog_operation']);
 
-        Http::assertSent(fn ($request) => $request->url() === "{$endpoint}?operation=speech_to_text"
-            && $request->data() === ['operation' => 'speech_to_text']);
+        $this->apiRequest()->getJson("{$url}/{$voiceUuid}?catalog_operation=speech_to_text")->assertNotFound();
+        $this->apiRequest()->getJson("{$url}/{$speechUuid}?catalog_operation=text_to_speech")->assertNotFound();
+        $this->apiRequest()->getJson("{$url}/{$voiceUuid}?catalog_operation=text_to_speech")
+            ->assertOk()
+            ->assertJsonPath('data.selected_model.id', 8);
+        $this->apiRequest()->postJson($url, ['catalog_operation' => 'text_to_speech'])
+            ->assertOk()
+            ->assertJsonPath('data.selected_model.id', 8);
+
+        Http::assertSent(fn ($request) => $request->url() === "{$endpoint}?operation=speech_to_text");
+        Http::assertSent(fn ($request) => $request->url() === "{$endpoint}?operation=text_to_speech");
+        Http::assertNotSent(fn ($request) => ! in_array(
+            $request->data()['operation'] ?? null,
+            ['speech_to_text', 'text_to_speech'],
+            true
+        ));
     }
 
     #[DataProvider('catalogSources')]

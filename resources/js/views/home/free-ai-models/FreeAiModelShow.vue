@@ -26,12 +26,56 @@
                     <h1>{{ model.name }}</h1>
                     <p>{{ model.description || t("freeAiModels.noDescription") }}</p>
 
-                    <div class="model-actions">
-                        <button type="button" class="primary-button" :disabled="startingChat" @click="startChat">
-                            <span v-if="startingChat" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    <div v-if="isVoiceAudio" class="audio-operation-picker">
+                        <h2>{{ t("freeAiModels.chooseAudioOperation") }}</h2>
+                        <div class="audio-operation-grid">
+                            <button
+                                type="button"
+                                class="audio-operation-card"
+                                :disabled="Boolean(startingOperation)"
+                                @click="startChat('speech_to_text')"
+                            >
+                                <span class="operation-icon">
+                                    <span v-if="startingOperation === 'speech_to_text'" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                    <i v-else class="bi bi-file-earmark-music-fill"></i>
+                                </span>
+                                <span class="operation-copy">
+                                    <strong>{{ t("freeAiModels.speechToText") }}</strong>
+                                    <small>{{ t("freeAiModels.speechToTextDescription") }}</small>
+                                    <span>{{ t("freeAiModels.audioToText") }}</span>
+                                </span>
+                                <i class="bi bi-arrow-right operation-arrow" aria-hidden="true"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="audio-operation-card"
+                                :disabled="Boolean(startingOperation)"
+                                @click="startChat('text_to_speech')"
+                            >
+                                <span class="operation-icon">
+                                    <span v-if="startingOperation === 'text_to_speech'" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                    <i v-else class="bi bi-volume-up-fill"></i>
+                                </span>
+                                <span class="operation-copy">
+                                    <strong>{{ t("freeAiModels.textToSpeech") }}</strong>
+                                    <small>{{ t("freeAiModels.textToSpeechDescription") }}</small>
+                                    <span>{{ t("freeAiModels.textToAudio") }}</span>
+                                </span>
+                                <i class="bi bi-arrow-right operation-arrow" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-else class="model-actions">
+                        <button type="button" class="primary-button" :disabled="Boolean(startingOperation)" @click="startChat()">
+                            <span v-if="startingOperation" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
                             <i v-else class="bi bi-chat-dots-fill"></i>
-                            {{ startingChat ? t("freeAiModels.startingChat") : t("freeAiModels.startChat") }}
+                            {{ startingOperation ? t("freeAiModels.startingChat") : t("freeAiModels.startChat") }}
                         </button>
+                    </div>
+
+                    <div class="action-note-row">
                         <span class="action-note">
                             <i class="bi bi-shield-check"></i>
                             {{ t("freeAiModels.privateConversation") }}
@@ -65,7 +109,8 @@ const { t, locale } = useI18n();
 const model = ref({});
 const loading = ref(true);
 const loadError = ref(false);
-const startingChat = ref(false);
+const startingOperation = ref(null);
+const isVoiceAudio = computed(() => model.value.slug === "audio-voice");
 
 const seoTitle = computed(() => model.value.meta_title || model.value.name || "AI Pro");
 const seoDescription = computed(() => model.value.meta_description || model.value.description || "");
@@ -88,25 +133,34 @@ async function loadModel() {
     }
 }
 
-async function startChat() {
-    if (startingChat.value) return;
+async function startChat(catalogOperation = null) {
+    if (startingOperation.value) return;
+
+    if (isVoiceAudio.value && !["speech_to_text", "text_to_speech"].includes(catalogOperation)) return;
 
     if (!localStorage.getItem("auth_token")) {
         await router.push(`/${homeService.getLang()}/auth`);
         return;
     }
 
-    startingChat.value = true;
+    startingOperation.value = catalogOperation || "default";
 
     try {
-        const response = await freeAiModelService.createConversation(route.params.slug);
+        const response = await freeAiModelService.createConversation(
+            route.params.slug,
+            null,
+            catalogOperation
+        );
         const uuid = response?.data?.uuid;
-        const conversationRoutes = {
-            general_media: "free-ai-model.media-chat",
-            general_audio: "free-ai-model.audio-chat",
-        };
-        const conversationRouteName = conversationRoutes[response?.data?.catalog_source]
-            || "free-ai-model.chat";
+        const source = response?.data?.catalog_source;
+        const operation = response?.data?.catalog_operation;
+        const conversationRouteName = source === "general_media"
+            ? "free-ai-model.media-chat"
+            : source === "general_audio" && operation === "text_to_speech"
+                ? "free-ai-model.text-to-speech-chat"
+                : source === "general_audio"
+                    ? "free-ai-model.audio-chat"
+                    : "free-ai-model.chat";
 
         if (!uuid) throw new Error("Missing conversation UUID");
 
@@ -121,7 +175,7 @@ async function startChat() {
     } catch {
         // ApiClient handles the request error and leaves the landing page usable.
     } finally {
-        startingChat.value = false;
+        startingOperation.value = null;
     }
 }
 
@@ -219,6 +273,97 @@ button {
     flex-wrap: wrap;
     gap: 14px;
     margin-top: 30px;
+}
+
+.audio-operation-picker {
+    margin-top: 30px;
+}
+
+.audio-operation-picker h2 {
+    margin: 0 0 14px;
+    color: var(--theme-text-primary);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.audio-operation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.audio-operation-card {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 16px;
+    border: 1px solid var(--theme-border);
+    border-radius: 17px;
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-secondary);
+    box-shadow: 0 10px 24px var(--theme-shadow);
+    text-align: start;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.audio-operation-card:hover:not(:disabled),
+.audio-operation-card:focus-visible {
+    border-color: rgba(43, 166, 222, 0.6);
+    outline: 0;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(21, 70, 119, 0.16);
+}
+
+.audio-operation-card:disabled {
+    cursor: wait;
+    opacity: 0.68;
+}
+
+.operation-icon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    font-size: 18px;
+}
+
+.operation-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+
+.operation-copy strong {
+    font-size: 14px;
+}
+
+.operation-copy small {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.operation-copy > span {
+    color: var(--theme-accent);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.operation-arrow {
+    color: var(--theme-accent);
+}
+
+[dir="rtl"] .operation-arrow {
+    transform: rotate(180deg);
+}
+
+.action-note-row {
+    margin-top: 14px;
 }
 
 .primary-button,
@@ -331,6 +476,10 @@ button {
     .model-hero {
         padding: 18px;
         border-radius: 22px;
+    }
+
+    .audio-operation-grid {
+        grid-template-columns: 1fr;
     }
 }
 </style>

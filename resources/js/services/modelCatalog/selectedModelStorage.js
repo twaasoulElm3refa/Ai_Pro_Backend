@@ -1,18 +1,19 @@
-const storageKey = (sourceKey, pageSlug) => `free-ai:selected-model:${sourceKey}:${pageSlug}`;
+const storageKey = (sourceKey, pageSlug, operation = null) =>
+    `free-ai:selected-model:${sourceKey}:${String(operation || "default")}:${pageSlug}`;
 
-export const saveSelectedCatalogModel = (sourceKey, pageSlug, model) => {
+export const saveSelectedCatalogModel = (sourceKey, pageSlug, model, operation = null) => {
     if (!model) return;
 
     try {
-        sessionStorage.setItem(storageKey(sourceKey, pageSlug), JSON.stringify(model));
+        sessionStorage.setItem(storageKey(sourceKey, pageSlug, operation), JSON.stringify(model));
     } catch {
         // Selection remains available in component state when storage is unavailable.
     }
 };
 
-export const readSelectedCatalogModel = (sourceKey, pageSlug) => {
+export const readSelectedCatalogModel = (sourceKey, pageSlug, operation = null) => {
     try {
-        const model = JSON.parse(sessionStorage.getItem(storageKey(sourceKey, pageSlug)) || "null");
+        const model = JSON.parse(sessionStorage.getItem(storageKey(sourceKey, pageSlug, operation)) || "null");
         return model && typeof model === "object" ? model : null;
     } catch {
         return null;

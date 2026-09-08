@@ -224,14 +224,14 @@ class ModelCatalogProxyTest extends TestCase
         );
         $this->assertSame(
             ['operation' => 'speech_to_text'],
-            config('model_catalogs.sources.general_audio.query')
+            config('model_catalogs.sources.general_audio.operations.speech_to_text.query')
         );
 
         Http::preventStrayRequests();
         Http::fake(["{$endpoint}*" => Http::response($sample)]);
 
         $response = $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
-            ->getJson('/api/v1/model-catalogs/general_audio')
+            ->getJson('/api/v1/model-catalogs/general_audio?operation=speech_to_text')
             ->assertOk()
             ->assertJsonPath('data.tool', 'general_audio')
             ->assertJsonCount(8, 'data.items')
@@ -259,6 +259,56 @@ class ModelCatalogProxyTest extends TestCase
             && $request->hasHeader('x-internal-api-key', 'server-only-test-key')
         );
         $this->assertStringNotContainsString('server-only-test-key', $response->getContent());
+    }
+
+    public function test_audio_proxy_sends_the_text_to_speech_filter_and_preserves_the_full_contract(): void
+    {
+        $sample = json_decode(file_get_contents(base_path('tests/Fixtures/general-audio-text-to-speech-catalog.json')), true, 512, JSON_THROW_ON_ERROR);
+        $endpoint = config('model_catalogs.sources.general_audio.endpoint');
+
+        $this->assertSame(
+            ['operation' => 'text_to_speech'],
+            config('model_catalogs.sources.general_audio.operations.text_to_speech.query')
+        );
+
+        Http::preventStrayRequests();
+        Http::fake(["{$endpoint}*" => Http::response($sample)]);
+
+        $response = $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
+            ->getJson('/api/v1/model-catalogs/general_audio?operation=text_to_speech')
+            ->assertOk()
+            ->assertJsonPath('data.tool', 'general_audio')
+            ->assertJsonCount(7, 'data.items')
+            ->assertJsonPath('data.items.0.name', 'GPT-4o Mini TTS')
+            ->assertJsonPath('data.items.0.operation', 'text_to_speech')
+            ->assertJsonPath('data.items.0.parameter_schema.voice.default', 'nova')
+            ->assertJsonPath('data.items.0.parameter_schema.speed.maximum', 4)
+            ->assertJsonPath('data.items.0.recommended_parameters.response_format', 'mp3')
+            ->assertJsonPath('data.items.0.pricing.source', 'openrouter_response')
+            ->assertJsonPath('data.items.1.name', 'Grok Voice TTS 1.0')
+            ->assertJsonPath('data.items.2.name', 'Flux TTS Free')
+            ->assertJsonPath('data.items.3.is_available', false)
+            ->assertJsonPath('data.items.6.name', 'MAI Voice 2')
+            ->assertJsonPath('data.pagination.total', 7);
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) => $request->method() === 'GET'
+            && $request->url() === "{$endpoint}?operation=text_to_speech"
+            && $request->data() === ['operation' => 'text_to_speech']
+            && $request->hasHeader('x-internal-api-key', 'server-only-test-key')
+        );
+        $this->assertStringNotContainsString('server-only-test-key', $response->getContent());
+    }
+
+    public function test_audio_proxy_rejects_an_unknown_operation_without_an_upstream_request(): void
+    {
+        Http::fake();
+
+        $this->withHeaders(['X-API-KEY' => 'testing-api-key'])
+            ->getJson('/api/v1/model-catalogs/general_audio?operation=voice_conversion')
+            ->assertNotFound();
+
+        Http::assertNothingSent();
     }
 
     public function test_audio_tool_mapping_keeps_the_verified_slug_and_supports_an_optional_additional_slug(): void

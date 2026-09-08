@@ -25,6 +25,7 @@ const FreeAiModelShow = () => import("../views/home/free-ai-models/FreeAiModelSh
 const FreeAiModelChat = () => import("../views/home/free-ai-models/FreeAiModelChat.vue");
 const FreeAiModelMediaChat = () => import("../views/home/free-ai-models/FreeAiModelMediaChat.vue");
 const FreeAiSpeechToTextChat = () => import("../views/home/free-ai-models/FreeAiSpeechToTextChat.vue");
+const FreeAiTextToSpeechChat = () => import("../views/home/free-ai-models/FreeAiTextToSpeechChat.vue");
 const showGeneral = () => import("../views/home/generalTools/showGeneral.vue");
 const GeneralChat = () => import("../views/home/generalTools/GeneralChat.vue");
 
@@ -108,6 +109,20 @@ const routes = [
             hideHeader: true,
             requiresUserAuth: true,
             catalogSource: "general_audio",
+            catalogOperation: "speech_to_text",
+        },
+    },
+    {
+        path: "/:lang/free-ai/:slug/text-to-speech/:uuid",
+        name: "free-ai-model.text-to-speech-chat",
+        component: FreeAiTextToSpeechChat,
+        meta: {
+            hideNavbar: false,
+            hideFooter: true,
+            hideHeader: true,
+            requiresUserAuth: true,
+            catalogSource: "general_audio",
+            catalogOperation: "text_to_speech",
         },
     },
     {
