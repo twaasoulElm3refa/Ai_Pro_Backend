@@ -48,6 +48,7 @@
     "chooseCatalogModel": "اختر نموذج الذكاء الاصطناعي لهذه المحادثة",
     "selectedModel": "النموذج المحدد",
     "selectModel": "اختر نموذجاً",
+    "noAvailableModels": "لا توجد نماذج متاحة",
     "free": "مجاني",
     "paid": "مدفوع",
     "tierFree": "مجاني",

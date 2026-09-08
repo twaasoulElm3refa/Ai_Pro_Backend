@@ -48,6 +48,7 @@
         "chooseCatalogModel": "Choose the AI model for this conversation",
         "selectedModel": "Selected model",
         "selectModel": "Select a model",
+        "noAvailableModels": "No available models",
         "free": "Free",
         "paid": "Paid",
         "tierFree": "Free",

@@ -78,6 +78,66 @@ test("keeps the execution-model selector in the chat composer and off the tool l
     assert.doesNotMatch(show, /FreeAiModelSelector|modelCatalogService/);
 });
 
+async function selectorHarness(props) {
+    const component = await readFile("resources/js/components/free-ai-models/FreeAiModelSelector.vue", "utf8");
+    const script = component.match(/<script setup>([\s\S]*?)<\/script>/)[1];
+    const state = runInNewContext(
+        script.replace(/^import .*;\r?\n/gm, "")
+            + "\n({ availableModels, selectedAvailableModel, triggerLabel, handleTrigger, open });",
+        {
+            computed: (getter) => ({ get value() { return getter(); } }),
+            ref: (value) => ({ value }),
+            nextTick: async () => {},
+            onMounted() {},
+            onBeforeUnmount() {},
+            defineProps: () => props,
+            defineEmits: () => () => {},
+            useI18n: () => ({ t: (key) => key }),
+        }
+    );
+
+    return { component, ...state };
+}
+
+test("the shared selector hides unavailable models and never presents a stale unavailable selection", async () => {
+    const unavailable = { id: 9, name: "S2.1 Pro Free", isAvailable: false };
+    const selector = await selectorHarness({
+        models: [
+            { id: 56, name: "GPT-4o Mini TTS", isAvailable: true },
+            unavailable,
+            { id: 8, name: "Flux TTS Free", isAvailable: true },
+        ],
+        selectedModel: unavailable,
+        loading: false,
+        error: false,
+        disabled: false,
+    });
+
+    assert.deepEqual(Array.from(selector.availableModels.value, (model) => model.name), [
+        "GPT-4o Mini TTS",
+        "Flux TTS Free",
+    ]);
+    assert.equal(selector.selectedAvailableModel.value, null);
+    assert.equal(selector.triggerLabel.value, "freeAiModels.selectModel");
+    assert.match(selector.component, /v-for="model in availableModels"/);
+    assert.doesNotMatch(selector.component, /freeAiModels\.modelUnavailable/);
+});
+
+test("the shared selector shows a non-error empty state when every model is unavailable", async () => {
+    const selector = await selectorHarness({
+        models: [{ id: 9, name: "Unavailable", isAvailable: false }],
+        selectedModel: null,
+        loading: false,
+        error: false,
+        disabled: false,
+    });
+
+    assert.equal(selector.availableModels.value.length, 0);
+    assert.equal(selector.triggerLabel.value, "freeAiModels.noAvailableModels");
+    selector.handleTrigger();
+    assert.equal(selector.open.value, false);
+});
+
 test("uses a dedicated media route while reusing the shared Free AI conversation shell", async () => {
     const [mediaPage, router, show] = await Promise.all([
         readFile("resources/js/views/home/free-ai-models/FreeAiModelMediaChat.vue", "utf8"),
@@ -190,6 +250,14 @@ test("all supported locales include the Voice & Audio operation labels", async (
             assert.equal(typeof messages.freeAiModels[key], "string", `${locale}.${key}`);
             assert.ok(messages.freeAiModels[key].trim(), `${locale}.${key}`);
         }
+    }
+});
+
+test("all supported locales include the selector's no-available-models label", async () => {
+    for (const locale of ["en", "ar", "fr", "ru", "zh"]) {
+        const messages = JSON.parse(await readFile(`resources/js/lang/${locale}.json`, "utf8"));
+        assert.equal(typeof messages.freeAiModels.noAvailableModels, "string", `${locale}.noAvailableModels`);
+        assert.ok(messages.freeAiModels.noAvailableModels.trim(), `${locale}.noAvailableModels`);
     }
 });
 
@@ -562,7 +630,7 @@ test("the shared page loads, switches, and restores translation catalog models",
 
     const selector = await readFile("resources/js/components/free-ai-models/FreeAiModelSelector.vue", "utf8");
     assert.match(selector, /@click="handleTrigger"/);
-    assert.match(selector, /v-for="model in models"/);
+    assert.match(selector, /v-for="model in availableModels"/);
     assert.match(selector, /@click="choose\(model\)"/);
 });
 

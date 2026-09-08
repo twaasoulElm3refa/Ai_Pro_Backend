@@ -48,6 +48,7 @@
         "chooseCatalogModel": "Выберите модель ИИ для этого разговора",
         "selectedModel": "Выбранная модель",
         "selectModel": "Выберите модель",
+        "noAvailableModels": "Нет доступных моделей",
         "free": "Бесплатно",
         "paid": "Платно",
         "tierFree": "Бесплатная",

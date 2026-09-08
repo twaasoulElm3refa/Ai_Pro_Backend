@@ -3,8 +3,8 @@
         <button
             type="button"
             class="selector-trigger"
-            :disabled="disabled || loading"
-            :aria-expanded="open"
+            :disabled="disabled || loading || (!error && !availableModels.length)"
+            :aria-expanded="open && availableModels.length > 0"
             aria-haspopup="listbox"
             @click="handleTrigger"
             @keydown.down.prevent="openAndFocus"
@@ -15,19 +15,18 @@
                 <small>{{ t("freeAiModels.model") }}</small>
                 <strong>{{ triggerLabel }}</strong>
             </span>
-            <span v-if="selectedModel" class="tier-dot" :class="`tier-${selectedModel.tier}`"></span>
+            <span v-if="selectedAvailableModel" class="tier-dot" :class="`tier-${selectedAvailableModel.tier}`"></span>
             <span v-if="loading" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
             <i v-else class="bi bi-chevron-up selector-chevron" :class="{ open }"></i>
         </button>
 
-        <div v-if="open" class="selector-menu" role="listbox">
+        <div v-if="open && availableModels.length" class="selector-menu" role="listbox">
             <button
-                v-for="model in models"
+                v-for="model in availableModels"
                 :key="modelKey(model)"
                 type="button"
                 class="selector-option"
-                :class="{ selected: isSelected(model), unavailable: !model.isAvailable }"
-                :disabled="!model.isAvailable"
+                :class="{ selected: isSelected(model) }"
                 :aria-selected="isSelected(model)"
                 role="option"
                 @click="choose(model)"
@@ -42,8 +41,7 @@
                             :title="t('freeAiModels.recommended')"
                         ></i>
                     </strong>
-                    <small v-if="!model.isAvailable">{{ t("freeAiModels.modelUnavailable") }}</small>
-                    <small v-else>
+                    <small>
                         {{ tierLabel(model.tier) }} · {{ model.isFree ? t("freeAiModels.free") : t("freeAiModels.paid") }}
                     </small>
                 </span>
@@ -70,15 +68,23 @@ const { t } = useI18n();
 const selectorRef = ref(null);
 const open = ref(false);
 
+const modelKey = (model) => String(model?.providerModelId || model?.id || model?.name || "");
+const availableModels = computed(() => props.models.filter((model) => model?.isAvailable === true));
+const selectedAvailableModel = computed(() => {
+    const selectedKey = modelKey(props.selectedModel);
+    if (!selectedKey) return null;
+    return availableModels.value.find((model) => modelKey(model) === selectedKey) || null;
+});
+
 const triggerLabel = computed(() => {
     if (props.loading) return t("freeAiModels.catalogLoading");
-    if (props.selectedModel?.name) return props.selectedModel.name;
+    if (selectedAvailableModel.value?.name) return selectedAvailableModel.value.name;
     if (props.error) return t("freeAiModels.catalogUnavailable");
+    if (!availableModels.value.length) return t("freeAiModels.noAvailableModels");
     return t("freeAiModels.selectModel");
 });
 
-const modelKey = (model) => String(model?.providerModelId || model?.id || model?.name || "");
-const isSelected = (model) => modelKey(model) === modelKey(props.selectedModel);
+const isSelected = (model) => modelKey(model) === modelKey(selectedAvailableModel.value);
 
 const tierLabel = (tier) => {
     const key = { free: "tierFree", standard: "tierStandard", advanced: "tierAdvanced" }[tier] || "tierStandard";
@@ -90,17 +96,17 @@ const close = () => {
 };
 
 const handleTrigger = () => {
-    if (props.error && !props.models.length) {
+    if (props.error && !availableModels.value.length) {
         emit("retry");
         return;
     }
 
-    if (!props.models.length) return;
+    if (!availableModels.value.length) return;
     open.value = !open.value;
 };
 
 const openAndFocus = async () => {
-    if (!props.models.length) return;
+    if (!availableModels.value.length) return;
     open.value = true;
     await nextTick();
     selectorRef.value?.querySelector(".selector-option:not(:disabled)")?.focus();
@@ -274,11 +280,6 @@ button {
     outline: 0;
     border-color: var(--theme-border);
     background: var(--theme-hover);
-}
-
-.selector-option.unavailable {
-    cursor: not-allowed;
-    opacity: 0.48;
 }
 
 .option-icon {
