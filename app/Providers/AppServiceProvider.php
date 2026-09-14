@@ -24,6 +24,9 @@ use App\Repository\tools\SubToolInterface;
 use App\Repository\tools\SubToolRepository;
 use App\Repository\user\AdminUserRepository;
 use App\Repository\user\AdminUserRepositoryInterface;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -51,5 +54,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         User::observe(UserObserver::class);
+
+        RateLimiter::for('free-ai-chat-send', fn (Request $request) => Limit::perMinute(
+            max(1, (int) config('free_ai_chat.send_rate_per_minute'))
+        )->by((string) $request->user()->getAuthIdentifier()));
     }
 }

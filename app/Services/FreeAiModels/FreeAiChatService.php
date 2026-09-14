@@ -26,7 +26,7 @@ class FreeAiChatService
             return Cache::lock("free-ai-chat-user-{$conversation->user_id}", 150)
                 ->block(3, fn () => $this->sendLocked($conversation, $message, $requestId));
         } catch (LockTimeoutException) {
-            throw new FreeAiChatException('A previous message is still being processed.', 429);
+            throw new FreeAiChatException('A previous message is still being processed.', 429, '3');
         }
     }
 
@@ -109,7 +109,11 @@ class FreeAiChatService
                 'request_id' => $requestId,
                 'provider_status' => $response->status(),
             ]);
-            throw new FreeAiChatException('تعذر الحصول على الرد من خدمة الذكاء الاصطناعي.', $response->status() === 429 ? 429 : 502);
+            throw new FreeAiChatException(
+                'تعذر الحصول على الرد من خدمة الذكاء الاصطناعي.',
+                $response->status() === 429 ? 429 : 502,
+                $response->status() === 429 ? $response->header('Retry-After') : null
+            );
         }
 
         $content = $payload['content'] ?? null;

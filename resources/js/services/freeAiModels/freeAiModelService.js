@@ -58,6 +58,7 @@ const freeAiModelService = {
         }, {
             ...operationParams(catalogOperation),
             timeout: 120000,
+            suppressGlobalErrorToast: true,
         }));
     },
 

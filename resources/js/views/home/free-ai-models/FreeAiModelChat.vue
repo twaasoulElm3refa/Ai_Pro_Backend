@@ -165,7 +165,12 @@
                             </button>
                         </div>
                     </div>
-                    <p v-if="sendError" class="composer-hint chat-error" role="alert">{{ sendError }}</p>
+                    <p v-if="sendError" class="composer-hint chat-error" role="alert">
+                        {{ sendError }} <span v-if="cooldownSeconds">{{ t("freeAiModels.cooldownRemaining", { seconds: cooldownSeconds }) }}</span>
+                    </p>
+                    <p v-else-if="cooldownSeconds" class="composer-hint" role="status">
+                        {{ t("freeAiModels.cooldownRemaining", { seconds: cooldownSeconds }) }}
+                    </p>
                     <p v-else-if="canChat" class="composer-hint"><i class="bi bi-wallet2"></i>{{ t("freeAiModels.walletBalance") }}: {{ walletBalance ?? "—" }}</p>
                     <p v-else class="composer-hint"><i class="bi bi-info-circle"></i>{{ t("freeAiModels.composerUnavailableHint") }}</p>
                 </div>
@@ -182,6 +187,7 @@ import { useRoute, useRouter } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
 import homeService from "@/services/home/homeService";
 import freeAiModelService from "@/services/freeAiModels/freeAiModelService";
+import { MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS, messageRequestSignature, recentChatRequests, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent } from "@/services/freeAiModels/freeAiChatRateControl";
 import { getFreeAiCatalogSource } from "@/services/freeAiModels/freeAiCatalogSources";
 import modelCatalogService from "@/services/modelCatalog/modelCatalogService";
 import { readSelectedCatalogModel, saveSelectedCatalogModel } from "@/services/modelCatalog/selectedModelStorage";
@@ -208,6 +214,9 @@ const messages = ref([]);
 const messageDraft = ref("");
 const sendingMessage = ref(false);
 const sendError = ref("");
+const cooldownUntil = ref(0);
+const cooldownClock = ref(Date.now());
+let cooldownTimer = null;
 const walletBalance = ref(null);
 const walletPayback = ref(0);
 const nextMessagesCursor = ref(null);
@@ -225,9 +234,10 @@ const activeUuid = computed(() => String(route.params.uuid || ""));
 const pageSlug = computed(() => String(route.params.slug || ""));
 const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value));
 const canChat = computed(() => catalogSource.value === "general_chat" && !catalogOperation.value);
+const cooldownSeconds = computed(() => Math.max(0, Math.ceil((cooldownUntil.value - cooldownClock.value) / 1000)));
 const canSend = computed(() => canChat.value && !!conversation.value?.uuid && !!selectedModel.value?.isAvailable
     && !catalogLoading.value && !catalogError.value && !loadingConversation.value
-    && !modelSaving.value && !sendingMessage.value && !!messageDraft.value.trim());
+    && !modelSaving.value && !sendingMessage.value && !cooldownSeconds.value && !!messageDraft.value.trim());
 const isMobile = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT);
 const isRtl = computed(() => locale.value === "ar");
 const readableSlug = computed(() => pageSlug.value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
@@ -349,7 +359,7 @@ async function loadConversation() {
     }
 }
 
-async function loadMessages() {
+async function loadMessages(showError = true) {
     const requestId = ++messagesRequestId;
     const slug = pageSlug.value;
     const uuid = activeUuid.value;
@@ -360,7 +370,7 @@ async function loadMessages() {
         nextMessagesCursor.value = response?.data?.next_cursor || null;
         await scrollToBottom();
     } catch {
-        if (requestId === messagesRequestId) sendError.value = t("freeAiModels.messagesLoadFailed");
+        if (showError && requestId === messagesRequestId) sendError.value = t("freeAiModels.messagesLoadFailed");
     }
 }
 
@@ -395,11 +405,30 @@ async function refreshWallet() {
     return walletBalance.value;
 }
 
+function startCooldown(milliseconds) {
+    const now = Date.now();
+    cooldownUntil.value = Math.max(cooldownUntil.value, now + Math.max(0, Math.ceil(milliseconds)));
+    cooldownClock.value = now;
+    if (cooldownTimer !== null) return;
+
+    cooldownTimer = window.setInterval(() => {
+        cooldownClock.value = Date.now();
+        if (cooldownClock.value < cooldownUntil.value) return;
+        window.clearInterval(cooldownTimer);
+        cooldownTimer = null;
+    }, 250);
+}
+
 async function sendMessage() {
     if (!canSend.value) return;
     const message = messageDraft.value.trim();
     const slug = pageSlug.value;
     const uuid = activeUuid.value;
+    const signature = messageRequestSignature(uuid, message, selectedModel.value.id);
+    if (wasRecentlySent(recentChatRequests, signature)) {
+        sendError.value = t("freeAiModels.duplicateRequest");
+        return;
+    }
     sendError.value = "";
     sendingMessage.value = true;
     try {
@@ -419,13 +448,15 @@ async function sendMessage() {
         }
 
         const requestId = uuidv4();
+        rememberSentRequest(recentChatRequests, signature);
         messageDraft.value = "";
         messages.value.push({ id: `pending-${requestId}`, request_id: requestId, role: "user", content: message });
         await scrollToBottom();
         const response = await freeAiModelService.sendMessage(slug, uuid, message, requestId, requiredCatalogOperation.value);
-        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         const result = response?.data;
         if (!result?.assistant_message?.content) throw new Error("Invalid chat response");
+        startCooldown(MESSAGE_COOLDOWN_MS);
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         const pendingIndex = messages.value.findIndex((item) => item.id === `pending-${requestId}`);
         if (pendingIndex !== -1) messages.value.splice(pendingIndex, 1, result.user_message);
         messages.value.push(result.assistant_message);
@@ -437,13 +468,16 @@ async function sendMessage() {
         upsertConversationSummary(conversation.value);
         await scrollToBottom();
     } catch (error) {
-        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         const status = error?.response?.status;
+        if (status === 429) {
+            startCooldown(Math.max(1000, retryAfterMilliseconds(error.response?.headers) ?? RATE_LIMIT_FALLBACK_MS));
+        }
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         sendError.value = status === 402 ? t("freeAiModels.insufficientBalance")
             : status === 429 ? t("freeAiModels.rateLimited")
                 : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.chatTimeout")
                     : t("freeAiModels.chatFailed");
-        await loadMessages();
+        void loadMessages(false);
     } finally {
         sendingMessage.value = false;
     }
@@ -602,6 +636,7 @@ onBeforeUnmount(() => {
     catalogRequestId++;
     conversationRequestId++;
     messagesRequestId++;
+    if (cooldownTimer !== null) window.clearInterval(cooldownTimer);
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("lang-changed", handleLanguageChanged);
     document.body.style.overflow = "";

@@ -139,19 +139,47 @@ class FreeAiChatTest extends TestCase
 
     public function test_provider_rate_limit_keeps_user_message_without_charging(): void
     {
-        $this->fakeProvider(2, 4, 1, 429);
+        $this->fakeProvider(2, 4, 1, 429, ['Retry-After' => '12']);
         [$user, $conversation, $wallet] = $this->conversation(10);
         Sanctum::actingAs($user);
 
         $this->api()->postJson($this->url($conversation), [
             'user_message' => 'Hi',
             'request_id' => (string) Str::uuid(),
-        ])->assertStatus(429);
+        ])->assertStatus(429)->assertHeader('Retry-After', '12');
 
         $this->assertSame(10, (int) $wallet->fresh()->balance);
         $this->assertDatabaseCount('models_messages', 1);
         $this->assertDatabaseCount('models_cost_loggers', 0);
         $this->assertDatabaseCount('wallet_transactions', 0);
+    }
+
+    public function test_chat_send_limit_does_not_count_conversation_reads(): void
+    {
+        config()->set('free_ai_chat.send_rate_per_minute', 2);
+        $this->fakeProvider(1, 1, 0);
+        [$user, $conversation] = $this->conversation(20);
+        Sanctum::actingAs($user);
+        $url = $this->url($conversation);
+
+        for ($attempt = 0; $attempt < 12; $attempt++) {
+            $this->api()->get($url)->assertOk();
+        }
+
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            $this->api()->postJson($url, [
+                'user_message' => "Message {$attempt}",
+                'request_id' => (string) Str::uuid(),
+            ])->assertOk();
+        }
+
+        $this->api()->postJson($url, [
+            'user_message' => 'One too many',
+            'request_id' => (string) Str::uuid(),
+        ])->assertStatus(429)->assertHeader('Retry-After');
+
+        $this->assertDatabaseCount('models_messages', 4);
+        $this->assertCount(2, Http::recorded(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-chat'));
     }
 
     public function test_paypal_deposit_applies_existing_payback_and_records_gross_credit(): void
@@ -228,7 +256,7 @@ class FreeAiChatTest extends TestCase
         return [$user, $conversation, $wallet];
     }
 
-    private function fakeProvider(?int $input, int $output, int $reasoning, int $status = 200): void
+    private function fakeProvider(?int $input, int $output, int $reasoning, int $status = 200, array $headers = []): void
     {
         Http::preventStrayRequests();
         Http::fake([
@@ -254,7 +282,7 @@ class FreeAiChatTest extends TestCase
                     'completion_tokens' => $output,
                     'completion_tokens_details' => ['reasoning_tokens' => $reasoning],
                 ]],
-            ], $status),
+            ], $status, $headers),
         ]);
     }
 

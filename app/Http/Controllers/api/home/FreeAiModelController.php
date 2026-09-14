@@ -203,7 +203,12 @@ class FreeAiModelController extends Controller
         try {
             return $this->success($chat->send($conversation, $message, $validated['request_id']));
         } catch (FreeAiChatException $exception) {
-            return $this->error($exception->getMessage(), $exception->statusCode);
+            $response = $this->error($exception->getMessage(), $exception->statusCode);
+            if ($exception->statusCode === 429 && $exception->retryAfter !== null) {
+                $response->headers->set('Retry-After', $exception->retryAfter);
+            }
+
+            return $response;
         }
     }
 
