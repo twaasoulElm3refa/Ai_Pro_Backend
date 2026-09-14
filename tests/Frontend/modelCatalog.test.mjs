@@ -787,9 +787,10 @@ test("an unavailable persisted model falls back to the source-scoped session mod
 test("the shared page loads the server-selected code source and persists a model through existing APIs", async () => {
     const route = { params: { slug: "test-tool", uuid: "test-conversation" } };
     const models = [
-        normalizeCatalogModel({ id: 1, name: "Unavailable", is_available: false, is_recommended: true }),
-        normalizeCatalogModel({ id: 2, name: "Recommended", provider_model_id: "fixture/recommended", is_recommended: true }),
-        normalizeCatalogModel({ id: 3, name: "Alternative", provider_model_id: "fixture/alternative" }),
+        normalizeCatalogModel({ id: 1, name: "Unavailable", tool_key: "general_code", operation: "text_generation", is_available: false, is_recommended: true }),
+        normalizeCatalogModel({ id: 4, name: "Wrong tool", tool_key: "general_chat", operation: "text_generation", provider_model_id: "fixture/chat", is_recommended: true }),
+        normalizeCatalogModel({ id: 2, name: "Recommended", tool_key: "general_code", operation: "text_generation", provider_model_id: "fixture/recommended", is_recommended: true }),
+        normalizeCatalogModel({ id: 3, name: "Alternative", tool_key: "general_code", operation: "text_generation", provider_model_id: "fixture/alternative" }),
     ];
     const conversation = { uuid: "test-conversation", model: { slug: "test-tool" }, catalog_source: "general_code", selected_model: null };
     const calls = [];
@@ -812,7 +813,7 @@ test("the shared page loads the server-selected code source and persists a model
     assert.equal(page.selectedModel.value.id, 2);
     await page.selectExecutionModel(models[0]);
     assert.equal(calls.length, 0);
-    await page.selectExecutionModel(models[2]);
+    await page.selectExecutionModel(models.find((model) => model.id === 3));
     assert.deepEqual(calls, [["test-tool", "test-conversation", 3, "fixture/alternative"]]);
     assert.equal(page.conversation.value.selected_model.source, "general_code");
     assert.equal(page.selectedModel.value.id, 3);

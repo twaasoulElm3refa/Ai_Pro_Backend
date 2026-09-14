@@ -62,6 +62,17 @@ const freeAiModelService = {
         }));
     },
 
+    async sendGeneralCodeMessage(slug, uuid, userMessage, requestId, programmingLanguage) {
+        return unwrap(await api.post(`/free-ai-models/${slug}/conversations/${uuid}/messages`, {
+            user_message: userMessage,
+            request_id: requestId,
+            programming_language: programmingLanguage,
+        }, {
+            timeout: 120000,
+            suppressGlobalErrorToast: true,
+        }));
+    },
+
     // The send endpoint saves both messages and charges the wallet atomically.
     async saveMessage(slug, uuid, userMessage, requestId, catalogOperation = null) {
         return this.sendMessage(slug, uuid, userMessage, requestId, catalogOperation);

@@ -129,7 +129,8 @@
                     </button>
                     <div v-for="item in messages" :key="item.id || item.request_id + item.role" class="chat-message" :class="item.role">
                         <span class="chat-message-role">{{ item.role === "user" ? t("freeAiModels.you") : t("freeAiModels.assistant") }}</span>
-                        <p>{{ item.content }}</p>
+                        <div v-if="isGeneralCode && item.role === 'assistant'" class="code-markdown" v-html="renderCodeMarkdown(item.content)"></div>
+                        <p v-else>{{ item.content }}</p>
                     </div>
                     <div v-if="sendingMessage" class="chat-message assistant pending" aria-live="polite">
                         <span class="chat-message-role">{{ t("freeAiModels.assistant") }}</span>
@@ -140,6 +141,11 @@
 
             <footer class="composer-area">
                 <div class="composer-shell">
+                    <button v-if="isGeneralCode" ref="codeOptionsButton" type="button" class="code-options-trigger"
+                        :disabled="sendingMessage" @click="openCodeOptions">
+                        <i class="bi bi-sliders"></i>
+                        {{ programmingLanguage ? programmingLanguage : t("freeAiModels.codeChooseOptions") }}
+                    </button>
                     <div class="composer-box">
                         <FreeAiModelSelector
                             :models="catalogModels"
@@ -171,11 +177,48 @@
                     <p v-else-if="cooldownSeconds" class="composer-hint" role="status">
                         {{ t("freeAiModels.cooldownRemaining", { seconds: cooldownSeconds }) }}
                     </p>
+                    <p v-else-if="isGeneralCode && !programmingLanguage" class="composer-hint"><i class="bi bi-info-circle"></i>{{ t("freeAiModels.codeOptionsRequired") }}</p>
                     <p v-else-if="canChat" class="composer-hint"><i class="bi bi-wallet2"></i>{{ t("freeAiModels.walletBalance") }}: {{ walletBalance ?? "—" }}</p>
                     <p v-else class="composer-hint"><i class="bi bi-info-circle"></i>{{ t("freeAiModels.composerUnavailableHint") }}</p>
                 </div>
             </footer>
         </section>
+
+        <div v-if="codeOptionsOpen && isGeneralCode" class="code-options-overlay" @click.self="closeCodeOptions">
+            <section class="code-options-dialog" role="dialog" aria-modal="true" aria-labelledby="code-options-title" @keydown.esc.stop.prevent="closeCodeOptions">
+                <div class="code-options-heading">
+                    <h2 id="code-options-title">{{ t("freeAiModels.codeOptionsTitle") }}</h2>
+                    <button type="button" class="icon-button" :aria-label="t('freeAiModels.closeSidebar')" @click="closeCodeOptions"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <p class="code-options-description">{{ t("freeAiModels.codeOptionsDescription") }}</p>
+                <div class="code-options-grid">
+                    <div class="code-options-column">
+                        <label for="code-language-search">{{ t("freeAiModels.codeLanguage") }}</label>
+                        <input id="code-language-search" ref="codeLanguageSearchInput" v-model="codeLanguageSearch" type="search" :placeholder="t('freeAiModels.codeSearch')" />
+                        <div class="code-options-list">
+                            <button v-for="language in filteredCodeLanguages" :key="language" type="button"
+                                :class="{ selected: selectedCodeLanguage === language }" :aria-pressed="selectedCodeLanguage === language"
+                                @click="selectedCodeLanguage = selectedCodeLanguage === language ? '' : language">{{ language }}</button>
+                            <span v-if="!filteredCodeLanguages.length" class="code-options-empty">{{ t("freeAiModels.codeNoOptions") }}</span>
+                        </div>
+                    </div>
+                    <div class="code-options-column">
+                        <label for="code-framework-search">{{ t("freeAiModels.codeFramework") }}</label>
+                        <input id="code-framework-search" v-model="codeFrameworkSearch" type="search" :placeholder="t('freeAiModels.codeSearch')" />
+                        <div class="code-options-list">
+                            <button v-for="framework in filteredCodeFrameworks" :key="framework" type="button"
+                                :class="{ selected: selectedCodeFramework === framework }" :aria-pressed="selectedCodeFramework === framework"
+                                @click="selectedCodeFramework = selectedCodeFramework === framework ? '' : framework">{{ framework }}</button>
+                            <span v-if="!filteredCodeFrameworks.length" class="code-options-empty">{{ t("freeAiModels.codeNoOptions") }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="code-options-footer">
+                    <span>{{ programmingLanguage || t("freeAiModels.codeOptionsRequired") }}</span>
+                    <button type="button" class="code-options-done" :disabled="!programmingLanguage" @click="closeCodeOptions">{{ t("freeAiModels.codeDone") }}</button>
+                </div>
+            </section>
+        </div>
     </main>
 </template>
 
@@ -192,6 +235,9 @@ import { getFreeAiCatalogSource } from "@/services/freeAiModels/freeAiCatalogSou
 import modelCatalogService from "@/services/modelCatalog/modelCatalogService";
 import { readSelectedCatalogModel, saveSelectedCatalogModel } from "@/services/modelCatalog/selectedModelStorage";
 import FreeAiModelSelector from "@/components/free-ai-models/FreeAiModelSelector.vue";
+import { PROGRAMMING_LANGUAGES, PROGRAMMING_FRAMEWORKS, programmingLanguageValue } from "@/services/freeAiModels/freeAiCodeOptions";
+import MarkdownIt from "markdown-it";
+import DOMPurify from "dompurify";
 
 const MOBILE_BREAKPOINT = 900;
 const route = useRoute();
@@ -212,6 +258,13 @@ const selectedModel = ref(null);
 const modelSaving = ref(false);
 const messages = ref([]);
 const messageDraft = ref("");
+const codeOptionsOpen = ref(false);
+const codeOptionsButton = ref(null);
+const codeLanguageSearchInput = ref(null);
+const codeLanguageSearch = ref("");
+const codeFrameworkSearch = ref("");
+const selectedCodeLanguage = ref("");
+const selectedCodeFramework = ref("");
 const sendingMessage = ref(false);
 const sendError = ref("");
 const cooldownUntil = ref(0);
@@ -233,11 +286,16 @@ let messagesRequestId = 0;
 const activeUuid = computed(() => String(route.params.uuid || ""));
 const pageSlug = computed(() => String(route.params.slug || ""));
 const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value));
-const canChat = computed(() => catalogSource.value === "general_chat" && !catalogOperation.value);
+const isGeneralCode = computed(() => catalogSource.value === "general_code" && !catalogOperation.value);
+const canChat = computed(() => (catalogSource.value === "general_chat" || isGeneralCode.value) && !catalogOperation.value);
+const programmingLanguage = computed(() => programmingLanguageValue(selectedCodeLanguage.value, selectedCodeFramework.value));
+const filteredCodeLanguages = computed(() => PROGRAMMING_LANGUAGES.filter((language) => language.toLowerCase().includes(codeLanguageSearch.value.trim().toLowerCase())));
+const filteredCodeFrameworks = computed(() => PROGRAMMING_FRAMEWORKS.filter((framework) => framework.toLowerCase().includes(codeFrameworkSearch.value.trim().toLowerCase())));
 const cooldownSeconds = computed(() => Math.max(0, Math.ceil((cooldownUntil.value - cooldownClock.value) / 1000)));
 const canSend = computed(() => canChat.value && !!conversation.value?.uuid && !!selectedModel.value?.isAvailable
     && !catalogLoading.value && !catalogError.value && !loadingConversation.value
-    && !modelSaving.value && !sendingMessage.value && !cooldownSeconds.value && !!messageDraft.value.trim());
+    && !modelSaving.value && !sendingMessage.value && !cooldownSeconds.value && !!messageDraft.value.trim()
+    && (!isGeneralCode.value || !!programmingLanguage.value));
 const isMobile = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT);
 const isRtl = computed(() => locale.value === "ar");
 const readableSlug = computed(() => pageSlug.value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
@@ -256,6 +314,22 @@ const seoKeywords = computed(() => mainTool.value.seo_keywords || "");
 useSeoMeta({ title: seoTitle, description: seoDescription, keywords: seoKeywords });
 
 const modelKey = (model) => String(model?.providerModelId || model?.provider_model_id || model?.id || "");
+let codeMarkdown = null;
+
+function renderCodeMarkdown(content) {
+    codeMarkdown ||= new MarkdownIt({ html: false, breaks: true, linkify: true });
+    return DOMPurify.sanitize(codeMarkdown.render(String(content || "")), { USE_PROFILES: { html: true } });
+}
+
+function openCodeOptions() {
+    codeOptionsOpen.value = true;
+    nextTick(() => codeLanguageSearchInput.value?.focus());
+}
+
+function closeCodeOptions() {
+    codeOptionsOpen.value = false;
+    nextTick(() => codeOptionsButton.value?.focus());
+}
 
 function catalogMatch(selection) {
     if (!selection) return null;
@@ -322,7 +396,9 @@ async function loadCatalog(force = false) {
             operation,
         });
         if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value || operation !== catalogOperation.value) return;
-        catalogModels.value = result.models;
+        catalogModels.value = source === "general_code"
+            ? result.models.filter((model) => model.toolKey === "general_code" && model.operation === "text_generation")
+            : result.models;
         loadedCatalogKey = catalogKey;
         syncSelectedModel();
     } catch {
@@ -424,6 +500,8 @@ async function sendMessage() {
     const message = messageDraft.value.trim();
     const slug = pageSlug.value;
     const uuid = activeUuid.value;
+    const codeRequest = isGeneralCode.value;
+    const codeLanguage = codeRequest ? programmingLanguage.value : null;
     const signature = messageRequestSignature(uuid, message, selectedModel.value.id);
     if (wasRecentlySent(recentChatRequests, signature)) {
         sendError.value = t("freeAiModels.duplicateRequest");
@@ -433,6 +511,7 @@ async function sendMessage() {
     sendingMessage.value = true;
     try {
         const balance = await refreshWallet();
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         const estimate = Math.max(1, Math.ceil(new TextEncoder().encode(message).length / 4)) + 1;
         if (balance < estimate || walletPayback.value > 0) {
             sendError.value = t("freeAiModels.insufficientBalance");
@@ -452,7 +531,9 @@ async function sendMessage() {
         messageDraft.value = "";
         messages.value.push({ id: `pending-${requestId}`, request_id: requestId, role: "user", content: message });
         await scrollToBottom();
-        const response = await freeAiModelService.sendMessage(slug, uuid, message, requestId, requiredCatalogOperation.value);
+        const response = codeRequest
+            ? await freeAiModelService.sendGeneralCodeMessage(slug, uuid, message, requestId, codeLanguage)
+            : await freeAiModelService.sendMessage(slug, uuid, message, requestId, requiredCatalogOperation.value);
         const result = response?.data;
         if (!result?.assistant_message?.content) throw new Error("Invalid chat response");
         startCooldown(MESSAGE_COOLDOWN_MS);
@@ -637,6 +718,7 @@ onBeforeUnmount(() => {
     conversationRequestId++;
     messagesRequestId++;
     if (cooldownTimer !== null) window.clearInterval(cooldownTimer);
+    codeOptionsOpen.value = false;
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("lang-changed", handleLanguageChanged);
     document.body.style.overflow = "";
@@ -660,6 +742,7 @@ watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
         loadConversations();
     }
     messagesRequestId++;
+    codeOptionsOpen.value = false;
     messages.value = [];
     nextMessagesCursor.value = null;
     messageDraft.value = "";
@@ -1063,6 +1146,34 @@ button {
     line-height: 1.65;
 }
 
+.code-markdown {
+    min-width: 0;
+    line-height: 1.65;
+}
+
+.code-markdown :deep(p) {
+    white-space: normal;
+    margin: 0 0 0.7em;
+}
+
+.code-markdown :deep(p:last-child) {
+    margin-bottom: 0;
+}
+
+.code-markdown :deep(pre) {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--theme-surface-secondary);
+    white-space: pre;
+}
+
+.code-markdown :deep(code) {
+    font-family: Consolas, Monaco, monospace;
+    font-size: 0.9em;
+}
+
 .older-messages-button {
     align-self: center;
     border: 1px solid var(--theme-border);
@@ -1158,6 +1269,140 @@ button {
 .composer-shell {
     width: min(980px, 100%);
     margin: 0 auto;
+}
+
+.code-options-trigger {
+    max-width: 100%;
+    margin-bottom: 8px;
+    padding: 7px 11px;
+    border: 1px solid var(--theme-border-strong);
+    border-radius: 10px;
+    color: var(--theme-text-secondary);
+    background: var(--theme-surface-elevated);
+    font-size: 12px;
+    text-align: start;
+}
+
+.code-options-trigger:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.code-options-overlay {
+    position: fixed;
+    z-index: 1100;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.52);
+}
+
+.code-options-dialog {
+    width: min(720px, 100%);
+    max-height: min(680px, 90dvh);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+    padding: 20px;
+    border: 1px solid var(--theme-border);
+    border-radius: 16px;
+    color: var(--theme-text-primary);
+    background: var(--theme-surface);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.code-options-heading,
+.code-options-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.code-options-heading h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.code-options-description,
+.code-options-footer span {
+    margin: 0;
+    color: var(--theme-text-muted);
+    font-size: 12px;
+}
+
+.code-options-grid {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.code-options-column {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.code-options-column label {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.code-options-column input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--theme-border-strong);
+    border-radius: 9px;
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-elevated);
+}
+
+.code-options-list {
+    min-height: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.code-options-list button {
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--theme-text-secondary);
+    background: transparent;
+    text-align: start;
+}
+
+.code-options-list button:hover,
+.code-options-list button.selected {
+    border-color: var(--theme-border-strong);
+    background: var(--theme-hover);
+    color: var(--theme-text-primary);
+}
+
+.code-options-empty {
+    padding: 9px;
+    color: var(--theme-text-muted);
+    font-size: 12px;
+}
+
+.code-options-done {
+    padding: 8px 15px;
+    border: 0;
+    border-radius: 9px;
+    color: #fff;
+    background: var(--theme-accent);
+}
+
+.code-options-done:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .composer-box {
@@ -1286,6 +1531,15 @@ button {
 }
 
 @media (max-width: 640px) {
+    .code-options-grid {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+    }
+
+    .code-options-list {
+        max-height: 180px;
+    }
+
     .free-ai-chat {
         --navbar-height: 90px;
     }

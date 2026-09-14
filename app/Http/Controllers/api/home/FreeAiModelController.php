@@ -200,8 +200,21 @@ class FreeAiModelController extends Controller
             return $this->notFound('Free AI model conversation not found.');
         }
 
+        $programmingLanguage = null;
+        if ($this->catalogSourceFor($conversation->model) === 'general_code') {
+            $codeInput = $request->validate([
+                'programming_language' => ['required', 'string', 'max:120'],
+            ]);
+            $programmingLanguage = trim($codeInput['programming_language']);
+            if ($programmingLanguage === '') {
+                throw ValidationException::withMessages([
+                    'programming_language' => ['Select a programming language or framework.'],
+                ]);
+            }
+        }
+
         try {
-            return $this->success($chat->send($conversation, $message, $validated['request_id']));
+            return $this->success($chat->send($conversation, $message, $validated['request_id'], $programmingLanguage));
         } catch (FreeAiChatException $exception) {
             $response = $this->error($exception->getMessage(), $exception->statusCode);
             if ($exception->statusCode === 429 && $exception->retryAfter !== null) {

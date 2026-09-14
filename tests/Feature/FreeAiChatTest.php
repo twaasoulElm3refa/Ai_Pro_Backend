@@ -34,6 +34,10 @@ class FreeAiChatTest extends TestCase
             'endpoint' => 'https://catalog.example.test/models',
             'requires_internal_key' => false,
         ]);
+        config()->set('model_catalogs.sources.general_code', [
+            'endpoint' => 'https://catalog.example.test/code-models',
+            'requires_internal_key' => false,
+        ]);
     }
 
     public function test_chat_sends_exact_provider_payload_and_charges_usage_once(): void
@@ -154,6 +158,101 @@ class FreeAiChatTest extends TestCase
         $this->assertDatabaseCount('wallet_transactions', 0);
     }
 
+    public function test_code_generation_uses_exact_payload_and_existing_wallet_and_logs(): void
+    {
+        $this->fakeCodeProvider();
+        [$user, $conversation, $wallet] = $this->codeConversation(5);
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/programming-technology/conversations/{$conversation->uuid}/messages";
+        $body = [
+            'user_message' => 'Build an API',
+            'request_id' => (string) Str::uuid(),
+            'programming_language' => 'TypeScript / Express.js',
+        ];
+
+        $this->api()->get('/api/v1/users/wallet')->assertJsonPath('data.balance', 5);
+        $this->api()->postJson($url, $body)
+            ->assertOk()
+            ->assertJsonPath('data.assistant_message.content', "```ts\nconst app = express();\n```")
+            ->assertJsonPath('data.wallet.balance', 0)
+            ->assertJsonPath('data.wallet.payback_balance', 1786)
+            ->assertJsonMissingPath('data.metadata');
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-code'
+            && $request->hasHeader('x-internal-api-key', 'test-internal-key')
+            && $request->data() === [
+                'user_id' => $user->id,
+                'model_id' => $conversation->model_id,
+                'selected_model_id' => 3,
+                'conversation_uuid' => $conversation->uuid,
+                'user_message' => 'Build an API',
+                'state' => ['parameters' => [
+                    'task_mode' => 'generate',
+                    'programming_language' => 'TypeScript / Express.js',
+                    'include_explanation' => true,
+                    'include_tests' => true,
+                ]],
+            ]);
+        $this->assertSame('general_code', $conversation->fresh()->tool_key);
+        $this->assertSame(1786, (int) $wallet->fresh()->payback_balance);
+        $this->assertDatabaseHas('models_cost_loggers', [
+            'request_id' => $body['request_id'],
+            'input_tokens' => 238,
+            'output_tokens' => 1553,
+            'reasoning_tokens' => 0,
+            'total_tokens' => 1791,
+        ]);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'points' => 1791,
+            'balance_after' => 0,
+            'payback_after' => 1786,
+        ]);
+        $userMessage = $conversation->messages()->where('role', 'user')->firstOrFail();
+        $this->assertSame('TypeScript / Express.js', $userMessage->metadata['programming_language']);
+        $this->assertSame('completed', $userMessage->metadata['status']);
+        $this->assertSame(true, $userMessage->metadata['include_tests']);
+        $this->assertSame('general_code', $conversation->costLoggers()->firstOrFail()->metadata['tool_type']);
+        $this->api()->get('/api/v1/users/wallet')->assertJsonPath('data.balance', 0);
+
+        $this->api()->postJson($url, $body)->assertOk();
+        $this->assertDatabaseCount('models_messages', 2);
+        $this->assertDatabaseCount('models_cost_loggers', 1);
+        $this->assertCount(1, Http::recorded(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-code'));
+    }
+
+    public function test_code_requires_an_option_and_sufficient_balance_before_provider_call(): void
+    {
+        $this->fakeCodeProvider();
+        [$user, $conversation] = $this->codeConversation(1);
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/programming-technology/conversations/{$conversation->uuid}/messages";
+        $body = ['user_message' => 'Build an API', 'request_id' => (string) Str::uuid()];
+
+        $this->api()->postJson($url, $body)->assertStatus(422);
+        $this->api()->postJson($url, [...$body, 'programming_language' => 'Express.js'])->assertStatus(402);
+        $this->assertDatabaseCount('models_messages', 0);
+        Http::assertNotSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-code');
+    }
+
+    public function test_code_rejects_a_model_with_another_tool_key(): void
+    {
+        $this->fakeCodeProvider('general_chat');
+        [$user, $conversation] = $this->codeConversation(100);
+        Sanctum::actingAs($user);
+
+        $this->api()->postJson(
+            "/api/v1/free-ai-models/programming-technology/conversations/{$conversation->uuid}/messages",
+            [
+                'user_message' => 'Build an API',
+                'request_id' => (string) Str::uuid(),
+                'programming_language' => 'Express.js',
+            ]
+        )->assertStatus(422);
+
+        $this->assertDatabaseCount('models_messages', 0);
+        Http::assertNotSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-code');
+    }
+
     public function test_chat_send_limit_does_not_count_conversation_reads(): void
     {
         config()->set('free_ai_chat.send_rate_per_minute', 2);
@@ -254,6 +353,70 @@ class FreeAiChatTest extends TestCase
         ]);
 
         return [$user, $conversation, $wallet];
+    }
+
+    private function codeConversation(int $balance): array
+    {
+        $user = User::factory()->create();
+        $model = MainFreeAiModels::create([
+            'name' => 'Programming & Technology',
+            'slug' => 'programming-technology',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+        $conversation = ModelsConverstaions::create([
+            'user_id' => $user->id,
+            'model_id' => $model->id,
+            'uuid' => (string) Str::uuid(),
+            'selected_model_source' => 'general_code',
+            'selected_model_id' => 3,
+            'provider_model_id' => 'qwen/qwen3-coder-next',
+            'selected_model_name' => 'Qwen3 Coder Next',
+        ]);
+        $wallet = Wallet::create([
+            'user_id' => $user->id,
+            'uuid' => (string) Str::uuid(),
+            'balance' => $balance,
+            'payback_balance' => 0,
+            'is_active' => true,
+        ]);
+
+        return [$user, $conversation, $wallet];
+    }
+
+    private function fakeCodeProvider(string $catalogToolKey = 'general_code'): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'catalog.example.test/code-models' => Http::response([
+                'tool' => 'general_code',
+                'items' => [[
+                    'id' => 3,
+                    'provider' => 'openrouter',
+                    'provider_model_id' => 'qwen/qwen3-coder-next',
+                    'name' => 'Qwen3 Coder Next',
+                    'tool_key' => $catalogToolKey,
+                    'operation' => 'text_generation',
+                    'is_available' => true,
+                ]],
+            ]),
+            'api.aiarabic.com/tasks/general-code' => Http::response([
+                'success' => true,
+                'type' => 'result',
+                'tool' => 'general_code',
+                'provider' => 'openrouter',
+                'model' => 'qwen/qwen3-coder-next',
+                'content' => "```ts\nconst app = express();\n```",
+                'usage' => ['total_cost' => 0],
+                'metadata' => ['provider_usage' => [
+                    'prompt_tokens' => 238,
+                    'completion_tokens' => 1553,
+                    'completion_tokens_details' => ['reasoning_tokens' => 0],
+                ]],
+                'router_metadata' => ['private' => true],
+                'debug' => ['private' => true],
+            ]),
+        ]);
     }
 
     private function fakeProvider(?int $input, int $output, int $reasoning, int $status = 200, array $headers = []): void
