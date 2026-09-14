@@ -28,6 +28,7 @@ class FreeAiModelFlowTest extends TestCase
                 'database/migrations/2026_08_16_082611_create_models_converstaions_table.php',
                 'database/migrations/2026_08_31_130000_add_selected_catalog_model_to_models_conversations_table.php',
                 'database/migrations/2026_09_08_120000_add_catalog_operation_to_models_conversations_table.php',
+                'database/migrations/2026_09_14_100000_extend_models_conversations_for_chat.php',
             ],
         ])->assertExitCode(0);
     }
@@ -229,8 +230,8 @@ class FreeAiModelFlowTest extends TestCase
             'user_id' => $user->id,
             'model_id' => $chatTool->id,
             'selected_model_source' => 'general_chat',
-            'selected_model_catalog_id' => 14,
-            'selected_provider_model_id' => 'openai/gpt-5.6-sol',
+            'selected_model_id' => 14,
+            'provider_model_id' => 'openai/gpt-5.6-sol',
             'selected_model_name' => 'GPT-5.6 Sol',
         ]);
 
@@ -284,8 +285,8 @@ class FreeAiModelFlowTest extends TestCase
         ])->assertOk()->assertJsonPath('data.selected_model.name', 'North Mini Code Free');
         $this->assertDatabaseHas('models_conversations', [
             'uuid' => $uuid, 'model_id' => $tool->id, 'user_id' => $user->id,
-            'selected_model_source' => 'general_code', 'selected_model_catalog_id' => 17,
-            'selected_provider_model_id' => 'cohere/north-mini-code:free',
+            'selected_model_source' => 'general_code', 'selected_model_id' => 17,
+            'provider_model_id' => 'cohere/north-mini-code:free',
             'selected_model_name' => 'North Mini Code Free',
         ]);
         $this->apiRequest()->getJson("{$url}/{$uuid}")->assertOk()
@@ -329,8 +330,8 @@ class FreeAiModelFlowTest extends TestCase
             'model_id' => $tool->id,
             'user_id' => $user->id,
             'selected_model_source' => 'general_translation',
-            'selected_model_catalog_id' => 4,
-            'selected_provider_model_id' => 'openrouter/free',
+            'selected_model_id' => 4,
+            'provider_model_id' => 'openrouter/free',
             'selected_model_name' => 'Free Translation Router',
         ]);
 
@@ -379,8 +380,8 @@ class FreeAiModelFlowTest extends TestCase
             'model_id' => $tool->id,
             'user_id' => $user->id,
             'selected_model_source' => 'general_media',
-            'selected_model_catalog_id' => 28,
-            'selected_provider_model_id' => 'bfl:5@1',
+            'selected_model_id' => 28,
+            'provider_model_id' => 'bfl:5@1',
             'selected_model_name' => 'FLUX.2 Pro',
         ]);
 
@@ -446,12 +447,12 @@ class FreeAiModelFlowTest extends TestCase
         $this->assertDatabaseHas('models_conversations', [
             'uuid' => $speechUuid,
             'catalog_operation' => 'speech_to_text',
-            'selected_model_catalog_id' => 35,
+            'selected_model_id' => 35,
         ]);
         $this->assertDatabaseHas('models_conversations', [
             'uuid' => $voiceUuid,
             'catalog_operation' => 'text_to_speech',
-            'selected_model_catalog_id' => 8,
+            'selected_model_id' => 8,
         ]);
 
         $legacyUuid = (string) \Illuminate\Support\Str::uuid();
@@ -462,8 +463,8 @@ class FreeAiModelFlowTest extends TestCase
             'is_pinned' => false,
             'is_archived' => false,
             'selected_model_source' => 'general_audio',
-            'selected_model_catalog_id' => 5,
-            'selected_provider_model_id' => 'openai/whisper-large-v3',
+            'selected_model_id' => 5,
+            'provider_model_id' => 'openai/whisper-large-v3',
             'selected_model_name' => 'Whisper Large V3',
         ]);
 
@@ -532,8 +533,8 @@ class FreeAiModelFlowTest extends TestCase
         ])->assertOk()->assertJsonPath('data.selected_model.name', 'Later');
         $this->assertDatabaseHas('models_conversations', [
             'uuid' => $uuid, 'user_id' => $user->id, 'model_id' => $tool->id,
-            'selected_model_source' => $source, 'selected_model_catalog_id' => 30,
-            'selected_provider_model_id' => 'fixture/later', 'selected_model_name' => 'Later',
+            'selected_model_source' => $source, 'selected_model_id' => 30,
+            'provider_model_id' => 'fixture/later', 'selected_model_name' => 'Later',
         ]);
         $this->apiRequest()->getJson("{$url}/{$uuid}")->assertOk()
             ->assertJsonPath('data.uuid', $uuid)

@@ -1,4 +1,5 @@
 import api from "@/services/ApiClient";
+import walletService from "@/services/profile/walletService";
 
 const unwrap = (response) => response.data;
 const operationParams = (catalogOperation) => catalogOperation
@@ -39,6 +40,34 @@ const freeAiModelService = {
             `/free-ai-models/${slug}/conversations/${uuid}`,
             operationParams(catalogOperation)
         ));
+    },
+
+    async getMessages(slug, uuid, cursor = null, catalogOperation = null) {
+        return unwrap(await api.get(`/free-ai-models/${slug}/conversations/${uuid}/messages`, {
+            params: {
+                ...(cursor ? { cursor } : {}),
+                ...(catalogOperation ? { catalog_operation: catalogOperation } : {}),
+            },
+        }));
+    },
+
+    async sendMessage(slug, uuid, userMessage, requestId, catalogOperation = null) {
+        return unwrap(await api.post(`/free-ai-models/${slug}/conversations/${uuid}/messages`, {
+            user_message: userMessage,
+            request_id: requestId,
+        }, {
+            ...operationParams(catalogOperation),
+            timeout: 120000,
+        }));
+    },
+
+    // The send endpoint saves both messages and charges the wallet atomically.
+    async saveMessage(slug, uuid, userMessage, requestId, catalogOperation = null) {
+        return this.sendMessage(slug, uuid, userMessage, requestId, catalogOperation);
+    },
+
+    async getWallet() {
+        return walletService.getWallet();
     },
 
     async updateConversationModel(slug, uuid, selectedModel, catalogOperation = null) {

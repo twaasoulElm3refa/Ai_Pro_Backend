@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FreeAiModelResource;
 use App\Models\MainFreeAiModels;
 use App\Models\ModelsConverstaions;
+use App\Services\FreeAiModels\FreeAiChatException;
+use App\Services\FreeAiModels\FreeAiChatService;
 use App\Services\ModelCatalogService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -121,9 +123,10 @@ class FreeAiModelController extends Controller
                 'updated_at',
                 'selected_model_source',
                 'catalog_operation',
-                'selected_model_catalog_id',
-                'selected_provider_model_id',
+                'selected_model_id',
+                'provider_model_id',
                 'selected_model_name',
+                'title',
             ])
             ->map(fn (ModelsConverstaions $conversation) => $this->conversationSummary($conversation, $model))
             ->values();
@@ -162,6 +165,62 @@ class FreeAiModelController extends Controller
             $this->conversationPayload($request, $conversation, $model),
             'Free AI model conversation fetched successfully.'
         );
+    }
+
+    public function messages(Request $request, string $slug, string $uuid)
+    {
+        $conversation = $this->ownedConversation($request, $slug, $uuid);
+        if (! $conversation) {
+            return $this->notFound('Free AI model conversation not found.');
+        }
+
+        $messages = $conversation->messages()
+            ->orderByDesc('id')
+            ->cursorPaginate(30, ['id', 'role', 'content', 'request_id', 'created_at']);
+
+        return $this->success([
+            'items' => collect($messages->items())->reverse()->values(),
+            'next_cursor' => $messages->nextCursor()?->encode(),
+        ]);
+    }
+
+    public function sendMessage(Request $request, string $slug, string $uuid, FreeAiChatService $chat)
+    {
+        $validated = $request->validate([
+            'user_message' => ['required', 'string', 'max:5000'],
+            'request_id' => ['required', 'uuid'],
+        ]);
+        $message = trim($validated['user_message']);
+        if ($message === '') {
+            throw ValidationException::withMessages(['user_message' => ['A message is required.']]);
+        }
+
+        $conversation = $this->ownedConversation($request, $slug, $uuid);
+        if (! $conversation) {
+            return $this->notFound('Free AI model conversation not found.');
+        }
+
+        try {
+            return $this->success($chat->send($conversation, $message, $validated['request_id']));
+        } catch (FreeAiChatException $exception) {
+            return $this->error($exception->getMessage(), $exception->statusCode);
+        }
+    }
+
+    private function ownedConversation(Request $request, string $slug, string $uuid): ?ModelsConverstaions
+    {
+        $model = $this->activeModelsQuery()->where('slug', $slug)->first();
+        if (! $model) return null;
+
+        $operation = $this->catalogOperationForRequest($model, $request);
+        $query = ModelsConverstaions::query()
+            ->where('uuid', $uuid)
+            ->where('user_id', $request->user()->id)
+            ->where('model_id', $model->id)
+            ->where('is_archived', false);
+        $this->scopeConversationOperation($query, $model, $operation);
+
+        return $query->first();
     }
 
     public function updateConversationModel(Request $request, string $slug, string $uuid)
@@ -341,17 +400,17 @@ class FreeAiModelController extends Controller
                 ->first([
                     'selected_model_source',
                     'catalog_operation',
-                    'selected_model_catalog_id',
-                    'selected_provider_model_id',
+                    'selected_model_id',
+                    'provider_model_id',
                 ]);
 
             $selected = $recentSelection && $recentSelection->selected_model_source === $source
                 ? $items->first(fn (array $item) => $this->catalogBoolean($item['is_available'] ?? true)
                     && (
-                        (string) ($item['id'] ?? '') === (string) $recentSelection->selected_model_catalog_id
+                        (string) ($item['id'] ?? '') === (string) $recentSelection->selected_model_id
                         || (
-                            $recentSelection->selected_provider_model_id
-                            && (string) ($item['provider_model_id'] ?? '') === $recentSelection->selected_provider_model_id
+                            $recentSelection->provider_model_id
+                            && (string) ($item['provider_model_id'] ?? '') === $recentSelection->provider_model_id
                         )
                     )
                 )
@@ -421,8 +480,10 @@ class FreeAiModelController extends Controller
     {
         return [
             'selected_model_source' => $source,
-            'selected_model_catalog_id' => is_numeric($item['id'] ?? null) ? (int) $item['id'] : null,
-            'selected_provider_model_id' => (string) ($item['provider_model_id'] ?? ''),
+            'selected_model_id' => is_numeric($item['id'] ?? null) ? (int) $item['id'] : null,
+            'provider_model_id' => (string) ($item['provider_model_id'] ?? ''),
+            'provider' => (string) ($item['provider'] ?? ''),
+            'tool_key' => (string) ($item['tool_key'] ?? ''),
             'selected_model_name' => (string) ($item['name'] ?? 'AI Model'),
         ];
     }
@@ -448,8 +509,8 @@ class FreeAiModelController extends Controller
 
         return [
             'source' => $conversation->selected_model_source,
-            'id' => $conversation->selected_model_catalog_id,
-            'provider_model_id' => $conversation->selected_provider_model_id,
+            'id' => $conversation->selected_model_id,
+            'provider_model_id' => $conversation->provider_model_id,
             'name' => $conversation->selected_model_name,
         ];
     }
@@ -460,7 +521,7 @@ class FreeAiModelController extends Controller
     ): array {
         return [
             'uuid' => $conversation->uuid,
-            'title' => null,
+            'title' => $conversation->title,
             'is_pinned' => (bool) $conversation->is_pinned,
             'created_at' => $conversation->created_at?->toISOString(),
             'updated_at' => $conversation->updated_at?->toISOString(),
@@ -476,6 +537,7 @@ class FreeAiModelController extends Controller
     ): array {
         return [
             'uuid' => $conversation->uuid,
+            'title' => $conversation->title,
             'is_pinned' => (bool) $conversation->is_pinned,
             'is_archived' => (bool) $conversation->is_archived,
             'created_at' => $conversation->created_at?->toISOString(),

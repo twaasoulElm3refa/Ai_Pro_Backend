@@ -13,6 +13,17 @@
     "description": "اختر الأداة التي تحتاجها"
   },
   "freeAiModels": {
+    "chatStartHint": "اكتب رسالتك لبدء المحادثة.",
+    "writeMessage": "اكتب رسالتك...",
+    "loadOlderMessages": "تحميل الرسائل السابقة",
+    "you": "أنت",
+    "assistant": "المساعد",
+    "walletBalance": "رصيد المحفظة",
+    "messagesLoadFailed": "تعذر تحميل الرسائل.",
+    "insufficientBalance": "رصيدك لا يكفي لإرسال الطلب، يرجى شحن المحفظة",
+    "rateLimited": "طلبات كثيرة، حاول بعد قليل.",
+    "chatTimeout": "انتهت مهلة الطلب، تحقق من المحادثة قبل إعادة الإرسال.",
+    "chatFailed": "تعذر إرسال الرسالة. حاول مجددًا.",
     "chooseAudioOperation": "اختر كيف تريد استخدام الصوت والصوتيات",
     "speechToText": "تحويل الصوت إلى نص",
     "speechToTextDescription": "حوّل الملفات الصوتية إلى نص مكتوب",

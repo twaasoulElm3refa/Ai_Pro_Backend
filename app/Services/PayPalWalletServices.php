@@ -297,13 +297,14 @@ class PayPalWalletServices implements PaymentInterface
 
             $points = $this->amountToPoints((string) $order->amount);
             $before = (int) $wallet->balance;
-            if ($points <= 0 || $before > PHP_INT_MAX - $points) {
+            $paybackBefore = max(0, (int) $wallet->payback_balance);
+            $creditedPoints = $points - min($points, $paybackBefore);
+            if ($points <= 0 || $before > PHP_INT_MAX - $creditedPoints) {
                 $this->validationFailure($order, 'wallet_balance_overflow');
             }
 
-            $wallet->forceFill(['balance' => $before + $points])->save();
-            $wallet->refresh();
-            $after = (int) $wallet->balance;
+            $credit = app(WalletDepositCreditService::class)->apply($wallet, $points);
+            $after = $credit['balance_after'];
 
             WalletTransaction::create([
                 'user_id' => $order->user_id,
@@ -314,6 +315,8 @@ class PayPalWalletServices implements PaymentInterface
                 'description' => 'PayPal wallet deposit',
                 'balance_before' => $before,
                 'balance_after' => $after,
+                'payback_before' => $credit['payback_before'],
+                'payback_after' => $credit['payback_after'],
                 'slug' => $order->idempotency_key,
             ]);
 

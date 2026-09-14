@@ -294,13 +294,14 @@ class MoyasarWalletService
 
             $points = $this->amountToPoints((string) $locked->amount);
             $before = (int) $wallet->balance;
-            if ($points <= 0 || $before > PHP_INT_MAX - $points) {
+            $paybackBefore = max(0, (int) $wallet->payback_balance);
+            $creditedPoints = $points - min($points, $paybackBefore);
+            if ($points <= 0 || $before > PHP_INT_MAX - $creditedPoints) {
                 $this->validationFailure($locked, 'wallet_balance_overflow');
             }
 
-            $wallet->forceFill(['balance' => $before + $points])->save();
-            $wallet->refresh();
-            $after = (int) $wallet->balance;
+            $credit = app(WalletDepositCreditService::class)->apply($wallet, $points);
+            $after = $credit['balance_after'];
 
             WalletTransaction::create([
                 'user_id' => $locked->user_id,
@@ -311,6 +312,8 @@ class MoyasarWalletService
                 'description' => 'Moyasar wallet deposit',
                 'balance_before' => $before,
                 'balance_after' => $after,
+                'payback_before' => $credit['payback_before'],
+                'payback_after' => $credit['payback_after'],
                 'slug' => $locked->idempotency_key,
             ]);
 

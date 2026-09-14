@@ -12,7 +12,18 @@
         "title": "AI Tools",
         "description": "Choose the tool you need"
     },
-    "freeAiModels": {
+  "freeAiModels": {
+    "chatStartHint": "Write a message to start the conversation.",
+    "writeMessage": "Write your message...",
+    "loadOlderMessages": "Load earlier messages",
+    "you": "You",
+    "assistant": "Assistant",
+    "walletBalance": "Wallet balance",
+    "messagesLoadFailed": "Could not load messages.",
+    "insufficientBalance": "Your balance is too low. Please top up your wallet.",
+    "rateLimited": "Too many requests. Please try again shortly.",
+    "chatTimeout": "The request timed out. Check the conversation before sending again.",
+    "chatFailed": "Could not send the message. Please try again.",
         "chooseAudioOperation": "Choose how you want to use Voice & Audio",
         "speechToText": "Speech to Text",
         "speechToTextDescription": "Convert audio into written text",

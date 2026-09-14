@@ -18,6 +18,8 @@ class WalletTransaction extends Model
             'points' => 'integer',
             'balance_before' => 'integer',
             'balance_after' => 'integer',
+            'payback_before' => 'integer',
+            'payback_after' => 'integer',
         ];
     }
 
@@ -34,6 +36,11 @@ class WalletTransaction extends Model
     public function payment()
     {
         return $this->belongsTo(Payment::class,'payment_id');
+    }
+
+    public function modelsCostLogger()
+    {
+        return $this->belongsTo(ModelsCostLogger::class, 'models_cost_logger_id');
     }
 
 }

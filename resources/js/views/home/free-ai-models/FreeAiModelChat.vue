@@ -116,12 +116,25 @@
                     {{ t("freeAiModels.tryAgain") }}
                 </button>
             </div>
-            <section v-else class="messages" :aria-label="t('freeAiModels.conversation')">
-                <div class="empty-conversation">
+            <section v-else ref="messagesContainer" class="messages" :aria-label="t('freeAiModels.conversation')">
+                <div v-if="!messages.length" class="empty-conversation">
                     <span class="empty-icon"><i class="bi bi-chat-dots"></i></span>
                     <h1>{{ t("freeAiModels.emptyChatTitle", { name: mainTool.name || readableSlug }) }}</h1>
-                    <p>{{ t("freeAiModels.emptyChatDescription") }}</p>
-                    <span class="pending-pill"><i class="bi bi-clock-history"></i>{{ t("freeAiModels.integrationPending") }}</span>
+                    <p>{{ canChat ? t("freeAiModels.chatStartHint") : t("freeAiModels.emptyChatDescription") }}</p>
+                    <span v-if="!canChat" class="pending-pill"><i class="bi bi-clock-history"></i>{{ t("freeAiModels.integrationPending") }}</span>
+                </div>
+                <div v-else class="chat-message-list">
+                    <button v-if="nextMessagesCursor" type="button" class="older-messages-button" :disabled="loadingOlderMessages" @click="loadOlderMessages">
+                        {{ loadingOlderMessages ? t("freeAiModels.loadingConversations") : t("freeAiModels.loadOlderMessages") }}
+                    </button>
+                    <div v-for="item in messages" :key="item.id || item.request_id + item.role" class="chat-message" :class="item.role">
+                        <span class="chat-message-role">{{ item.role === "user" ? t("freeAiModels.you") : t("freeAiModels.assistant") }}</span>
+                        <p>{{ item.content }}</p>
+                    </div>
+                    <div v-if="sendingMessage" class="chat-message assistant pending" aria-live="polite">
+                        <span class="chat-message-role">{{ t("freeAiModels.assistant") }}</span>
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    </div>
                 </div>
             </section>
 
@@ -133,23 +146,28 @@
                             :selected-model="selectedModel"
                             :loading="catalogLoading"
                             :error="catalogError"
-                            :disabled="!conversation?.uuid || modelSaving"
+                            :disabled="!conversation?.uuid || modelSaving || sendingMessage"
                             @select="selectExecutionModel"
                             @retry="loadCatalog(true)"
                         />
                         <div class="message-compose-row">
                             <textarea
+                                v-model="messageDraft"
                                 rows="1"
-                                :placeholder="t('freeAiModels.inputPlaceholder')"
-                                :aria-label="t('freeAiModels.inputPlaceholder')"
-                                disabled
+                                :placeholder="canChat ? t('freeAiModels.writeMessage') : t('freeAiModels.inputPlaceholder')"
+                                :aria-label="canChat ? t('freeAiModels.writeMessage') : t('freeAiModels.inputPlaceholder')"
+                                :disabled="!canChat || !conversation?.uuid || loadingConversation || sendingMessage"
+                                @keydown.enter.exact.prevent="sendMessage"
                             ></textarea>
-                            <button type="button" class="send-button" disabled :aria-label="t('freeAiModels.send')">
-                                <i class="bi bi-send-fill"></i>
+                            <button type="button" class="send-button" :disabled="!canSend" :aria-label="t('freeAiModels.send')" @click="sendMessage">
+                                <span v-if="sendingMessage" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                <i v-else class="bi bi-send-fill"></i>
                             </button>
                         </div>
                     </div>
-                    <p class="composer-hint"><i class="bi bi-info-circle"></i>{{ t("freeAiModels.composerUnavailableHint") }}</p>
+                    <p v-if="sendError" class="composer-hint chat-error" role="alert">{{ sendError }}</p>
+                    <p v-else-if="canChat" class="composer-hint"><i class="bi bi-wallet2"></i>{{ t("freeAiModels.walletBalance") }}: {{ walletBalance ?? "—" }}</p>
+                    <p v-else class="composer-hint"><i class="bi bi-info-circle"></i>{{ t("freeAiModels.composerUnavailableHint") }}</p>
                 </div>
             </footer>
         </section>
@@ -157,7 +175,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { v4 as uuidv4 } from "uuid";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
@@ -185,16 +204,30 @@ const catalogLoading = ref(false);
 const catalogError = ref(false);
 const selectedModel = ref(null);
 const modelSaving = ref(false);
+const messages = ref([]);
+const messageDraft = ref("");
+const sendingMessage = ref(false);
+const sendError = ref("");
+const walletBalance = ref(null);
+const walletPayback = ref(0);
+const nextMessagesCursor = ref(null);
+const loadingOlderMessages = ref(false);
+const messagesContainer = ref(null);
 const sidebarOpen = ref(false);
 const desktopSidebarCollapsed = ref(false);
 const viewportWidth = ref(typeof window === "undefined" ? 1200 : window.innerWidth);
 let loadedCatalogKey = null;
 let catalogRequestId = 0;
 let conversationRequestId = 0;
+let messagesRequestId = 0;
 
 const activeUuid = computed(() => String(route.params.uuid || ""));
 const pageSlug = computed(() => String(route.params.slug || ""));
 const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value));
+const canChat = computed(() => catalogSource.value === "general_chat" && !catalogOperation.value);
+const canSend = computed(() => canChat.value && !!conversation.value?.uuid && !!selectedModel.value?.isAvailable
+    && !catalogLoading.value && !catalogError.value && !loadingConversation.value
+    && !modelSaving.value && !sendingMessage.value && !!messageDraft.value.trim());
 const isMobile = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT);
 const isRtl = computed(() => locale.value === "ar");
 const readableSlug = computed(() => pageSlug.value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
@@ -305,12 +338,114 @@ async function loadConversation() {
         conversation.value = response?.data || null;
         syncSelectedModel();
         loadCatalog();
+        if (canChat.value) await Promise.all([loadMessages(), refreshWallet().catch(() => {})]);
+        else messages.value = [];
     } catch {
         if (!isCurrent()) return;
         conversation.value = null;
         loadError.value = true;
     } finally {
         if (isCurrent()) loadingConversation.value = false;
+    }
+}
+
+async function loadMessages() {
+    const requestId = ++messagesRequestId;
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
+    try {
+        const response = await freeAiModelService.getMessages(slug, uuid, null, requiredCatalogOperation.value);
+        if (requestId !== messagesRequestId || slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        messages.value = response?.data?.items || [];
+        nextMessagesCursor.value = response?.data?.next_cursor || null;
+        await scrollToBottom();
+    } catch {
+        if (requestId === messagesRequestId) sendError.value = t("freeAiModels.messagesLoadFailed");
+    }
+}
+
+async function loadOlderMessages() {
+    if (!nextMessagesCursor.value || loadingOlderMessages.value) return;
+    const requestId = messagesRequestId;
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
+    const cursor = nextMessagesCursor.value;
+    loadingOlderMessages.value = true;
+    try {
+        const response = await freeAiModelService.getMessages(slug, uuid, cursor, requiredCatalogOperation.value);
+        if (requestId !== messagesRequestId || slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        messages.value = [...(response?.data?.items || []), ...messages.value];
+        nextMessagesCursor.value = response?.data?.next_cursor || null;
+    } catch {
+        if (requestId === messagesRequestId) sendError.value = t("freeAiModels.messagesLoadFailed");
+    } finally {
+        loadingOlderMessages.value = false;
+    }
+}
+
+async function scrollToBottom() {
+    await nextTick();
+    if (messagesContainer.value) messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+}
+
+async function refreshWallet() {
+    const response = await freeAiModelService.getWallet();
+    walletBalance.value = Number(response?.data?.balance ?? 0);
+    walletPayback.value = Number(response?.data?.payback_balance ?? 0);
+    return walletBalance.value;
+}
+
+async function sendMessage() {
+    if (!canSend.value) return;
+    const message = messageDraft.value.trim();
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
+    sendError.value = "";
+    sendingMessage.value = true;
+    try {
+        const balance = await refreshWallet();
+        const estimate = Math.max(1, Math.ceil(new TextEncoder().encode(message).length / 4)) + 1;
+        if (balance < estimate || walletPayback.value > 0) {
+            sendError.value = t("freeAiModels.insufficientBalance");
+            return;
+        }
+
+        if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
+            const selected = await freeAiModelService.updateConversationModel(
+                slug, uuid, selectedModel.value, requiredCatalogOperation.value
+            );
+            if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+            conversation.value = selected?.data || conversation.value;
+        }
+
+        const requestId = uuidv4();
+        messageDraft.value = "";
+        messages.value.push({ id: `pending-${requestId}`, request_id: requestId, role: "user", content: message });
+        await scrollToBottom();
+        const response = await freeAiModelService.sendMessage(slug, uuid, message, requestId, requiredCatalogOperation.value);
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        const result = response?.data;
+        if (!result?.assistant_message?.content) throw new Error("Invalid chat response");
+        const pendingIndex = messages.value.findIndex((item) => item.id === `pending-${requestId}`);
+        if (pendingIndex !== -1) messages.value.splice(pendingIndex, 1, result.user_message);
+        messages.value.push(result.assistant_message);
+        walletBalance.value = result.wallet?.balance ?? walletBalance.value;
+        walletPayback.value = result.wallet?.payback_balance ?? walletPayback.value;
+        window.dispatchEvent(new CustomEvent("wallet-updated", { detail: result.wallet }));
+        try { localStorage.setItem("wallet-updated-at", String(Date.now())); } catch { /* Other tabs refresh on navigation. */ }
+        conversation.value = { ...conversation.value, title: conversation.value?.title || message.slice(0, 80) };
+        upsertConversationSummary(conversation.value);
+        await scrollToBottom();
+    } catch (error) {
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        const status = error?.response?.status;
+        sendError.value = status === 402 ? t("freeAiModels.insufficientBalance")
+            : status === 429 ? t("freeAiModels.rateLimited")
+                : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.chatTimeout")
+                    : t("freeAiModels.chatFailed");
+        await loadMessages();
+    } finally {
+        sendingMessage.value = false;
     }
 }
 
@@ -332,7 +467,7 @@ async function loadConversations() {
 function summaryFromConversation(item) {
     return {
         uuid: item.uuid,
-        title: null,
+        title: item.title || null,
         is_pinned: Boolean(item.is_pinned),
         created_at: item.created_at,
         updated_at: item.updated_at || item.created_at,
@@ -466,6 +601,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     catalogRequestId++;
     conversationRequestId++;
+    messagesRequestId++;
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("lang-changed", handleLanguageChanged);
     document.body.style.overflow = "";
@@ -488,6 +624,11 @@ watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
         catalogError.value = false;
         loadConversations();
     }
+    messagesRequestId++;
+    messages.value = [];
+    nextMessagesCursor.value = null;
+    messageDraft.value = "";
+    sendError.value = "";
     loadConversation();
 });
 </script>
@@ -844,6 +985,59 @@ button {
         radial-gradient(circle at 50% 30%, rgba(43, 166, 222, 0.07), transparent 34%),
         var(--theme-bg);
 }
+
+.chat-message-list {
+    width: min(900px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.chat-message {
+    max-width: min(80%, 700px);
+    padding: 13px 17px;
+    border-radius: 16px;
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-border);
+    color: var(--theme-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.chat-message.user {
+    align-self: flex-end;
+    background: var(--theme-surface-elevated);
+}
+
+.chat-message.assistant {
+    align-self: flex-start;
+}
+
+.chat-message-role {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--theme-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.chat-message p {
+    margin: 0;
+    white-space: pre-wrap;
+    line-height: 1.65;
+}
+
+.older-messages-button {
+    align-self: center;
+    border: 1px solid var(--theme-border);
+    border-radius: 10px;
+    padding: 7px 14px;
+    color: var(--theme-text-primary);
+    background: var(--theme-surface);
+}
+
+.chat-error { color: var(--app-danger); }
 
 .empty-conversation,
 .conversation-state {

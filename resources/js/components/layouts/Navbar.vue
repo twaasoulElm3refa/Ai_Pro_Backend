@@ -678,6 +678,19 @@ const fetchWallet = async () => {
     }
 };
 
+const handleWalletUpdated = (event) => {
+    const balance = Number(event?.detail?.balance);
+    if (!Number.isFinite(balance)) return;
+    WalletBalance.value = balance;
+    writeCache(scopedCacheKey(WALLET_CACHE_PREFIX), balance);
+};
+
+const handleWalletStorageChange = (event) => {
+    if (event.key !== "wallet-updated-at") return;
+    try { sessionStorage.removeItem(scopedCacheKey(WALLET_CACHE_PREFIX)); } catch { /* Storage may be disabled. */ }
+    fetchWallet();
+};
+
 const goToWallet = () => {
     window.location.href = walletUrl.value;
 };
@@ -788,6 +801,8 @@ onMounted(() => {
     scheduleHeroVideoLazyLoad();
 
     window.addEventListener("storage", handleThemeStorageChange);
+    window.addEventListener("storage", handleWalletStorageChange);
+    window.addEventListener("wallet-updated", handleWalletUpdated);
     window.addEventListener("login", refreshUserState);
     window.addEventListener("lang-changed", handleLangChanged);
     document.addEventListener("click", handleDocumentClick);
@@ -797,6 +812,8 @@ onBeforeUnmount(() => {
     cleanupHeroVideoLazyLoad();
 
     window.removeEventListener("storage", handleThemeStorageChange);
+    window.removeEventListener("storage", handleWalletStorageChange);
+    window.removeEventListener("wallet-updated", handleWalletUpdated);
     window.removeEventListener("login", refreshUserState);
     window.removeEventListener("lang-changed", handleLangChanged);
     document.removeEventListener("click", handleDocumentClick);

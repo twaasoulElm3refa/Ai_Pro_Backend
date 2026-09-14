@@ -74,7 +74,7 @@ test("keeps the execution-model selector in the chat composer and off the tool l
 
     assert.match(chat, /<FreeAiModelSelector/);
     assert.match(chat, /class="composer-box"/);
-    assert.match(chat, /:disabled="!conversation\?\.uuid \|\| modelSaving"/);
+    assert.match(chat, /:disabled="!conversation\?\.uuid \|\| modelSaving \|\| sendingMessage"/);
     assert.doesNotMatch(show, /FreeAiModelSelector|modelCatalogService/);
 });
 

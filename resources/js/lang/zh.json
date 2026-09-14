@@ -12,7 +12,18 @@
         "title": "AI 工具",
         "description": "选择您需要的工具"
     },
-    "freeAiModels": {
+  "freeAiModels": {
+    "chatStartHint": "输入消息以开始对话。",
+    "writeMessage": "输入消息...",
+    "loadOlderMessages": "加载更早的消息",
+    "you": "你",
+    "assistant": "助手",
+    "walletBalance": "钱包余额",
+    "messagesLoadFailed": "无法加载消息。",
+    "insufficientBalance": "余额不足，请充值钱包。",
+    "rateLimited": "请求过多，请稍后重试。",
+    "chatTimeout": "请求超时，重新发送前请检查对话。",
+    "chatFailed": "消息发送失败，请重试。",
         "chooseAudioOperation": "选择语音与音频的使用方式",
         "speechToText": "语音转文字",
         "speechToTextDescription": "将音频转换为书面文字",

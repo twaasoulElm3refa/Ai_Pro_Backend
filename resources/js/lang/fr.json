@@ -12,7 +12,18 @@
         "title": "Outils IA",
         "description": "Choisissez l'outil dont vous avez besoin"
     },
-    "freeAiModels": {
+  "freeAiModels": {
+    "chatStartHint": "Écrivez un message pour commencer la conversation.",
+    "writeMessage": "Écrivez votre message...",
+    "loadOlderMessages": "Charger les messages précédents",
+    "you": "Vous",
+    "assistant": "Assistant",
+    "walletBalance": "Solde du portefeuille",
+    "messagesLoadFailed": "Impossible de charger les messages.",
+    "insufficientBalance": "Solde insuffisant. Veuillez recharger votre portefeuille.",
+    "rateLimited": "Trop de demandes. Réessayez bientôt.",
+    "chatTimeout": "Délai dépassé. Vérifiez la conversation avant de réenvoyer.",
+    "chatFailed": "Impossible d'envoyer le message. Réessayez.",
         "chooseAudioOperation": "Choisissez comment utiliser Voice & Audio",
         "speechToText": "Audio en texte",
         "speechToTextDescription": "Convertissez l’audio en texte écrit",

@@ -69,4 +69,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(ModelsConverstaions::class,'user_id');
     }
+
+    public function modelMessages()
+    {
+        return $this->hasMany(ModelsMessage::class, 'user_id');
+    }
+
+    public function modelCostLoggers()
+    {
+        return $this->hasMany(ModelsCostLogger::class, 'user_id');
+    }
 }
