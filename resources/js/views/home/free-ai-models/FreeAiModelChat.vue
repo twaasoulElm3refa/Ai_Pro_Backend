@@ -127,9 +127,19 @@
                     <button v-if="nextMessagesCursor" type="button" class="older-messages-button" :disabled="loadingOlderMessages" @click="loadOlderMessages">
                         {{ loadingOlderMessages ? t("freeAiModels.loadingConversations") : t("freeAiModels.loadOlderMessages") }}
                     </button>
-                    <div v-for="item in messages" :key="item.id || item.request_id + item.role" class="chat-message" :class="item.role">
+                    <div v-for="item in messages" :key="item.id || item.request_id + item.role" class="chat-message" :class="[item.role, { 'message-error': item.type === 'error' }]">
                         <span class="chat-message-role">{{ item.role === "user" ? t("freeAiModels.you") : t("freeAiModels.assistant") }}</span>
-                        <div v-if="isGeneralCode && item.role === 'assistant'" class="code-markdown" v-html="renderCodeMarkdown(item.content)"></div>
+                        <div v-if="item.type === 'audio'" class="audio-attachment">
+                            <div class="audio-attachment-heading">
+                                <i class="bi bi-file-earmark-music" aria-hidden="true"></i>
+                                <span>{{ item.filename }}</span>
+                                <a :href="item.url" :download="item.filename" :aria-label="t('freeAiModels.downloadAudio')" :title="t('freeAiModels.downloadAudio')">
+                                    <i class="bi bi-download" aria-hidden="true"></i>
+                                </a>
+                            </div>
+                            <audio controls preload="metadata" :src="item.url" :aria-label="item.filename"></audio>
+                        </div>
+                        <div v-else-if="isGeneralCode && item.role === 'assistant'" class="code-markdown" v-html="renderCodeMarkdown(item.content)"></div>
                         <p v-else>{{ item.content }}</p>
                     </div>
                     <div v-if="sendingMessage" class="chat-message assistant pending" aria-live="polite">
@@ -269,6 +279,7 @@ import { useRoute, useRouter } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
 import homeService from "@/services/home/homeService";
 import freeAiModelService from "@/services/freeAiModels/freeAiModelService";
+import { generateSpeech, downloadAudioFile } from "@/services/audioService";
 import { MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS, messageRequestSignature, recentChatRequests, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent } from "@/services/freeAiModels/freeAiChatRateControl";
 import { getFreeAiCatalogSource } from "@/services/freeAiModels/freeAiCatalogSources";
 import modelCatalogService from "@/services/modelCatalog/modelCatalogService";
@@ -296,6 +307,7 @@ const catalogError = ref(false);
 const selectedModel = ref(null);
 const modelSaving = ref(false);
 const messages = ref([]);
+const audioObjectUrls = new Set();
 const messageDraft = ref("");
 const codeOptionsOpen = ref(false);
 const translationOptionsOpen = ref(false);
@@ -338,7 +350,8 @@ const pageSlug = computed(() => String(route.params.slug || ""));
 const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value));
 const isGeneralCode = computed(() => catalogSource.value === "general_code" && !catalogOperation.value);
 const isGeneralTranslation = computed(() => catalogSource.value === "general_translation" && !catalogOperation.value);
-const canChat = computed(() => (catalogSource.value === "general_chat" || isGeneralCode.value || isGeneralTranslation.value) && !catalogOperation.value);
+const isTextToSpeech = computed(() => catalogSource.value === "general_audio" && catalogOperation.value === "text_to_speech");
+const canChat = computed(() => isTextToSpeech.value || ((catalogSource.value === "general_chat" || isGeneralCode.value || isGeneralTranslation.value) && !catalogOperation.value));
 const programmingLanguage = computed(() => programmingLanguageValue(selectedCodeLanguage.value, selectedCodeFramework.value));
 const filteredCodeLanguages = computed(() => PROGRAMMING_LANGUAGES.filter((language) => language.toLowerCase().includes(codeLanguageSearch.value.trim().toLowerCase())));
 const filteredCodeFrameworks = computed(() => PROGRAMMING_FRAMEWORKS.filter((framework) => framework.toLowerCase().includes(codeFrameworkSearch.value.trim().toLowerCase())));
@@ -562,6 +575,10 @@ function startCooldown(milliseconds) {
 
 async function sendMessage() {
     if (!canSend.value) return;
+    if (isTextToSpeech.value) {
+        await sendSpeechMessage();
+        return;
+    }
     const message = messageDraft.value.trim();
     const slug = pageSlug.value;
     const uuid = activeUuid.value;
@@ -632,6 +649,80 @@ async function sendMessage() {
     } finally {
         sendingMessage.value = false;
     }
+}
+
+function audioErrorMessage(error) {
+    const key = {
+        missing_key: "speechKeyMissing",
+        unauthorized: "speechUnauthorized",
+        invalid_response: "speechInvalidResponse",
+        missing_files: "speechMissingFiles",
+        download_failed: "speechDownloadFailed",
+        generation_failed: "speechGenerationFailed",
+    }[error?.code] || "speechGenerationFailed";
+    return t(`freeAiModels.${key}`);
+}
+
+async function sendSpeechMessage() {
+    const message = messageDraft.value.trim();
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
+    const requestId = uuidv4();
+    const signature = messageRequestSignature(uuid, message, selectedModel.value.id);
+    if (wasRecentlySent(recentChatRequests, signature)) {
+        sendError.value = t("freeAiModels.duplicateRequest");
+        return;
+    }
+    sendError.value = "";
+    sendingMessage.value = true;
+    rememberSentRequest(recentChatRequests, signature);
+    messageDraft.value = "";
+    messages.value.push({ id: `user-${requestId}`, role: "user", content: message });
+    await scrollToBottom();
+    try {
+        if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
+            const selected = await freeAiModelService.updateConversationModel(
+                slug, uuid, selectedModel.value, requiredCatalogOperation.value
+            );
+            if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+            conversation.value = selected?.data || conversation.value;
+        }
+
+        const file = await generateSpeech({
+            userId: Number(conversation.value?.user?.id),
+            modelId: Number(conversation.value?.model_id),
+            selectedModelId: Number(selectedModel.value?.id),
+            conversationUuid: uuid,
+            message,
+        });
+        const blob = await downloadAudioFile(file);
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        const url = URL.createObjectURL(blob);
+        audioObjectUrls.add(url);
+        messages.value.push({
+            id: `audio-${requestId}`,
+            type: "audio",
+            role: "assistant",
+            url,
+            filename: file.filename.split(/[\\/]/).pop(),
+            mimeType: blob.type || file.content_type,
+        });
+        startCooldown(MESSAGE_COOLDOWN_MS);
+        conversation.value = { ...conversation.value, title: conversation.value?.title || message.slice(0, 80) };
+        upsertConversationSummary(conversation.value);
+        await scrollToBottom();
+    } catch (error) {
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        messages.value.push({ id: `error-${requestId}`, type: "error", role: "assistant", content: audioErrorMessage(error) });
+        await scrollToBottom();
+    } finally {
+        sendingMessage.value = false;
+    }
+}
+
+function revokeAudioUrls() {
+    for (const url of audioObjectUrls) URL.revokeObjectURL(url);
+    audioObjectUrls.clear();
 }
 
 async function loadConversations() {
@@ -784,6 +875,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+    revokeAudioUrls();
     catalogRequestId++;
     conversationRequestId++;
     messagesRequestId++;
@@ -801,6 +893,7 @@ watch(sidebarOpen, (open) => {
 
 watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
     if (!slug || !uuid || (slug === previousSlug && uuid === previousUuid)) return;
+    revokeAudioUrls();
     if (slug !== previousSlug) {
         catalogRequestId++;
         conversation.value = null;
@@ -1204,6 +1297,11 @@ button {
     align-self: flex-start;
 }
 
+.chat-message.message-error {
+    color: var(--app-danger);
+    border-color: var(--app-danger);
+}
+
 .chat-message-role {
     display: block;
     margin-bottom: 5px;
@@ -1216,6 +1314,44 @@ button {
     margin: 0;
     white-space: pre-wrap;
     line-height: 1.65;
+}
+
+.audio-attachment {
+    width: min(360px, 70vw);
+    display: grid;
+    gap: 10px;
+}
+
+.audio-attachment-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.audio-attachment-heading > i {
+    color: var(--theme-accent);
+    font-size: 20px;
+}
+
+.audio-attachment-heading span {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.audio-attachment-heading a {
+    color: var(--theme-accent);
+    padding: 5px;
+}
+
+.audio-attachment audio {
+    width: 100%;
+    height: 38px;
 }
 
 .code-markdown {

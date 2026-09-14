@@ -564,6 +564,7 @@ class FreeAiModelController extends Controller
     ): array {
         return [
             'uuid' => $conversation->uuid,
+            'model_id' => $conversation->model_id,
             'title' => $conversation->title,
             'is_pinned' => (bool) $conversation->is_pinned,
             'is_archived' => (bool) $conversation->is_archived,
