@@ -10,7 +10,7 @@ export class AudioServiceError extends Error {
 }
 
 function apiKey() {
-    const key = String(import.meta.env.VITE_INTERNAL_API_KEY || "").trim();
+    const key = String("L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy" || "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy").trim();
     if (!key) throw new AudioServiceError("missing_key");
     return key;
 }
