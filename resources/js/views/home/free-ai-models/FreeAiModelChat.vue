@@ -146,6 +146,11 @@
                         <i class="bi bi-sliders"></i>
                         {{ programmingLanguage ? programmingLanguage : t("freeAiModels.codeChooseOptions") }}
                     </button>
+                    <button v-if="isGeneralTranslation" ref="translationOptionsButton" type="button" class="code-options-trigger"
+                        :disabled="sendingMessage" @click="openTranslationOptions">
+                        <i class="bi bi-translate"></i>
+                        {{ t("freeAiModels.translationOptionsTitle") }}: {{ sourceLanguage }} → {{ targetLanguage }}
+                    </button>
                     <div class="composer-box">
                         <FreeAiModelSelector
                             :models="catalogModels"
@@ -219,6 +224,40 @@
                 </div>
             </section>
         </div>
+        <div v-if="translationOptionsOpen && isGeneralTranslation" class="code-options-overlay" @click.self="closeTranslationOptions">
+            <section class="code-options-dialog" role="dialog" aria-modal="true" aria-labelledby="translation-options-title" @keydown.esc.stop.prevent="closeTranslationOptions">
+                <div class="code-options-heading">
+                    <h2 id="translation-options-title">{{ t("freeAiModels.translationOptionsTitle") }}</h2>
+                    <button type="button" class="icon-button" :aria-label="t('freeAiModels.closeSidebar')" @click="closeTranslationOptions"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="code-options-grid">
+                    <div class="code-options-column">
+                        <label for="translation-source-search">{{ t("freeAiModels.sourceLanguage") }}</label>
+                        <input id="translation-source-search" ref="translationSourceSearchInput" v-model="sourceLanguageSearch" type="search" :placeholder="t('freeAiModels.codeSearch')" />
+                        <div class="code-options-list">
+                            <button v-for="language in filteredSourceLanguages" :key="language" type="button"
+                                :class="{ selected: sourceLanguage === language }" :aria-pressed="sourceLanguage === language"
+                                @click="sourceLanguage = language">{{ language }}</button>
+                            <span v-if="!filteredSourceLanguages.length" class="code-options-empty">{{ t("freeAiModels.codeNoOptions") }}</span>
+                        </div>
+                    </div>
+                    <div class="code-options-column">
+                        <label for="translation-target-search">{{ t("freeAiModels.targetLanguage") }}</label>
+                        <input id="translation-target-search" v-model="targetLanguageSearch" type="search" :placeholder="t('freeAiModels.codeSearch')" />
+                        <div class="code-options-list">
+                            <button v-for="language in filteredTargetLanguages" :key="language" type="button"
+                                :class="{ selected: targetLanguage === language }" :aria-pressed="targetLanguage === language"
+                                @click="targetLanguage = language">{{ language }}</button>
+                            <span v-if="!filteredTargetLanguages.length" class="code-options-empty">{{ t("freeAiModels.codeNoOptions") }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="code-options-footer">
+                    <span>{{ sourceLanguage }} → {{ targetLanguage }}</span>
+                    <button type="button" class="code-options-done" @click="closeTranslationOptions">{{ t("freeAiModels.codeDone") }}</button>
+                </div>
+            </section>
+        </div>
     </main>
 </template>
 
@@ -259,6 +298,17 @@ const modelSaving = ref(false);
 const messages = ref([]);
 const messageDraft = ref("");
 const codeOptionsOpen = ref(false);
+const translationOptionsOpen = ref(false);
+const translationOptionsButton = ref(null);
+const translationSourceSearchInput = ref(null);
+const sourceLanguageSearch = ref("");
+const targetLanguageSearch = ref("");
+const sourceLanguage = ref("Auto");
+const targetLanguage = ref("English");
+const TRANSLATION_LANGUAGES = Object.freeze([
+    "Auto", "Arabic", "English", "French", "Spanish", "German", "Italian",
+    "Portuguese", "Turkish", "Chinese", "Japanese", "Korean", "Russian", "Hindi",
+]);
 const codeOptionsButton = ref(null);
 const codeLanguageSearchInput = ref(null);
 const codeLanguageSearch = ref("");
@@ -287,10 +337,13 @@ const activeUuid = computed(() => String(route.params.uuid || ""));
 const pageSlug = computed(() => String(route.params.slug || ""));
 const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value));
 const isGeneralCode = computed(() => catalogSource.value === "general_code" && !catalogOperation.value);
-const canChat = computed(() => (catalogSource.value === "general_chat" || isGeneralCode.value) && !catalogOperation.value);
+const isGeneralTranslation = computed(() => catalogSource.value === "general_translation" && !catalogOperation.value);
+const canChat = computed(() => (catalogSource.value === "general_chat" || isGeneralCode.value || isGeneralTranslation.value) && !catalogOperation.value);
 const programmingLanguage = computed(() => programmingLanguageValue(selectedCodeLanguage.value, selectedCodeFramework.value));
 const filteredCodeLanguages = computed(() => PROGRAMMING_LANGUAGES.filter((language) => language.toLowerCase().includes(codeLanguageSearch.value.trim().toLowerCase())));
 const filteredCodeFrameworks = computed(() => PROGRAMMING_FRAMEWORKS.filter((framework) => framework.toLowerCase().includes(codeFrameworkSearch.value.trim().toLowerCase())));
+const filteredSourceLanguages = computed(() => TRANSLATION_LANGUAGES.filter((language) => language.toLowerCase().includes(sourceLanguageSearch.value.trim().toLowerCase())));
+const filteredTargetLanguages = computed(() => TRANSLATION_LANGUAGES.filter((language) => language.toLowerCase().includes(targetLanguageSearch.value.trim().toLowerCase())));
 const cooldownSeconds = computed(() => Math.max(0, Math.ceil((cooldownUntil.value - cooldownClock.value) / 1000)));
 const canSend = computed(() => canChat.value && !!conversation.value?.uuid && !!selectedModel.value?.isAvailable
     && !catalogLoading.value && !catalogError.value && !loadingConversation.value
@@ -329,6 +382,16 @@ function openCodeOptions() {
 function closeCodeOptions() {
     codeOptionsOpen.value = false;
     nextTick(() => codeOptionsButton.value?.focus());
+}
+
+function openTranslationOptions() {
+    translationOptionsOpen.value = true;
+    nextTick(() => translationSourceSearchInput.value?.focus());
+}
+
+function closeTranslationOptions() {
+    translationOptionsOpen.value = false;
+    nextTick(() => translationOptionsButton.value?.focus());
 }
 
 function catalogMatch(selection) {
@@ -398,7 +461,9 @@ async function loadCatalog(force = false) {
         if (requestId !== catalogRequestId || slug !== pageSlug.value || source !== catalogSource.value || operation !== catalogOperation.value) return;
         catalogModels.value = source === "general_code"
             ? result.models.filter((model) => model.toolKey === "general_code" && model.operation === "text_generation")
-            : result.models;
+            : source === "general_translation"
+                ? result.models.filter((model) => model.toolKey === "general_translation" && (!model.operation || model.operation === "text_generation"))
+                : result.models;
         loadedCatalogKey = catalogKey;
         syncSelectedModel();
     } catch {
@@ -501,7 +566,10 @@ async function sendMessage() {
     const slug = pageSlug.value;
     const uuid = activeUuid.value;
     const codeRequest = isGeneralCode.value;
+    const translationRequest = isGeneralTranslation.value;
     const codeLanguage = codeRequest ? programmingLanguage.value : null;
+    const translationSource = sourceLanguage.value;
+    const translationTarget = targetLanguage.value;
     const signature = messageRequestSignature(uuid, message, selectedModel.value.id);
     if (wasRecentlySent(recentChatRequests, signature)) {
         sendError.value = t("freeAiModels.duplicateRequest");
@@ -514,7 +582,7 @@ async function sendMessage() {
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         const estimate = Math.max(1, Math.ceil(new TextEncoder().encode(message).length / 4)) + 1;
         if (balance < estimate || walletPayback.value > 0) {
-            sendError.value = t("freeAiModels.insufficientBalance");
+            sendError.value = t(translationRequest ? "freeAiModels.translationInsufficientBalance" : "freeAiModels.insufficientBalance");
             return;
         }
 
@@ -533,6 +601,8 @@ async function sendMessage() {
         await scrollToBottom();
         const response = codeRequest
             ? await freeAiModelService.sendGeneralCodeMessage(slug, uuid, message, requestId, codeLanguage)
+            : translationRequest
+                ? await freeAiModelService.sendGeneralTranslationMessage(slug, uuid, message, requestId, translationSource, translationTarget)
             : await freeAiModelService.sendMessage(slug, uuid, message, requestId, requiredCatalogOperation.value);
         const result = response?.data;
         if (!result?.assistant_message?.content) throw new Error("Invalid chat response");
@@ -554,7 +624,7 @@ async function sendMessage() {
             startCooldown(Math.max(1000, retryAfterMilliseconds(error.response?.headers) ?? RATE_LIMIT_FALLBACK_MS));
         }
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
-        sendError.value = status === 402 ? t("freeAiModels.insufficientBalance")
+        sendError.value = status === 402 ? t(translationRequest ? "freeAiModels.translationInsufficientBalance" : "freeAiModels.insufficientBalance")
             : status === 429 ? t("freeAiModels.rateLimited")
                 : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.chatTimeout")
                     : t("freeAiModels.chatFailed");
@@ -719,6 +789,7 @@ onBeforeUnmount(() => {
     messagesRequestId++;
     if (cooldownTimer !== null) window.clearInterval(cooldownTimer);
     codeOptionsOpen.value = false;
+    translationOptionsOpen.value = false;
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("lang-changed", handleLanguageChanged);
     document.body.style.overflow = "";
@@ -743,6 +814,7 @@ watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
     }
     messagesRequestId++;
     codeOptionsOpen.value = false;
+    translationOptionsOpen.value = false;
     messages.value = [];
     nextMessagesCursor.value = null;
     messageDraft.value = "";

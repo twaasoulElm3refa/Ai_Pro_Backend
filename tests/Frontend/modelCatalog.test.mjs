@@ -582,6 +582,7 @@ async function chatHarness({ route, api, catalogs, remembered = null }) {
 
 test("the shared page loads, switches, and restores translation catalog models", async () => {
     const sample = JSON.parse(await readFile("tests/Fixtures/general-translation-catalog.json", "utf8"));
+    sample.items.push({ id: 999, name: "Wrong catalog model", provider_model_id: "chat/wrong", tool_key: "general_chat", is_available: true });
     const catalogs = await catalogServiceWithApi({ get: async (endpoint) => {
         assert.equal(endpoint, "/model-catalogs/general_translation");
         return { data: { status: "success", data: sample } };
@@ -613,6 +614,7 @@ test("the shared page loads, switches, and restores translation catalog models",
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(page.catalogError.value, false);
     assert.equal(page.catalogModels.value.length, 7);
+    assert.ok(page.catalogModels.value.every((model) => model.toolKey === "general_translation"));
     assert.equal(page.selectedModel.value.name, "Qwen3 Max");
 
     const switched = page.catalogModels.value.find((model) => model.name === "Free Translation Router");

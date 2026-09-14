@@ -73,6 +73,18 @@ const freeAiModelService = {
         }));
     },
 
+    async sendGeneralTranslationMessage(slug, uuid, userMessage, requestId, sourceLanguage, targetLanguage) {
+        return unwrap(await api.post(`/free-ai-models/${slug}/conversations/${uuid}/messages`, {
+            user_message: userMessage,
+            request_id: requestId,
+            source_language: sourceLanguage,
+            target_language: targetLanguage,
+        }, {
+            timeout: 120000,
+            suppressGlobalErrorToast: true,
+        }));
+    },
+
     // The send endpoint saves both messages and charges the wallet atomically.
     async saveMessage(slug, uuid, userMessage, requestId, catalogOperation = null) {
         return this.sendMessage(slug, uuid, userMessage, requestId, catalogOperation);

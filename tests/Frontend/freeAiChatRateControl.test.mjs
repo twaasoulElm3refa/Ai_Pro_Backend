@@ -38,15 +38,15 @@ test("Retry-After accepts seconds and HTTP dates", () => {
 async function chatHarness(
     sendRequest,
     getMessages = async () => ({ data: { items: [], next_cursor: null } }),
-    { source = "general_chat", sendCodeRequest = undefined } = {}
+    { source = "general_chat", sendCodeRequest = undefined, sendTranslationRequest = undefined } = {}
 ) {
     recentChatRequests.clear();
     const page = await readFile("resources/js/views/home/free-ai-models/FreeAiModelChat.vue", "utf8");
     const script = page.match(/<script setup>([\s\S]*?)<\/script>/)[1];
     const cleanup = [];
-    const route = { params: { slug: source === "general_code" ? "programming-technology" : "chat-writing", uuid: "conversation-a" }, meta: {}, name: "free-ai-model.chat" };
+    const route = { params: { slug: source === "general_code" ? "programming-technology" : source === "general_translation" ? "translation" : "chat-writing", uuid: "conversation-a" }, meta: {}, name: "free-ai-model.chat" };
     const state = runInNewContext(
-        script.replace(/^import .*;\r?\n/gm, "") + "\n({ sendMessage, conversation, selectedModel, loadingConversation, messageDraft, messages, sendingMessage, canSend, cooldownSeconds, cooldownUntil, cooldownClock, sendError, selectedCodeLanguage, selectedCodeFramework, programmingLanguage, isGeneralCode, renderCodeMarkdown });",
+        script.replace(/^import .*;\r?\n/gm, "") + "\n({ sendMessage, conversation, selectedModel, loadingConversation, messageDraft, messages, sendingMessage, canSend, cooldownSeconds, cooldownUntil, cooldownClock, sendError, selectedCodeLanguage, selectedCodeFramework, programmingLanguage, isGeneralCode, isGeneralTranslation, sourceLanguage, targetLanguage, sourceLanguageSearch, targetLanguageSearch, filteredSourceLanguages, filteredTargetLanguages, renderCodeMarkdown });",
         {
             ref: (value) => ({ value }),
             computed: (getter) => ({ get value() { return getter(); } }),
@@ -60,6 +60,7 @@ async function chatHarness(
                 getMessages,
                 sendMessage: sendRequest,
                 sendGeneralCodeMessage: sendCodeRequest,
+                sendGeneralTranslationMessage: sendTranslationRequest,
             },
             messageRequestSignature, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent,
             recentChatRequests,
@@ -115,6 +116,42 @@ test("chat allows only one in-flight send and applies cooldown after success", a
         await state.sendMessage();
         assert.equal(sends, 1);
         assert.equal(state.sendError.value, "freeAiModels.duplicateRequest");
+    } finally {
+        cleanup();
+    }
+});
+
+test("translation defaults to Auto and English and sends selected languages through its service", async () => {
+    const calls = [];
+    const { state, cleanup } = await chatHarness(
+        () => { throw new Error("general_chat must not be called"); },
+        undefined,
+        { source: "general_translation", sendTranslationRequest: async (...args) => {
+            calls.push(args);
+            return { data: {
+                user_message: { id: 1, role: "user", content: "Bonjour" },
+                assistant_message: { id: 2, role: "assistant", content: "Hello" },
+                wallet: { balance: 90, payback_balance: 0 },
+            } };
+        } }
+    );
+
+    try {
+        assert.equal(state.isGeneralTranslation.value, true);
+        assert.equal(state.sourceLanguage.value, "Auto");
+        assert.equal(state.targetLanguage.value, "English");
+        state.sourceLanguageSearch.value = "fre";
+        assert.deepEqual(Array.from(state.filteredSourceLanguages.value), ["French"]);
+        state.targetLanguageSearch.value = "ara";
+        assert.deepEqual(Array.from(state.filteredTargetLanguages.value), ["Arabic"]);
+        state.sourceLanguage.value = "French";
+        state.targetLanguage.value = "Arabic";
+        state.messageDraft.value = "Bonjour";
+        await state.sendMessage();
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].slice(0, 3), ["translation", "conversation-a", "Bonjour"]);
+        assert.deepEqual(calls[0].slice(4), ["French", "Arabic"]);
+        assert.equal(state.messages.value.at(-1).content, "Hello");
     } finally {
         cleanup();
     }

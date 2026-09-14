@@ -18,18 +18,24 @@ use Throwable;
 
 class FreeAiChatService
 {
+    public const TRANSLATION_LANGUAGES = [
+        'Auto', 'Arabic', 'English', 'French', 'Spanish', 'German', 'Italian',
+        'Portuguese', 'Turkish', 'Chinese', 'Japanese', 'Korean', 'Russian', 'Hindi',
+    ];
+
     public function __construct(private readonly ModelCatalogService $catalogs) {}
 
     public function send(
         ModelsConverstaions $conversation,
         string $message,
         string $requestId,
-        ?string $programmingLanguage = null
+        ?string $programmingLanguage = null,
+        ?array $translationOptions = null
     ): array
     {
         try {
             return Cache::lock("free-ai-chat-user-{$conversation->user_id}", 150)
-                ->block(3, fn () => $this->sendLocked($conversation, $message, $requestId, $programmingLanguage));
+                ->block(3, fn () => $this->sendLocked($conversation, $message, $requestId, $programmingLanguage, $translationOptions));
         } catch (LockTimeoutException) {
             throw new FreeAiChatException('A previous message is still being processed.', 429, '3');
         }
@@ -39,7 +45,8 @@ class FreeAiChatService
         ModelsConverstaions $conversation,
         string $message,
         string $requestId,
-        ?string $programmingLanguage
+        ?string $programmingLanguage,
+        ?array $translationOptions
     ): array
     {
         $conversation->refresh();
@@ -48,12 +55,18 @@ class FreeAiChatService
         }
 
         $source = config("model_catalogs.free_ai_tools.{$conversation->model?->slug}");
-        if (! in_array($source, ['general_chat', 'general_code'], true)
+        if (! in_array($source, ['general_chat', 'general_code', 'general_translation'], true)
             || $conversation->selected_model_source !== $source) {
             throw new FreeAiChatException('The conversation model is unavailable for this tool.', 422);
         }
         if ($source === 'general_code' && (! is_string($programmingLanguage) || trim($programmingLanguage) === '')) {
             throw new FreeAiChatException('Select a programming language or framework.', 422);
+        }
+        if ($source === 'general_translation' && (
+            ! in_array($translationOptions['source_language'] ?? null, self::TRANSLATION_LANGUAGES, true)
+            || ! in_array($translationOptions['target_language'] ?? null, self::TRANSLATION_LANGUAGES, true)
+        )) {
+            throw new FreeAiChatException('Select source and target languages.', 422);
         }
         $parameters = $source === 'general_code'
             ? [
@@ -62,8 +75,16 @@ class FreeAiChatService
                 'include_explanation' => true,
                 'include_tests' => true,
             ]
-            : ['quality_mode' => 'balanced'];
+            : ($source === 'general_translation'
+                ? [
+                    'source_language' => $translationOptions['source_language'],
+                    'target_language' => $translationOptions['target_language'],
+                    'preserve_formatting' => true,
+                ]
+                : ['quality_mode' => 'balanced']);
         $codeMetadata = $source === 'general_code' ? $parameters : [];
+        $translationMetadata = $source === 'general_translation' ? $parameters : [];
+        $messageMetadata = $codeMetadata ?: $translationMetadata;
 
         $previous = $conversation->messages()->where('request_id', $requestId)->where('role', 'user')->first();
         if ($previous) {
@@ -73,6 +94,12 @@ class FreeAiChatService
             if ($source === 'general_code'
                 && data_get($previous->metadata, 'programming_language') !== $parameters['programming_language']) {
                 throw new FreeAiChatException('Request ID was already used with other code options.', 409);
+            }
+            if ($source === 'general_translation' && (
+                data_get($previous->metadata, 'source_language') !== $parameters['source_language']
+                || data_get($previous->metadata, 'target_language') !== $parameters['target_language']
+            )) {
+                throw new FreeAiChatException('Request ID was already used with other translation options.', 409);
             }
             $assistant = $conversation->messages()->where('request_id', $requestId)->where('role', 'assistant')->first();
             if ($assistant) return $this->result($previous, $assistant, $this->walletSnapshot($conversation->user_id));
@@ -93,7 +120,7 @@ class FreeAiChatService
             'role' => 'user',
             'content' => $message,
             'request_id' => $requestId,
-            'metadata' => ['status' => 'pending', ...$codeMetadata],
+            'metadata' => ['status' => 'pending', ...$messageMetadata],
         ]);
         if (! $conversation->title) {
             $conversation->update(['title' => mb_substr($message, 0, 80)]);
@@ -114,7 +141,12 @@ class FreeAiChatService
             'state' => ['parameters' => $parameters],
         ];
         if ($source === 'general_chat') $body['debug'] = true;
-        $endpoint = $source === 'general_code' ? 'general-code' : 'general-chat';
+        if ($source === 'general_translation') $body['state']['debug'] = true;
+        $endpoint = match ($source) {
+            'general_code' => 'general-code',
+            'general_translation' => 'general-translation',
+            default => 'general-chat',
+        };
         $url = rtrim((string) config('services.aiarabic.base_url', 'https://api.aiarabic.com'), '/').'/tasks/'.$endpoint;
         $started = microtime(true);
         try {
@@ -155,7 +187,9 @@ class FreeAiChatService
         $providerUsage = data_get($payload, 'metadata.provider_usage');
         $input = $this->tokenCount(data_get($providerUsage, 'prompt_tokens'));
         $output = $this->tokenCount(data_get($providerUsage, 'completion_tokens'));
-        $reasoning = $this->tokenCount(data_get($providerUsage, 'completion_tokens_details.reasoning_tokens', 0));
+        $reasoning = $this->tokenCount($source === 'general_translation'
+            ? data_get($providerUsage, 'reasoning_tokens', data_get($providerUsage, 'completion_tokens_details.reasoning_tokens', 0))
+            : data_get($providerUsage, 'completion_tokens_details.reasoning_tokens', 0));
         if (! is_string($content) || trim($content) === '' || $input === null || $output === null || $reasoning === null) {
             $this->updateMessageStatus($userMessage, 'failed', 'invalid_response');
             throw new FreeAiChatException('استجابة خدمة الذكاء الاصطناعي غير صالحة.', 502);
@@ -166,7 +200,7 @@ class FreeAiChatService
             throw new FreeAiChatException('بيانات استهلاك التوكنز غير صالحة.', 502);
         }
 
-        $result = DB::transaction(function () use ($conversation, $userMessage, $requestId, $content, $payload, $selection, $elapsed, $input, $output, $reasoning, $total, $source, $codeMetadata) {
+        $result = DB::transaction(function () use ($conversation, $userMessage, $requestId, $content, $payload, $selection, $elapsed, $input, $output, $reasoning, $total, $source, $messageMetadata, $codeMetadata, $translationMetadata) {
             $wallet = Wallet::query()->where('user_id', $conversation->user_id)->lockForUpdate()->firstOrFail();
             $before = max(0, (int) $wallet->balance);
             $paybackBefore = max(0, (int) $wallet->payback_balance);
@@ -180,7 +214,7 @@ class FreeAiChatService
                 'role' => 'assistant',
                 'content' => $content,
                 'request_id' => $requestId,
-                ...($codeMetadata ? ['metadata' => $codeMetadata] : []),
+                ...($messageMetadata ? ['metadata' => $messageMetadata] : []),
             ]);
             $logger = ModelsCostLogger::create([
                 'user_id' => $conversation->user_id,
@@ -198,7 +232,11 @@ class FreeAiChatService
                 'output_cost' => $this->cost(data_get($payload, 'usage.output_cost')),
                 'total_cost' => $this->cost(data_get($payload, 'usage.total_cost')),
                 'response_time_ms' => $elapsed,
-                'metadata' => ['response' => $payload, ...($codeMetadata ? ['tool_type' => $source, 'parameters' => $codeMetadata] : [])],
+                'metadata' => [
+                    'response' => $payload,
+                    ...($codeMetadata ? ['tool_type' => $source, 'parameters' => $codeMetadata] : []),
+                    ...($translationMetadata ? ['tool_type' => $source, ...$translationMetadata] : []),
+                ],
             ]);
             WalletTransaction::create([
                 'user_id' => $conversation->user_id,
@@ -207,12 +245,20 @@ class FreeAiChatService
                 'models_cost_logger_id' => $logger->id,
                 'points' => $total,
                 'type' => 'debit',
-                'description' => $source === 'general_code' ? 'Free AI code usage' : 'Free AI chat usage',
+                'description' => match ($source) {
+                    'general_code' => 'Free AI code usage',
+                    'general_translation' => 'Free AI translation usage',
+                    default => 'Free AI chat usage',
+                },
                 'balance_before' => $before,
                 'balance_after' => $wallet->balance,
                 'payback_before' => $paybackBefore,
                 'payback_after' => $wallet->payback_balance,
-                'slug' => 'free-ai-'.($source === 'general_code' ? 'code' : 'chat').'-'.$requestId,
+                'slug' => 'free-ai-'.match ($source) {
+                    'general_code' => 'code',
+                    'general_translation' => 'translation',
+                    default => 'chat',
+                }.'-'.$requestId,
             ]);
             $this->updateMessageStatus($userMessage, 'completed');
             $conversation->touch();
@@ -251,7 +297,9 @@ class FreeAiChatService
         foreach ($items as $item) {
             if ((string) ($item['id'] ?? '') !== (string) $conversation->selected_model_id) continue;
             if ((string) ($item['provider_model_id'] ?? '') !== (string) $conversation->provider_model_id) continue;
-            if (($item['tool_key'] ?? null) !== $source || ($item['operation'] ?? null) !== 'text_generation') continue;
+            if (($item['tool_key'] ?? null) !== $source) continue;
+            if ($source !== 'general_translation' && ($item['operation'] ?? null) !== 'text_generation') continue;
+            if ($source === 'general_translation' && ! in_array($item['operation'] ?? null, [null, 'text_generation'], true)) continue;
             if (! filter_var($item['is_available'] ?? true, FILTER_VALIDATE_BOOLEAN)) continue;
             $provider = trim((string) ($item['provider'] ?? ''));
             if ($provider === '') continue;

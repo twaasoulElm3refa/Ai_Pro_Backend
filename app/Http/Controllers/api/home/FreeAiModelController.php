@@ -201,6 +201,7 @@ class FreeAiModelController extends Controller
         }
 
         $programmingLanguage = null;
+        $translationOptions = null;
         if ($this->catalogSourceFor($conversation->model) === 'general_code') {
             $codeInput = $request->validate([
                 'programming_language' => ['required', 'string', 'max:120'],
@@ -213,8 +214,16 @@ class FreeAiModelController extends Controller
             }
         }
 
+        if ($this->catalogSourceFor($conversation->model) === 'general_translation') {
+            $languages = FreeAiChatService::TRANSLATION_LANGUAGES;
+            $translationOptions = $request->validate([
+                'source_language' => ['required', 'string', \Illuminate\Validation\Rule::in($languages)],
+                'target_language' => ['required', 'string', \Illuminate\Validation\Rule::in($languages)],
+            ]);
+        }
+
         try {
-            return $this->success($chat->send($conversation, $message, $validated['request_id'], $programmingLanguage));
+            return $this->success($chat->send($conversation, $message, $validated['request_id'], $programmingLanguage, $translationOptions));
         } catch (FreeAiChatException $exception) {
             $response = $this->error($exception->getMessage(), $exception->statusCode);
             if ($exception->statusCode === 429 && $exception->retryAfter !== null) {

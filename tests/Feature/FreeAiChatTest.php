@@ -38,6 +38,10 @@ class FreeAiChatTest extends TestCase
             'endpoint' => 'https://catalog.example.test/code-models',
             'requires_internal_key' => false,
         ]);
+        config()->set('model_catalogs.sources.general_translation', [
+            'endpoint' => 'https://catalog.example.test/translation-models',
+            'requires_internal_key' => false,
+        ]);
     }
 
     public function test_chat_sends_exact_provider_payload_and_charges_usage_once(): void
@@ -253,6 +257,102 @@ class FreeAiChatTest extends TestCase
         Http::assertNotSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-code');
     }
 
+    public function test_translation_sends_exact_payload_and_charges_provider_tokens_only(): void
+    {
+        $this->fakeTranslationProvider();
+        [$user, $conversation, $wallet] = $this->translationConversation(500);
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/translation/conversations/{$conversation->uuid}/messages";
+        $body = [
+            'user_message' => 'مرحبا',
+            'request_id' => (string) Str::uuid(),
+            'source_language' => 'Arabic',
+            'target_language' => 'English',
+        ];
+
+        $this->api()->postJson($url, $body)
+            ->assertOk()
+            ->assertJsonPath('data.assistant_message.content', 'Hello')
+            ->assertJsonPath('data.wallet.balance', 80)
+            ->assertJsonMissingPath('data.assistant_message.metadata')
+            ->assertJsonMissingPath('data.router_metadata')
+            ->assertJsonMissingPath('data.debug');
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-translation'
+            && $request->hasHeader('x-internal-api-key', 'test-internal-key')
+            && $request->data() === [
+                'user_id' => $user->id,
+                'model_id' => $conversation->model_id,
+                'selected_model_id' => 4,
+                'conversation_uuid' => $conversation->uuid,
+                'user_message' => 'مرحبا',
+                'state' => [
+                    'parameters' => [
+                        'source_language' => 'Arabic',
+                        'target_language' => 'English',
+                        'preserve_formatting' => true,
+                    ],
+                    'debug' => true,
+                ],
+            ]);
+        $this->assertSame('general_translation', $conversation->fresh()->tool_key);
+        $this->assertSame(80, (int) $wallet->fresh()->balance);
+        $this->assertDatabaseHas('models_cost_loggers', [
+            'request_id' => $body['request_id'],
+            'input_tokens' => 249,
+            'output_tokens' => 96,
+            'reasoning_tokens' => 75,
+            'total_tokens' => 420,
+        ]);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'points' => 420,
+            'balance_after' => 80,
+        ]);
+        $userMessage = $conversation->messages()->where('role', 'user')->firstOrFail();
+        $assistantMessage = $conversation->messages()->where('role', 'assistant')->firstOrFail();
+        foreach ([$userMessage, $assistantMessage, $conversation->costLoggers()->firstOrFail()] as $saved) {
+            $this->assertSame('Arabic', $saved->metadata['source_language']);
+            $this->assertSame('English', $saved->metadata['target_language']);
+            $this->assertTrue($saved->metadata['preserve_formatting']);
+        }
+        $this->assertSame('general_translation', $conversation->costLoggers()->firstOrFail()->metadata['tool_type']);
+
+        $this->api()->postJson($url, $body)->assertOk();
+        $this->assertDatabaseCount('models_messages', 2);
+        $this->assertDatabaseCount('models_cost_loggers', 1);
+        $this->assertCount(1, Http::recorded(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-translation'));
+    }
+
+    public function test_translation_validates_languages_and_wallet_before_provider_call(): void
+    {
+        $this->fakeTranslationProvider();
+        [$user, $conversation] = $this->translationConversation(1);
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/translation/conversations/{$conversation->uuid}/messages";
+        $body = ['user_message' => 'Hello', 'request_id' => (string) Str::uuid()];
+
+        $this->api()->postJson($url, $body)->assertStatus(422);
+        $this->api()->postJson($url, [...$body, 'source_language' => 'Arabic', 'target_language' => 'English'])->assertStatus(402);
+        $this->assertDatabaseCount('models_messages', 0);
+        Http::assertNotSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-translation');
+    }
+
+    public function test_translation_rejects_a_catalog_model_from_another_tool(): void
+    {
+        $this->fakeTranslationProvider('general_chat');
+        [$user, $conversation] = $this->translationConversation(500);
+        Sanctum::actingAs($user);
+        $url = "/api/v1/free-ai-models/translation/conversations/{$conversation->uuid}/messages";
+
+        $this->api()->postJson($url, [
+            'user_message' => 'Hello',
+            'request_id' => (string) Str::uuid(),
+            'source_language' => 'Auto',
+            'target_language' => 'English',
+        ])->assertStatus(422);
+        Http::assertNotSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-translation');
+    }
+
     public function test_chat_send_limit_does_not_count_conversation_reads(): void
     {
         config()->set('free_ai_chat.send_rate_per_minute', 2);
@@ -382,6 +482,66 @@ class FreeAiChatTest extends TestCase
         ]);
 
         return [$user, $conversation, $wallet];
+    }
+
+    private function translationConversation(int $balance): array
+    {
+        $user = User::factory()->create();
+        $model = MainFreeAiModels::create([
+            'name' => 'Translation',
+            'slug' => 'translation',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+        $conversation = ModelsConverstaions::create([
+            'user_id' => $user->id,
+            'model_id' => $model->id,
+            'uuid' => (string) Str::uuid(),
+            'selected_model_source' => 'general_translation',
+            'selected_model_id' => 4,
+            'provider_model_id' => 'openrouter/free',
+            'selected_model_name' => 'Free Translation Router',
+        ]);
+        $wallet = Wallet::create([
+            'user_id' => $user->id,
+            'uuid' => (string) Str::uuid(),
+            'balance' => $balance,
+            'payback_balance' => 0,
+            'is_active' => true,
+        ]);
+
+        return [$user, $conversation, $wallet];
+    }
+
+    private function fakeTranslationProvider(string $catalogToolKey = 'general_translation'): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'catalog.example.test/translation-models' => Http::response([
+                'tool' => 'general_translation',
+                'items' => [[
+                    'id' => 4,
+                    'provider' => 'openrouter',
+                    'provider_model_id' => 'openrouter/free',
+                    'name' => 'Free Translation Router',
+                    'tool_key' => $catalogToolKey,
+                    'is_available' => true,
+                ]],
+            ]),
+            'api.aiarabic.com/tasks/general-translation' => Http::response([
+                'success' => true,
+                'tool' => 'general_translation',
+                'content' => 'Hello',
+                'cost' => ['total_cost' => 9999],
+                'metadata' => ['provider_usage' => [
+                    'prompt_tokens' => 249,
+                    'completion_tokens' => 96,
+                    'reasoning_tokens' => 75,
+                ]],
+                'router_metadata' => ['private' => true],
+                'debug' => ['private' => true],
+            ]),
+        ]);
     }
 
     private function fakeCodeProvider(string $catalogToolKey = 'general_code'): void
