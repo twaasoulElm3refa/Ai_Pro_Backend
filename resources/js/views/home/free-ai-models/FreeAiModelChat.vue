@@ -120,7 +120,7 @@
                 <div v-if="!messages.length" class="empty-conversation">
                     <span class="empty-icon"><i class="bi bi-chat-dots"></i></span>
                     <h1>{{ t("freeAiModels.emptyChatTitle", { name: mainTool.name || readableSlug }) }}</h1>
-                    <p>{{ canChat ? t("freeAiModels.chatStartHint") : t("freeAiModels.emptyChatDescription") }}</p>
+                    <p>{{ canChat ? t(isSpeechToText ? "freeAiModels.transcriptionStartHint" : "freeAiModels.chatStartHint") : t("freeAiModels.emptyChatDescription") }}</p>
                     <span v-if="!canChat" class="pending-pill"><i class="bi bi-clock-history"></i>{{ t("freeAiModels.integrationPending") }}</span>
                 </div>
                 <div v-else class="chat-message-list">
@@ -171,7 +171,61 @@
                             @select="selectExecutionModel"
                             @retry="loadCatalog(true)"
                         />
-                        <div class="message-compose-row">
+                        <div v-if="isSpeechToText" class="speech-upload-compose">
+                            <input
+                                ref="audioFileInput"
+                                class="visually-hidden"
+                                type="file"
+                                accept=".m4a,.mp3,.wav,.webm,audio/mp4,audio/mpeg,audio/wav,audio/webm"
+                                :disabled="!canChat || sendingMessage"
+                                @change="handleAudioInput"
+                            />
+                            <button
+                                v-if="!selectedAudioFile"
+                                type="button"
+                                class="audio-dropzone"
+                                :class="{ dragging: audioDragging }"
+                                :disabled="!canChat || sendingMessage"
+                                @click="chooseAudioFile"
+                                @dragenter.prevent="audioDragging = true"
+                                @dragover.prevent="audioDragging = true"
+                                @dragleave.prevent="audioDragging = false"
+                                @drop.prevent="handleAudioDrop"
+                            >
+                                <i class="bi bi-cloud-arrow-up"></i>
+                                <span>{{ t("freeAiModels.uploadAudio") }}</span>
+                                <small>{{ t("freeAiModels.audioDropHint") }}</small>
+                            </button>
+                            <div
+                                v-else
+                                class="selected-audio"
+                                :class="{ dragging: audioDragging }"
+                                @dragenter.prevent="audioDragging = true"
+                                @dragover.prevent="audioDragging = true"
+                                @dragleave.prevent="audioDragging = false"
+                                @drop.prevent="handleAudioDrop"
+                            >
+                                <div class="selected-audio-info">
+                                    <i class="bi bi-file-earmark-music"></i>
+                                    <span>
+                                        <strong>{{ selectedAudioFile.name }}</strong>
+                                        <small>{{ formatFileSize(selectedAudioFile.size) }}</small>
+                                    </span>
+                                    <button type="button" :aria-label="t('freeAiModels.removeAudio')" :disabled="sendingMessage" @click="clearSelectedAudio">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <audio controls preload="metadata" :src="selectedAudioUrl"></audio>
+                                <button type="button" class="replace-audio-button" :disabled="sendingMessage" @click="chooseAudioFile">
+                                    {{ t("freeAiModels.replaceAudio") }}
+                                </button>
+                            </div>
+                            <button type="button" class="send-button" :disabled="!canSend" :aria-label="t('freeAiModels.transcribeAudio')" @click="sendMessage">
+                                <span v-if="sendingMessage" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                <i v-else class="bi bi-send-fill"></i>
+                            </button>
+                        </div>
+                        <div v-else class="message-compose-row">
                             <textarea
                                 v-model="messageDraft"
                                 rows="1"
@@ -291,6 +345,9 @@ import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
 
 const MOBILE_BREAKPOINT = 900;
+const MAX_AUDIO_FILE_SIZE = 25 * 1024 * 1024;
+const SUPPORTED_AUDIO_FORMATS = new Set(["m4a", "mp3", "wav", "webm"]);
+const props = defineProps({ operation: { type: String, default: "" } });
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
@@ -311,6 +368,10 @@ const messages = ref([]);
 const audioObjectUrls = new Set();
 const pendingAudioDownloads = new WeakMap();
 const messageDraft = ref("");
+const audioFileInput = ref(null);
+const selectedAudioFile = ref(null);
+const selectedAudioUrl = ref("");
+const audioDragging = ref(false);
 const codeOptionsOpen = ref(false);
 const translationOptionsOpen = ref(false);
 const translationOptionsButton = ref(null);
@@ -354,7 +415,10 @@ const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value))
 const isGeneralCode = computed(() => catalogSource.value === "general_code" && !catalogOperation.value);
 const isGeneralTranslation = computed(() => catalogSource.value === "general_translation" && !catalogOperation.value);
 const isTextToSpeech = computed(() => catalogSource.value === "general_audio" && catalogOperation.value === "text_to_speech");
-const canChat = computed(() => isTextToSpeech.value || ((catalogSource.value === "general_chat" || isGeneralCode.value || isGeneralTranslation.value) && !catalogOperation.value));
+const isSpeechToText = computed(() => props.operation === "speech_to_text"
+    && catalogSource.value === "general_audio" && catalogOperation.value === "speech_to_text");
+const canChat = computed(() => isTextToSpeech.value || isSpeechToText.value
+    || ((catalogSource.value === "general_chat" || isGeneralCode.value || isGeneralTranslation.value) && !catalogOperation.value));
 const programmingLanguage = computed(() => programmingLanguageValue(selectedCodeLanguage.value, selectedCodeFramework.value));
 const filteredCodeLanguages = computed(() => PROGRAMMING_LANGUAGES.filter((language) => language.toLowerCase().includes(codeLanguageSearch.value.trim().toLowerCase())));
 const filteredCodeFrameworks = computed(() => PROGRAMMING_FRAMEWORKS.filter((framework) => framework.toLowerCase().includes(codeFrameworkSearch.value.trim().toLowerCase())));
@@ -363,7 +427,8 @@ const filteredTargetLanguages = computed(() => TRANSLATION_LANGUAGES.filter((lan
 const cooldownSeconds = computed(() => Math.max(0, Math.ceil((cooldownUntil.value - cooldownClock.value) / 1000)));
 const canSend = computed(() => canChat.value && !!conversation.value?.uuid && !!selectedModel.value?.isAvailable
     && !catalogLoading.value && !catalogError.value && !loadingConversation.value
-    && !modelSaving.value && !sendingMessage.value && !cooldownSeconds.value && !!messageDraft.value.trim()
+    && !modelSaving.value && !sendingMessage.value && !cooldownSeconds.value
+    && (isSpeechToText.value ? !!selectedAudioFile.value : !!messageDraft.value.trim())
     && (!isGeneralCode.value || !!programmingLanguage.value));
 const isMobile = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT);
 const isRtl = computed(() => locale.value === "ar");
@@ -579,6 +644,63 @@ async function refreshWallet() {
     return walletBalance.value;
 }
 
+function audioExtension(file) {
+    return String(file?.name || "").split(".").pop()?.toLowerCase() || "";
+}
+
+function chooseAudioFile() {
+    if (!sendingMessage.value) audioFileInput.value?.click();
+}
+
+function selectAudioFile(file) {
+    audioDragging.value = false;
+    sendError.value = "";
+    if (!file) {
+        sendError.value = t("freeAiModels.audioFileRequired");
+        return;
+    }
+    if (!SUPPORTED_AUDIO_FORMATS.has(audioExtension(file))) {
+        sendError.value = t("freeAiModels.audioUnsupportedFormat");
+        return;
+    }
+    if (file.size > MAX_AUDIO_FILE_SIZE) {
+        sendError.value = t("freeAiModels.audioTooLarge");
+        return;
+    }
+    if (file.type && !file.type.startsWith("audio/") && file.type !== "video/mp4") {
+        sendError.value = t("freeAiModels.audioUnsupportedFormat");
+        return;
+    }
+
+    clearSelectedAudio();
+    selectedAudioFile.value = file;
+    selectedAudioUrl.value = URL.createObjectURL(file);
+}
+
+function handleAudioInput(event) {
+    selectAudioFile(event?.target?.files?.[0]);
+    if (event?.target) event.target.value = "";
+}
+
+function handleAudioDrop(event) {
+    if (sendingMessage.value) return;
+    selectAudioFile(event?.dataTransfer?.files?.[0]);
+}
+
+function clearSelectedAudio() {
+    if (selectedAudioUrl.value) URL.revokeObjectURL(selectedAudioUrl.value);
+    selectedAudioUrl.value = "";
+    selectedAudioFile.value = null;
+    audioDragging.value = false;
+    if (audioFileInput.value) audioFileInput.value.value = "";
+}
+
+function formatFileSize(bytes) {
+    const size = Number(bytes || 0);
+    if (size < 1024 * 1024) return `${Math.max(1, Math.ceil(size / 1024))} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function startCooldown(milliseconds) {
     const now = Date.now();
     cooldownUntil.value = Math.max(cooldownUntil.value, now + Math.max(0, Math.ceil(milliseconds)));
@@ -595,6 +717,10 @@ function startCooldown(milliseconds) {
 
 async function sendMessage() {
     if (!canSend.value) return;
+    if (isSpeechToText.value) {
+        await sendTranscriptionMessage();
+        return;
+    }
     if (isTextToSpeech.value) {
         await sendSpeechMessage();
         return;
@@ -665,6 +791,98 @@ async function sendMessage() {
             : status === 429 ? t("freeAiModels.rateLimited")
                 : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.chatTimeout")
                     : t("freeAiModels.chatFailed");
+        void loadMessages(false);
+    } finally {
+        sendingMessage.value = false;
+    }
+}
+
+async function sendTranscriptionMessage() {
+    const audioFile = selectedAudioFile.value;
+    if (!audioFile) {
+        sendError.value = t("freeAiModels.audioFileRequired");
+        return;
+    }
+
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
+    const signature = messageRequestSignature(
+        uuid,
+        `${audioFile.name}:${audioFile.size}:${audioFile.lastModified}`,
+        selectedModel.value.id
+    );
+    if (wasRecentlySent(recentChatRequests, signature)) {
+        sendError.value = t("freeAiModels.duplicateRequest");
+        return;
+    }
+
+    sendError.value = "";
+    sendingMessage.value = true;
+    try {
+        const balance = await refreshWallet();
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        if (balance <= 0 || walletPayback.value > 0) {
+            sendError.value = t("freeAiModels.insufficientBalance");
+            return;
+        }
+
+        if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
+            const selected = await freeAiModelService.updateConversationModel(
+                slug, uuid, selectedModel.value, requiredCatalogOperation.value
+            );
+            if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+            conversation.value = selected?.data || conversation.value;
+        }
+
+        const requestId = uuidv4();
+        rememberSentRequest(recentChatRequests, signature);
+        messages.value.push({
+            id: `pending-${requestId}`,
+            request_id: requestId,
+            role: "user",
+            content: "حوّل الصوت إلى نص",
+        });
+        await scrollToBottom();
+
+        const response = await freeAiModelService.sendSpeechToTextMessage(
+            slug,
+            uuid,
+            audioFile,
+            requestId,
+            {
+                userId: conversation.value?.user?.id,
+                modelId: conversation.value?.model_id,
+                selectedModelId: selectedModel.value?.id,
+            }
+        );
+        const result = response?.data;
+        if (!result?.assistant_message?.content) throw new Error("Invalid transcription response");
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+
+        const pendingIndex = messages.value.findIndex((item) => item.id === `pending-${requestId}`);
+        if (pendingIndex !== -1) messages.value.splice(pendingIndex, 1, result.user_message);
+        messages.value.push(result.assistant_message);
+        walletBalance.value = result.wallet?.balance ?? walletBalance.value;
+        walletPayback.value = result.wallet?.payback_balance ?? walletPayback.value;
+        window.dispatchEvent(new CustomEvent("wallet-updated", { detail: result.wallet }));
+        try { localStorage.setItem("wallet-updated-at", String(Date.now())); } catch { /* Other tabs refresh on navigation. */ }
+        conversation.value = { ...conversation.value, title: conversation.value?.title || "حوّل الصوت إلى نص" };
+        upsertConversationSummary(conversation.value);
+        clearSelectedAudio();
+        startCooldown(MESSAGE_COOLDOWN_MS);
+        await scrollToBottom();
+    } catch (error) {
+        const status = error?.response?.status;
+        if (status === 429) {
+            startCooldown(Math.max(1000, retryAfterMilliseconds(error.response?.headers) ?? RATE_LIMIT_FALLBACK_MS));
+        }
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        sendError.value = status === 402 ? t("freeAiModels.insufficientBalance")
+            : status === 413 ? t("freeAiModels.audioTooLarge")
+                : status === 429 ? t("freeAiModels.rateLimited")
+                    : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.transcriptionTimeout")
+                        : status === 422 ? t("freeAiModels.audioInvalidRequest")
+                            : t("freeAiModels.transcriptionFailed");
         void loadMessages(false);
     } finally {
         sendingMessage.value = false;
@@ -959,6 +1177,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     componentDisposed = true;
+    clearSelectedAudio();
     revokeAudioUrls();
     catalogRequestId++;
     conversationRequestId++;
@@ -995,6 +1214,7 @@ watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
     messages.value = [];
     nextMessagesCursor.value = null;
     messageDraft.value = "";
+    clearSelectedAudio();
     sendError.value = "";
     loadConversation();
 });
@@ -1716,6 +1936,138 @@ button {
     padding: 6px 7px 6px 10px;
 }
 
+.speech-upload-compose {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px;
+}
+
+.audio-dropzone {
+    min-width: 0;
+    min-height: 60px;
+    flex: 1;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 9px;
+    padding: 9px 12px;
+    border: 1px dashed var(--theme-border-strong);
+    border-radius: 11px;
+    color: var(--theme-text-primary);
+    background: transparent;
+    text-align: start;
+}
+
+.audio-dropzone i {
+    grid-row: 1 / 3;
+    color: var(--theme-accent);
+    font-size: 23px;
+}
+
+.audio-dropzone span {
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.audio-dropzone small,
+.selected-audio-info small {
+    color: var(--theme-text-muted);
+    font-size: 9px;
+}
+
+.audio-dropzone:hover,
+.audio-dropzone.dragging,
+.selected-audio.dragging {
+    border-color: var(--theme-accent);
+    background: var(--theme-hover);
+}
+
+.audio-dropzone:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.selected-audio {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: 1px dashed transparent;
+    border-radius: 11px;
+}
+
+.selected-audio-info {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.selected-audio-info > i {
+    flex: 0 0 auto;
+    color: var(--theme-accent);
+    font-size: 21px;
+}
+
+.selected-audio-info > span {
+    min-width: 0;
+    flex: 1;
+}
+
+.selected-audio-info strong,
+.selected-audio-info small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.selected-audio-info strong {
+    font-size: 11px;
+}
+
+.selected-audio-info button,
+.replace-audio-button {
+    border: 0;
+    color: var(--theme-text-muted);
+    background: transparent;
+}
+
+.selected-audio-info button {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 30px;
+    border-radius: 8px;
+}
+
+.selected-audio-info button:hover {
+    color: var(--app-danger);
+    background: var(--theme-hover);
+}
+
+.selected-audio audio {
+    width: 100%;
+    height: 36px;
+}
+
+.replace-audio-button {
+    padding: 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.replace-audio-button:hover {
+    color: var(--theme-accent);
+}
+
 .message-compose-row textarea {
     min-width: 0;
     min-height: 38px;
@@ -1880,6 +2232,14 @@ button {
     .message-compose-row {
         min-height: 50px;
         padding: 5px 6px 5px 9px;
+    }
+
+    .speech-upload-compose {
+        align-items: flex-end;
+    }
+
+    .selected-audio {
+        grid-template-columns: 1fr;
     }
 
     .composer-hint {

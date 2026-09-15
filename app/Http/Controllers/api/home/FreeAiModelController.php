@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use JsonException;
 use Throwable;
 
 class FreeAiModelController extends Controller
@@ -186,6 +187,16 @@ class FreeAiModelController extends Controller
 
     public function sendMessage(Request $request, string $slug, string $uuid, FreeAiChatService $chat)
     {
+        $conversation = $this->ownedConversation($request, $slug, $uuid);
+        if (! $conversation) {
+            return $this->notFound('Free AI model conversation not found.');
+        }
+
+        if ($this->catalogSourceFor($conversation->model) === 'general_audio'
+            && $this->operationForConversation($conversation, $conversation->model) === 'speech_to_text') {
+            return $this->sendSpeechToTextMessage($request, $conversation, $chat);
+        }
+
         $validated = $request->validate([
             'user_message' => ['required', 'string', 'max:5000'],
             'request_id' => ['required', 'uuid'],
@@ -193,11 +204,6 @@ class FreeAiModelController extends Controller
         $message = trim($validated['user_message']);
         if ($message === '') {
             throw ValidationException::withMessages(['user_message' => ['A message is required.']]);
-        }
-
-        $conversation = $this->ownedConversation($request, $slug, $uuid);
-        if (! $conversation) {
-            return $this->notFound('Free AI model conversation not found.');
         }
 
         $programmingLanguage = null;
@@ -224,6 +230,62 @@ class FreeAiModelController extends Controller
 
         try {
             return $this->success($chat->send($conversation, $message, $validated['request_id'], $programmingLanguage, $translationOptions));
+        } catch (FreeAiChatException $exception) {
+            $response = $this->error($exception->getMessage(), $exception->statusCode);
+            if ($exception->statusCode === 429 && $exception->retryAfter !== null) {
+                $response->headers->set('Retry-After', $exception->retryAfter);
+            }
+
+            return $response;
+        }
+    }
+
+    private function sendSpeechToTextMessage(
+        Request $request,
+        ModelsConverstaions $conversation,
+        FreeAiChatService $chat
+    ) {
+        $request->validate([
+            'file' => ['required', 'file', 'max:25600'],
+            'payload' => ['required', 'string'],
+        ]);
+
+        try {
+            $payload = json_decode($request->string('payload')->toString(), true, 32, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw ValidationException::withMessages([
+                'payload' => ['The speech-to-text payload must be valid JSON.'],
+            ]);
+        }
+
+        if (! is_array($payload)) {
+            throw ValidationException::withMessages([
+                'payload' => ['The speech-to-text payload must be a JSON object.'],
+            ]);
+        }
+
+        $validatedPayload = validator($payload, [
+            'request_id' => ['nullable', 'uuid'],
+            'state.parameters.language' => ['nullable', 'string', 'regex:/^[a-z]{2,3}(?:-[A-Za-z]{2,4})?$/'],
+            'state.parameters.include_segments' => ['nullable', 'boolean'],
+        ])->validate();
+
+        $file = $request->file('file');
+        $audioFormat = strtolower((string) $file?->getClientOriginalExtension());
+        if (! in_array($audioFormat, ['m4a', 'mp3', 'wav', 'webm'], true)) {
+            throw ValidationException::withMessages([
+                'file' => ['The audio file must be an m4a, mp3, wav, or webm file.'],
+            ]);
+        }
+
+        try {
+            return $this->success($chat->transcribe(
+                $conversation,
+                $file,
+                $validatedPayload['request_id'] ?? (string) Str::uuid(),
+                strtolower($validatedPayload['state']['parameters']['language'] ?? 'ar'),
+                (bool) ($validatedPayload['state']['parameters']['include_segments'] ?? true)
+            ));
         } catch (FreeAiChatException $exception) {
             $response = $this->error($exception->getMessage(), $exception->statusCode);
             if ($exception->statusCode === 429 && $exception->retryAfter !== null) {

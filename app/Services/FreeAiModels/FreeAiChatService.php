@@ -8,8 +8,12 @@ use App\Models\ModelsMessage;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\ModelCatalogService;
+use Brick\Math\BigDecimal;
+use Brick\Math\Exception\MathException;
+use Brick\Math\RoundingMode;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -18,6 +22,8 @@ use Throwable;
 
 class FreeAiChatService
 {
+    private const POINTS_PER_USD = 1_000_000;
+
     public const TRANSLATION_LANGUAGES = [
         'Auto', 'Arabic', 'English', 'French', 'Spanish', 'German', 'Italian',
         'Portuguese', 'Turkish', 'Chinese', 'Japanese', 'Korean', 'Russian', 'Hindi',
@@ -39,6 +45,277 @@ class FreeAiChatService
         } catch (LockTimeoutException) {
             throw new FreeAiChatException('A previous message is still being processed.', 429, '3');
         }
+    }
+
+    public function transcribe(
+        ModelsConverstaions $conversation,
+        UploadedFile $audioFile,
+        string $requestId,
+        string $language = 'ar',
+        bool $includeSegments = true
+    ): array {
+        try {
+            return Cache::lock("free-ai-chat-user-{$conversation->user_id}", 330)
+                ->block(3, fn () => $this->transcribeLocked(
+                    $conversation,
+                    $audioFile,
+                    $requestId,
+                    $language,
+                    $includeSegments
+                ));
+        } catch (LockTimeoutException) {
+            throw new FreeAiChatException('A previous message is still being processed.', 429, '3');
+        }
+    }
+
+    private function transcribeLocked(
+        ModelsConverstaions $conversation,
+        UploadedFile $audioFile,
+        string $requestId,
+        string $language,
+        bool $includeSegments
+    ): array {
+        $conversation->refresh();
+        if ($conversation->trashed() || $conversation->is_archived) {
+            throw new FreeAiChatException('Conversation is unavailable.', 404);
+        }
+
+        $source = config("model_catalogs.free_ai_tools.{$conversation->model?->slug}");
+        if ($source !== 'general_audio'
+            || $conversation->selected_model_source !== $source
+            || $conversation->catalog_operation !== 'speech_to_text') {
+            throw new FreeAiChatException('The conversation model is unavailable for this tool.', 422);
+        }
+
+        $message = 'حوّل الصوت إلى نص';
+        $originalFilename = basename(str_replace('\\', '/', $audioFile->getClientOriginalName()));
+        $audioFormat = strtolower((string) $audioFile->getClientOriginalExtension());
+        $messageMetadata = [
+            'original_filename' => $originalFilename,
+            'audio_format' => $audioFormat,
+        ];
+
+        $previous = $conversation->messages()
+            ->where('request_id', $requestId)
+            ->where('role', 'user')
+            ->first();
+        if ($previous) {
+            if ($previous->content !== $message
+                || data_get($previous->metadata, 'original_filename') !== $originalFilename
+                || data_get($previous->metadata, 'audio_format') !== $audioFormat) {
+                throw new FreeAiChatException('Request ID was already used for another message.', 409);
+            }
+            $assistant = $conversation->messages()
+                ->where('request_id', $requestId)
+                ->where('role', 'assistant')
+                ->first();
+            if ($assistant) {
+                return $this->result($previous, $assistant, $this->walletSnapshot($conversation->user_id));
+            }
+
+            throw new FreeAiChatException('The previous request did not finish. Please send a new request.', 409);
+        }
+
+        $wallet = Wallet::query()->where('user_id', $conversation->user_id)->first();
+        if (! $wallet || ! $wallet->is_active || $wallet->balance <= 0 || $wallet->payback_balance > 0) {
+            throw new FreeAiChatException('رصيدك لا يكفي', 402);
+        }
+
+        $selection = $this->validatedSelection($conversation, $source);
+        $userMessage = $conversation->messages()->create([
+            'user_id' => $conversation->user_id,
+            'role' => 'user',
+            'content' => $message,
+            'request_id' => $requestId,
+            'metadata' => ['status' => 'pending', ...$messageMetadata],
+        ]);
+        if (! $conversation->title) {
+            $conversation->update(['title' => $message]);
+        }
+
+        $key = trim((string) config('services.aiarabic.internal_api_key'));
+        if ($key === '') {
+            $this->updateMessageStatus($userMessage, 'failed', 'configuration');
+            throw new FreeAiChatException('AI service is not configured.', 503);
+        }
+
+        $providerPayload = [
+            'user_id' => (int) $conversation->user_id,
+            'model_id' => (int) $conversation->model_id,
+            'selected_model_id' => (int) $selection['id'],
+            'conversation_uuid' => $conversation->uuid,
+            'user_message' => $message,
+            'state' => [
+                'operation' => 'speech_to_text',
+                'parameters' => [
+                    'language' => $language,
+                    'include_segments' => $includeSegments,
+                ],
+            ],
+            'debug' => true,
+        ];
+        $url = rtrim((string) config('services.aiarabic.base_url', 'https://api.aiarabic.com'), '/')
+            .'/tasks/general-audio';
+        $handle = @fopen($audioFile->getRealPath(), 'r');
+        if ($handle === false) {
+            $this->updateMessageStatus($userMessage, 'failed', 'file');
+            throw new FreeAiChatException('The uploaded audio file could not be read.', 422);
+        }
+
+        $started = microtime(true);
+        try {
+            $response = Http::withHeaders(['x-internal-api-key' => $key])
+                ->acceptJson()
+                ->attach(
+                    'file',
+                    $handle,
+                    $originalFilename,
+                    ['Content-Type' => $audioFile->getMimeType() ?: 'application/octet-stream']
+                )
+                ->connectTimeout(10)
+                ->timeout(300)
+                ->post($url, [
+                    'payload' => json_encode(
+                        $providerPayload,
+                        JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                    ),
+                ]);
+        } catch (ConnectionException $exception) {
+            $this->updateMessageStatus($userMessage, 'failed', 'connection');
+            Log::warning('Free AI speech-to-text connection failed.', [
+                'user_id' => $conversation->user_id,
+                'conversation_id' => $conversation->id,
+                'request_id' => $requestId,
+                'exception' => $exception::class,
+            ]);
+            throw new FreeAiChatException('تعذر الاتصال بخدمة تحويل الصوت إلى نص.', 504);
+        } finally {
+            fclose($handle);
+        }
+
+        $elapsed = (int) round((microtime(true) - $started) * 1000);
+        $payload = $response->json();
+        if (! $response->successful() || ! is_array($payload) || ($payload['success'] ?? false) !== true) {
+            $this->updateMessageStatus($userMessage, 'failed', 'provider');
+            throw new FreeAiChatException(
+                'تعذر تحويل الملف الصوتي إلى نص.',
+                $response->status() === 429 ? 429 : 502,
+                $response->status() === 429 ? $response->header('Retry-After') : null
+            );
+        }
+
+        $content = $payload['content'] ?? null;
+        if (($payload['tool'] ?? null) !== 'general_audio' || ! is_string($content) || trim($content) === '') {
+            $this->updateMessageStatus($userMessage, 'failed', 'invalid_response');
+            throw new FreeAiChatException('استجابة خدمة تحويل الصوت إلى نص غير صالحة.', 502);
+        }
+
+        [$totalCost, $estimatedTokens] = $this->speechToTextCost($payload, $userMessage);
+        $provider = trim((string) ($payload['provider'] ?? $selection['provider'])) ?: $selection['provider'];
+        $providerModelId = trim((string) ($payload['provider_model_id'] ?? $payload['model'] ?? $selection['provider_model_id']))
+            ?: $selection['provider_model_id'];
+        $duration = $this->nullableNonNegativeNumber(
+            $payload['duration_seconds'] ?? data_get($payload, 'metadata.duration_seconds')
+        );
+        $detectedLanguage = trim((string) (
+            $payload['detected_language'] ?? data_get($payload, 'metadata.detected_language', '')
+        )) ?: null;
+        $providerRequestId = trim((string) ($payload['request_id'] ?? '')) ?: null;
+        $loggerMetadata = [
+            'tool_type' => 'general_audio',
+            'operation' => 'speech_to_text',
+            'selected_model_id' => (int) $selection['id'],
+            'duration_seconds' => $duration,
+            'detected_language' => $detectedLanguage,
+            'audio_format' => $audioFormat,
+            'original_filename' => $originalFilename,
+            'provider_cost_usd' => (float) $totalCost,
+            ...($providerRequestId ? ['provider_request_id' => $providerRequestId] : []),
+        ];
+
+        return DB::transaction(function () use (
+            $conversation,
+            $userMessage,
+            $requestId,
+            $content,
+            $selection,
+            $provider,
+            $providerModelId,
+            $totalCost,
+            $estimatedTokens,
+            $elapsed,
+            $loggerMetadata
+        ): array {
+            $wallet = Wallet::query()->where('user_id', $conversation->user_id)->lockForUpdate()->firstOrFail();
+            $before = max(0, (int) $wallet->balance);
+            $paybackBefore = max(0, (int) $wallet->payback_balance);
+            $deducted = min($before, $estimatedTokens);
+            $wallet->balance = $before - $deducted;
+            $wallet->payback_balance = $paybackBefore + ($estimatedTokens - $deducted);
+            $wallet->save();
+
+            $assistant = $conversation->messages()->create([
+                'user_id' => $conversation->user_id,
+                'role' => 'assistant',
+                'content' => trim($content),
+                'request_id' => $requestId,
+                'metadata' => [
+                    'operation' => 'speech_to_text',
+                    'duration_seconds' => $loggerMetadata['duration_seconds'],
+                    'detected_language' => $loggerMetadata['detected_language'],
+                ],
+            ]);
+            $logger = ModelsCostLogger::create([
+                'user_id' => $conversation->user_id,
+                'models_conversation_id' => $conversation->id,
+                'model_id' => $conversation->model_id,
+                'assistant_message_id' => $assistant->id,
+                'provider' => $provider,
+                'provider_model_id' => $providerModelId,
+                'request_id' => $requestId,
+                'input_tokens' => 0,
+                'output_tokens' => 0,
+                'reasoning_tokens' => 0,
+                'total_tokens' => $estimatedTokens,
+                'input_cost' => '0.00000000',
+                'output_cost' => '0.00000000',
+                'total_cost' => $totalCost,
+                'response_time_ms' => $elapsed,
+                'metadata' => $loggerMetadata,
+            ]);
+            WalletTransaction::create([
+                'user_id' => $conversation->user_id,
+                'wallet_id' => $wallet->id,
+                'payment_id' => null,
+                'models_cost_logger_id' => $logger->id,
+                'points' => $estimatedTokens,
+                'type' => 'debit',
+                'description' => 'Free AI speech-to-text usage',
+                'balance_before' => $before,
+                'balance_after' => $wallet->balance,
+                'payback_before' => $paybackBefore,
+                'payback_after' => $wallet->payback_balance,
+                'slug' => 'free-ai-speech-to-text-'.$requestId,
+            ]);
+            $this->updateMessageStatus($userMessage, 'completed');
+            $conversation->touch();
+
+            DB::afterCommit(function () use ($conversation) {
+                try {
+                    Cache::tags(['wallet', 'transactions', "user_{$conversation->user_id}"])->flush();
+                } catch (Throwable $exception) {
+                    Log::warning('Free AI speech-to-text wallet cache invalidation failed.', [
+                        'user_id' => $conversation->user_id,
+                        'exception' => $exception::class,
+                    ]);
+                }
+            });
+
+            return $this->result($userMessage, $assistant, [
+                'balance' => (int) $wallet->balance,
+                'payback_balance' => (int) $wallet->payback_balance,
+            ]);
+        }, 3);
     }
 
     private function sendLocked(
@@ -289,7 +566,8 @@ class FreeAiChatService
             throw new FreeAiChatException('اختر موديلًا متاحًا أولًا.', 422);
         }
         try {
-            $items = $this->catalogs->getModels($source)['items'] ?? [];
+            $operation = $source === 'general_audio' ? $conversation->catalog_operation : null;
+            $items = $this->catalogs->getModels($source, $operation)['items'] ?? [];
         } catch (Throwable $exception) {
             Log::warning('Free AI model catalog unavailable.', ['source' => $source, 'exception' => $exception::class]);
             throw new FreeAiChatException('قائمة الموديلات غير متاحة حاليًا.', 502);
@@ -298,7 +576,9 @@ class FreeAiChatService
             if ((string) ($item['id'] ?? '') !== (string) $conversation->selected_model_id) continue;
             if ((string) ($item['provider_model_id'] ?? '') !== (string) $conversation->provider_model_id) continue;
             if (($item['tool_key'] ?? null) !== $source) continue;
-            if ($source !== 'general_translation' && ($item['operation'] ?? null) !== 'text_generation') continue;
+            if ($source === 'general_audio' && ($item['operation'] ?? null) !== $conversation->catalog_operation) continue;
+            if (! in_array($source, ['general_audio', 'general_translation'], true)
+                && ($item['operation'] ?? null) !== 'text_generation') continue;
             if ($source === 'general_translation' && ! in_array($item['operation'] ?? null, [null, 'text_generation'], true)) continue;
             if (! filter_var($item['is_available'] ?? true, FILTER_VALIDATE_BOOLEAN)) continue;
             $provider = trim((string) ($item['provider'] ?? ''));
@@ -311,6 +591,41 @@ class FreeAiChatService
             ];
         }
         throw new FreeAiChatException('الموديل المختار غير متاح لهذه الأداة.', 422);
+    }
+
+    private function speechToTextCost(array $payload, ModelsMessage $userMessage): array
+    {
+        $rawCost = data_get($payload, 'cost.total_cost');
+        if (is_bool($rawCost) || ! is_scalar($rawCost) || ! is_numeric(trim((string) $rawCost))) {
+            $this->updateMessageStatus($userMessage, 'failed', 'invalid_cost');
+            throw new FreeAiChatException('بيانات تكلفة تحويل الصوت غير صالحة.', 502);
+        }
+
+        try {
+            $cost = BigDecimal::of(trim((string) $rawCost));
+            if ($cost->isNegative()) {
+                $this->updateMessageStatus($userMessage, 'failed', 'invalid_cost');
+                throw new FreeAiChatException('بيانات تكلفة تحويل الصوت غير صالحة.', 502);
+            }
+            $tokens = $cost
+                ->multipliedBy(self::POINTS_PER_USD)
+                ->toScale(0, RoundingMode::HALF_UP)
+                ->toInt();
+            $storedCost = $cost->toScale(8, RoundingMode::HALF_UP)->__toString();
+        } catch (MathException) {
+            $this->updateMessageStatus($userMessage, 'failed', 'invalid_cost');
+            throw new FreeAiChatException('بيانات تكلفة تحويل الصوت غير صالحة.', 502);
+        }
+
+        return [$storedCost, $tokens];
+    }
+
+    private function nullableNonNegativeNumber(mixed $value): int|float|null
+    {
+        if (is_bool($value) || ! is_scalar($value) || ! is_numeric((string) $value)) return null;
+        $number = (float) $value;
+
+        return is_finite($number) && $number >= 0 ? $number : null;
     }
 
     private function updateMessageStatus(ModelsMessage $message, string $status, ?string $reason = null): void

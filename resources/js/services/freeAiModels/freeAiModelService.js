@@ -85,6 +85,38 @@ const freeAiModelService = {
         }));
     },
 
+    async sendSpeechToTextMessage(slug, uuid, audioFile, requestId, context) {
+        const payload = {
+            user_id: Number(context.userId),
+            model_id: Number(context.modelId),
+            selected_model_id: Number(context.selectedModelId),
+            conversation_uuid: uuid,
+            user_message: "حوّل الصوت إلى نص",
+            state: {
+                operation: "speech_to_text",
+                parameters: {
+                    language: "ar",
+                    include_segments: true,
+                },
+            },
+            debug: true,
+            request_id: requestId,
+        };
+        const formData = new FormData();
+        formData.append("file", audioFile);
+        formData.append("payload", JSON.stringify(payload));
+
+        return unwrap(await api.post(
+            `/free-ai-models/${slug}/conversations/${uuid}/messages`,
+            formData,
+            {
+                ...operationParams("speech_to_text"),
+                timeout: 300000,
+                suppressGlobalErrorToast: true,
+            }
+        ));
+    },
+
     // The send endpoint saves both messages and charges the wallet atomically.
     async saveMessage(slug, uuid, userMessage, requestId, catalogOperation = null) {
         return this.sendMessage(slug, uuid, userMessage, requestId, catalogOperation);

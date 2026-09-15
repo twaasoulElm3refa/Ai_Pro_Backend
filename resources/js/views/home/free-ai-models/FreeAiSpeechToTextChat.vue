@@ -1,5 +1,5 @@
 <template>
-    <FreeAiModelChat />
+    <FreeAiModelChat operation="speech_to_text" />
 </template>
 
 <script setup>
