@@ -133,11 +133,11 @@
                             <div class="audio-attachment-heading">
                                 <i class="bi bi-file-earmark-music" aria-hidden="true"></i>
                                 <span>{{ item.filename }}</span>
-                                <a :href="item.url" :download="item.filename" :aria-label="t('freeAiModels.downloadAudio')" :title="t('freeAiModels.downloadAudio')">
+                                <a :href="item.url || item.download_url" :download="item.filename" :aria-label="t('freeAiModels.downloadAudio')" :title="t('freeAiModels.downloadAudio')" @click.prevent="downloadAudioAttachment(item)">
                                     <i class="bi bi-download" aria-hidden="true"></i>
                                 </a>
                             </div>
-                            <audio controls preload="metadata" :src="item.url" :aria-label="item.filename"></audio>
+                            <audio controls preload="metadata" :src="item.url || undefined" :aria-label="item.filename" @click="prepareAudioForPlayback(item, $event)" @play="prepareAudioForPlayback(item, $event)"></audio>
                         </div>
                         <div v-else-if="isGeneralCode && item.role === 'assistant'" class="code-markdown" v-html="renderCodeMarkdown(item.content)"></div>
                         <p v-else>{{ item.content }}</p>
@@ -280,6 +280,7 @@ import useSeoMeta from "@/composables/useSeoMeta";
 import homeService from "@/services/home/homeService";
 import freeAiModelService from "@/services/freeAiModels/freeAiModelService";
 import { generateSpeech, downloadAudioFile } from "@/services/audioService";
+import { clearAudioChatHistory, readAudioChatHistory, saveAudioChatHistory } from "@/services/audioChatStorage";
 import { MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS, messageRequestSignature, recentChatRequests, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent } from "@/services/freeAiModels/freeAiChatRateControl";
 import { getFreeAiCatalogSource } from "@/services/freeAiModels/freeAiCatalogSources";
 import modelCatalogService from "@/services/modelCatalog/modelCatalogService";
@@ -308,6 +309,7 @@ const selectedModel = ref(null);
 const modelSaving = ref(false);
 const messages = ref([]);
 const audioObjectUrls = new Set();
+const pendingAudioDownloads = new WeakMap();
 const messageDraft = ref("");
 const codeOptionsOpen = ref(false);
 const translationOptionsOpen = ref(false);
@@ -344,6 +346,7 @@ let loadedCatalogKey = null;
 let catalogRequestId = 0;
 let conversationRequestId = 0;
 let messagesRequestId = 0;
+let componentDisposed = false;
 
 const activeUuid = computed(() => String(route.params.uuid || ""));
 const pageSlug = computed(() => String(route.params.slug || ""));
@@ -502,7 +505,10 @@ async function loadConversation() {
         conversation.value = response?.data || null;
         syncSelectedModel();
         loadCatalog();
-        if (canChat.value) await Promise.all([loadMessages(), refreshWallet().catch(() => {})]);
+        if (canChat.value) {
+            const messageLoad = isTextToSpeech.value ? restoreSpeechMessages(uuid) : loadMessages();
+            await Promise.all([messageLoad, refreshWallet().catch(() => {})]);
+        }
         else messages.value = [];
     } catch {
         if (!isCurrent()) return;
@@ -550,6 +556,20 @@ async function loadOlderMessages() {
 async function scrollToBottom() {
     await nextTick();
     if (messagesContainer.value) messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+}
+
+async function restoreSpeechMessages(uuid) {
+    messages.value = readAudioChatHistory(uuid).map((message, index) => ({
+        ...message,
+        id: `restored-${index}-${message.role}`,
+        ...(message.type === "audio" ? { url: "", mimeType: message.content_type } : {}),
+    }));
+    nextMessagesCursor.value = null;
+    await scrollToBottom();
+}
+
+function persistSpeechMessages(uuid = activeUuid.value) {
+    saveAudioChatHistory(uuid, messages.value);
 }
 
 async function refreshWallet() {
@@ -677,7 +697,8 @@ async function sendSpeechMessage() {
     sendingMessage.value = true;
     rememberSentRequest(recentChatRequests, signature);
     messageDraft.value = "";
-    messages.value.push({ id: `user-${requestId}`, role: "user", content: message });
+    messages.value.push({ id: `user-${requestId}`, role: "user", type: "text", content: message });
+    persistSpeechMessages(uuid);
     await scrollToBottom();
     try {
         if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
@@ -703,10 +724,15 @@ async function sendSpeechMessage() {
             id: `audio-${requestId}`,
             type: "audio",
             role: "assistant",
+            content: "Speech generated successfully.",
             url,
             filename: file.filename.split(/[\\/]/).pop(),
             mimeType: blob.type || file.content_type,
+            content_type: file.content_type || blob.type || "audio/mpeg",
+            download_url: file.download_url,
+            file_id: String(file.file_id || ""),
         });
+        persistSpeechMessages(uuid);
         startCooldown(MESSAGE_COOLDOWN_MS);
         conversation.value = { ...conversation.value, title: conversation.value?.title || message.slice(0, 80) };
         upsertConversationSummary(conversation.value);
@@ -714,9 +740,65 @@ async function sendSpeechMessage() {
     } catch (error) {
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         messages.value.push({ id: `error-${requestId}`, type: "error", role: "assistant", content: audioErrorMessage(error) });
+        persistSpeechMessages(uuid);
         await scrollToBottom();
     } finally {
         sendingMessage.value = false;
+    }
+}
+
+async function ensureAudioObjectUrl(item) {
+    if (typeof item?.url === "string" && item.url.startsWith("blob:")) return item.url;
+    if (!item || item.type !== "audio") throw new Error("Invalid audio attachment");
+
+    const existingDownload = pendingAudioDownloads.get(item);
+    if (existingDownload) return existingDownload;
+
+    const download = downloadAudioFile({
+        download_url: item.download_url,
+        content_type: item.content_type || item.mimeType || "audio/mpeg",
+    }).then((blob) => {
+        const url = URL.createObjectURL(blob);
+        if (componentDisposed || !messages.value.includes(item)) {
+            URL.revokeObjectURL(url);
+            return "";
+        }
+        item.url = url;
+        item.mimeType = blob.type || item.content_type;
+        audioObjectUrls.add(url);
+        return url;
+    }).finally(() => pendingAudioDownloads.delete(item));
+
+    pendingAudioDownloads.set(item, download);
+    return download;
+}
+
+async function prepareAudioForPlayback(item, event) {
+    if (item?.url) return;
+    const player = event?.currentTarget;
+    event?.preventDefault?.();
+    sendError.value = "";
+    try {
+        const url = await ensureAudioObjectUrl(item);
+        if (!url || !player) return;
+        player.src = url;
+        await player.play();
+    } catch (error) {
+        sendError.value = audioErrorMessage(error);
+    }
+}
+
+async function downloadAudioAttachment(item) {
+    sendError.value = "";
+    try {
+        const url = await ensureAudioObjectUrl(item);
+        if (!url) return;
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = item.filename || "generated-speech.mp3";
+        link.click();
+    } catch (error) {
+        sendError.value = audioErrorMessage(error);
     }
 }
 
@@ -797,6 +879,7 @@ async function deleteConversation(item) {
     deletingUuid.value = item.uuid;
     try {
         await freeAiModelService.deleteConversation(pageSlug.value, item.uuid, requiredCatalogOperation.value);
+        clearAudioChatHistory(item.uuid);
         conversations.value = conversations.value.filter((entry) => entry.uuid !== item.uuid);
         if (item.uuid === activeUuid.value) {
             const next = conversations.value[0];
@@ -875,6 +958,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+    componentDisposed = true;
     revokeAudioUrls();
     catalogRequestId++;
     conversationRequestId++;

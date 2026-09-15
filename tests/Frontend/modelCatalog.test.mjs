@@ -567,6 +567,7 @@ async function chatHarness({ route, api, catalogs, remembered = null }) {
         {
             ref: (value) => ({ value }),
             computed: (getter) => ({ get value() { return getter(); } }),
+            nextTick: async () => {},
             watch: (source, callback) => watches.push({ source, callback }),
             onMounted() {}, onBeforeUnmount() {}, useSeoMeta() {},
             useRoute: () => route, useRouter: () => ({ push: async () => {} }),
@@ -575,6 +576,9 @@ async function chatHarness({ route, api, catalogs, remembered = null }) {
             freeAiModelService: api, modelCatalogService: catalogs, getFreeAiCatalogSource,
             readSelectedCatalogModel: () => remembered,
             saveSelectedCatalogModel: (...args) => saved.push(args),
+            readAudioChatHistory: () => [],
+            saveAudioChatHistory() {},
+            clearAudioChatHistory() {},
         }
     );
     return { ...state, saved, routeChanged: watches.find(({ source }) => Array.isArray(source)).callback };

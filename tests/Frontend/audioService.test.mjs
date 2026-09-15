@@ -108,8 +108,11 @@ test("the TTS chat sends its selected IDs and adds a playable assistant attachme
     const page = await readFile("resources/js/views/home/free-ai-models/FreeAiModelChat.vue", "utf8");
     const script = page.match(/<script setup>([\s\S]*?)<\/script>/)[1].replace(/^import .*;\r?\n/gm, "");
     const calls = [];
+    const persisted = [];
     let failDownload = false;
-    const state = runInNewContext(`${script}\n({ conversation, selectedModel, loadingConversation, messageDraft, messages, cooldownUntil, canChat, sendMessage })`, {
+    const downloads = [];
+    let restoredHistory = [];
+    const state = runInNewContext(`${script}\n({ conversation, selectedModel, loadingConversation, messageDraft, messages, cooldownUntil, canChat, sendMessage, restoreSpeechMessages, ensureAudioObjectUrl })`, {
         ref: (value) => ({ value }),
         computed: (getter) => ({ get value() { return getter(); } }),
         watch() {}, onMounted() {}, onBeforeUnmount() {}, useSeoMeta() {},
@@ -125,10 +128,14 @@ test("the TTS chat sends its selected IDs and adds a playable assistant attachme
         wasRecentlySent: () => false,
         rememberSentRequest() {},
         generateSpeech: async (input) => { calls.push(input); return file; },
-        downloadAudioFile: async () => {
+        downloadAudioFile: async (downloadFile) => {
+            downloads.push(downloadFile);
             if (failDownload) throw { code: "download_failed" };
             return new Blob(["audio bytes"], { type: "audio/mpeg" });
         },
+        saveAudioChatHistory: (uuid, messages) => persisted.push({ uuid, messages: structuredClone(messages) }),
+        readAudioChatHistory: () => structuredClone(restoredHistory),
+        clearAudioChatHistory() {},
         URL: { createObjectURL: () => "blob:generated", revokeObjectURL() {} },
         window: { innerWidth: 1200, setInterval: () => 1, clearInterval() {} },
     });
@@ -150,6 +157,9 @@ test("the TTS chat sends its selected IDs and adds a playable assistant attachme
     assert.equal(state.messages.value[1].role, "assistant");
     assert.equal(state.messages.value[1].url, "blob:generated");
     assert.equal(state.messages.value[1].filename, "generated-speech.mp3");
+    assert.equal(state.messages.value[1].download_url, "/tasks/generated-files/download/file-id");
+    assert.equal(state.messages.value[1].file_id, "file-id");
+    assert.equal(persisted.at(-1).uuid, "conversation-uuid");
 
     failDownload = true;
     state.cooldownUntil.value = 0;
@@ -158,4 +168,18 @@ test("the TTS chat sends its selected IDs and adds a playable assistant attachme
     assert.equal(state.messages.value.at(-1).type, "error");
     assert.equal(state.messages.value.at(-1).role, "assistant");
     assert.equal(state.messages.value.at(-1).content, "freeAiModels.speechDownloadFailed");
+
+    failDownload = false;
+    restoredHistory = [
+        { role: "user", type: "text", content: "Restored phrase" },
+        { role: "assistant", type: "audio", content: "Speech generated successfully.", filename: "restored.mp3", download_url: file.download_url, file_id: file.file_id, content_type: "audio/mpeg" },
+    ];
+    const downloadsBeforeRestore = downloads.length;
+    await state.restoreSpeechMessages("conversation-uuid");
+    assert.equal(downloads.length, downloadsBeforeRestore, "restore must not download audio");
+    assert.equal(state.messages.value[1].url, "");
+    await state.ensureAudioObjectUrl(state.messages.value[1]);
+    assert.equal(downloads.length, downloadsBeforeRestore + 1);
+    assert.equal(downloads.at(-1).download_url, file.download_url);
+    assert.equal(state.messages.value[1].url, "blob:generated");
 });
