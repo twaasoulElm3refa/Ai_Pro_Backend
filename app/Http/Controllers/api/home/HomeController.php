@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\home;
 
 use App\Http\Controllers\concerns\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Repository\AiModels\AiModelsInterface;
 use App\Repository\tools\MainToolInterface;
 use App\Repository\tools\SubToolInterface;
 use Illuminate\Http\JsonResponse;
@@ -16,11 +17,13 @@ class HomeController extends Controller
 
     private $toolRepository;
     private $subToolRepository;
+    private $AiModelsRepository;
 
-    public function __construct(MainToolInterface $toolRepository ,SubToolInterface $subToolRepository)
+    public function __construct(MainToolInterface $toolRepository ,SubToolInterface $subToolRepository, AiModelsInterface $AiModelsRepository)
     {
         $this->toolRepository = $toolRepository;
         $this->subToolRepository=$subToolRepository;
+        $this->AiModelsRepository=$AiModelsRepository;
     }
 
     private function cacheableSuccessResponse($data, string $message, int $maxAge = 300): JsonResponse
@@ -117,5 +120,22 @@ class HomeController extends Controller
         }
     }
 
+    public function AiModels()
+    {
+        try {
+            $locale = app()->getLocale();
+            $tools = Cache::tags(['AiModels'])->remember(
+                "AiModels:{$locale}",
+                now()->addHour(),
+                fn () => $this->AiModelsRepository->AiModels()
+            );
+            return $this->success($tools, 'Tools fetched successfully.');
+        } catch (\Throwable $th) {
+            Log::error('Tool Index Error', [
+                'error' => $th->getMessage(),
+            ]);
+            return $this->error('Something went wrong.');
+        }
+    }
 
 }

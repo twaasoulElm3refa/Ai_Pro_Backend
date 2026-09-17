@@ -28,6 +28,7 @@ const FreeAiSpeechToTextChat = () => import("../views/home/free-ai-models/FreeAi
 const FreeAiTextToSpeechChat = () => import("../views/home/free-ai-models/FreeAiTextToSpeechChat.vue");
 const showGeneral = () => import("../views/home/generalTools/showGeneral.vue");
 const GeneralChat = () => import("../views/home/generalTools/GeneralChat.vue");
+const ai_tools = () => import("../views/home/ai_tools.vue");
 
 const adminMeta = {
     hideNavbar: true,
@@ -47,6 +48,11 @@ const routes = [
     {
         path: "/:lang/",
         component: Home,
+        meta: { hideNavbar: false, hideFooter: false },
+    },
+    {
+        path: "/:lang/ai-models",
+        component: ai_tools,
         meta: { hideNavbar: false, hideFooter: false },
     },
     {

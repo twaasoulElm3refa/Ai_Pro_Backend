@@ -94,6 +94,7 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('tools')->middleware(['throttle:30,1'])->group(function () {
         Route::get('/', [HomeController::class, 'index']);
+        Route::get('/ai-tools', [HomeController::class, 'AiModels']);
         Route::get('/random/subtools', [HomeController::class, 'randomSubTools']);
         Route::get('/subtool/{slug}', [HomeController::class, 'showChat']);
         Route::get('/{slug}', [HomeController::class, 'show']);

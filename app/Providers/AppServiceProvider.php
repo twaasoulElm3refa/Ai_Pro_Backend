@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Observers\UserObserver;
+use App\Repository\AiModels\AiModelsInterface;
+use App\Repository\AiModels\AiModelsRepository;
 use App\Repository\Conversation\ConversationInterface;
 use App\Repository\Conversation\ConversationRepository;
 use App\Repository\cost\CostInterface;
@@ -46,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MessageInterface::class, MessageRepository::class);
         $this->app->bind(CostInterface::class, CostRepository::class);
         $this->app->bind(GenrealToolInterface::class, GenrealToolRepository::class);
+        $this->app->bind(AiModelsInterface::class, AiModelsRepository::class);
     }
 
     /**
