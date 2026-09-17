@@ -79,7 +79,7 @@ const loading = ref(true);
 const error = ref(false);
 const tools = ref([]);
 
-const defaultToolImage = "/images/hero.png";
+const defaultToolImage = "https://www.ampcuscyber.com/wp-content/uploads/2026/09/ai-security-debt-in-enterprise-ai-adoption-risks-causes-and-how-to-reduce-it.webp";
 const isArabic = computed(() => String(locale.value || homeService.getLang()).toLowerCase() === "ar");
 const emptyDescription = computed(() => (isArabic.value ? "لا يوجد وصف متاح لهذه الأداة حالياً." : "No description is available for this tool yet."));
 
