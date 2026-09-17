@@ -54,6 +54,18 @@ return [
             'query' => [
                 'operation' => 'image_generation',
             ],
+            'default_operation' => 'image_generation',
+            'operations' => [
+                'image_generation' => ['query' => ['operation' => 'image_generation']],
+                'background_remove' => ['query' => ['operation' => 'background_remove']],
+                'image_upscale' => ['query' => ['operation' => 'image_upscale']],
+                'image_edit' => ['query' => ['operation' => 'image_edit']],
+                'remove_element' => ['query' => ['operation' => 'remove_element']],
+                'restore' => ['query' => ['operation' => 'restore']],
+                'outpaint' => ['query' => ['operation' => 'outpaint']],
+                'resize' => ['query' => ['operation' => 'resize']],
+                'video_generation' => ['query' => ['operation' => 'video_generation']],
+            ],
             'requires_internal_key' => true,
             'internal_key_config' => 'services.aiarabic.internal_api_key',
         ],

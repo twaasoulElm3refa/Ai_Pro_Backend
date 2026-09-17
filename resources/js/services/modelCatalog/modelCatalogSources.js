@@ -14,6 +14,18 @@ export const MODEL_CATALOG_SOURCES = Object.freeze({
     general_media: Object.freeze({
         endpoint: "/model-catalogs/general_media",
         usesServerProxy: true,
+        defaultOperation: "image_generation",
+        operations: Object.freeze([
+            "image_generation",
+            "background_remove",
+            "image_upscale",
+            "image_edit",
+            "remove_element",
+            "restore",
+            "outpaint",
+            "resize",
+            "video_generation",
+        ]),
     }),
     general_audio: Object.freeze({
         endpoint: "/model-catalogs/general_audio",

@@ -42,10 +42,12 @@ const resolveCatalogOperation = (source, requestedOperation) => {
     return operation;
 };
 
-const requestCatalog = (sourceKey, requestedOperation = null) => {
+const requestCatalog = (sourceKey, requestedOperation = null, force = false) => {
     const source = getModelCatalogSource(sourceKey);
     const operation = resolveCatalogOperation(source, requestedOperation);
     const cacheKey = `${sourceKey}:${operation || "default"}:${currentLanguage()}`;
+
+    if (force) catalogRequests.delete(cacheKey);
 
     if (!catalogRequests.has(cacheKey)) {
         const request = api.get(source.endpoint, operation ? { params: { operation } } : undefined)
@@ -65,7 +67,7 @@ const modelCatalogService = {
     async getModels(sourceKey, options = {}) {
         const source = getModelCatalogSource(sourceKey);
         const operation = resolveCatalogOperation(source, options.operation);
-        const catalog = await requestCatalog(sourceKey, operation);
+        const catalog = await requestCatalog(sourceKey, operation, options.force === true);
 
         const models = catalog.items
             .map((item, index) => ({

@@ -9,6 +9,7 @@ use App\Models\MainFreeAiModels;
 use App\Models\ModelsConverstaions;
 use App\Services\FreeAiModels\FreeAiChatException;
 use App\Services\FreeAiModels\FreeAiChatService;
+use App\Services\FreeAiModels\FreeAiMediaService;
 use App\Services\ModelCatalogService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -177,16 +178,32 @@ class FreeAiModelController extends Controller
 
         $messages = $conversation->messages()
             ->orderByDesc('id')
-            ->cursorPaginate(30, ['id', 'role', 'content', 'request_id', 'created_at']);
+            ->cursorPaginate(30, ['id', 'role', 'content', 'request_id', 'metadata', 'created_at']);
+
+        $items = collect($messages->items())->reverse()->values()->map(
+            static fn (\App\Models\ModelsMessage $message): array => [
+                'id' => $message->id,
+                'role' => $message->role,
+                'content' => $message->content,
+                'request_id' => $message->request_id,
+                ...($message->metadata !== null ? ['metadata' => $message->metadata] : []),
+                'created_at' => $message->created_at?->toISOString(),
+            ]
+        );
 
         return $this->success([
-            'items' => collect($messages->items())->reverse()->values(),
+            'items' => $items,
             'next_cursor' => $messages->nextCursor()?->encode(),
         ]);
     }
 
-    public function sendMessage(Request $request, string $slug, string $uuid, FreeAiChatService $chat)
-    {
+    public function sendMessage(
+        Request $request,
+        string $slug,
+        string $uuid,
+        FreeAiChatService $chat,
+        FreeAiMediaService $media
+    ) {
         $conversation = $this->ownedConversation($request, $slug, $uuid);
         if (! $conversation) {
             return $this->notFound('Free AI model conversation not found.');
@@ -195,6 +212,10 @@ class FreeAiModelController extends Controller
         if ($this->catalogSourceFor($conversation->model) === 'general_audio'
             && $this->operationForConversation($conversation, $conversation->model) === 'speech_to_text') {
             return $this->sendSpeechToTextMessage($request, $conversation, $chat);
+        }
+
+        if ($this->catalogSourceFor($conversation->model) === 'general_media') {
+            return $this->sendMediaMessage($request, $conversation, $media);
         }
 
         $validated = $request->validate([
@@ -230,6 +251,81 @@ class FreeAiModelController extends Controller
 
         try {
             return $this->success($chat->send($conversation, $message, $validated['request_id'], $programmingLanguage, $translationOptions));
+        } catch (FreeAiChatException $exception) {
+            $response = $this->error($exception->getMessage(), $exception->statusCode);
+            if ($exception->statusCode === 429 && $exception->retryAfter !== null) {
+                $response->headers->set('Retry-After', $exception->retryAfter);
+            }
+
+            return $response;
+        }
+    }
+
+    private function sendMediaMessage(
+        Request $request,
+        ModelsConverstaions $conversation,
+        FreeAiMediaService $media
+    ) {
+        $request->validate([
+            'file' => ['nullable', 'file', 'mimetypes:image/jpeg,image/png,image/webp,image/gif,image/avif', 'max:51200'],
+            'payload' => ['required', 'string'],
+        ]);
+
+        try {
+            $payload = json_decode($request->string('payload')->toString(), true, 64, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw ValidationException::withMessages([
+                'payload' => ['The media payload must be valid JSON.'],
+            ]);
+        }
+        if (! is_array($payload)) {
+            throw ValidationException::withMessages([
+                'payload' => ['The media payload must be a JSON object.'],
+            ]);
+        }
+
+        $validated = validator($payload, [
+            'user_id' => ['required', 'integer'],
+            'model_id' => ['required', 'integer'],
+            'selected_model_id' => ['required', 'integer'],
+            'conversation_uuid' => ['required', 'uuid'],
+            'user_message' => ['nullable', 'string', 'max:5000'],
+            'request_id' => ['required', 'uuid'],
+            'state' => ['required', 'array'],
+            'state.operation' => ['required', 'string', \Illuminate\Validation\Rule::in(FreeAiMediaService::OPERATIONS)],
+            'state.parameters' => ['present', 'array'],
+        ])->validate();
+
+        $operation = $validated['state']['operation'];
+        if ((int) $validated['user_id'] !== (int) $conversation->user_id
+            || (int) $validated['model_id'] !== (int) $conversation->model_id
+            || (int) $validated['selected_model_id'] !== (int) $conversation->selected_model_id
+            || $validated['conversation_uuid'] !== $conversation->uuid
+            || $operation !== $conversation->catalog_operation) {
+            throw ValidationException::withMessages([
+                'payload' => ['The media payload does not match this conversation.'],
+            ]);
+        }
+        if (in_array($operation, FreeAiMediaService::FILE_OPERATIONS, true) && ! $request->hasFile('file')) {
+            throw ValidationException::withMessages([
+                'file' => ['An image file is required for this media operation.'],
+            ]);
+        }
+        if (! in_array($operation, FreeAiMediaService::FILE_OPERATIONS, true) && $request->hasFile('file')) {
+            throw ValidationException::withMessages([
+                'file' => ['This media operation does not accept an uploaded file.'],
+            ]);
+        }
+
+        try {
+            return $this->success($media->execute(
+                $conversation,
+                $operation,
+                $validated['state']['parameters'],
+                trim((string) ($validated['user_message'] ?? '')),
+                $validated['request_id'],
+                $request->file('file')
+            ));
         } catch (FreeAiChatException $exception) {
             $response = $this->error($exception->getMessage(), $exception->statusCode);
             if ($exception->statusCode === 429 && $exception->retryAfter !== null) {
@@ -299,7 +395,9 @@ class FreeAiModelController extends Controller
     private function ownedConversation(Request $request, string $slug, string $uuid): ?ModelsConverstaions
     {
         $model = $this->activeModelsQuery()->where('slug', $slug)->first();
-        if (! $model) return null;
+        if (! $model) {
+            return null;
+        }
 
         $operation = $this->catalogOperationForRequest($model, $request);
         $query = ModelsConverstaions::query()

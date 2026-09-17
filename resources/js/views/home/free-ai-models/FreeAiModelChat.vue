@@ -25,6 +25,15 @@
                 </button>
             </div>
 
+            <label v-if="isGeneralMediaRoute" class="media-operation-picker">
+                <span>{{ t("freeAiModels.mediaToolType") }}</span>
+                <select v-model="mediaOperation" :disabled="creatingConversation || sendingMessage" @change="changeMediaOperation">
+                    <option v-for="operation in MEDIA_OPERATIONS" :key="operation" :value="operation">
+                        {{ mediaOperationLabel(operation) }}
+                    </option>
+                </select>
+            </label>
+
             <button type="button" class="new-conversation-button" :disabled="creatingConversation" @click="newConversation">
                 <span v-if="creatingConversation" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
                 <i v-else class="bi bi-plus-lg"></i>
@@ -139,6 +148,17 @@
                             </div>
                             <audio controls preload="metadata" :src="item.url || undefined" :aria-label="item.filename" @click="prepareAudioForPlayback(item, $event)" @play="prepareAudioForPlayback(item, $event)"></audio>
                         </div>
+                        <div v-else-if="isGeneralMedia && item.role === 'assistant'" class="media-result">
+                            <p v-if="item.content">{{ item.content }}</p>
+                            <div v-if="mediaFiles(item).length" class="media-result-grid">
+                                <a v-for="(file, index) in mediaFiles(item)" :key="file.file_id || file.filename || index"
+                                    class="media-result-file" :href="mediaFileUrl(file)" target="_blank" rel="noopener">
+                                    <img v-if="isImageFile(file)" :src="mediaFileUrl(file)" :alt="file.filename || t('freeAiModels.mediaResult')" />
+                                    <video v-else-if="isVideoFile(file)" :src="mediaFileUrl(file)" controls preload="metadata"></video>
+                                    <span v-else><i class="bi bi-file-earmark-arrow-down"></i>{{ file.filename || t("freeAiModels.downloadMedia") }}</span>
+                                </a>
+                            </div>
+                        </div>
                         <div v-else-if="isGeneralCode && item.role === 'assistant'" class="code-markdown" v-html="renderCodeMarkdown(item.content)"></div>
                         <p v-else>{{ item.content }}</p>
                     </div>
@@ -161,6 +181,11 @@
                         <i class="bi bi-translate"></i>
                         {{ t("freeAiModels.translationOptionsTitle") }}: {{ sourceLanguage }} → {{ targetLanguage }}
                     </button>
+                    <button v-if="isGeneralMedia" type="button" class="code-options-trigger"
+                        :disabled="!selectedModel || sendingMessage" @click="mediaSettingsOpen = true">
+                        <i class="bi bi-sliders"></i>
+                        {{ t("freeAiModels.mediaSettings") }}
+                    </button>
                     <div class="composer-box">
                         <FreeAiModelSelector
                             :models="catalogModels"
@@ -171,7 +196,25 @@
                             @select="selectExecutionModel"
                             @retry="loadCatalog(true)"
                         />
-                        <div v-if="isSpeechToText" class="speech-upload-compose">
+                        <div v-if="isGeneralMedia" class="media-compose">
+                            <input ref="mediaFileInput" class="visually-hidden" type="file" accept="image/*"
+                                :disabled="sendingMessage" @change="handleMediaFileInput" />
+                            <button v-if="mediaRequiresFile" type="button" class="media-file-button"
+                                :class="{ selected: selectedMediaFile }" :disabled="sendingMessage" @click="chooseMediaFile">
+                                <i class="bi" :class="selectedMediaFile ? 'bi-check-circle-fill' : 'bi-image'"></i>
+                                <span>{{ selectedMediaFile?.name || t("freeAiModels.uploadMedia") }}</span>
+                                <i v-if="selectedMediaFile" class="bi bi-x-lg" @click.stop="clearSelectedMedia"></i>
+                            </button>
+                            <textarea v-model="messageDraft" rows="1" :placeholder="t('freeAiModels.mediaPrompt')"
+                                :aria-label="t('freeAiModels.mediaPrompt')" :disabled="sendingMessage"
+                                @keydown.enter.exact.prevent="sendMessage"></textarea>
+                            <button type="button" class="send-button" :disabled="!canSend"
+                                :aria-label="t('freeAiModels.runMediaTool')" @click="sendMessage">
+                                <span v-if="sendingMessage" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                <i v-else class="bi bi-stars"></i>
+                            </button>
+                        </div>
+                        <div v-else-if="isSpeechToText" class="speech-upload-compose">
                             <input
                                 ref="audioFileInput"
                                 class="visually-hidden"
@@ -322,6 +365,36 @@
                 </div>
             </section>
         </div>
+        <div v-if="mediaSettingsOpen && isGeneralMedia" class="code-options-overlay" @click.self="mediaSettingsOpen = false">
+            <section class="code-options-dialog media-settings-dialog" role="dialog" aria-modal="true"
+                aria-labelledby="media-settings-title" @keydown.esc.stop.prevent="mediaSettingsOpen = false">
+                <div class="code-options-heading">
+                    <h2 id="media-settings-title">{{ t("freeAiModels.mediaSettings") }}</h2>
+                    <button type="button" class="icon-button" :aria-label="t('freeAiModels.closeSidebar')"
+                        @click="mediaSettingsOpen = false"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <p v-if="!mediaParameterFields.length" class="code-options-description">{{ t("freeAiModels.noMediaSettings") }}</p>
+                <div v-else class="media-settings-grid">
+                    <label v-for="field in mediaParameterFields" :key="field.name" class="media-setting-field">
+                        <span>{{ parameterLabel(field.name, field.schema) }}<small v-if="field.schema.required">*</small></span>
+                        <select v-if="parameterType(field.schema) === 'enum'" v-model="mediaParameters[field.name]">
+                            <option v-if="field.schema.nullable" :value="null">{{ t("freeAiModels.notSet") }}</option>
+                            <option v-for="value in parameterValues(field.schema)" :key="String(value)" :value="value">{{ value }}</option>
+                        </select>
+                        <input v-else-if="['integer', 'number', 'float'].includes(parameterType(field.schema))"
+                            v-model.number="mediaParameters[field.name]" type="number"
+                            :step="parameterType(field.schema) === 'integer' ? 1 : 'any'"
+                            :min="field.schema.minimum ?? field.schema.min" :max="field.schema.maximum ?? field.schema.max" />
+                        <input v-else-if="parameterType(field.schema) === 'boolean'" v-model="mediaParameters[field.name]" type="checkbox" />
+                        <input v-else v-model="mediaParameters[field.name]" type="text" />
+                    </label>
+                </div>
+                <div class="code-options-footer">
+                    <span>{{ selectedModel?.name }}</span>
+                    <button type="button" class="code-options-done" @click="mediaSettingsOpen = false">{{ t("freeAiModels.codeDone") }}</button>
+                </div>
+            </section>
+        </div>
     </main>
 </template>
 
@@ -333,6 +406,7 @@ import { useRoute, useRouter } from "vue-router";
 import useSeoMeta from "@/composables/useSeoMeta";
 import homeService from "@/services/home/homeService";
 import freeAiModelService from "@/services/freeAiModels/freeAiModelService";
+import freeAiMediaService from "@/services/freeAiModels/freeAiMediaService";
 import { generateSpeech, downloadAudioFile } from "@/services/audioService";
 import { clearAudioChatHistory, readAudioChatHistory, saveAudioChatHistory } from "@/services/audioChatStorage";
 import { MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS, messageRequestSignature, recentChatRequests, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent } from "@/services/freeAiModels/freeAiChatRateControl";
@@ -347,7 +421,14 @@ import DOMPurify from "dompurify";
 const MOBILE_BREAKPOINT = 900;
 const MAX_AUDIO_FILE_SIZE = 25 * 1024 * 1024;
 const SUPPORTED_AUDIO_FORMATS = new Set(["m4a", "mp3", "wav", "webm"]);
-const props = defineProps({ operation: { type: String, default: "" } });
+const MEDIA_OPERATIONS = Object.freeze([
+    "image_generation", "background_remove", "image_upscale", "image_edit", "remove_element",
+    "restore", "outpaint", "resize", "video_generation",
+]);
+const MEDIA_FILE_OPERATIONS = new Set([
+    "background_remove", "image_upscale", "image_edit", "remove_element", "restore", "outpaint", "resize",
+]);
+const mediaOperationRequiresFile = (operation) => MEDIA_FILE_OPERATIONS.has(operation);
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
@@ -372,6 +453,12 @@ const audioFileInput = ref(null);
 const selectedAudioFile = ref(null);
 const selectedAudioUrl = ref("");
 const audioDragging = ref(false);
+const initialMediaOperation = String(route.query?.operation || "");
+const mediaOperation = ref(MEDIA_OPERATIONS.includes(initialMediaOperation) ? initialMediaOperation : "image_generation");
+const mediaSettingsOpen = ref(false);
+const mediaParameters = ref({});
+const mediaFileInput = ref(null);
+const selectedMediaFile = ref(null);
 const codeOptionsOpen = ref(false);
 const translationOptionsOpen = ref(false);
 const translationOptionsButton = ref(null);
@@ -406,19 +493,32 @@ const viewportWidth = ref(typeof window === "undefined" ? 1200 : window.innerWid
 let loadedCatalogKey = null;
 let catalogRequestId = 0;
 let conversationRequestId = 0;
+let conversationsRequestId = 0;
 let messagesRequestId = 0;
 let componentDisposed = false;
 
 const activeUuid = computed(() => String(route.params.uuid || ""));
 const pageSlug = computed(() => String(route.params.slug || ""));
 const catalogSource = computed(() => getFreeAiCatalogSource(conversation.value));
+const isGeneralMediaRoute = computed(() => requiredCatalogSource.value === "general_media");
+const isGeneralMedia = computed(() => catalogSource.value === "general_media" && MEDIA_OPERATIONS.includes(catalogOperation.value));
 const isGeneralCode = computed(() => catalogSource.value === "general_code" && !catalogOperation.value);
 const isGeneralTranslation = computed(() => catalogSource.value === "general_translation" && !catalogOperation.value);
 const isTextToSpeech = computed(() => catalogSource.value === "general_audio" && catalogOperation.value === "text_to_speech");
-const isSpeechToText = computed(() => props.operation === "speech_to_text"
-    && catalogSource.value === "general_audio" && catalogOperation.value === "speech_to_text");
-const canChat = computed(() => isTextToSpeech.value || isSpeechToText.value
+const isSpeechToText = computed(() => catalogSource.value === "general_audio" && catalogOperation.value === "speech_to_text");
+const canChat = computed(() => isGeneralMedia.value || isTextToSpeech.value || isSpeechToText.value
     || ((catalogSource.value === "general_chat" || isGeneralCode.value || isGeneralTranslation.value) && !catalogOperation.value));
+const mediaRequiresFile = computed(() => isGeneralMedia.value && mediaOperationRequiresFile(catalogOperation.value));
+const mediaParameterFields = computed(() => Object.entries(selectedModel.value?.parameterSchema || {})
+    .filter(([, schema]) => schema && typeof schema === "object" && !Array.isArray(schema))
+    .map(([name, schema]) => ({ name, schema })));
+const mediaParametersValid = computed(() => mediaParameterFields.value.every(({ name, schema }) =>
+    !schema.required || schema.nullable || (mediaParameters.value[name] !== null && mediaParameters.value[name] !== "" && mediaParameters.value[name] !== undefined)
+));
+const mediaHasRequiredInput = computed(() => !isGeneralMedia.value
+    || ((!["image_generation", "video_generation"].includes(catalogOperation.value) || !!messageDraft.value.trim())
+        && (!mediaRequiresFile.value || !!selectedMediaFile.value)
+        && mediaParametersValid.value));
 const programmingLanguage = computed(() => programmingLanguageValue(selectedCodeLanguage.value, selectedCodeFramework.value));
 const filteredCodeLanguages = computed(() => PROGRAMMING_LANGUAGES.filter((language) => language.toLowerCase().includes(codeLanguageSearch.value.trim().toLowerCase())));
 const filteredCodeFrameworks = computed(() => PROGRAMMING_FRAMEWORKS.filter((framework) => framework.toLowerCase().includes(codeFrameworkSearch.value.trim().toLowerCase())));
@@ -428,7 +528,7 @@ const cooldownSeconds = computed(() => Math.max(0, Math.ceil((cooldownUntil.valu
 const canSend = computed(() => canChat.value && !!conversation.value?.uuid && !!selectedModel.value?.isAvailable
     && !catalogLoading.value && !catalogError.value && !loadingConversation.value
     && !modelSaving.value && !sendingMessage.value && !cooldownSeconds.value
-    && (isSpeechToText.value ? !!selectedAudioFile.value : !!messageDraft.value.trim())
+    && (isGeneralMedia.value ? mediaHasRequiredInput.value : (isSpeechToText.value ? !!selectedAudioFile.value : !!messageDraft.value.trim()))
     && (!isGeneralCode.value || !!programmingLanguage.value));
 const isMobile = computed(() => viewportWidth.value <= MOBILE_BREAKPOINT);
 const isRtl = computed(() => locale.value === "ar");
@@ -438,8 +538,9 @@ const collapseIcon = computed(() => (isRtl.value ? "bi-chevron-right" : "bi-chev
 const conversationRouteName = computed(() => String(route.name || "free-ai-model.chat"));
 const requiredCatalogSource = computed(() => String(route.meta?.catalogSource || "").trim() || null);
 const requiredCatalogOperation = computed(() => String(route.meta?.catalogOperation || "").trim() || null);
+const requestCatalogOperation = computed(() => isGeneralMediaRoute.value ? mediaOperation.value : requiredCatalogOperation.value);
 const catalogOperation = computed(() =>
-    String(conversation.value?.catalog_operation || requiredCatalogOperation.value || "").trim() || null
+    String(conversation.value?.catalog_operation || requestCatalogOperation.value || "").trim() || null
 );
 
 const seoTitle = computed(() => mainTool.value.meta_title || mainTool.value.name || "AI Pro");
@@ -473,6 +574,110 @@ function openTranslationOptions() {
 function closeTranslationOptions() {
     translationOptionsOpen.value = false;
     nextTick(() => translationOptionsButton.value?.focus());
+}
+
+function mediaOperationLabel(operation) {
+    return String(operation || "")
+        .split("_")
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}
+
+function parameterLabel(name, schema = {}) {
+    return String(schema.label || schema.title || mediaOperationLabel(name));
+}
+
+function parameterType(schema) {
+    if (Array.isArray(schema?.values) || Array.isArray(schema?.enum)) return "enum";
+    return String(schema?.type || "string").toLowerCase();
+}
+
+function parameterValues(schema) {
+    const values = schema?.values ?? schema?.enum;
+    return Array.isArray(values) ? values : [];
+}
+
+function resetMediaParameters() {
+    const recommended = selectedModel.value?.recommendedParameters || {};
+    const parameters = {};
+    for (const { name, schema } of mediaParameterFields.value) {
+        if (Object.hasOwn(recommended, name)) parameters[name] = recommended[name];
+        else if (Object.hasOwn(schema, "default")) parameters[name] = schema.default;
+        else if (parameterType(schema) === "boolean") parameters[name] = false;
+        else parameters[name] = schema.nullable ? null : "";
+    }
+    mediaParameters.value = parameters;
+}
+
+function mediaFiles(item) {
+    return Array.isArray(item?.metadata?.files) ? item.metadata.files : [];
+}
+
+function mediaFileUrl(file) {
+    const value = String(file?.url || file?.preview_url || file?.download_url || "").trim();
+    if (!value) return "";
+    try {
+        const parsed = new URL(value, window.location.origin);
+        return ["http:", "https:", "blob:"].includes(parsed.protocol) ? parsed.href : "";
+    } catch {
+        return "";
+    }
+}
+
+function mediaFileType(file) {
+    return String(file?.content_type || file?.mime_type || file?.type || "").toLowerCase();
+}
+
+function isImageFile(file) {
+    return mediaFileType(file).startsWith("image/") || /\.(png|jpe?g|webp|gif|avif)(?:\?|$)/i.test(mediaFileUrl(file));
+}
+
+function isVideoFile(file) {
+    return mediaFileType(file).startsWith("video/") || /\.(mp4|webm|mov)(?:\?|$)/i.test(mediaFileUrl(file));
+}
+
+function chooseMediaFile() {
+    if (!sendingMessage.value) mediaFileInput.value?.click();
+}
+
+function selectMediaFile(file) {
+    sendError.value = "";
+    if (!file || (file.type && !file.type.startsWith("image/"))) {
+        sendError.value = t("freeAiModels.mediaInvalidFile");
+        return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+        sendError.value = t("freeAiModels.mediaFileTooLarge");
+        return;
+    }
+    selectedMediaFile.value = file;
+}
+
+function handleMediaFileInput(event) {
+    selectMediaFile(event?.target?.files?.[0]);
+    if (event?.target) event.target.value = "";
+}
+
+function clearSelectedMedia() {
+    selectedMediaFile.value = null;
+    if (mediaFileInput.value) mediaFileInput.value.value = "";
+}
+
+async function changeMediaOperation() {
+    if (!isGeneralMediaRoute.value || creatingConversation.value) return;
+    conversationRequestId++;
+    conversationsRequestId++;
+    messagesRequestId++;
+    clearSelectedMedia();
+    mediaSettingsOpen.value = false;
+    loadedCatalogKey = null;
+    conversation.value = null;
+    catalogModels.value = [];
+    selectedModel.value = null;
+    messages.value = [];
+    await newConversation();
+    await loadConversations();
 }
 
 function catalogMatch(selection) {
@@ -511,15 +716,16 @@ function syncSelectedModel() {
     const persisted = conversation.value?.selected_model;
     const persistedMatch = catalogMatch(persisted);
     selectedModel.value = persistedMatch?.isAvailable ? persistedMatch : defaultCatalogModel();
+    if (isGeneralMedia.value) resetMediaParameters();
 }
 
 async function loadCatalog(force = false) {
     const source = catalogSource.value;
     const operation = catalogOperation.value;
     const slug = pageSlug.value;
-    const operationMismatch = requiredCatalogOperation.value
+    const operationMismatch = requestCatalogOperation.value
         && conversation.value?.catalog_operation
-        && conversation.value.catalog_operation !== requiredCatalogOperation.value;
+        && conversation.value.catalog_operation !== requestCatalogOperation.value;
     if (!source || (requiredCatalogSource.value && source !== requiredCatalogSource.value) || operationMismatch) {
         catalogRequestId++;
         catalogModels.value = [];
@@ -535,7 +741,11 @@ async function loadCatalog(force = false) {
     catalogLoading.value = true;
     catalogError.value = false;
     try {
-        const result = await modelCatalogService.getModels(source, {
+        const result = source === "general_media"
+            ? await freeAiMediaService.getMediaModels(operation, {
+                fallbackDescription: t("freeAiModels.modelDescriptionFallback"),
+            })
+            : await modelCatalogService.getModels(source, {
             fallbackDescription: t("freeAiModels.modelDescriptionFallback"),
             operation,
         });
@@ -544,7 +754,9 @@ async function loadCatalog(force = false) {
             ? result.models.filter((model) => model.toolKey === "general_code" && model.operation === "text_generation")
             : source === "general_translation"
                 ? result.models.filter((model) => model.toolKey === "general_translation" && (!model.operation || model.operation === "text_generation"))
-                : result.models;
+                : source === "general_media"
+                    ? result.models.filter((model) => model.toolKey === "general_media" && model.operation === operation)
+                    : result.models;
         loadedCatalogKey = catalogKey;
         syncSelectedModel();
     } catch {
@@ -565,9 +777,12 @@ async function loadConversation() {
     loadingConversation.value = true;
     loadError.value = false;
     try {
-        const response = await freeAiModelService.getConversation(slug, uuid, requiredCatalogOperation.value);
+        const response = await freeAiModelService.getConversation(slug, uuid, requestCatalogOperation.value);
         if (!isCurrent()) return;
         conversation.value = response?.data || null;
+        if (conversation.value?.catalog_source === "general_media" && MEDIA_OPERATIONS.includes(conversation.value?.catalog_operation)) {
+            mediaOperation.value = conversation.value.catalog_operation;
+        }
         syncSelectedModel();
         loadCatalog();
         if (canChat.value) {
@@ -589,7 +804,7 @@ async function loadMessages(showError = true) {
     const slug = pageSlug.value;
     const uuid = activeUuid.value;
     try {
-        const response = await freeAiModelService.getMessages(slug, uuid, null, requiredCatalogOperation.value);
+        const response = await freeAiModelService.getMessages(slug, uuid, null, requestCatalogOperation.value);
         if (requestId !== messagesRequestId || slug !== pageSlug.value || uuid !== activeUuid.value) return;
         messages.value = response?.data?.items || [];
         nextMessagesCursor.value = response?.data?.next_cursor || null;
@@ -607,7 +822,7 @@ async function loadOlderMessages() {
     const cursor = nextMessagesCursor.value;
     loadingOlderMessages.value = true;
     try {
-        const response = await freeAiModelService.getMessages(slug, uuid, cursor, requiredCatalogOperation.value);
+        const response = await freeAiModelService.getMessages(slug, uuid, cursor, requestCatalogOperation.value);
         if (requestId !== messagesRequestId || slug !== pageSlug.value || uuid !== activeUuid.value) return;
         messages.value = [...(response?.data?.items || []), ...messages.value];
         nextMessagesCursor.value = response?.data?.next_cursor || null;
@@ -717,6 +932,10 @@ function startCooldown(milliseconds) {
 
 async function sendMessage() {
     if (!canSend.value) return;
+    if (isGeneralMedia.value) {
+        await sendMediaMessage();
+        return;
+    }
     if (isSpeechToText.value) {
         await sendTranscriptionMessage();
         return;
@@ -751,7 +970,7 @@ async function sendMessage() {
 
         if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
             const selected = await freeAiModelService.updateConversationModel(
-                slug, uuid, selectedModel.value, requiredCatalogOperation.value
+                slug, uuid, selectedModel.value, requestCatalogOperation.value
             );
             if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
             conversation.value = selected?.data || conversation.value;
@@ -766,7 +985,7 @@ async function sendMessage() {
             ? await freeAiModelService.sendGeneralCodeMessage(slug, uuid, message, requestId, codeLanguage)
             : translationRequest
                 ? await freeAiModelService.sendGeneralTranslationMessage(slug, uuid, message, requestId, translationSource, translationTarget)
-            : await freeAiModelService.sendMessage(slug, uuid, message, requestId, requiredCatalogOperation.value);
+            : await freeAiModelService.sendMessage(slug, uuid, message, requestId, requestCatalogOperation.value);
         const result = response?.data;
         if (!result?.assistant_message?.content) throw new Error("Invalid chat response");
         startCooldown(MESSAGE_COOLDOWN_MS);
@@ -791,6 +1010,105 @@ async function sendMessage() {
             : status === 429 ? t("freeAiModels.rateLimited")
                 : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.chatTimeout")
                     : t("freeAiModels.chatFailed");
+        void loadMessages(false);
+    } finally {
+        sendingMessage.value = false;
+    }
+}
+
+async function sendMediaMessage() {
+    const message = messageDraft.value.trim();
+    const slug = pageSlug.value;
+    const uuid = activeUuid.value;
+    const operation = catalogOperation.value;
+    const file = selectedMediaFile.value;
+    const displayMessage = message || mediaOperationLabel(operation);
+    const signature = messageRequestSignature(
+        uuid,
+        `${operation}:${message}:${JSON.stringify(mediaParameters.value)}:${file ? `${file.name}:${file.size}:${file.lastModified}` : "no-file"}`,
+        selectedModel.value.id
+    );
+    if (wasRecentlySent(recentChatRequests, signature)) {
+        sendError.value = t("freeAiModels.duplicateRequest");
+        return;
+    }
+
+    sendError.value = "";
+    sendingMessage.value = true;
+    try {
+        const balance = await refreshWallet();
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        if (balance <= 0 || walletPayback.value > 0) {
+            sendError.value = t("freeAiModels.insufficientBalance");
+            return;
+        }
+
+        if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
+            const selected = await freeAiModelService.updateConversationModel(
+                slug, uuid, selectedModel.value, requestCatalogOperation.value
+            );
+            if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+            conversation.value = selected?.data || conversation.value;
+        }
+
+        const requestId = uuidv4();
+        rememberSentRequest(recentChatRequests, signature);
+        messageDraft.value = "";
+        messages.value.push({
+            id: `pending-${requestId}`,
+            request_id: requestId,
+            role: "user",
+            content: displayMessage,
+            metadata: {
+                operation,
+                parameters: { ...mediaParameters.value },
+                ...(file ? { original_filename: file.name } : {}),
+            },
+        });
+        await scrollToBottom();
+
+        const response = await freeAiMediaService.sendGeneralMedia({
+            slug,
+            conversationUuid: uuid,
+            requestId,
+            userId: conversation.value?.user?.id,
+            modelId: conversation.value?.model_id,
+            selectedModelId: selectedModel.value?.id,
+            operation,
+            parameters: mediaParameters.value,
+            userMessage: message,
+            file,
+        });
+        const result = response?.data;
+        if (!result?.assistant_message || !Array.isArray(result.assistant_message?.metadata?.files)) {
+            throw new Error("Invalid media response");
+        }
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+
+        const pendingIndex = messages.value.findIndex((item) => item.id === `pending-${requestId}`);
+        if (pendingIndex !== -1) messages.value.splice(pendingIndex, 1, result.user_message);
+        messages.value.push(result.assistant_message);
+        walletBalance.value = result.wallet?.balance ?? walletBalance.value;
+        walletPayback.value = result.wallet?.payback_balance ?? walletPayback.value;
+        window.dispatchEvent(new CustomEvent("wallet-updated", { detail: result.wallet }));
+        try { localStorage.setItem("wallet-updated-at", String(Date.now())); } catch { /* Other tabs refresh on navigation. */ }
+        conversation.value = { ...conversation.value, title: conversation.value?.title || displayMessage.slice(0, 80) };
+        upsertConversationSummary(conversation.value);
+        clearSelectedMedia();
+        startCooldown(MESSAGE_COOLDOWN_MS);
+        await scrollToBottom();
+    } catch (error) {
+        const status = error?.response?.status;
+        if (status === 429) {
+            startCooldown(Math.max(1000, retryAfterMilliseconds(error.response?.headers) ?? RATE_LIMIT_FALLBACK_MS));
+        }
+        if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        sendError.value = status === 402 ? t("freeAiModels.insufficientBalance")
+            : status === 413 ? t("freeAiModels.mediaFileTooLarge")
+                : status === 429 ? t("freeAiModels.rateLimited")
+                    : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.mediaTimeout")
+                        : status === 422 ? t("freeAiModels.mediaInvalidRequest")
+                            : t("freeAiModels.mediaFailed");
         void loadMessages(false);
     } finally {
         sendingMessage.value = false;
@@ -828,7 +1146,7 @@ async function sendTranscriptionMessage() {
 
         if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
             const selected = await freeAiModelService.updateConversationModel(
-                slug, uuid, selectedModel.value, requiredCatalogOperation.value
+                slug, uuid, selectedModel.value, requestCatalogOperation.value
             );
             if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
             conversation.value = selected?.data || conversation.value;
@@ -921,7 +1239,7 @@ async function sendSpeechMessage() {
     try {
         if (String(conversation.value?.selected_model?.id ?? "") !== String(selectedModel.value?.id ?? "")) {
             const selected = await freeAiModelService.updateConversationModel(
-                slug, uuid, selectedModel.value, requiredCatalogOperation.value
+                slug, uuid, selectedModel.value, requestCatalogOperation.value
             );
             if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
             conversation.value = selected?.data || conversation.value;
@@ -1026,17 +1344,19 @@ function revokeAudioUrls() {
 }
 
 async function loadConversations() {
+    const requestId = ++conversationsRequestId;
     const slug = pageSlug.value;
+    const operation = requestCatalogOperation.value;
     loadingConversations.value = true;
     try {
-        const response = await freeAiModelService.getConversations(slug, requiredCatalogOperation.value);
-        if (slug !== pageSlug.value) return;
+        const response = await freeAiModelService.getConversations(slug, operation);
+        if (requestId !== conversationsRequestId || slug !== pageSlug.value || operation !== requestCatalogOperation.value) return;
         conversations.value = Array.isArray(response?.data) ? response.data : [];
     } catch {
-        if (slug !== pageSlug.value) return;
+        if (requestId !== conversationsRequestId || slug !== pageSlug.value || operation !== requestCatalogOperation.value) return;
         conversations.value = [];
     } finally {
-        if (slug === pageSlug.value) loadingConversations.value = false;
+        if (requestId === conversationsRequestId && slug === pageSlug.value && operation === requestCatalogOperation.value) loadingConversations.value = false;
     }
 }
 
@@ -1067,7 +1387,11 @@ async function openConversation(item) {
         return;
     }
     sidebarOpen.value = false;
-    await router.push({ name: conversationRouteName.value, params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: item.uuid } });
+    await router.push({
+        name: conversationRouteName.value,
+        params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: item.uuid },
+        ...(isGeneralMediaRoute.value ? { query: { operation: mediaOperation.value } } : {}),
+    });
 }
 
 async function newConversation() {
@@ -1078,13 +1402,17 @@ async function newConversation() {
         const response = await freeAiModelService.createConversation(
             pageSlug.value,
             chosen,
-            requiredCatalogOperation.value
+            requestCatalogOperation.value
         );
         const created = response?.data;
         if (!created?.uuid) throw new Error("Missing conversation UUID");
         upsertConversationSummary(created);
         sidebarOpen.value = false;
-        await router.push({ name: conversationRouteName.value, params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: created.uuid } });
+        await router.push({
+            name: conversationRouteName.value,
+            params: { lang: homeService.getLang(), slug: pageSlug.value, uuid: created.uuid },
+            ...(isGeneralMediaRoute.value ? { query: { operation: mediaOperation.value } } : {}),
+        });
     } catch {
         // ApiClient provides the shared request error feedback.
     } finally {
@@ -1096,7 +1424,7 @@ async function deleteConversation(item) {
     if (deletingUuid.value) return;
     deletingUuid.value = item.uuid;
     try {
-        await freeAiModelService.deleteConversation(pageSlug.value, item.uuid, requiredCatalogOperation.value);
+        await freeAiModelService.deleteConversation(pageSlug.value, item.uuid, requestCatalogOperation.value);
         clearAudioChatHistory(item.uuid);
         conversations.value = conversations.value.filter((entry) => entry.uuid !== item.uuid);
         if (item.uuid === activeUuid.value) {
@@ -1123,7 +1451,7 @@ async function selectExecutionModel(model) {
             slug,
             uuid,
             model,
-            requiredCatalogOperation.value
+            requestCatalogOperation.value
         );
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
         conversation.value = response?.data || conversation.value;
@@ -1178,13 +1506,16 @@ onMounted(() => {
 onBeforeUnmount(() => {
     componentDisposed = true;
     clearSelectedAudio();
+    clearSelectedMedia();
     revokeAudioUrls();
     catalogRequestId++;
     conversationRequestId++;
+    conversationsRequestId++;
     messagesRequestId++;
     if (cooldownTimer !== null) window.clearInterval(cooldownTimer);
     codeOptionsOpen.value = false;
     translationOptionsOpen.value = false;
+    mediaSettingsOpen.value = false;
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("lang-changed", handleLanguageChanged);
     document.body.style.overflow = "";
@@ -1211,10 +1542,12 @@ watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
     messagesRequestId++;
     codeOptionsOpen.value = false;
     translationOptionsOpen.value = false;
+    mediaSettingsOpen.value = false;
     messages.value = [];
     nextMessagesCursor.value = null;
     messageDraft.value = "";
     clearSelectedAudio();
+    clearSelectedMedia();
     sendError.value = "";
     loadConversation();
 });
@@ -2120,6 +2453,152 @@ button {
     display: none;
 }
 
+.media-operation-picker {
+    display: grid;
+    gap: 6px;
+    margin: 4px 0 12px;
+    color: var(--theme-text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.media-operation-picker select,
+.media-setting-field select,
+.media-setting-field input:not([type="checkbox"]) {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--theme-border-strong);
+    border-radius: 9px;
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-elevated);
+    font: inherit;
+}
+
+.media-compose {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 7px;
+}
+
+.media-compose textarea {
+    min-width: 120px;
+    min-height: 42px;
+    max-height: 130px;
+    flex: 1;
+    resize: vertical;
+    padding: 10px;
+    border: 0;
+    outline: 0;
+    color: var(--theme-text-primary);
+    background: transparent;
+}
+
+.media-file-button {
+    min-width: 0;
+    max-width: 220px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 10px;
+    border: 1px dashed var(--theme-border-strong);
+    border-radius: 10px;
+    color: var(--theme-text-secondary);
+    background: transparent;
+}
+
+.media-file-button.selected {
+    border-style: solid;
+    border-color: var(--theme-accent);
+    color: var(--theme-text-primary);
+    background: var(--theme-hover);
+}
+
+.media-file-button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.media-result {
+    display: grid;
+    gap: 10px;
+}
+
+.media-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 9px;
+}
+
+.media-result-file {
+    min-height: 110px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--theme-border);
+    border-radius: 12px;
+    color: var(--theme-text-secondary);
+    background: var(--theme-surface-elevated);
+    text-decoration: none;
+}
+
+.media-result-file img,
+.media-result-file video {
+    width: 100%;
+    max-height: 420px;
+    display: block;
+    object-fit: contain;
+}
+
+.media-result-file span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 14px;
+}
+
+.media-settings-dialog {
+    width: min(640px, 100%);
+}
+
+.media-settings-grid {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.media-setting-field {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.media-setting-field > span {
+    display: flex;
+    gap: 3px;
+}
+
+.media-setting-field small {
+    color: var(--app-danger);
+}
+
+.media-setting-field input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--theme-accent);
+}
+
 @media (max-width: 900px) {
     .free-ai-chat {
         --navbar-height: 104px;
@@ -2175,7 +2654,8 @@ button {
 }
 
 @media (max-width: 640px) {
-    .code-options-grid {
+    .code-options-grid,
+    .media-settings-grid {
         grid-template-columns: 1fr;
         overflow-y: auto;
     }
@@ -2236,6 +2716,15 @@ button {
 
     .speech-upload-compose {
         align-items: flex-end;
+    }
+
+    .media-compose {
+        flex-wrap: wrap;
+    }
+
+    .media-file-button {
+        max-width: 100%;
+        flex: 1 1 100%;
     }
 
     .selected-audio {
