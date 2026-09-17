@@ -151,12 +151,16 @@
                         <div v-else-if="isGeneralMedia && item.role === 'assistant'" class="media-result">
                             <p v-if="item.content">{{ item.content }}</p>
                             <div v-if="mediaFiles(item).length" class="media-result-grid">
-                                <a v-for="(file, index) in mediaFiles(item)" :key="file.file_id || file.filename || index"
-                                    class="media-result-file" :href="mediaFileUrl(file)" target="_blank" rel="noopener">
-                                    <img v-if="isImageFile(file)" :src="mediaFileUrl(file)" :alt="file.filename || t('freeAiModels.mediaResult')" />
-                                    <video v-else-if="isVideoFile(file)" :src="mediaFileUrl(file)" controls preload="metadata"></video>
+                                <article v-for="(file, index) in mediaFiles(item)" :key="file.file_id || file.filename || index"
+                                    class="media-result-file">
+                                    <img v-if="isImageFile(file) && mediaFileUrl(file)" :src="mediaFileUrl(file)" :alt="file.filename || t('freeAiModels.mediaResult')" />
+                                    <video v-else-if="isVideoFile(file) && mediaFileUrl(file)" :src="mediaFileUrl(file)" controls preload="metadata"></video>
                                     <span v-else><i class="bi bi-file-earmark-arrow-down"></i>{{ file.filename || t("freeAiModels.downloadMedia") }}</span>
-                                </a>
+                                    <a v-if="mediaFileUrl(file)" class="media-result-download" :href="mediaFileUrl(file)"
+                                        :download="file.filename || true" :aria-label="t('freeAiModels.downloadMedia')" :title="t('freeAiModels.downloadMedia')">
+                                        <i class="bi bi-download" aria-hidden="true"></i>
+                                    </a>
+                                </article>
                             </div>
                         </div>
                         <div v-else-if="isGeneralCode && item.role === 'assistant'" class="code-markdown" v-html="renderCodeMarkdown(item.content)"></div>
@@ -409,7 +413,7 @@ import freeAiModelService from "@/services/freeAiModels/freeAiModelService";
 import freeAiMediaService from "@/services/freeAiModels/freeAiMediaService";
 import { generateSpeech, downloadAudioFile } from "@/services/audioService";
 import { clearAudioChatHistory, readAudioChatHistory, saveAudioChatHistory } from "@/services/audioChatStorage";
-import { MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS, messageRequestSignature, recentChatRequests, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent } from "@/services/freeAiModels/freeAiChatRateControl";
+import { MEDIA_MESSAGE_COOLDOWN_MS, MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS, messageRequestSignature, recentChatRequests, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent } from "@/services/freeAiModels/freeAiChatRateControl";
 import { getFreeAiCatalogSource } from "@/services/freeAiModels/freeAiCatalogSources";
 import modelCatalogService from "@/services/modelCatalog/modelCatalogService";
 import { readSelectedCatalogModel, saveSelectedCatalogModel } from "@/services/modelCatalog/selectedModelStorage";
@@ -448,6 +452,9 @@ const modelSaving = ref(false);
 const messages = ref([]);
 const audioObjectUrls = new Set();
 const pendingAudioDownloads = new WeakMap();
+const mediaObjectUrls = new Set();
+const pendingMediaDownloads = new WeakMap();
+let mediaHydrationGeneration = 0;
 const messageDraft = ref("");
 const audioFileInput = ref(null);
 const selectedAudioFile = ref(null);
@@ -611,18 +618,27 @@ function resetMediaParameters() {
 }
 
 function mediaFiles(item) {
+    if (Array.isArray(item?.attachments)) return item.attachments;
     return Array.isArray(item?.metadata?.files) ? item.metadata.files : [];
 }
 
 function mediaFileUrl(file) {
-    const value = String(file?.url || file?.preview_url || file?.download_url || "").trim();
+    const value = String(file?.object_url || "").trim();
     if (!value) return "";
     try {
         const parsed = new URL(value, window.location.origin);
-        return ["http:", "https:", "blob:"].includes(parsed.protocol) ? parsed.href : "";
+        return parsed.protocol === "blob:" ? parsed.href : "";
     } catch {
         return "";
     }
+}
+
+function mediaProxyEndpoint(file) {
+    const endpoint = String(file?.url || "").trim();
+    if (/^\/(?:api\/v1\/)?free-ai-model-files\//.test(endpoint)) return endpoint;
+
+    const fileId = String(file?.file_id || "").trim();
+    return fileId ? `/api/v1/free-ai-model-files/${encodeURIComponent(fileId)}/content` : "";
 }
 
 function mediaFileType(file) {
@@ -635,6 +651,37 @@ function isImageFile(file) {
 
 function isVideoFile(file) {
     return mediaFileType(file).startsWith("video/") || /\.(mp4|webm|mov)(?:\?|$)/i.test(mediaFileUrl(file));
+}
+
+async function hydrateMediaFile(file) {
+    if (!file || typeof file !== "object" || file.object_url || pendingMediaDownloads.has(file)) return;
+    const endpoint = mediaProxyEndpoint(file);
+    if (!endpoint) return;
+
+    const generation = mediaHydrationGeneration;
+    const pending = freeAiMediaService.downloadGeneratedFile(endpoint)
+        .then((blob) => {
+            if (componentDisposed || generation !== mediaHydrationGeneration || !(blob instanceof Blob)) return;
+            const objectUrl = URL.createObjectURL(blob);
+            mediaObjectUrls.add(objectUrl);
+            file.object_url = objectUrl;
+        })
+        .catch(() => {})
+        .finally(() => pendingMediaDownloads.delete(file));
+    pendingMediaDownloads.set(file, pending);
+    await pending;
+}
+
+async function hydrateMediaMessages(items) {
+    await Promise.allSettled((Array.isArray(items) ? items : [])
+        .flatMap((item) => mediaFiles(item))
+        .map((file) => hydrateMediaFile(file)));
+}
+
+function clearMediaObjectUrls() {
+    mediaHydrationGeneration++;
+    for (const url of mediaObjectUrls) URL.revokeObjectURL(url);
+    mediaObjectUrls.clear();
 }
 
 function chooseMediaFile() {
@@ -806,8 +853,10 @@ async function loadMessages(showError = true) {
     try {
         const response = await freeAiModelService.getMessages(slug, uuid, null, requestCatalogOperation.value);
         if (requestId !== messagesRequestId || slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        clearMediaObjectUrls();
         messages.value = response?.data?.items || [];
         nextMessagesCursor.value = response?.data?.next_cursor || null;
+        await hydrateMediaMessages(messages.value);
         await scrollToBottom();
     } catch {
         if (showError && requestId === messagesRequestId) sendError.value = t("freeAiModels.messagesLoadFailed");
@@ -824,8 +873,10 @@ async function loadOlderMessages() {
     try {
         const response = await freeAiModelService.getMessages(slug, uuid, cursor, requestCatalogOperation.value);
         if (requestId !== messagesRequestId || slug !== pageSlug.value || uuid !== activeUuid.value) return;
-        messages.value = [...(response?.data?.items || []), ...messages.value];
+        const olderMessages = response?.data?.items || [];
+        messages.value = [...olderMessages, ...messages.value];
         nextMessagesCursor.value = response?.data?.next_cursor || null;
+        await hydrateMediaMessages(olderMessages);
     } catch {
         if (requestId === messagesRequestId) sendError.value = t("freeAiModels.messagesLoadFailed");
     } finally {
@@ -1080,7 +1131,7 @@ async function sendMediaMessage() {
             file,
         });
         const result = response?.data;
-        if (!result?.assistant_message || !Array.isArray(result.assistant_message?.metadata?.files)) {
+        if (!result?.assistant_message || !Array.isArray(result.assistant_message?.attachments)) {
             throw new Error("Invalid media response");
         }
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
@@ -1088,6 +1139,7 @@ async function sendMediaMessage() {
         const pendingIndex = messages.value.findIndex((item) => item.id === `pending-${requestId}`);
         if (pendingIndex !== -1) messages.value.splice(pendingIndex, 1, result.user_message);
         messages.value.push(result.assistant_message);
+        await hydrateMediaMessages([result.assistant_message]);
         walletBalance.value = result.wallet?.balance ?? walletBalance.value;
         walletPayback.value = result.wallet?.payback_balance ?? walletPayback.value;
         window.dispatchEvent(new CustomEvent("wallet-updated", { detail: result.wallet }));
@@ -1095,7 +1147,7 @@ async function sendMediaMessage() {
         conversation.value = { ...conversation.value, title: conversation.value?.title || displayMessage.slice(0, 80) };
         upsertConversationSummary(conversation.value);
         clearSelectedMedia();
-        startCooldown(MESSAGE_COOLDOWN_MS);
+        startCooldown(MEDIA_MESSAGE_COOLDOWN_MS);
         await scrollToBottom();
     } catch (error) {
         const status = error?.response?.status;
@@ -1508,6 +1560,7 @@ onBeforeUnmount(() => {
     clearSelectedAudio();
     clearSelectedMedia();
     revokeAudioUrls();
+    clearMediaObjectUrls();
     catalogRequestId++;
     conversationRequestId++;
     conversationsRequestId++;
@@ -1528,6 +1581,7 @@ watch(sidebarOpen, (open) => {
 watch([pageSlug, activeUuid], ([slug, uuid], [previousSlug, previousUuid]) => {
     if (!slug || !uuid || (slug === previousSlug && uuid === previousUuid)) return;
     revokeAudioUrls();
+    clearMediaObjectUrls();
     if (slug !== previousSlug) {
         catalogRequestId++;
         conversation.value = null;
@@ -2536,6 +2590,7 @@ button {
 }
 
 .media-result-file {
+    position: relative;
     min-height: 110px;
     display: grid;
     place-items: center;
@@ -2545,6 +2600,22 @@ button {
     color: var(--theme-text-secondary);
     background: var(--theme-surface-elevated);
     text-decoration: none;
+}
+
+.media-result-download {
+    position: absolute;
+    inset-block-start: 8px;
+    inset-inline-end: 8px;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--theme-border) 75%, transparent);
+    border-radius: 999px;
+    color: var(--theme-text-primary);
+    background: color-mix(in srgb, var(--theme-surface) 88%, transparent);
+    text-decoration: none;
+    box-shadow: 0 4px 14px var(--theme-shadow);
 }
 
 .media-result-file img,

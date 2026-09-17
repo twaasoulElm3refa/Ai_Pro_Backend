@@ -7,13 +7,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FreeAiModelResource;
 use App\Models\MainFreeAiModels;
 use App\Models\ModelsConverstaions;
+use App\Models\ModelsMessage;
+use App\Models\ModelsMessageFile;
 use App\Services\FreeAiModels\FreeAiChatException;
 use App\Services\FreeAiModels\FreeAiChatService;
 use App\Services\FreeAiModels\FreeAiMediaService;
 use App\Services\ModelCatalogService;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -72,24 +76,34 @@ class FreeAiModelController extends Controller
         ]);
 
         $operation = $this->catalogOperationForRequest($model, $request);
+        $lockKey = 'free-ai-conversation-create:'.$request->user()->id.':'.sha1($slug.':'.($operation ?? 'default'));
 
-        $selection = $request->filled('catalog_model_id')
-            ? $this->requestedCatalogSelection($model, $request, $operation)
-            : $this->defaultCatalogSelection($model, $request, $operation);
+        try {
+            return Cache::lock($lockKey, 15)->block(1, function () use ($model, $operation, $request) {
+                $selection = $request->filled('catalog_model_id')
+                    ? $this->requestedCatalogSelection($model, $request, $operation)
+                    : $this->defaultCatalogSelection($model, $request, $operation);
 
-        $conversation = $request->user()->model_conversations()->create([
-            'model_id' => $model->id,
-            'uuid' => (string) Str::uuid(),
-            'is_pinned' => false,
-            'is_archived' => false,
-            'catalog_operation' => $operation,
-            ...($selection ?? []),
-        ]);
+                $conversation = $request->user()->model_conversations()->create([
+                    'model_id' => $model->id,
+                    'uuid' => (string) Str::uuid(),
+                    'is_pinned' => false,
+                    'is_archived' => false,
+                    'catalog_operation' => $operation,
+                    ...($selection ?? []),
+                ]);
 
-        return $this->success(
-            $this->conversationPayload($request, $conversation, $model),
-            'Free AI model conversation created successfully.'
-        );
+                return $this->success(
+                    $this->conversationPayload($request, $conversation, $model),
+                    'Free AI model conversation created successfully.'
+                );
+            });
+        } catch (LockTimeoutException) {
+            $response = $this->error('A conversation is already being created. Please retry shortly.', 429);
+            $response->headers->set('Retry-After', '2');
+
+            return $response;
+        }
     }
 
     public function conversations(Request $request, string $slug)
@@ -177,16 +191,21 @@ class FreeAiModelController extends Controller
         }
 
         $messages = $conversation->messages()
+            ->with('files')
             ->orderByDesc('id')
             ->cursorPaginate(30, ['id', 'role', 'content', 'request_id', 'metadata', 'created_at']);
 
         $items = collect($messages->items())->reverse()->values()->map(
-            static fn (\App\Models\ModelsMessage $message): array => [
+            static fn (ModelsMessage $message): array => [
                 'id' => $message->id,
                 'role' => $message->role,
                 'content' => $message->content,
                 'request_id' => $message->request_id,
                 ...($message->metadata !== null ? ['metadata' => $message->metadata] : []),
+                'attachments' => $message->files
+                    ->map(static fn (ModelsMessageFile $file): array => $file->attachmentPayload())
+                    ->values()
+                    ->all(),
                 'created_at' => $message->created_at?->toISOString(),
             ]
         );

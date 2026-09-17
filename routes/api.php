@@ -19,6 +19,7 @@ use App\Http\Controllers\api\auth\WalletController;
 use App\Http\Controllers\api\home\BackgroundRemoverFileController;
 use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\FreeAiModelController;
+use App\Http\Controllers\api\home\FreeAiModelFileController;
 use App\Http\Controllers\api\home\GeneralChatToolController;
 use App\Http\Controllers\api\home\GeneratedImageController;
 use App\Http\Controllers\api\home\HomeController;
@@ -72,15 +73,20 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware(['auth:sanctum', 'throttle:300,1'])->group(function () {
             Route::get('/{slug}/conversations', [FreeAiModelController::class, 'conversations']);
-            Route::post('/{slug}/conversations', [FreeAiModelController::class, 'storeConversation']);
+            Route::post('/{slug}/conversations', [FreeAiModelController::class, 'storeConversation'])
+                ->middleware('throttle:free-ai-conversation-create');
             Route::get('/{slug}/conversations/{uuid}', [FreeAiModelController::class, 'showConversation']);
             Route::get('/{slug}/conversations/{uuid}/messages', [FreeAiModelController::class, 'messages']);
             Route::post('/{slug}/conversations/{uuid}/messages', [FreeAiModelController::class, 'sendMessage'])
-                ->middleware('throttle:free-ai-chat-send');
+                ->middleware('throttle:free-ai-model-send');
             Route::patch('/{slug}/conversations/{uuid}/model', [FreeAiModelController::class, 'updateConversationModel']);
             Route::delete('/{slug}/conversations/{uuid}', [FreeAiModelController::class, 'destroyConversation']);
         });
     });
+
+    Route::get('free-ai-model-files/{fileId}/content', [FreeAiModelFileController::class, 'content'])
+        ->name('free-ai-model-files.content')
+        ->middleware(['auth:sanctum', 'throttle:120,1']);
 
     Route::get('model-catalogs/{source}', [ModelCatalogController::class, 'show'])
         ->where('source', '[a-z0-9_]+')
@@ -111,7 +117,7 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('general_tools')
-        ->middleware([ 'throttle:45,1'])
+        ->middleware(['throttle:45,1'])
         ->group(function () {
             Route::get('general-chat-tools', [GeneralChatToolController::class, 'getAll']);
         });

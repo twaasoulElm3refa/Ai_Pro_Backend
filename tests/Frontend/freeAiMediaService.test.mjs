@@ -86,3 +86,26 @@ test("file operations reject a missing upload before making an API request", asy
     }), /file is required/i);
     assert.equal(sent, false);
 });
+
+test("generated files are downloaded through the authenticated application endpoint", async () => {
+    const calls = [];
+    const blob = new Blob(["image"], { type: "image/webp" });
+    const module = await loadService({
+        get: async (...args) => {
+            calls.push(args);
+            return { data: blob };
+        },
+    }, {});
+
+    const result = await module.default.downloadGeneratedFile(
+        "/api/v1/free-ai-model-files/generated-file-id/content"
+    );
+
+    assert.equal(result, blob);
+    assert.equal(calls[0][0], "/api/v1/free-ai-model-files/generated-file-id/content");
+    assert.equal(calls[0][1].responseType, "blob");
+    await assert.rejects(
+        module.default.downloadGeneratedFile("https://api.aiarabic.com/tasks/generated-files/download/id"),
+        /invalid generated media url/i
+    );
+});

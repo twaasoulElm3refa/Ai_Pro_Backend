@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\MainFreeAiModels;
 use App\Models\ModelsConverstaions;
+use App\Models\ModelsCostLogger;
+use App\Models\ModelsMessage;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,6 +25,7 @@ class FreeAiMediaTest extends TestCase
         $_ENV['API_KEY'] = 'testing-api-key';
         $_SERVER['API_KEY'] = 'testing-api-key';
         config()->set('services.aiarabic.base_url', 'https://api.aiarabic.com');
+        config()->set('services.aiarabic.public_base_url', 'https://api.aiarabic.com');
         config()->set('services.aiarabic.internal_api_key', 'test-internal-key');
         config()->set('model_catalogs.sources.general_media', [
             'endpoint' => 'https://catalog.example.test/media-models',
@@ -39,6 +42,11 @@ class FreeAiMediaTest extends TestCase
     {
         Http::preventStrayRequests();
         Http::fake([
+            'api.aiarabic.com/tasks/generated-files/download/generated-file-id' => Http::response(
+                'generated-image-bytes',
+                200,
+                ['Content-Type' => 'image/webp']
+            ),
             'catalog.example.test/media-models*' => Http::response([
                 'tool' => 'general_media',
                 'items' => [[
@@ -63,9 +71,17 @@ class FreeAiMediaTest extends TestCase
                     'file_id' => 'generated-file-id',
                     'filename' => 'skyline.webp',
                     'content_type' => 'image/webp',
-                    'url' => 'https://cdn.example.test/skyline.webp',
+                    'download_url' => '/tasks/generated-files/download/generated-file-id',
+                    'size_bytes' => 469254,
                 ]],
                 'cost' => ['total_cost' => '0.000007'],
+                'metadata' => [
+                    'operation' => 'image_generation',
+                    'requested_size' => '1024x1024',
+                    'actual_size' => '1024x1024',
+                    'provider_cost_usd' => 0.000007,
+                    'task_uuid' => 'task-uuid',
+                ],
             ]),
         ]);
 
@@ -116,6 +132,10 @@ class FreeAiMediaTest extends TestCase
             ->assertJsonPath('data.assistant_message.content', 'Media generated successfully.')
             ->assertJsonPath('data.assistant_message.metadata.operation', 'image_generation')
             ->assertJsonPath('data.assistant_message.metadata.files.0.filename', 'skyline.webp')
+            ->assertJsonPath('data.assistant_message.attachments.0.type', 'image')
+            ->assertJsonPath('data.assistant_message.attachments.0.filename', 'skyline.webp')
+            ->assertJsonPath('data.assistant_message.metadata.actual_size', '1024x1024')
+            ->assertJsonPath('data.assistant_message.metadata.task_uuid', 'task-uuid')
             ->assertJsonPath('data.wallet.balance', 3);
 
         $this->assertSame(3, (int) $wallet->fresh()->balance);
@@ -131,12 +151,38 @@ class FreeAiMediaTest extends TestCase
             'balance_before' => 10,
             'balance_after' => 3,
         ]);
+        $assistant = ModelsMessage::query()->where('request_id', $requestId)->where('role', 'assistant')->firstOrFail();
+        $this->assertDatabaseHas('models_message_files', [
+            'models_message_id' => $assistant->id,
+            'file_id' => 'generated-file-id',
+            'filename' => 'skyline.webp',
+            'content_type' => 'image/webp',
+            'download_url' => '/tasks/generated-files/download/generated-file-id',
+            'size_bytes' => 469254,
+        ]);
+        $logger = ModelsCostLogger::query()->where('request_id', $requestId)->firstOrFail();
+        $this->assertSame('task-uuid', data_get($logger->metadata, 'task_uuid'));
+        $this->assertSame('1024x1024', data_get($logger->metadata, 'actual_size'));
         $this->withHeaders(['Accept' => 'application/json', 'X-API-KEY' => 'testing-api-key'])
             ->get($url)
             ->assertOk()
-            ->assertJsonPath('data.items.1.metadata.files.0.file_id', 'generated-file-id');
+            ->assertJsonPath('data.items.1.metadata.files.0.file_id', 'generated-file-id')
+            ->assertJsonPath(
+                'data.items.1.metadata.files.0.download_url',
+                '/tasks/generated-files/download/generated-file-id'
+            )
+            ->assertJsonPath('data.items.1.attachments.0.type', 'image')
+            ->assertJsonPath('data.items.1.attachments.0.url', '/api/v1/free-ai-model-files/generated-file-id/content');
+
+        $this->withHeaders(['Accept' => 'image/webp', 'X-API-KEY' => 'testing-api-key'])
+            ->get('/api/v1/free-ai-model-files/generated-file-id/content')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/webp')
+            ->assertSee('generated-image-bytes', false);
 
         Http::assertSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/general-media'
             && $request->hasHeader('x-internal-api-key', 'test-internal-key'));
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.aiarabic.com/tasks/generated-files/download/generated-file-id'
+            && $request->hasHeader('X-Internal-Api-Key', 'test-internal-key'));
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services\FreeAiModels;
 use App\Models\ModelsConverstaions;
 use App\Models\ModelsCostLogger;
 use App\Models\ModelsMessage;
+use App\Models\ModelsMessageFile;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\ModelCatalogService;
@@ -57,7 +58,7 @@ class FreeAiMediaService
         ?UploadedFile $file = null
     ): array {
         try {
-            return Cache::lock("free-ai-chat-user-{$conversation->user_id}", 330)
+            return Cache::lock("free-ai-media-user-{$conversation->user_id}", 330)
                 ->block(3, fn () => $this->executeLocked(
                     $conversation,
                     $operation,
@@ -160,6 +161,7 @@ class FreeAiMediaService
                 'parameters' => $parameters,
             ],
             'debug' => true,
+            'request_id' => $requestId,
         ];
         $url = rtrim((string) config('services.aiarabic.base_url', 'https://api.aiarabic.com'), '/')
             .'/tasks/general-media';
@@ -223,12 +225,17 @@ class FreeAiMediaService
             throw new FreeAiChatException('The media service returned an invalid response.', 502);
         }
 
-        $files = $payload['files'] ?? [];
-        if (! is_array($files)) {
+        $providerFiles = $payload['files'] ?? [];
+        if (! is_array($providerFiles)) {
             $this->updateMessageStatus($userMessage, 'failed', 'invalid_response');
             throw new FreeAiChatException('The media service returned invalid files.', 502);
         }
-        $files = array_values(array_filter($files, 'is_array'));
+        try {
+            $files = $this->normalizeFiles($providerFiles);
+        } catch (FreeAiChatException $exception) {
+            $this->updateMessageStatus($userMessage, 'failed', 'invalid_files');
+            throw $exception;
+        }
         $content = is_string($payload['content'] ?? null) ? trim($payload['content']) : '';
         if ($content === '' && $files === []) {
             $this->updateMessageStatus($userMessage, 'failed', 'empty_response');
@@ -243,14 +250,23 @@ class FreeAiMediaService
         $providerModelId = trim((string) (
             $payload['provider_model_id'] ?? $payload['model'] ?? $selection['provider_model_id']
         )) ?: $selection['provider_model_id'];
-        $assistantMetadata = [
-            'tool_type' => 'general_media',
+        $providerMetadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $mediaMetadata = [
             'operation' => $operation,
             'model' => $providerModelId,
             'provider' => $provider,
-            'parameters' => $parameters,
+            'size' => $providerMetadata['size'] ?? $providerMetadata['requested_size'] ?? ($parameters['size'] ?? null),
+            'quality' => $providerMetadata['quality'] ?? ($parameters['quality'] ?? null),
+            'actual_size' => $providerMetadata['actual_size'] ?? null,
+            'provider_cost_usd' => $providerMetadata['provider_cost_usd'] ?? data_get($payload, 'cost.total_cost'),
+            'task_uuid' => $providerMetadata['task_uuid'] ?? ($payload['task_uuid'] ?? null),
             'files' => $files,
-            'provider_metadata' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
+        ];
+        $assistantMetadata = [
+            'tool_type' => 'general_media',
+            ...$mediaMetadata,
+            'parameters' => $parameters,
+            'provider_metadata' => $providerMetadata,
         ];
 
         return DB::transaction(function () use (
@@ -267,9 +283,9 @@ class FreeAiMediaService
             $total,
             $totalCost,
             $elapsed,
-            $operation,
             $parameters,
             $files,
+            $mediaMetadata,
             $payload
         ): array {
             $wallet = Wallet::query()->where('user_id', $conversation->user_id)->lockForUpdate()->firstOrFail();
@@ -287,6 +303,7 @@ class FreeAiMediaService
                 'request_id' => $requestId,
                 'metadata' => $assistantMetadata,
             ]);
+            $assistant->files()->createMany($files);
             $logger = ModelsCostLogger::create([
                 'user_id' => $conversation->user_id,
                 'models_conversation_id' => $conversation->id,
@@ -305,11 +322,8 @@ class FreeAiMediaService
                 'response_time_ms' => $elapsed,
                 'metadata' => [
                     'tool_type' => 'general_media',
-                    'operation' => $operation,
-                    'model' => $providerModelId,
-                    'provider' => $provider,
+                    ...$mediaMetadata,
                     'parameters' => $parameters,
-                    'files' => $files,
                     'response' => $payload,
                 ],
             ]);
@@ -341,7 +355,7 @@ class FreeAiMediaService
                 }
             });
 
-            return $this->result($userMessage, $assistant, [
+            return $this->result($userMessage, $assistant->load('files'), [
                 'balance' => (int) $wallet->balance,
                 'payback_balance' => (int) $wallet->payback_balance,
             ]);
@@ -526,6 +540,71 @@ class FreeAiMediaService
             : '0.00000000';
     }
 
+    private function normalizeFiles(array $files): array
+    {
+        $normalized = [];
+        foreach ($files as $file) {
+            if (! is_array($file)) {
+                throw new FreeAiChatException('The media service returned invalid files.', 502);
+            }
+
+            $fileId = trim((string) ($file['file_id'] ?? ''));
+            $filename = basename(str_replace('\\', '/', trim((string) ($file['filename'] ?? ''))));
+            $contentType = strtolower(trim((string) ($file['content_type'] ?? '')));
+            $rawUrl = trim((string) ($file['download_url'] ?? $file['url'] ?? ''));
+            if ($fileId === '' || mb_strlen($fileId) > 128
+                || $filename === '' || mb_strlen($filename) > 255
+                || $contentType === '' || mb_strlen($contentType) > 150
+                || $rawUrl === '') {
+                throw new FreeAiChatException('The media service returned invalid files.', 502);
+            }
+
+            $size = $file['size_bytes'] ?? null;
+            if ($size !== null && (filter_var($size, FILTER_VALIDATE_INT) === false || (int) $size < 0)) {
+                throw new FreeAiChatException('The media service returned invalid files.', 502);
+            }
+
+            if (! $this->isValidDownloadUrl($rawUrl)) {
+                throw new FreeAiChatException('The media service returned invalid files.', 502);
+            }
+
+            $knownKeys = array_flip(['file_id', 'filename', 'content_type', 'download_url', 'url', 'size_bytes', 'metadata']);
+            $extra = array_diff_key($file, $knownKeys);
+            $fileMetadata = is_array($file['metadata'] ?? null) ? $file['metadata'] : [];
+            if ($extra !== []) {
+                $fileMetadata['provider'] = $extra;
+            }
+
+            $normalized[] = [
+                'file_id' => $fileId,
+                'filename' => $filename,
+                'content_type' => $contentType,
+                'download_url' => $rawUrl,
+                'size_bytes' => $size === null ? null : (int) $size,
+                'metadata' => $fileMetadata === [] ? null : $fileMetadata,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function isValidDownloadUrl(string $url): bool
+    {
+        if ($url === '' || mb_strlen($url) > 2048 || str_contains($url, "\r") || str_contains($url, "\n")) {
+            return false;
+        }
+
+        if (str_starts_with($url, '/')) {
+            return str_starts_with($url, '/tasks/generated-files/download/');
+        }
+
+        $parts = parse_url($url);
+
+        return is_array($parts)
+            && in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true)
+            && trim((string) ($parts['host'] ?? '')) !== '';
+    }
+
     private function updateMessageStatus(ModelsMessage $message, string $status, ?string $reason = null): void
     {
         $metadata = [...($message->metadata ?? []), 'status' => $status];
@@ -547,14 +626,24 @@ class FreeAiMediaService
 
     private function result(ModelsMessage $user, ModelsMessage $assistant, array $wallet): array
     {
-        $publicMessage = static fn (ModelsMessage $message): array => [
-            'id' => $message->id,
-            'role' => $message->role,
-            'content' => $message->content,
-            'request_id' => $message->request_id,
-            'metadata' => $message->metadata,
-            'created_at' => $message->created_at?->toISOString(),
-        ];
+        $publicMessage = static function (ModelsMessage $message): array {
+            if (! $message->relationLoaded('files')) {
+                $message->load('files');
+            }
+
+            return [
+                'id' => $message->id,
+                'role' => $message->role,
+                'content' => $message->content,
+                'request_id' => $message->request_id,
+                'metadata' => $message->metadata,
+                'attachments' => $message->files
+                    ->map(static fn (ModelsMessageFile $file): array => $file->attachmentPayload())
+                    ->values()
+                    ->all(),
+                'created_at' => $message->created_at?->toISOString(),
+            ];
+        };
 
         return [
             'user_message' => $publicMessage($user),

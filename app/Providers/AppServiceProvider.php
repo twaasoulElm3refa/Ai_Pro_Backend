@@ -58,5 +58,19 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('free-ai-chat-send', fn (Request $request) => Limit::perMinute(
             max(1, (int) config('free_ai_chat.send_rate_per_minute'))
         )->by((string) $request->user()->getAuthIdentifier()));
+
+        RateLimiter::for('free-ai-model-send', function (Request $request): Limit {
+            $userId = (string) $request->user()->getAuthIdentifier();
+            $slug = (string) $request->route('slug');
+            $isMedia = config("model_catalogs.free_ai_tools.{$slug}") === 'general_media';
+
+            return Limit::perMinute(max(1, (int) config(
+                $isMedia ? 'free_ai_chat.media_send_rate_per_minute' : 'free_ai_chat.send_rate_per_minute'
+            )))->by(($isMedia ? 'free-ai-media:' : 'free-ai-chat:').$userId);
+        });
+
+        RateLimiter::for('free-ai-conversation-create', fn (Request $request) => Limit::perMinute(
+            max(1, (int) config('free_ai_chat.conversation_create_rate_per_minute'))
+        )->by('free-ai-conversation:'.(string) $request->user()->getAuthIdentifier()));
     }
 }

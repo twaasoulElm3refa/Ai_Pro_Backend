@@ -6,6 +6,7 @@ function positiveMilliseconds(value, fallback) {
 }
 
 export const MESSAGE_COOLDOWN_MS = positiveMilliseconds(env.VITE_FREE_AI_CHAT_MESSAGE_COOLDOWN_MS, 3000);
+export const MEDIA_MESSAGE_COOLDOWN_MS = positiveMilliseconds(env.VITE_FREE_AI_MEDIA_MESSAGE_COOLDOWN_MS, 5000);
 export const DUPLICATE_WINDOW_MS = positiveMilliseconds(env.VITE_FREE_AI_CHAT_DUPLICATE_WINDOW_MS, 5000);
 export const RATE_LIMIT_FALLBACK_MS = 30000;
 export const recentChatRequests = new Map();

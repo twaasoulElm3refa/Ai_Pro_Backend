@@ -107,6 +107,22 @@ const freeAiMediaService = {
 
         return response.data;
     },
+
+    async downloadGeneratedFile(url) {
+        const endpoint = requiredText(url, "url");
+        if (!endpoint.startsWith("/api/v1/free-ai-model-files/")
+            && !endpoint.startsWith("/free-ai-model-files/")) {
+            throw new TypeError("Invalid generated media URL");
+        }
+
+        const response = await api.get(endpoint, {
+            responseType: "blob",
+            timeout: 180000,
+            suppressGlobalErrorToast: true,
+        });
+
+        return response.data;
+    },
 };
 
 export default freeAiMediaService;
