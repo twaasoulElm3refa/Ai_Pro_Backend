@@ -8,6 +8,6 @@ class AiModelsRepository implements AiModelsInterface
 {
     public function AiModels()
     {
-        return MainFreeAiModels::with('translation')->take(5)->select(['id', 'slug'])->get();
+        return MainFreeAiModels::with('translation:name,main_free_ai_models_id,id,locale,description')->take(5)->select(['id', 'slug'])->get();
     }
 }
