@@ -15,6 +15,9 @@ class SubTools extends Model
 
     protected $casts = [
         'config' => 'array',
+        'allowed_model_ids' => 'array',
+        'input_schema' => 'array',
+        'output_schema' => 'array',
     ];
 
     public function mainTools()

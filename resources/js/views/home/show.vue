@@ -162,6 +162,7 @@ const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
 const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10, 11, 12];
+const TREND_CHAT_SUB_TOOL_IDS = [41, 42];
 
 const loading = ref(true);
 const rawTool = ref({});
@@ -297,17 +298,19 @@ const openSubtoolChat = async (subtool) => {
     const mainToolId = Number(rawTool.value?.id || tool.value?.id);
 
     const chatPage =
-        mainToolId === 5
-            ? "chat5"
-            : mainToolId === 6
-                ? "chat6"
-                : mainToolId === 4
-                    ? "chat4"
-                    : mainToolId === 3
-                        ? "chat3"
-                        : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
-                            ? "chat2"
-                            : "chat";
+        mainToolId === 7 && TREND_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
+            ? "chat7"
+            : mainToolId === 5
+                ? "chat5"
+                : mainToolId === 6
+                    ? "chat6"
+                    : mainToolId === 4
+                        ? "chat4"
+                        : mainToolId === 3
+                            ? "chat3"
+                            : PROMPT_CHAT_SUB_TOOL_IDS.includes(Number(subtool.id))
+                                ? "chat2"
+                                : "chat";
 
     await router.push(
         `/${homeService.getLang()}/subtool/${subtool.slug}/${chatPage}`
@@ -342,8 +345,6 @@ const loadTool = async ({ forceFresh = false } = {}) => {
 
         const response = await homeService.showTool(route.params.slug);
         rawTool.value = response?.data || {};
-        console.log("[Show.vue] tool payload:", rawTool.value);
-        console.log("[Show.vue] current locale:", currentLocale.value);
     } catch (e) {
         rawTool.value = {};
     } finally {

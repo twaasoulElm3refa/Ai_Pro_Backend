@@ -122,13 +122,15 @@ api.interceptors.response.use(
         const status = error.response?.status;
         const requestUrl = String(error.config?.url || "");
 
-        if (error.config?.suppressGlobalErrorToast) {
+        if (!error.response) {
+            if (!error.config?.suppressGlobalErrorToast) {
+                toastr.error("في مشكلة في الاتصال بالسيرفر");
+            }
+
             return Promise.reject(error);
         }
 
-        if (!error.response) {
-            toastr.error("في مشكلة في الاتصال بالسيرفر");
-
+        if (error.config?.suppressGlobalErrorToast && status !== 401) {
             return Promise.reject(error);
         }
 

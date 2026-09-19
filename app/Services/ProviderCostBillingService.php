@@ -102,6 +102,51 @@ class ProviderCostBillingService
         );
     }
 
+    /**
+     * Charge a validated trend provider_response.cost.
+     */
+    public function chargeTrendResponse(
+        int $userId,
+        int $conversationId,
+        int $subToolId,
+        array $providerResponse,
+        string $providerRequestId,
+        ?string $modelKey = null
+    ): array {
+        $cost = $providerResponse['cost'] ?? null;
+
+        if (
+            is_bool($cost)
+            || ! is_scalar($cost)
+            || ! is_numeric(trim((string) $cost))
+        ) {
+            throw new InvalidArgumentException('provider_response.cost must be numeric.');
+        }
+
+        try {
+            $validatedCost = BigDecimal::of(trim((string) $cost));
+        } catch (MathException) {
+            throw new InvalidArgumentException('provider_response.cost is invalid.');
+        }
+
+        if ($validatedCost->isNegative()) {
+            throw new InvalidArgumentException('provider_response.cost cannot be negative.');
+        }
+
+        return $this->chargeValidatedCost(
+            $userId,
+            $conversationId,
+            $subToolId,
+            $validatedCost,
+            'USD',
+            'provider_response.cost',
+            $providerRequestId,
+            $modelKey,
+            true,
+            true
+        );
+    }
+
     private function chargeValidatedCost(
         int $userId,
         int $conversationId,
@@ -111,7 +156,8 @@ class ProviderCostBillingService
         string $source,
         ?string $providerRequestId,
         ?string $modelKey,
-        bool $deduplicateByRequestId = false
+        bool $deduplicateByRequestId = false,
+        bool $logPointsAsTokens = false
     ): array {
 
         try {
@@ -141,7 +187,8 @@ class ProviderCostBillingService
             $currency,
             $pointsToDeduct,
             $source,
-            $deduplicateByRequestId
+            $deduplicateByRequestId,
+            $logPointsAsTokens
         ): array {
             if ($deduplicateByRequestId && $providerRequestId !== null) {
                 $alreadyCharged = CostLogger::query()
@@ -203,7 +250,7 @@ class ProviderCostBillingService
                 'sub_tool_id' => $subToolId,
                 'input_tokens' => 0,
                 'output_tokens' => 0,
-                'total_tokens' => 0,
+                'total_tokens' => $logPointsAsTokens ? $pointsToDeduct : 0,
                 'input_cost' => 0,
                 'output_cost' => 0,
                 'web_search_cost' => 0,

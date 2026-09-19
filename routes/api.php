@@ -26,6 +26,7 @@ use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\ImageUpscalerFileController;
 use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\home\ModelCatalogController;
+use App\Http\Controllers\api\home\TrendTaskController;
 use App\Http\Controllers\api\payment\DepositController;
 use App\Http\Controllers\api\payment\MoyasarDepositController;
 use App\Http\Controllers\api\webhook\MoyasarWebhookController;
@@ -125,8 +126,10 @@ Route::prefix('v1')->group(function () {
         });
 
     Route::prefix('generated-images')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
-        Route::get('/{image}/preview', [GeneratedImageController::class, 'preview']);
-        Route::get('/{image}/download', [GeneratedImageController::class, 'download']);
+        Route::get('/{image}/preview', [GeneratedImageController::class, 'preview'])
+            ->name('generated-images.preview');
+        Route::get('/{image}/download', [GeneratedImageController::class, 'download'])
+            ->name('generated-images.download');
     })->withoutMiddleware(ApiKeyMiddleware::class);
 
     Route::prefix('background-remover/files')->middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
@@ -142,6 +145,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/{file}/download', [ImageUpscalerFileController::class, 'download'])
             ->name('image-upscaler.files.download');
     })->withoutMiddleware(ApiKeyMiddleware::class);
+
+    Route::post('/tasks/trends/cup-lift', [TrendTaskController::class, 'cupLift'])
+        ->middleware(['auth:sanctum', 'throttle:10,1']);
+    Route::post('/tasks/trends/locker-room', [TrendTaskController::class, 'lockerRoom'])
+        ->middleware(['auth:sanctum', 'throttle:10,1']);
 
     Route::get('/message/resume-output/{filename}', [MessageController::class, 'downloadResumeOutput'])
         ->name('resume-builder.download')

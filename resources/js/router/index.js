@@ -16,6 +16,7 @@ const chat3 = () => import("../views/home/chat3.vue");
 const chat4 = () => import("../views/home/chat4.vue");
 const chat5 = () => import("../views/home/chat5.vue");
 const chat6 = () => import("../views/home/chat6.vue");
+const chat7 = () => import("../views/home/chat7.vue");
 const charge = () => import("../views/home/user/charge.vue");
 const WaitingDeposit = () => import("../views/home/WaitingDeposit.vue");
 const success = () => import("../views/home/successDeposit.vue");
@@ -165,6 +166,11 @@ const routes = [
     {
         path: "/:lang/subtool/:slug/chat6/:uuid?",
         component: chat6,
+        meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
+    },
+    {
+        path: "/:lang/subtool/:slug/chat7/:uuid?",
+        component: chat7,
         meta: { hideNavbar: false, hideFooter: true, hideHeader: true },
     },
     {

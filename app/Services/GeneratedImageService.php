@@ -397,6 +397,19 @@ class GeneratedImageService
         return [$stored, $failed];
     }
 
+    /**
+     * Securely download and store a provider-generated image using the
+     * project's existing internal-key, URL allow-list and MIME validation.
+     */
+    public function downloadGeneratedFile(
+        array $file,
+        int $userId,
+        string $conversationUuid,
+        int $index = 0
+    ): array {
+        return $this->downloadFile($file, $userId, $conversationUuid, $index);
+    }
+
     private function downloadFile(
         array $file,
         int $userId,

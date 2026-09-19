@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             YouTubeSummarizerSeeder::class,
             SpeechToTextSeeder::class,
             TextToSpeechSeeder::class,
+            TrendsChatSeeder::class,
         ]);
     }
 }

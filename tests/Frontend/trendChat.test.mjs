@@ -1,0 +1,49 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
+
+test("shared Trends chat maps subtools 41 and 42 to their dedicated endpoints", async () => {
+    const [service, chat, router, toolPage] = await Promise.all([
+        read("resources/js/services/chat/trendServices.js"),
+        read("resources/js/views/home/chat7.vue"),
+        read("resources/js/router/index.js"),
+        read("resources/js/views/home/show.vue"),
+    ]);
+
+    assert.match(service, /41:[\s\S]*slug:\s*"cup-lift"[\s\S]*endpoint:\s*"\/tasks\/trends\/cup-lift"/);
+    assert.match(service, /42:[\s\S]*slug:\s*"locker-room"[\s\S]*endpoint:\s*"\/tasks\/trends\/locker-room"/);
+    assert.match(service, /api\.post\(trend\.endpoint/);
+    assert.doesNotMatch(service + chat, /x-internal-api-key/i);
+    assert.match(chat, /trendServices\.generate\(subtool\.value/);
+    assert.doesNotMatch(chat, /EventSource|conversation\/.*\/stream/);
+    assert.match(router, /subtool\/:slug\/chat7\/.*uuid/);
+    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[41,\s*42\]/);
+});
+
+test("every supported locale contains the complete Trends chat dictionary", async () => {
+    const locales = ["ar", "en", "fr", "ru", "zh"];
+    const required = [
+        "conversations",
+        "emptyTitle",
+        "generatedImage",
+        "download",
+        "generating",
+        "promptRequired",
+        "imageRequired",
+        "genericError",
+        "insufficient",
+        "unsupported",
+    ];
+
+    for (const locale of locales) {
+        const messages = JSON.parse(await read(`resources/js/lang/${locale}.json`));
+        const dictionary = messages.user?.trendChat;
+        assert.ok(dictionary, `${locale} is missing user.trendChat`);
+        for (const key of required) {
+            assert.equal(typeof dictionary[key], "string", `${locale} is missing ${key}`);
+            assert.ok(dictionary[key].trim(), `${locale}.${key} is empty`);
+        }
+    }
+});

@@ -44,6 +44,7 @@ return [
     'ai' => [
         'base_url' => env('AI_SERVICE_URL', env('AIARABIC_BASE_URL', 'https://api.aiarabic.com')),
         'internal_api_key' => env('AI_INTERNAL_API_KEY', env('AIARABIC_INTERNAL_API_KEY', env('AIARABIC_API_KEY'))),
+        'trends_debug' => env('AI_TRENDS_DEBUG', false),
     ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
