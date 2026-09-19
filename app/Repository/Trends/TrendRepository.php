@@ -10,6 +10,7 @@ class TrendRepository implements TrendInterface
     {
         return SubTools::whereIn('id', [41, 42, 43, 44, 45])
             ->with('translation:name,sub_tools_id,id,locale,description')
-            ->select(['id', 'name', 'description', 'slug']);
+            ->select(['id', 'name', 'description', 'slug'])
+            ->get();
     }
 }
