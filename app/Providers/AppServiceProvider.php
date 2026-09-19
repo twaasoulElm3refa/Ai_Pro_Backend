@@ -24,6 +24,8 @@ use App\Repository\tools\MainToolInterface;
 use App\Repository\tools\MainToolRepository;
 use App\Repository\tools\SubToolInterface;
 use App\Repository\tools\SubToolRepository;
+use App\Repository\Trends\TrendInterface;
+use App\Repository\Trends\TrendRepository;
 use App\Repository\user\AdminUserRepository;
 use App\Repository\user\AdminUserRepositoryInterface;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -49,6 +51,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CostInterface::class, CostRepository::class);
         $this->app->bind(GenrealToolInterface::class, GenrealToolRepository::class);
         $this->app->bind(AiModelsInterface::class, AiModelsRepository::class);
+        $this->app->bind(TrendInterface::class, TrendRepository::class);
     }
 
     /**

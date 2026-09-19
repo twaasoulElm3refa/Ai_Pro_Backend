@@ -29,6 +29,7 @@ const FreeAiTextToSpeechChat = () => import("../views/home/free-ai-models/FreeAi
 const showGeneral = () => import("../views/home/generalTools/showGeneral.vue");
 const GeneralChat = () => import("../views/home/generalTools/GeneralChat.vue");
 const ai_tools = () => import("../views/home/ai_tools.vue");
+const trendTools = () => import("../views/home/all_models.vue");
 
 const adminMeta = {
     hideNavbar: true,
@@ -74,6 +75,11 @@ const routes = [
     {
         path: "/:lang/tools",
         component: tools,
+        meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
+    },
+    {
+        path: "/:lang/trends",
+        component: trendTools,
         meta: { hideNavbar: false, hideFooter: false, hideHeader: true },
     },
     {

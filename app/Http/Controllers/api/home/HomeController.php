@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Repository\AiModels\AiModelsInterface;
 use App\Repository\tools\MainToolInterface;
 use App\Repository\tools\SubToolInterface;
+use App\Repository\Trends\TrendInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -18,12 +19,14 @@ class HomeController extends Controller
     private $toolRepository;
     private $subToolRepository;
     private $AiModelsRepository;
+    private $trendsRepository;
 
-    public function __construct(MainToolInterface $toolRepository ,SubToolInterface $subToolRepository, AiModelsInterface $AiModelsRepository)
+    public function __construct(MainToolInterface $toolRepository ,SubToolInterface $subToolRepository, AiModelsInterface $AiModelsRepository , TrendInterface $trendsRepository)
     {
         $this->toolRepository = $toolRepository;
         $this->subToolRepository=$subToolRepository;
         $this->AiModelsRepository=$AiModelsRepository;
+        $this->trendsRepository=$trendsRepository;
     }
 
     private function cacheableSuccessResponse($data, string $message, int $maxAge = 300): JsonResponse
@@ -138,4 +141,21 @@ class HomeController extends Controller
         }
     }
 
+    public function trends()
+    {
+         try {
+            $locale = app()->getLocale();
+            $tools = Cache::tags(['trends'])->remember(
+                "trends:{$locale}",
+                now()->addHour(),
+                fn () => $this->trendsRepository->index()
+            );
+            return $this->success($tools, 'Tools fetched successfully.');
+        } catch (\Throwable $th) {
+            Log::error('Tool Index Error', [
+                'error' => $th->getMessage(),
+            ]);
+            return $this->error('Something went wrong.');
+        }
+    }
 }
