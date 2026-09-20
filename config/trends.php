@@ -5,14 +5,14 @@ return [
 
     'tools' => [
         'cup-lift' => [
-            'sub_tool_id' => 41,
+            'sub_tool_id' => 28,
             'endpoint' => 'tasks/trends/cup-lift',
             'selected_model_id' => 46,
             'tool_key' => 'trend_cup_lift',
             'result_message' => 'Your Cup Lift image is ready.',
         ],
         'locker-room' => [
-            'sub_tool_id' => 42,
+            'sub_tool_id' => 29,
             'endpoint' => 'tasks/trends/locker-room',
             'selected_model_id' => 46,
             'tool_key' => 'trend_locker_room',
