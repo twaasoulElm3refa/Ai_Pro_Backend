@@ -60,24 +60,24 @@
 
                 <!-- TREND TOOLS FEATURE -->
                 <router-link
-                    v-if="!trendToolLoading && trendTool"
+                    v-if="!aiMainModelLoading && aiMainModel"
                     class="trend-tool-feature"
-                    :to="trendToolsRoute"
-                    :aria-label="t('user.home.openAria', { name: trendTool.title || trendTool.slug })"
+                    :to="aiModelsRoute"
+                    :aria-label="t('user.home.openAria', { name: aiMainModel.title || aiMainModel.slug })"
                 >
                     <span class="trend-tool-visual" aria-hidden="true">
                         <img
-                            v-if="trendTool.imageUrl"
-                            :src="trendTool.imageUrl"
-                            :alt="trendTool.title"
+                            v-if="aiMainModel.imageUrl"
+                            :src="aiMainModel.imageUrl"
+                            :alt="aiMainModel.title"
                             @error="hideBrokenImage"
                         />
                         <i v-else class="bi bi-graph-up-arrow"></i>
                     </span>
 
                     <span class="trend-tool-copy">
-                        <span class="trend-tool-title">{{ trendTool.title }}</span>
-                        <span class="trend-tool-description">{{ trendTool.description }}</span>
+                        <span class="trend-tool-title">{{ aiMainModel.title }}</span>
+                        <span class="trend-tool-description">{{ aiMainModel.description }}</span>
                     </span>
 
                     <span class="trend-tool-cta">
@@ -213,8 +213,8 @@ const { t, locale } = useI18n();
 
 const loading = ref(true);
 const tools = ref([]);
-const trendTool = ref(null);
-const trendToolLoading = ref(true);
+const aiMainModel = ref(null);
+const aiMainModelLoading = ref(true);
 const skeletonCount = 4;
 const subToolsLoading = ref(true);
 const randomSubTools = ref([]);
@@ -222,7 +222,7 @@ const subToolsSkeletonCount = 6;
 
 const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
 const currentLang = computed(() => String(route.params.lang || homeService.getLang()));
-const trendToolsRoute = computed(() => ({
+const aiModelsRoute = computed(() => ({
     name: "ai-models",
     params: { lang: currentLang.value },
 }));
@@ -281,7 +281,7 @@ const resolveToolImage = (image) => {
 };
 
 const hideBrokenImage = () => {
-    if (trendTool.value) trendTool.value.imageUrl = "";
+    if (aiMainModel.value) aiMainModel.value.imageUrl = "";
 };
 
 const subToolFallbackIcons = [
@@ -366,18 +366,18 @@ const fetchTools = async () => {
     }
 };
 
-const fetchTrendMainTool = async () => {
-    trendToolLoading.value = true;
+const fetchAiMainModel = async () => {
+    aiMainModelLoading.value = true;
 
     try {
-        const response = await homeService.fetchTrendMainTool();
+        const response = await homeService.fetchAiMainModel();
         const data = response?.data;
 
-        trendTool.value = Number(data?.id) === 7 ? normalizeTool(data) : null;
+        aiMainModel.value = data?.id ? normalizeTool(data) : null;
     } catch {
-        trendTool.value = null;
+        aiMainModel.value = null;
     } finally {
-        trendToolLoading.value = false;
+        aiMainModelLoading.value = false;
     }
 };
 
@@ -420,11 +420,11 @@ const goToSubTool = (subTool) => {
 
 const handleLangChanged = async () => {
     locale.value = homeService.getLang();
-    await Promise.all([fetchTools(), fetchTrendMainTool(), fetchRandomSubTools()]);
+    await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools()]);
 };
 
 onMounted(async () => {
-    await Promise.all([fetchTools(), fetchTrendMainTool(), fetchRandomSubTools()]);
+    await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools()]);
     window.addEventListener("lang-changed", handleLangChanged);
 });
 
@@ -437,7 +437,7 @@ watch(
     async (nextLang, prevLang) => {
         if (!nextLang || nextLang === prevLang) return;
         locale.value = String(nextLang);
-        await Promise.all([fetchTools(), fetchTrendMainTool(), fetchRandomSubTools()]);
+        await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools()]);
     }
 );
 

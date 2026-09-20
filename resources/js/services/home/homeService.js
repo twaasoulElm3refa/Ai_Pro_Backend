@@ -155,6 +155,13 @@ const homeService = {
         });
     },
 
+    async fetchAiMainModel() {
+        return cached(buildKey("home:ai-main-model"), async () => {
+            const response = await api.get("/ai-main-model");
+            return unwrap(response);
+        });
+    },
+
     async fetchRandomSubTools() {
         return cached(buildKey("home:subtools:random"), async () => {
             const response = await api.get("/tools/random/subtools");

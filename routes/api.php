@@ -16,6 +16,7 @@ use App\Http\Controllers\api\auth\ProfileController;
 use App\Http\Controllers\api\auth\RegisterController;
 use App\Http\Controllers\api\auth\UserProfileController;
 use App\Http\Controllers\api\auth\WalletController;
+use App\Http\Controllers\api\home\AiMainModelController;
 use App\Http\Controllers\api\home\BackgroundRemoverFileController;
 use App\Http\Controllers\api\home\ConversationController;
 use App\Http\Controllers\api\home\FreeAiModelController;
@@ -95,6 +96,9 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:30,1');
 
     Route::get('main-tools/trend-tools', [TrendMainToolController::class, 'show'])
+        ->middleware('throttle:30,1');
+
+    Route::get('ai-main-model', [AiMainModelController::class, 'show'])
         ->middleware('throttle:30,1');
 
     Route::prefix('tools')->middleware(['throttle:30,1'])->group(function () {
