@@ -60,7 +60,7 @@
 
                 <!-- TREND TOOLS FEATURE -->
                 <router-link
-                    v-if="!loading && trendTool"
+                    v-if="!trendToolLoading && trendTool"
                     class="trend-tool-feature"
                     :to="trendToolsRoute"
                     :aria-label="t('user.home.openAria', { name: trendTool.title || trendTool.slug })"
@@ -214,6 +214,7 @@ const { t, locale } = useI18n();
 const loading = ref(true);
 const tools = ref([]);
 const trendTool = ref(null);
+const trendToolLoading = ref(true);
 const skeletonCount = 4;
 const subToolsLoading = ref(true);
 const randomSubTools = ref([]);
@@ -355,14 +356,28 @@ const fetchTools = async () => {
         const res = await homeService.fetchTools();
         const data = res?.data || [];
 
-        const normalizedTools = data.map(normalizeTool);
-        trendTool.value = normalizedTools.find((tool) => Number(tool.id) === 7) || null;
-        tools.value = normalizedTools.filter((tool) => Number(tool.id) !== 7);
+        tools.value = data
+            .map(normalizeTool)
+            .filter((tool) => Number(tool.id) !== 7);
     } catch (e) {
         tools.value = [];
-        trendTool.value = null;
     } finally {
         loading.value = false;
+    }
+};
+
+const fetchTrendMainTool = async () => {
+    trendToolLoading.value = true;
+
+    try {
+        const response = await homeService.fetchTrendMainTool();
+        const data = response?.data;
+
+        trendTool.value = Number(data?.id) === 7 ? normalizeTool(data) : null;
+    } catch {
+        trendTool.value = null;
+    } finally {
+        trendToolLoading.value = false;
     }
 };
 
@@ -405,11 +420,11 @@ const goToSubTool = (subTool) => {
 
 const handleLangChanged = async () => {
     locale.value = homeService.getLang();
-    await Promise.all([fetchTools(), fetchRandomSubTools()]);
+    await Promise.all([fetchTools(), fetchTrendMainTool(), fetchRandomSubTools()]);
 };
 
 onMounted(async () => {
-    await Promise.all([fetchTools(), fetchRandomSubTools()]);
+    await Promise.all([fetchTools(), fetchTrendMainTool(), fetchRandomSubTools()]);
     window.addEventListener("lang-changed", handleLangChanged);
 });
 
@@ -422,7 +437,7 @@ watch(
     async (nextLang, prevLang) => {
         if (!nextLang || nextLang === prevLang) return;
         locale.value = String(nextLang);
-        await Promise.all([fetchTools(), fetchRandomSubTools()]);
+        await Promise.all([fetchTools(), fetchTrendMainTool(), fetchRandomSubTools()]);
     }
 );
 

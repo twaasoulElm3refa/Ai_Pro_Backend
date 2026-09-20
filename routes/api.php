@@ -26,6 +26,7 @@ use App\Http\Controllers\api\home\HomeController;
 use App\Http\Controllers\api\home\ImageUpscalerFileController;
 use App\Http\Controllers\api\home\MessageController;
 use App\Http\Controllers\api\home\ModelCatalogController;
+use App\Http\Controllers\api\home\TrendMainToolController;
 use App\Http\Controllers\api\home\TrendTaskController;
 use App\Http\Controllers\api\payment\DepositController;
 use App\Http\Controllers\api\payment\MoyasarDepositController;
@@ -91,6 +92,9 @@ Route::prefix('v1')->group(function () {
 
     Route::get('model-catalogs/{source}', [ModelCatalogController::class, 'show'])
         ->where('source', '[a-z0-9_]+')
+        ->middleware('throttle:30,1');
+
+    Route::get('main-tools/trend-tools', [TrendMainToolController::class, 'show'])
         ->middleware('throttle:30,1');
 
     Route::prefix('tools')->middleware(['throttle:30,1'])->group(function () {

@@ -8,7 +8,7 @@
             </header>
 
             <div v-if="loading" class="ai-tools-grid" aria-live="polite">
-                <article v-for="item in 8" :key="item" class="ai-tool-card skeleton-card">
+                <article v-for="item in 5" :key="item" class="ai-tool-card skeleton-card">
                     <div class="skeleton-media"></div>
                     <div class="skeleton-body">
                         <span class="skeleton-line line-title"></span>
@@ -84,6 +84,14 @@ const loading = ref(true);
 const error = ref(false);
 const tools = ref([]);
 
+const FEATURED_TOOL_SLUGS = Object.freeze([
+    "chat-writing",
+    "programming-technology",
+    "translation",
+    "audio-voice",
+    "images-video",
+]);
+
 const defaultToolImage = "/images/default_tool.webp";
 const isArabic = computed(() => String(locale.value || homeService.getLang()).toLowerCase() === "ar");
 const emptyDescription = computed(() => (isArabic.value ? "لا يوجد وصف متاح لهذه الأداة حالياً." : "No description is available for this tool yet."));
@@ -132,6 +140,19 @@ const resolveToolsData = (payload) => {
     return [];
 };
 
+const selectFeaturedTools = (items) => {
+    const toolsBySlug = new Map(
+        items
+            .map(normalizeTool)
+            .filter((tool) => tool.slug)
+            .map((tool) => [String(tool.slug).toLowerCase(), tool])
+    );
+
+    return FEATURED_TOOL_SLUGS
+        .map((slug) => toolsBySlug.get(slug))
+        .filter(Boolean);
+};
+
 const fetchTools = async () => {
     locale.value = homeService.getLang();
     loading.value = true;
@@ -139,7 +160,7 @@ const fetchTools = async () => {
 
     try {
         const response = await toolServices.getAiTools();
-        tools.value = resolveToolsData(response).map(normalizeTool).filter((tool) => tool.slug);
+        tools.value = selectFeaturedTools(resolveToolsData(response));
     } catch {
         tools.value = [];
         error.value = true;
@@ -195,7 +216,7 @@ watch(
 }
 
 .ai-tools-shell {
-    width: min(1240px, 100%);
+    width: min(1440px, 100%);
     margin: 0 auto;
 }
 
@@ -234,12 +255,14 @@ watch(
 
 .ai-tools-grid {
     display: flex;
-    gap: 16px;
+    flex-wrap: nowrap;
+    gap: 18px;
     padding: 4px 3px 18px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     scroll-behavior: smooth;
     scroll-snap-type: inline proximity;
+    touch-action: pan-x;
     scrollbar-color: rgba(43, 166, 222, 0.55) var(--theme-surface-secondary);
     scrollbar-width: thin;
 }
@@ -259,9 +282,9 @@ watch(
 }
 
 .ai-tool-card {
-    flex: 1 0 220px;
-    min-width: 220px;
-    max-width: 310px;
+    flex: 0 0 260px;
+    min-width: 260px;
+    min-height: 330px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -289,7 +312,7 @@ watch(
 .tool-image-wrap {
     position: relative;
     display: block;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16 / 10;
     overflow: hidden;
     background:
         radial-gradient(circle at 80% 25%, rgba(98, 200, 240, 0.28), transparent 34%),
@@ -325,9 +348,11 @@ watch(
 }
 
 .tool-content {
+    flex: 1;
     display: grid;
+    align-content: start;
     gap: 10px;
-    padding: 16px;
+    padding: 18px;
 }
 
 .tool-title-row {
@@ -340,7 +365,7 @@ watch(
 .tool-title {
     min-width: 0;
     color: var(--theme-text-primary);
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 900;
     line-height: 1.45;
 }
@@ -357,10 +382,10 @@ watch(
 }
 
 .tool-description {
-    min-height: 50px;
+    min-height: 66px;
     color: var(--theme-text-secondary);
     font-size: 13px;
-    line-height: 1.65;
+    line-height: 1.72;
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
@@ -484,6 +509,17 @@ html[data-theme="dark"] .skeleton-line::after {
 @media (max-width: 900px) {
     .ai-tools-page {
         padding-top: 108px;
+    }
+}
+
+@media (min-width: 1100px) {
+    .ai-tools-grid {
+        overflow-x: visible;
+    }
+
+    .ai-tool-card {
+        flex: 1 1 0;
+        min-width: 0;
     }
 }
 
