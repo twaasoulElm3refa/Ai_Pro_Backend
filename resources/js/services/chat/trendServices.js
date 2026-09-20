@@ -3,15 +3,15 @@ import api from "@/services/ApiClient";
 const unwrap = (response) => response.data?.data ?? response.data;
 
 const trends = Object.freeze({
-    41: Object.freeze({
-        subtoolId: 41,
-        slug: "cup-lift",
-        endpoint: "/tasks/trends/cup-lift",
+    28: Object.freeze({
+        subtoolId: 28,
+        slugs: Object.freeze(["cup-lifting-moment", "cup-lift"]),
+        endpoint: "/tasks/trends/cup-lifting-moment",
         selectedModelId: 46,
     }),
-    42: Object.freeze({
-        subtoolId: 42,
-        slug: "locker-room",
+    29: Object.freeze({
+        subtoolId: 29,
+        slugs: Object.freeze(["locker-room"]),
         endpoint: "/tasks/trends/locker-room",
         selectedModelId: 46,
     }),
@@ -21,7 +21,7 @@ const resolveTrend = (subtool) => {
     const trend = trends[Number(subtool?.id)];
     const slug = String(subtool?.slug || "").toLowerCase();
 
-    if (!trend || slug !== trend.slug) {
+    if (!trend || !trend.slugs.includes(slug)) {
         throw new Error("Unsupported Trends subtool.");
     }
 

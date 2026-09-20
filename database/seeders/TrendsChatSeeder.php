@@ -14,18 +14,18 @@ class TrendsChatSeeder extends Seeder
         DB::transaction(function (): void {
             $this->ensureMainTool();
 
-            $this->ensureSubtool(41, 'cup-lift', 'Cup Lift', 'لحظة رفع الكأس', 10);
-            $this->ensureSubtool(42, 'locker-room', 'Locker Room', 'غرفة الملابس', 20);
+            $this->ensureSubtool(28, 'cup-lifting-moment', 'Cup Lift Moment', 'لحظة رفع الكأس', 10);
+            $this->ensureSubtool(29, 'locker-room', 'Locker Room', 'غرفة الملابس', 20);
 
             $translations = [
-                41 => [
+                28 => [
                     'en' => ['Cup Lift', 'Turn your photo into a realistic championship cup-lift celebration.'],
                     'ar' => ['لحظة رفع الكأس', 'حوّل صورتك إلى لحظة احتفالية واقعية أثناء رفع كأس البطولة.'],
                     'fr' => ['Levée de coupe', 'Transformez votre photo en une célébration réaliste avec une coupe.'],
                     'ru' => ['Поднятие кубка', 'Превратите фотографию в реалистичную сцену празднования с кубком.'],
                     'zh' => ['举杯时刻', '将您的照片变成逼真的冠军举杯庆祝场景。'],
                 ],
-                42 => [
+                29 => [
                     'en' => ['Locker Room', 'Place yourself in a realistic cinematic professional locker-room scene.'],
                     'ar' => ['غرفة الملابس', 'ضع صورتك داخل غرفة ملابس فريق محترف في مشهد سينمائي واقعي.'],
                     'fr' => ['Vestiaire', 'Placez-vous dans une scène réaliste et cinématographique de vestiaire professionnel.'],
@@ -125,10 +125,12 @@ class TrendsChatSeeder extends Seeder
                 'name_en' => $nameEn,
                 'name_ar' => $nameAr,
                 'slug' => $slug,
-                'description' => $slug === 'cup-lift'
+                'description' => $slug === 'cup-lifting-moment'
                     ? 'Create a realistic championship cup-lift celebration.'
                     : 'Create a realistic professional locker-room scene.',
-                'endpoint' => "tasks/trends/{$slug}",
+                'endpoint' => $slug === 'cup-lifting-moment'
+                    ? 'tasks/trends/cup-lift'
+                    : "tasks/trends/{$slug}",
                 'allowed_model_ids' => json_encode([46], JSON_THROW_ON_ERROR),
                 'input_schema' => json_encode([
                     'file' => [

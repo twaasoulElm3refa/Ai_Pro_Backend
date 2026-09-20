@@ -13,11 +13,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
 class TrendTaskService
 {
+    private const INPUT_MIME_TYPES = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+
     public function __construct(
         private readonly ConversationMessageCacheService $messageCache,
         private readonly ProviderCostBillingService $billingService,
@@ -42,14 +49,22 @@ class TrendTaskService
         }
 
         $subTool = $conversation->subTool;
+        $trendSlugs = array_values(array_unique([
+            $trendSlug,
+            ...array_map('strval', (array) ($trend['slugs'] ?? [])),
+        ]));
         if (
             ! $subTool
             || (int) $subTool->id !== (int) $trend['sub_tool_id']
-            || (string) $subTool->slug !== $trendSlug
+            || ! in_array((string) $subTool->slug, $trendSlugs, true)
             || (int) $subTool->main_tool_id !== (int) config('trends.main_tool_id', 7)
             || ! (bool) $subTool->is_active
         ) {
             abort(422, 'This conversation is not configured for the selected Trends tool.');
+        }
+
+        if ((int) $data['sub_tool_id'] !== (int) $subTool->id) {
+            abort(422, 'The selected sub tool does not match this conversation.');
         }
 
         $selectedModelId = $this->selectedModelId($subTool, $trend);
@@ -90,9 +105,10 @@ class TrendTaskService
         int $userId,
         string $idempotencyKey
     ): array {
-        $prompt = trim((string) $data['user_message']);
+        $prompt = trim((string) ($data['user_message'] ?? ''));
         $state = is_array($data['state'] ?? null) ? $data['state'] : [];
         $state['parameters'] = is_array($state['parameters'] ?? null) ? $state['parameters'] : [];
+        $debug = (bool) ($data['debug'] ?? config('services.ai.trends_debug', false));
 
         $userMessage = Message::query()
             ->where('conversation_id', $conversation->id)
@@ -134,9 +150,26 @@ class TrendTaskService
                 ],
             ]);
 
-            $userMessage->setRelation('conversation', $conversation);
-            $this->messageCache->updateAfterMessage($userMessage);
         }
+
+        $metadata = is_array($userMessage->metadata) ? $userMessage->metadata : [];
+        if (! is_array($metadata['input_image'] ?? null)) {
+            $sourceImage = $this->persistSourceImage(
+                $uploadedFile,
+                $conversation,
+                $userMessage,
+                $userId,
+                $trendSlug
+            );
+            $metadata['input_image'] = $sourceImage;
+            $metadata['files'] = [$sourceImage];
+            $userMessage->metadata = $metadata;
+            $userMessage->save();
+        }
+
+        $userMessage->setRelation('conversation', $conversation);
+        $this->messageCache->forget((string) $conversation->uuid);
+        $this->messageCache->remember($conversation);
 
         $localFile = null;
 
@@ -148,7 +181,8 @@ class TrendTaskService
                 $selectedModelId,
                 $prompt,
                 $state,
-                $userId
+                $userId,
+                $debug
             );
             $generation = $this->validateProviderResult($providerResult, $selectedModelId);
             $localFile = $this->generatedImageService->downloadGeneratedFile(
@@ -270,6 +304,68 @@ class TrendTaskService
         }
     }
 
+    private function persistSourceImage(
+        UploadedFile $uploadedFile,
+        Conversation $conversation,
+        Message $userMessage,
+        int $userId,
+        string $trendSlug
+    ): array {
+        $mimeType = strtolower((string) $uploadedFile->getMimeType());
+        $extension = self::INPUT_MIME_TYPES[$mimeType] ?? null;
+
+        if ($extension === null) {
+            throw new RuntimeException('The uploaded file is not a supported image.');
+        }
+
+        $realPath = $uploadedFile->getRealPath();
+        $contents = is_string($realPath) ? @file_get_contents($realPath) : false;
+        if (! is_string($contents) || $contents === '') {
+            throw new RuntimeException('The uploaded image could not be read.');
+        }
+
+        $publicId = (string) Str::uuid();
+        $filename = "source-image.{$extension}";
+        $path = "trend-inputs/{$userId}/{$conversation->uuid}/{$publicId}.{$extension}";
+
+        if (! Storage::disk('local')->put($path, $contents)) {
+            throw new RuntimeException('The uploaded image could not be saved.');
+        }
+
+        try {
+            $image = GeneratedImage::create([
+                'public_id' => $publicId,
+                'user_id' => $userId,
+                'conversation_id' => $conversation->id,
+                'message_id' => $userMessage->id,
+                'sub_tool_id' => (int) $conversation->sub_tool_id,
+                'source_file_id' => null,
+                'filename' => $filename,
+                'path' => $path,
+                'disk' => 'local',
+                'content_type' => $mimeType,
+                'size_bytes' => strlen($contents),
+                'metadata' => [
+                    'type' => 'trend_source_image',
+                    'trend' => $trendSlug,
+                    'original_filename' => basename($uploadedFile->getClientOriginalName()),
+                ],
+            ]);
+        } catch (Throwable $exception) {
+            Storage::disk('local')->delete($path);
+            throw $exception;
+        }
+
+        return $this->publicFileData([
+            'public_id' => $image->public_id,
+            'filename' => $image->filename,
+            'content_type' => $image->content_type,
+            'size_bytes' => $image->size_bytes,
+            'path' => $image->path,
+            'disk' => $image->disk,
+        ]);
+    }
+
     private function requestProvider(
         UploadedFile $uploadedFile,
         Conversation $conversation,
@@ -277,7 +373,8 @@ class TrendTaskService
         int $selectedModelId,
         string $prompt,
         array $state,
-        int $userId
+        int $userId,
+        bool $debug
     ): array {
         $baseUrl = rtrim((string) config('services.ai.base_url'), '/');
         $apiKey = trim((string) (config('services.ai.internal_api_key') ?: config('services.aiarabic.internal_api_key')));
@@ -298,7 +395,7 @@ class TrendTaskService
             'conversation_uuid' => (string) $conversation->uuid,
             'user_message' => $prompt,
             'state' => $state,
-            'debug' => (bool) config('services.ai.trends_debug', false),
+            'debug' => $debug,
         ];
 
         try {
@@ -345,25 +442,29 @@ class TrendTaskService
             throw new RuntimeException('The image provider reported a failed generation.');
         }
 
-        if ((int) ($payload['selected_model_id'] ?? $result['selected_model_id'] ?? 0) !== $selectedModelId) {
+        $returnedModelId = $payload['selected_model_id'] ?? $result['selected_model_id'] ?? null;
+        if ($returnedModelId !== null && (int) $returnedModelId !== $selectedModelId) {
             throw new RuntimeException('The image provider returned an unexpected model result.');
         }
 
-        if (strtolower((string) ($payload['operation'] ?? $result['operation'] ?? '')) !== 'image_edit') {
+        $returnedOperation = strtolower(trim((string) ($payload['operation'] ?? $result['operation'] ?? '')));
+        if ($returnedOperation !== '' && $returnedOperation !== 'image_edit') {
             throw new RuntimeException('The image provider returned an unexpected operation.');
         }
 
-        $provider = trim((string) ($payload['provider'] ?? $result['provider'] ?? ''));
-        $model = trim((string) ($payload['model'] ?? $result['model'] ?? ''));
+        $provider = trim((string) ($payload['provider'] ?? $result['provider'] ?? 'configured-provider'));
+        $model = trim((string) ($payload['model'] ?? $result['model'] ?? "model-{$selectedModelId}"));
         $providerResponse = $payload['provider_response']
             ?? data_get($payload, 'metadata.provider_response')
             ?? $result['provider_response']
             ?? data_get($result, 'metadata.provider_response');
-        $files = is_array($payload['files'] ?? null)
-            ? $payload['files']
-            : (is_array($result['files'] ?? null) ? $result['files'] : []);
+        $files = $this->normalizeProviderFiles($payload, $result);
 
-        if ($provider === '' || $model === '' || ! is_array($providerResponse)) {
+        if (! is_array($providerResponse)) {
+            $providerResponse = $payload;
+        }
+
+        if ($provider === '' || $model === '') {
             throw new RuntimeException('The image provider returned incomplete generation metadata.');
         }
 
@@ -381,6 +482,10 @@ class TrendTaskService
             $providerResponse['taskUUID']
             ?? $providerResponse['task_uuid']
             ?? $providerResponse['imageUUID']
+            ?? $payload['request_id']
+            ?? $payload['id']
+            ?? $result['request_id']
+            ?? $result['id']
             ?? ''
         ));
         if ($providerRequestId === '') {
@@ -388,7 +493,7 @@ class TrendTaskService
         }
 
         $file = $files[0] ?? null;
-        if (! is_array($file) || trim((string) ($file['download_url'] ?? '')) === '') {
+        if (! is_array($file)) {
             throw new RuntimeException('The image provider did not return a generated file.');
         }
 
@@ -402,6 +507,80 @@ class TrendTaskService
             'file' => $file,
             'message' => trim((string) ($payload['message'] ?? $result['message'] ?? '')),
         ];
+    }
+
+    private function normalizeProviderFiles(array $payload, array $result): array
+    {
+        $candidates = [
+            $payload['files'] ?? null,
+            $payload['images'] ?? null,
+            $result['files'] ?? null,
+            $result['images'] ?? null,
+            data_get($payload, 'provider_data.files'),
+            data_get($payload, 'provider_data.images'),
+            data_get($result, 'provider_data.files'),
+            data_get($result, 'provider_data.images'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate) || $candidate === []) {
+                continue;
+            }
+
+            $rows = array_is_list($candidate) ? $candidate : [$candidate];
+            $files = collect($rows)
+                ->map(fn (mixed $file, int $index): ?array => $this->normalizeProviderFile($file, $index))
+                ->filter()
+                ->values()
+                ->all();
+
+            if ($files !== []) {
+                return $files;
+            }
+        }
+
+        foreach (['image', 'image_url', 'output_url'] as $key) {
+            $file = $this->normalizeProviderFile($payload[$key] ?? $result[$key] ?? null, 0);
+            if ($file !== null) {
+                return [$file];
+            }
+        }
+
+        return [];
+    }
+
+    private function normalizeProviderFile(mixed $file, int $index): ?array
+    {
+        if (is_string($file)) {
+            $file = ['download_url' => $file];
+        }
+
+        if (! is_array($file)) {
+            return null;
+        }
+
+        $downloadUrl = trim((string) (
+            $file['download_url']
+            ?? $file['output_url']
+            ?? $file['image_url']
+            ?? $file['url']
+            ?? $file['preview_url']
+            ?? ''
+        ));
+
+        if ($downloadUrl === '') {
+            return null;
+        }
+
+        $contentType = trim((string) ($file['content_type'] ?? $file['mime_type'] ?? ''));
+
+        return array_filter([
+            'file_id' => $file['file_id'] ?? $file['id'] ?? null,
+            'filename' => $file['filename'] ?? $file['name'] ?? 'trend-image-'.($index + 1).'.webp',
+            'content_type' => $contentType,
+            'size_bytes' => $file['size_bytes'] ?? $file['size'] ?? null,
+            'download_url' => $downloadUrl,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
     }
 
     private function persistResult(
@@ -517,6 +696,7 @@ class TrendTaskService
             'id' => $file['public_id'],
             'filename' => $file['filename'],
             'content_type' => $file['content_type'],
+            'mime_type' => $file['content_type'],
             'size_bytes' => $file['size_bytes'],
             'preview_url' => route('generated-images.preview', ['image' => $image]),
             'download_url' => route('generated-images.download', ['image' => $image]),
@@ -549,6 +729,10 @@ class TrendTaskService
             'cost' => $metadata['cost'] ?? null,
             'billing' => $metadata['billing'] ?? null,
             'state' => $metadata['state'] ?? null,
+            'metadata' => [
+                'sub_tool_id' => (int) $conversation->sub_tool_id,
+                'selected_model_id' => $metadata['selected_model_id'] ?? null,
+            ],
         ];
     }
 }

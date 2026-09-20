@@ -116,7 +116,7 @@ class ConversationMessageCacheService
                     'sub_tool_id' => $message['sub_tool_id'] ?? null,
                 ];
 
-                if (($responseMessage['role'] ?? null) !== 'assistant' || $metadata === null) {
+                if ($metadata === null) {
                     return $responseMessage;
                 }
 
@@ -152,6 +152,7 @@ class ConversationMessageCacheService
                     'detected_language',
                     'duration_seconds',
                     'original_filename',
+                    'input_image',
                 ] as $key) {
                     if (array_key_exists($key, $metadata)) {
                         $responseMessage[$key] = $metadata[$key];
@@ -177,12 +178,13 @@ class ConversationMessageCacheService
     {
         $role = (string) $message->role;
         $content = trim((string) $message->content);
+        $metadata = is_array($message->metadata ?? null) ? $message->metadata : null;
 
         if (! in_array($role, ['user', 'assistant'], true)) {
             return null;
         }
 
-        if ($content === '') {
+        if ($content === '' && ! $this->hasRenderableAttachment($metadata)) {
             return null;
         }
 
@@ -198,7 +200,7 @@ class ConversationMessageCacheService
             'content' => $content,
             'created_at' => optional($message->created_at)->toISOString(),
             'is_error' => $isError,
-            'metadata' => is_array($message->metadata ?? null) ? $message->metadata : null,
+            'metadata' => $metadata,
             'sub_tool_id' => $message->relationLoaded('conversation')
                 ? ($message->conversation?->sub_tool_id ?? null)
                 : null,
@@ -209,12 +211,13 @@ class ConversationMessageCacheService
     {
         $role = (string) ($message['role'] ?? '');
         $content = trim((string) ($message['content'] ?? ''));
+        $metadata = is_array($message['metadata'] ?? null) ? $message['metadata'] : null;
 
         if (! in_array($role, ['user', 'assistant'], true)) {
             return false;
         }
 
-        if ($content === '') {
+        if ($content === '' && ! $this->hasRenderableAttachment($metadata)) {
             return false;
         }
 
@@ -225,6 +228,19 @@ class ConversationMessageCacheService
         }
 
         return true;
+    }
+
+    protected function hasRenderableAttachment(?array $metadata): bool
+    {
+        if (! is_array($metadata)) {
+            return false;
+        }
+
+        if (is_array($metadata['input_image'] ?? null)) {
+            return true;
+        }
+
+        return is_array($metadata['files'] ?? null) && $metadata['files'] !== [];
     }
 
     protected function looksLikeFallbackError(string $content): bool

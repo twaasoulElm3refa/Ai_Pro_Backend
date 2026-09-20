@@ -9,6 +9,7 @@ use App\Models\Message;
 use App\Models\SubTools;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\AI\DynamicToolConfigService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
@@ -46,31 +47,41 @@ class TrendCupLiftFlowTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_cup_lift_uses_subtool_41_downloads_persists_and_restores_image(): void
+    public function test_cup_lift_uses_subtool_28_accepts_image_only_and_restores_both_images(): void
     {
-        [$user, $conversation] = $this->makeContext(41, 'cup-lift');
+        [$user, $conversation] = $this->makeContext(28, 'cup-lifting-moment');
         $taskId = (string) Str::uuid();
         $this->fakeSuccessfulGeneration('cup-lift', $taskId);
         Sanctum::actingAs($user);
 
-        $response = $this->sendTrend($conversation, 'cup-lift', (string) Str::uuid());
+        $response = $this->sendTrend($conversation, 'cup-lifting-moment', (string) Str::uuid(), '');
 
         $response->assertOk()
             ->assertJsonPath('data.success', true)
             ->assertJsonPath('data.selected_model_id', 46)
-            ->assertJsonPath('data.sub_tool_id', 41)
-            ->assertJsonPath('data.trend', 'cup-lift')
+            ->assertJsonPath('data.sub_tool_id', 28)
+            ->assertJsonPath('data.trend', 'cup-lifting-moment')
             ->assertJsonPath('data.files.0.content_type', 'image/png')
+            ->assertJsonPath('data.files.0.mime_type', 'image/png')
+            ->assertJsonPath('data.metadata.sub_tool_id', 28)
+            ->assertJsonPath('data.metadata.selected_model_id', 46)
             ->assertJsonPath('data.billing.points_to_deduct', 45000)
             ->assertJsonMissingPath('data.provider');
 
-        $this->assertSuccessfulPersistence($user, $conversation, 41, $taskId);
+        $this->assertSuccessfulPersistence($user, $conversation, 28, $taskId);
 
         $reloaded = $this->withHeaders(['X-API-KEY' => self::API_KEY])
             ->getJson('/api/v1/conversation/'.$conversation->uuid);
         $reloaded->assertOk()
+            ->assertJsonPath('data.message.0.role', 'user')
+            ->assertJsonPath('data.message.0.content', '')
+            ->assertJsonPath('data.message.0.input_image.content_type', 'image/png')
             ->assertJsonPath('data.message.1.role', 'assistant')
             ->assertJsonPath('data.message.1.files.0.content_type', 'image/png');
+
+        $sourcePreviewUrl = $reloaded->json('data.message.0.input_image.preview_url');
+        $this->get(parse_url($sourcePreviewUrl, PHP_URL_PATH))->assertOk()
+            ->assertHeader('Content-Type', 'image/png');
 
         $previewUrl = $reloaded->json('data.message.1.files.0.preview_url');
         $this->get(parse_url($previewUrl, PHP_URL_PATH))->assertOk()
@@ -80,9 +91,9 @@ class TrendCupLiftFlowTest extends TestCase
         $this->assertSecureDownloadRequest();
     }
 
-    public function test_locker_room_uses_subtool_42_and_shared_persistence_flow(): void
+    public function test_locker_room_uses_subtool_29_and_normalizes_image_url_response(): void
     {
-        [$user, $conversation] = $this->makeContext(42, 'locker-room');
+        [$user, $conversation] = $this->makeContext(29, 'locker-room');
         $taskId = (string) Str::uuid();
         $this->fakeSuccessfulGeneration('locker-room', $taskId, true, true);
         Sanctum::actingAs($user);
@@ -92,41 +103,41 @@ class TrendCupLiftFlowTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.success', true)
             ->assertJsonPath('data.selected_model_id', 46)
-            ->assertJsonPath('data.sub_tool_id', 42)
+            ->assertJsonPath('data.sub_tool_id', 29)
             ->assertJsonPath('data.trend', 'locker-room')
             ->assertJsonPath('data.billing.points_to_deduct', 45000);
 
-        $this->assertSuccessfulPersistence($user, $conversation, 42, $taskId);
+        $this->assertSuccessfulPersistence($user, $conversation, 29, $taskId);
         $this->assertProviderRequest('locker-room');
         $this->assertSecureDownloadRequest();
     }
 
     public function test_same_idempotency_key_returns_existing_result_without_second_charge(): void
     {
-        [$user, $conversation] = $this->makeContext(41, 'cup-lift');
+        [$user, $conversation] = $this->makeContext(28, 'cup-lifting-moment');
         $this->fakeSuccessfulGeneration('cup-lift', (string) Str::uuid());
         Sanctum::actingAs($user);
         $key = (string) Str::uuid();
 
-        $this->sendTrend($conversation, 'cup-lift', $key)->assertOk();
-        $this->sendTrend($conversation, 'cup-lift', $key)->assertOk();
+        $this->sendTrend($conversation, 'cup-lifting-moment', $key)->assertOk();
+        $this->sendTrend($conversation, 'cup-lifting-moment', $key)->assertOk();
 
         $this->assertSame(55_000, Wallet::where('user_id', $user->id)->value('balance'));
-        $this->assertDatabaseCount('generated_images', 1);
+        $this->assertDatabaseCount('generated_images', 2);
         $this->assertDatabaseCount('messages', 2);
         Http::assertSentCount(2);
     }
 
-    public function test_missing_cost_fails_without_charging_or_persisting_an_image(): void
+    public function test_missing_cost_fails_without_charging_or_persisting_generated_output(): void
     {
-        [$user, $conversation] = $this->makeContext(42, 'locker-room');
+        [$user, $conversation] = $this->makeContext(29, 'locker-room');
         $this->fakeSuccessfulGeneration('locker-room', (string) Str::uuid(), false);
         Sanctum::actingAs($user);
 
         $this->sendTrend($conversation, 'locker-room', (string) Str::uuid())->assertStatus(502);
 
         $this->assertSame(100_000, Wallet::where('user_id', $user->id)->value('balance'));
-        $this->assertDatabaseCount('generated_images', 0);
+        $this->assertDatabaseCount('generated_images', 1);
         $this->assertDatabaseCount('cost_loggers', 0);
         $this->assertTrue((bool) Message::where('role', 'assistant')->value('is_error'));
         Http::assertSentCount(1);
@@ -134,7 +145,7 @@ class TrendCupLiftFlowTest extends TestCase
 
     public function test_insufficient_wallet_is_rejected_before_calling_provider(): void
     {
-        [$user, $conversation] = $this->makeContext(42, 'locker-room', 0);
+        [$user, $conversation] = $this->makeContext(29, 'locker-room', 0);
         Http::fake();
         Sanctum::actingAs($user);
 
@@ -147,15 +158,49 @@ class TrendCupLiftFlowTest extends TestCase
 
     public function test_endpoint_rejects_a_conversation_for_the_other_trend(): void
     {
-        [$user, $conversation] = $this->makeContext(42, 'locker-room');
+        [$user, $conversation] = $this->makeContext(29, 'locker-room');
         Http::fake();
         Sanctum::actingAs($user);
 
-        $this->sendTrend($conversation, 'cup-lift', (string) Str::uuid())
+        $this->sendTrend($conversation, 'cup-lifting-moment', (string) Str::uuid())
             ->assertStatus(422);
 
         Http::assertNothingSent();
         $this->assertDatabaseCount('messages', 0);
+    }
+
+    public function test_missing_file_returns_a_clear_validation_error(): void
+    {
+        [$user, $conversation] = $this->makeContext(28, 'cup-lifting-moment');
+        Sanctum::actingAs($user);
+
+        $this->withHeaders([
+            'X-API-KEY' => self::API_KEY,
+            'Accept' => 'application/json',
+        ])
+            ->post('/api/v1/tasks/trends/cup-lifting-moment', [
+                'payload' => json_encode([
+                    'conversation_uuid' => $conversation->uuid,
+                    'sub_tool_id' => 28,
+                    'user_message' => '',
+                    'selected_model_id' => 46,
+                    'state' => ['parameters' => []],
+                    'idempotency_key' => (string) Str::uuid(),
+                ], JSON_THROW_ON_ERROR),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('file');
+    }
+
+    public function test_null_database_endpoint_uses_the_trends_config_fallback(): void
+    {
+        [, $conversation] = $this->makeContext(28, 'cup-lifting-moment');
+        $subTool = $conversation->subTool;
+        $subTool->update(['endpoint' => null]);
+
+        $endpoint = app(DynamicToolConfigService::class)->endpointFor($subTool->fresh());
+
+        $this->assertSame('tasks/trends/cup-lift', $endpoint);
     }
 
     private function makeContext(int $subtoolId, string $slug, int $balance = 100_000): array
@@ -169,9 +214,11 @@ class TrendCupLiftFlowTest extends TestCase
         $subTool = SubTools::create([
             'id' => $subtoolId,
             'main_tool_id' => $mainTool->id,
-            'name' => $slug === 'cup-lift' ? 'Cup Lift' : 'Locker Room',
+            'name' => $slug === 'cup-lifting-moment' ? 'Cup Lift Moment' : 'Locker Room',
             'slug' => $slug,
-            'endpoint' => "tasks/trends/{$slug}",
+            'endpoint' => $slug === 'cup-lifting-moment'
+                ? 'tasks/trends/cup-lift'
+                : "tasks/trends/{$slug}",
             'is_active' => true,
             'allowed_model_ids' => json_encode([46], JSON_THROW_ON_ERROR),
         ]);
@@ -191,15 +238,22 @@ class TrendCupLiftFlowTest extends TestCase
         return [$user, $conversation];
     }
 
-    private function sendTrend(Conversation $conversation, string $slug, string $idempotencyKey)
+    private function sendTrend(
+        Conversation $conversation,
+        string $slug,
+        string $idempotencyKey,
+        string $message = 'Create a realistic football celebration'
+    )
     {
         return $this->withHeaders(['X-API-KEY' => self::API_KEY])
             ->post("/api/v1/tasks/trends/{$slug}", [
                 'payload' => json_encode([
                     'conversation_uuid' => $conversation->uuid,
-                    'user_message' => 'Create a realistic football celebration',
+                    'sub_tool_id' => $conversation->sub_tool_id,
+                    'user_message' => $message,
                     'selected_model_id' => 46,
                     'state' => ['parameters' => []],
+                    'debug' => true,
                     'idempotency_key' => $idempotencyKey,
                 ], JSON_THROW_ON_ERROR),
                 'file' => UploadedFile::fake()->createWithContent(
@@ -239,6 +293,13 @@ class TrendCupLiftFlowTest extends TestCase
         ];
         if ($nestedProviderResponse) {
             $response['metadata']['provider_response'] = $providerResponse;
+            $response['images'] = [[
+                'id' => 'trend-file-1',
+                'filename' => 'general-media-image_edit.webp',
+                'mime_type' => 'image/webp',
+                'image_url' => '/tasks/generated-files/download/trend-file-1',
+            ]];
+            unset($response['files']);
         } else {
             $response['provider_response'] = $providerResponse;
         }
@@ -260,6 +321,7 @@ class TrendCupLiftFlowTest extends TestCase
         string $taskId
     ): void {
         $this->assertSame(55_000, Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertDatabaseCount('generated_images', 2);
         $this->assertDatabaseHas('cost_loggers', [
             'conversation_id' => $conversation->id,
             'sub_tool_id' => $subtoolId,
@@ -267,9 +329,10 @@ class TrendCupLiftFlowTest extends TestCase
             'total_cost' => 0.045,
             'provider_request_id' => $taskId,
         ]);
-        $image = GeneratedImage::firstOrFail();
-        $this->assertSame('local', $image->disk);
-        Storage::disk('local')->assertExists($image->path);
+        foreach (GeneratedImage::all() as $image) {
+            $this->assertSame('local', $image->disk);
+            Storage::disk('local')->assertExists($image->path);
+        }
     }
 
     private function assertProviderRequest(string $slug): void

@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-test("shared Trends chat maps subtools 41 and 42 to their dedicated endpoints", async () => {
+test("shared Trends chat maps subtools 28 and 29 to their dedicated endpoints", async () => {
     const [service, chat, router, toolPage] = await Promise.all([
         read("resources/js/services/chat/trendServices.js"),
         read("resources/js/views/home/chat7.vue"),
@@ -12,14 +12,19 @@ test("shared Trends chat maps subtools 41 and 42 to their dedicated endpoints", 
         read("resources/js/views/home/show.vue"),
     ]);
 
-    assert.match(service, /41:[\s\S]*slug:\s*"cup-lift"[\s\S]*endpoint:\s*"\/tasks\/trends\/cup-lift"/);
-    assert.match(service, /42:[\s\S]*slug:\s*"locker-room"[\s\S]*endpoint:\s*"\/tasks\/trends\/locker-room"/);
+    assert.match(service, /28:[\s\S]*"cup-lifting-moment"[\s\S]*endpoint:\s*"\/tasks\/trends\/cup-lifting-moment"/);
+    assert.match(service, /29:[\s\S]*"locker-room"[\s\S]*endpoint:\s*"\/tasks\/trends\/locker-room"/);
     assert.match(service, /api\.post\(trend\.endpoint/);
+    assert.match(service, /formData\.append\("payload",\s*JSON\.stringify\(payload\)\)/);
+    assert.match(service, /formData\.append\("file",\s*image\)/);
     assert.doesNotMatch(service + chat, /x-internal-api-key/i);
     assert.match(chat, /trendServices\.generate\(subtool\.value/);
+    assert.match(chat, /const canSubmit = computed\(\(\) => !submitting\.value && selectedFile\.value !== null\)/);
+    assert.doesNotMatch(chat, /if \(!text\)[\s\S]{0,120}promptRequired/);
+    assert.match(chat, /sub_tool_id:\s*trend\.subtoolId/);
     assert.doesNotMatch(chat, /EventSource|conversation\/.*\/stream/);
     assert.match(router, /subtool\/:slug\/chat7\/.*uuid/);
-    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[41,\s*42\]/);
+    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29\]/);
 });
 
 test("every supported locale contains the complete Trends chat dictionary", async () => {

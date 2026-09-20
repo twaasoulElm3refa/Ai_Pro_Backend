@@ -76,6 +76,24 @@ class DynamicToolConfigService
             return $databaseEndpoint;
         }
 
+        foreach ((array) config('trends.tools', []) as $slug => $trend) {
+            if (! is_array($trend)) {
+                continue;
+            }
+
+            $slugs = array_values(array_unique(array_filter([
+                (string) $slug,
+                ...array_map('strval', (array) ($trend['slugs'] ?? [])),
+            ])));
+
+            if (
+                (int) ($trend['sub_tool_id'] ?? 0) === (int) $subTool->id
+                || in_array((string) $subTool->slug, $slugs, true)
+            ) {
+                return trim((string) ($trend['endpoint'] ?? ''));
+            }
+        }
+
         return '';
     }
 

@@ -162,7 +162,7 @@ const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
 const PROMPT_CHAT_SUB_TOOL_IDS = [9, 10, 11, 12];
-const TREND_CHAT_SUB_TOOL_IDS = [41, 42];
+const TREND_CHAT_SUB_TOOL_IDS = [28, 29];
 
 const loading = ref(true);
 const rawTool = ref({});

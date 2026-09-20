@@ -8,6 +8,7 @@ use App\Http\Requests\Trend\TrendImageRequest;
 use App\Services\TrendTaskService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
@@ -19,7 +20,12 @@ class TrendTaskController extends Controller
 
     public function cupLift(TrendImageRequest $request): JsonResponse
     {
-        return $this->generate($request, 'cup-lift');
+        return $this->generate($request, 'cup-lifting-moment');
+    }
+
+    public function cupLiftingMoment(TrendImageRequest $request): JsonResponse
+    {
+        return $this->generate($request, 'cup-lifting-moment');
     }
 
     public function lockerRoom(TrendImageRequest $request): JsonResponse
@@ -42,6 +48,18 @@ class TrendTaskController extends Controller
             return $this->error(
                 $exception->getMessage() ?: 'The request could not be completed.',
                 $exception->getStatusCode()
+            );
+        } catch (RuntimeException $exception) {
+            Log::warning('Trend image generation request failed.', [
+                'trend' => $trendSlug,
+                'user_id' => $request->user()?->id,
+                'conversation_uuid' => $request->input('conversation_uuid'),
+                'message' => $exception->getMessage(),
+            ]);
+
+            return $this->error(
+                'Trend image generation failed: '.$exception->getMessage(),
+                502
             );
         } catch (Throwable $exception) {
             Log::error('Trend image request failed.', [

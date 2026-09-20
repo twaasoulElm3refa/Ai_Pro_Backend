@@ -212,7 +212,7 @@ const objectUrls = new Set();
 const filteredConversations = computed(() => conversations.value.filter((item) =>
     !subtool.value.id || Number(item.sub_tool_id) === Number(subtool.value.id)
 ));
-const canSubmit = computed(() => !submitting.value && prompt.value.trim().length > 0 && selectedFile.value !== null);
+const canSubmit = computed(() => !submitting.value && selectedFile.value !== null);
 
 const authenticated = () => Boolean(localStorage.getItem("auth_token"));
 const uuid = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -263,31 +263,55 @@ const scrollBottom = async () => {
 };
 
 const normalizeFiles = (message) => {
+    const role = message?.role || (message?.assistant_message_id ? "assistant" : "user");
+    if (role === "user") return [];
+
     const metadata = message?.metadata && typeof message.metadata === "object" ? message.metadata : {};
     const rows = Array.isArray(message?.files) ? message.files : Array.isArray(metadata.files) ? metadata.files : [];
     return rows.filter((file) => file && (file.preview_url || file.download_url)).map((file) => ({ ...file, objectUrl: "", loading: true, downloading: false }));
 };
 
-const mapMessage = (message, index = 0) => ({
-    key: message.id || message.assistant_message_id || `message-${index}-${uuid()}`,
-    role: message.role || (message.assistant_message_id ? "assistant" : "user"),
-    content: String(message.content || message.message || ""),
-    isError: Boolean(message.is_error || message.success === false),
-    files: normalizeFiles(message),
-    inputPreview: message.inputPreview || "",
-});
+const mapMessage = (message, index = 0) => {
+    const role = message.role || (message.assistant_message_id ? "assistant" : "user");
+    const metadata = message?.metadata && typeof message.metadata === "object" ? message.metadata : {};
+    const sourceImage = message?.input_image || metadata.input_image || (role === "user" ? metadata.files?.[0] : null);
+
+    return {
+        key: message.id || message.assistant_message_id || `message-${index}-${uuid()}`,
+        role,
+        content: String(message.content || message.message || ""),
+        isError: Boolean(message.is_error || message.success === false),
+        files: normalizeFiles({ ...message, role }),
+        inputPreview: message.inputPreview || sourceImage?.preview_url || sourceImage?.download_url || "",
+    };
+};
 
 const hydrateFiles = async (rows) => {
-    await Promise.all(rows.flatMap((message) => message.files.map(async (file) => {
-        try {
-            const blob = await trendServices.fetchProtectedImage(file.preview_url || file.download_url);
-            file.objectUrl = rememberUrl(blob);
-        } catch {
-            file.objectUrl = "";
-        } finally {
-            file.loading = false;
+    await Promise.all(rows.flatMap((message) => {
+        const jobs = message.files.map(async (file) => {
+            try {
+                const blob = await trendServices.fetchProtectedImage(file.preview_url || file.download_url);
+                file.objectUrl = rememberUrl(blob);
+            } catch {
+                file.objectUrl = "";
+            } finally {
+                file.loading = false;
+            }
+        });
+
+        if (message.inputPreview && !/^(blob:|data:)/i.test(message.inputPreview)) {
+            jobs.push((async () => {
+                try {
+                    const blob = await trendServices.fetchProtectedImage(message.inputPreview);
+                    message.inputPreview = rememberUrl(blob);
+                } catch {
+                    message.inputPreview = "";
+                }
+            })());
         }
-    })));
+
+        return jobs;
+    }));
 };
 
 const selectFile = (event) => {
@@ -426,10 +450,6 @@ const deleteConversation = async (conversation) => {
 const submit = async () => {
     errorMessage.value = "";
     const text = prompt.value.trim();
-    if (!text) {
-        errorMessage.value = labels.value.promptRequired;
-        return;
-    }
     if (!selectedFile.value) {
         errorMessage.value = labels.value.imageRequired;
         return;
@@ -464,9 +484,11 @@ const submit = async () => {
 
         const result = await trendServices.generate(subtool.value, {
             conversation_uuid: conversation.uuid,
+            sub_tool_id: trend.subtoolId,
             user_message: text,
             selected_model_id: trend.selectedModelId,
             state: { parameters: {} },
+            debug: true,
             idempotency_key: idempotencyKey,
         }, file);
 

@@ -148,6 +148,8 @@ Route::prefix('v1')->group(function () {
 
     Route::post('/tasks/trends/cup-lift', [TrendTaskController::class, 'cupLift'])
         ->middleware(['auth:sanctum', 'throttle:10,1']);
+    Route::post('/tasks/trends/cup-lifting-moment', [TrendTaskController::class, 'cupLiftingMoment'])
+        ->middleware(['auth:sanctum', 'throttle:10,1']);
     Route::post('/tasks/trends/locker-room', [TrendTaskController::class, 'lockerRoom'])
         ->middleware(['auth:sanctum', 'throttle:10,1']);
 

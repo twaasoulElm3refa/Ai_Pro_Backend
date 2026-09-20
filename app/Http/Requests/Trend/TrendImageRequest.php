@@ -24,17 +24,27 @@ class TrendImageRequest extends FormRequest
         if (is_array($decoded)) {
             $this->merge($decoded);
         }
+
+        if (! $this->exists('user_message')) {
+            $this->merge(['user_message' => '']);
+        }
+
+        if (! is_array($this->input('state'))) {
+            $this->merge(['state' => ['parameters' => []]]);
+        }
     }
 
     public function rules(): array
     {
         return [
-            'payload' => ['required', 'string'],
+            'payload' => ['required', 'string', 'json'],
             'conversation_uuid' => ['required', 'uuid'],
-            'user_message' => ['required', 'string', 'max:1000'],
-            'selected_model_id' => ['sometimes', 'integer'],
+            'sub_tool_id' => ['required', 'integer'],
+            'user_message' => ['nullable', 'string', 'max:1000'],
+            'selected_model_id' => ['required', 'integer'],
             'state' => ['sometimes', 'array'],
             'state.parameters' => ['sometimes', 'array'],
+            'debug' => ['sometimes', 'boolean'],
             'idempotency_key' => ['required', 'uuid'],
             'file' => [
                 'required',
@@ -47,4 +57,3 @@ class TrendImageRequest extends FormRequest
         ];
     }
 }
-
