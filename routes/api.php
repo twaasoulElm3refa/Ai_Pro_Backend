@@ -147,11 +147,17 @@ Route::prefix('v1')->group(function () {
     })->withoutMiddleware(ApiKeyMiddleware::class);
 
     Route::post('/tasks/trends/cup-lift', [TrendTaskController::class, 'cupLift'])
-        ->middleware(['auth:sanctum', 'throttle:10,1']);
+        ->name('trends.cup-lift')
+        ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
     Route::post('/tasks/trends/cup-lifting-moment', [TrendTaskController::class, 'cupLiftingMoment'])
-        ->middleware(['auth:sanctum', 'throttle:10,1']);
+        ->name('trends.cup-lifting-moment')
+        ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
     Route::post('/tasks/trends/locker-room', [TrendTaskController::class, 'lockerRoom'])
-        ->middleware(['auth:sanctum', 'throttle:10,1']);
+        ->name('trends.locker-room')
+        ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
+    Route::post('/tasks/trends/players-tunnel', [TrendTaskController::class, 'playersTunnel'])
+        ->name('trends.players-tunnel')
+        ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
 
     Route::get('/message/resume-output/{filename}', [MessageController::class, 'downloadResumeOutput'])
         ->name('resume-builder.download')

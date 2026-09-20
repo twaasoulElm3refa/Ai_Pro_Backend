@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-test("shared Trends chat maps subtools 28 and 29 to their dedicated endpoints", async () => {
+test("shared Trends chat maps subtools 28, 29, and 30 to their dedicated endpoints", async () => {
     const [service, chat, router, toolPage] = await Promise.all([
         read("resources/js/services/chat/trendServices.js"),
         read("resources/js/views/home/chat7.vue"),
@@ -14,6 +14,7 @@ test("shared Trends chat maps subtools 28 and 29 to their dedicated endpoints", 
 
     assert.match(service, /28:[\s\S]*"cup-lifting-moment"[\s\S]*endpoint:\s*"\/tasks\/trends\/cup-lifting-moment"/);
     assert.match(service, /29:[\s\S]*"locker-room"[\s\S]*endpoint:\s*"\/tasks\/trends\/locker-room"/);
+    assert.match(service, /30:[\s\S]*"players-tunnel"[\s\S]*endpoint:\s*"\/tasks\/trends\/players-tunnel"/);
     assert.match(service, /api\.post\(trend\.endpoint/);
     assert.match(service, /formData\.append\("payload",\s*JSON\.stringify\(payload\)\)/);
     assert.match(service, /formData\.append\("file",\s*image\)/);
@@ -24,7 +25,7 @@ test("shared Trends chat maps subtools 28 and 29 to their dedicated endpoints", 
     assert.match(chat, /sub_tool_id:\s*trend\.subtoolId/);
     assert.doesNotMatch(chat, /EventSource|conversation\/.*\/stream/);
     assert.match(router, /subtool\/:slug\/chat7\/.*uuid/);
-    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29\]/);
+    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29,\s*30\]/);
 });
 
 test("every supported locale contains the complete Trends chat dictionary", async () => {

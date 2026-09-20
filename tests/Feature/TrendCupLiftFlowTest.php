@@ -87,7 +87,7 @@ class TrendCupLiftFlowTest extends TestCase
         $this->get(parse_url($previewUrl, PHP_URL_PATH))->assertOk()
             ->assertHeader('Content-Type', 'image/png');
 
-        $this->assertProviderRequest('cup-lift');
+        $this->assertProviderRequest('cup-lift', 28);
         $this->assertSecureDownloadRequest();
     }
 
@@ -108,7 +108,45 @@ class TrendCupLiftFlowTest extends TestCase
             ->assertJsonPath('data.billing.points_to_deduct', 45000);
 
         $this->assertSuccessfulPersistence($user, $conversation, 29, $taskId);
-        $this->assertProviderRequest('locker-room');
+        $this->assertProviderRequest('locker-room', 29);
+        $this->assertSecureDownloadRequest();
+    }
+
+    public function test_players_tunnel_uses_subtool_30_and_restores_input_and_output_images(): void
+    {
+        [$user, $conversation] = $this->makeContext(30, 'players-tunnel');
+        $conversation->subTool()->update(['endpoint' => null]);
+        $this->assertSame(
+            'tasks/trends/players-tunnel',
+            app(DynamicToolConfigService::class)->endpointFor($conversation->subTool()->firstOrFail())
+        );
+        $taskId = (string) Str::uuid();
+        $this->fakeSuccessfulGeneration('players-tunnel', $taskId);
+        Sanctum::actingAs($user);
+
+        $response = $this->sendTrend($conversation, 'players-tunnel', (string) Str::uuid(), '');
+
+        $response->assertOk()
+            ->assertJsonPath('data.success', true)
+            ->assertJsonPath('data.tool', 'trend_players-tunnel')
+            ->assertJsonPath('data.selected_model_id', 46)
+            ->assertJsonPath('data.sub_tool_id', 30)
+            ->assertJsonPath('data.trend', 'players-tunnel')
+            ->assertJsonPath('data.metadata.sub_tool_id', 30)
+            ->assertJsonPath('data.files.0.content_type', 'image/png');
+
+        $this->assertSuccessfulPersistence($user, $conversation, 30, $taskId);
+
+        $this->withHeaders(['X-API-KEY' => self::API_KEY])
+            ->getJson('/api/v1/conversation/'.$conversation->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.message.0.role', 'user')
+            ->assertJsonPath('data.message.0.content', '')
+            ->assertJsonPath('data.message.0.input_image.content_type', 'image/png')
+            ->assertJsonPath('data.message.1.role', 'assistant')
+            ->assertJsonPath('data.message.1.files.0.content_type', 'image/png');
+
+        $this->assertProviderRequest('players-tunnel', 30);
         $this->assertSecureDownloadRequest();
     }
 
@@ -214,7 +252,11 @@ class TrendCupLiftFlowTest extends TestCase
         $subTool = SubTools::create([
             'id' => $subtoolId,
             'main_tool_id' => $mainTool->id,
-            'name' => $slug === 'cup-lifting-moment' ? 'Cup Lift Moment' : 'Locker Room',
+            'name' => match ($slug) {
+                'cup-lifting-moment' => 'Cup Lift Moment',
+                'locker-room' => 'Locker Room',
+                'players-tunnel' => 'Players Tunnel',
+            },
             'slug' => $slug,
             'endpoint' => $slug === 'cup-lifting-moment'
                 ? 'tasks/trends/cup-lift'
@@ -335,15 +377,22 @@ class TrendCupLiftFlowTest extends TestCase
         }
     }
 
-    private function assertProviderRequest(string $slug): void
+    private function assertProviderRequest(string $slug, int $subtoolId): void
     {
-        Http::assertSent(function (Request $request) use ($slug): bool {
+        Http::assertSent(function (Request $request) use ($slug, $subtoolId): bool {
             if ($request->method() !== 'POST' || $request->url() !== self::AI_BASE_URL."/tasks/trends/{$slug}") {
                 return false;
             }
 
+            $payloadPart = collect($request->data())->firstWhere('name', 'payload');
+            $payload = json_decode((string) ($payloadPart['contents'] ?? ''), true);
+
             return ($request->header('x-internal-api-key')[0] ?? null) === self::INTERNAL_KEY
-                && str_starts_with(strtolower($request->header('Content-Type')[0] ?? ''), 'multipart/form-data');
+                && str_starts_with(strtolower($request->header('Content-Type')[0] ?? ''), 'multipart/form-data')
+                && $request->hasFile('file')
+                && is_array($payload)
+                && (int) ($payload['sub_tool_id'] ?? 0) === $subtoolId
+                && ($payload['user_message'] ?? null) !== null;
         });
     }
 

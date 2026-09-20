@@ -33,6 +33,11 @@ class TrendTaskController extends Controller
         return $this->generate($request, 'locker-room');
     }
 
+    public function playersTunnel(TrendImageRequest $request): JsonResponse
+    {
+        return $this->generate($request, 'players-tunnel');
+    }
+
     private function generate(TrendImageRequest $request, string $trendSlug): JsonResponse
     {
         try {

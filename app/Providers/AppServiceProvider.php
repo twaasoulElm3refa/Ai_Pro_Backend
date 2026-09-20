@@ -78,5 +78,35 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('free-ai-conversation-create', fn (Request $request) => Limit::perMinute(
             max(1, (int) config('free_ai_chat.conversation_create_rate_per_minute'))
         )->by('free-ai-conversation:'.(string) $request->user()->getAuthIdentifier()));
+
+        RateLimiter::for('trend-image-generation', function (Request $request): array {
+            $subToolId = match ($request->route()?->getName()) {
+                'trends.cup-lift', 'trends.cup-lifting-moment' => 28,
+                'trends.locker-room' => 29,
+                'trends.players-tunnel' => 30,
+                default => null,
+            };
+            $userId = $request->user()?->getAuthIdentifier();
+
+            if ($subToolId === null || $userId === null) {
+                return [Limit::perMinute(max(
+                    1,
+                    (int) config('trends.rate_limits.fallback_requests_per_minute', 10)
+                ))->by('trend-image:fallback:'.$request->ip())];
+            }
+
+            $key = 'trend-image:user:'.$userId;
+
+            return [
+                Limit::perMinute(max(
+                    1,
+                    (int) config('trends.rate_limits.requests_per_minute', 30)
+                ))->by($key.':minute'),
+                Limit::perSecond(max(
+                    1,
+                    (int) config('trends.rate_limits.burst_per_second', 5)
+                ))->by($key.':burst'),
+            ];
+        });
     }
 }

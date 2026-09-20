@@ -16,6 +16,7 @@ class TrendsChatSeeder extends Seeder
 
             $this->ensureSubtool(28, 'cup-lifting-moment', 'Cup Lift Moment', 'لحظة رفع الكأس', 10);
             $this->ensureSubtool(29, 'locker-room', 'Locker Room', 'غرفة الملابس', 20);
+            $this->ensureSubtool(30, 'players-tunnel', 'Players Tunnel', 'ممر اللاعبين', 30);
 
             $translations = [
                 28 => [
@@ -31,6 +32,13 @@ class TrendsChatSeeder extends Seeder
                     'fr' => ['Vestiaire', 'Placez-vous dans une scène réaliste et cinématographique de vestiaire professionnel.'],
                     'ru' => ['Раздевалка', 'Поместите себя в реалистичную кинематографичную сцену профессиональной раздевалки.'],
                     'zh' => ['更衣室', '将自己置于逼真的电影级职业球队更衣室场景中。'],
+                ],
+                30 => [
+                    'en' => ['Players Tunnel', 'Place yourself in a cinematic professional players-tunnel scene.'],
+                    'ar' => ['ممر اللاعبين', 'ضع صورتك داخل ممر اللاعبين في مشهد رياضي سينمائي واقعي.'],
+                    'fr' => ['Tunnel des joueurs', 'Placez-vous dans une scène cinématographique réaliste du tunnel des joueurs.'],
+                    'ru' => ['Тоннель игроков', 'Поместите себя в реалистичную кинематографичную сцену в тоннеле игроков.'],
+                    'zh' => ['球员通道', '将自己置于逼真的电影级职业球员通道场景中。'],
                 ],
             ];
 
@@ -125,9 +133,12 @@ class TrendsChatSeeder extends Seeder
                 'name_en' => $nameEn,
                 'name_ar' => $nameAr,
                 'slug' => $slug,
-                'description' => $slug === 'cup-lifting-moment'
-                    ? 'Create a realistic championship cup-lift celebration.'
-                    : 'Create a realistic professional locker-room scene.',
+                'description' => match ($slug) {
+                    'cup-lifting-moment' => 'Create a realistic championship cup-lift celebration.',
+                    'locker-room' => 'Create a realistic professional locker-room scene.',
+                    'players-tunnel' => 'Create a cinematic professional players-tunnel scene.',
+                    default => 'Create a cinematic trend image.',
+                },
                 'endpoint' => $slug === 'cup-lifting-moment'
                     ? 'tasks/trends/cup-lift'
                     : "tasks/trends/{$slug}",
