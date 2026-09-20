@@ -383,7 +383,12 @@ class TrendTaskService
             throw new RuntimeException('The Trends provider is not configured.');
         }
 
-        $handle = @fopen($uploadedFile->getRealPath(), 'r');
+        $realPath = $uploadedFile->getRealPath();
+        $originalFilename = basename($uploadedFile->getClientOriginalName());
+        $mimeType = $uploadedFile->getMimeType() ?: 'application/octet-stream';
+        $fileExists = is_string($realPath) && is_file($realPath);
+        $fileSize = $fileExists ? @filesize($realPath) : false;
+        $handle = $fileExists ? @fopen($realPath, 'rb') : false;
         if ($handle === false) {
             throw new RuntimeException('The uploaded image could not be opened.');
         }
@@ -394,42 +399,113 @@ class TrendTaskService
             'selected_model_id' => $selectedModelId,
             'conversation_uuid' => (string) $conversation->uuid,
             'user_message' => $prompt,
-            'state' => $state,
+            'state' => $this->providerState($state),
             'debug' => $debug,
         ];
+        $encodedPayload = json_encode(
+            $payload,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
 
         try {
             $response = Http::withHeaders(['x-internal-api-key' => $apiKey])
+                ->asMultipart()
+                ->attach('payload', $encodedPayload)
                 ->attach(
                     'file',
                     $handle,
-                    basename($uploadedFile->getClientOriginalName()),
-                    ['Content-Type' => $uploadedFile->getMimeType() ?: 'application/octet-stream']
+                    $originalFilename,
+                    ['Content-Type' => $mimeType]
                 )
                 ->connectTimeout(10)
                 ->timeout(180)
-                ->post($baseUrl.'/'.ltrim((string) $trend['endpoint'], '/'), [
-                    'payload' => json_encode(
-                        $payload,
-                        JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                    ),
-                ]);
+                ->post($baseUrl.'/'.ltrim((string) $trend['endpoint'], '/'));
         } finally {
             fclose($handle);
         }
 
         $result = $response->json();
         if (! $response->successful() || ! is_array($result)) {
+            $upstreamResponse = is_array($result)
+                ? $this->sanitizeUpstreamValue($result)
+                : $this->sanitizeUpstreamText($response->body());
+            $validationErrors = is_array($result)
+                ? ($result['errors'] ?? data_get($result, 'error.errors') ?? data_get($result, 'data.errors'))
+                : null;
+
             Log::warning('Trends provider rejected the request.', [
                 'endpoint' => $trend['endpoint'],
                 'status' => $response->status(),
                 'conversation_id' => $conversation->id,
+                'conversation_uuid' => (string) $conversation->uuid,
+                'sub_tool_id' => (int) $conversation->sub_tool_id,
+                'selected_model_id' => $selectedModelId,
+                'file_exists' => $fileExists,
+                'file_mime_type' => $mimeType,
+                'file_size_bytes' => $fileSize === false ? null : $fileSize,
+                'payload_keys' => array_keys($payload),
+                'upstream_response' => $upstreamResponse,
+                'upstream_validation_errors' => $this->sanitizeUpstreamValue($validationErrors),
             ]);
 
-            throw new RuntimeException('The image provider did not complete the request.');
+            throw new RuntimeException($this->providerFailureMessage($response->status(), $result));
         }
 
         return $result;
+    }
+
+    /**
+     * The Trends provider requires parameters to be a JSON object. Decoding the
+     * browser payload into an associative array turns an empty object into [], so
+     * cast it back before encoding the provider payload.
+     */
+    private function providerState(array $state): array
+    {
+        $parameters = is_array($state['parameters'] ?? null) ? $state['parameters'] : [];
+
+        return ['parameters' => (object) $parameters];
+    }
+
+    private function providerFailureMessage(int $status, mixed $result): string
+    {
+        $message = is_array($result)
+            ? ($result['message'] ?? data_get($result, 'error.message') ?? data_get($result, 'data.message'))
+            : null;
+        $message = is_string($message) ? $this->sanitizeUpstreamText($message, 300) : '';
+
+        return "The image provider rejected the request (HTTP {$status})"
+            .($message !== '' ? ": {$message}" : '. See the server log for the provider response.');
+    }
+
+    private function sanitizeUpstreamValue(mixed $value, ?string $key = null): mixed
+    {
+        if ($key !== null && preg_match('/authorization|cookie|credential|password|secret|token|api[_-]?key/i', $key)) {
+            return '[REDACTED]';
+        }
+
+        if (is_array($value)) {
+            $sanitized = [];
+            foreach ($value as $childKey => $childValue) {
+                $sanitized[$childKey] = $this->sanitizeUpstreamValue($childValue, (string) $childKey);
+            }
+
+            return $sanitized;
+        }
+
+        return is_string($value) ? $this->sanitizeUpstreamText($value) : $value;
+    }
+
+    private function sanitizeUpstreamText(string $value, int $limit = 12000): string
+    {
+        $value = preg_replace('/Bearer\s+[A-Za-z0-9._~+\/-]+=*/i', 'Bearer [REDACTED]', $value) ?? $value;
+        $value = preg_replace(
+            '/((?:api[_-]?key|token|secret|password)\s*[=:]\s*)[^\s,;]+/i',
+            '$1[REDACTED]',
+            $value
+        ) ?? $value;
+        $value = trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value) ?? $value);
+
+        return Str::limit($value, $limit, '...[truncated]');
     }
 
     private function validateProviderResult(array $result, int $selectedModelId): array

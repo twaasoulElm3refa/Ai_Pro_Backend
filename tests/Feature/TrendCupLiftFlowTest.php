@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -24,7 +25,9 @@ class TrendCupLiftFlowTest extends TestCase
     use RefreshDatabase;
 
     private const API_KEY = 'testing-public-api-key';
+
     private const INTERNAL_KEY = 'testing-internal-trend-key';
+
     private const AI_BASE_URL = 'https://ai.internal.test';
 
     protected function setUp(): void
@@ -181,6 +184,51 @@ class TrendCupLiftFlowTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_provider_validation_error_is_logged_safely_and_returned_with_a_useful_message(): void
+    {
+        [$user, $conversation] = $this->makeContext(29, 'locker-room');
+        Sanctum::actingAs($user);
+        Log::spy();
+        Http::fake([
+            self::AI_BASE_URL.'/tasks/trends/locker-room' => Http::response([
+                'message' => 'The state.parameters field must be an object.',
+                'errors' => [
+                    'state.parameters' => ['The state.parameters field must be an object.'],
+                ],
+            ], 400),
+        ]);
+
+        $this->sendTrend($conversation, 'locker-room', (string) Str::uuid(), '')
+            ->assertStatus(502)
+            ->assertJsonPath(
+                'message',
+                'Trend image generation failed: The image provider rejected the request (HTTP 400): The state.parameters field must be an object.'
+            );
+
+        Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
+            return $message === 'Trends provider rejected the request.'
+                && $context['endpoint'] === 'tasks/trends/locker-room'
+                && $context['status'] === 400
+                && $context['sub_tool_id'] === 29
+                && $context['selected_model_id'] === 46
+                && $context['file_exists'] === true
+                && $context['file_mime_type'] === 'image/png'
+                && $context['file_size_bytes'] > 0
+                && $context['payload_keys'] === [
+                    'user_id',
+                    'sub_tool_id',
+                    'selected_model_id',
+                    'conversation_uuid',
+                    'user_message',
+                    'state',
+                    'debug',
+                ]
+                && $context['upstream_response']['message'] === 'The state.parameters field must be an object.'
+                && $context['upstream_validation_errors']['state.parameters'][0]
+                    === 'The state.parameters field must be an object.';
+        });
+    }
+
     public function test_insufficient_wallet_is_rejected_before_calling_provider(): void
     {
         [$user, $conversation] = $this->makeContext(29, 'locker-room', 0);
@@ -285,8 +333,7 @@ class TrendCupLiftFlowTest extends TestCase
         string $slug,
         string $idempotencyKey,
         string $message = 'Create a realistic football celebration'
-    )
-    {
+    ) {
         return $this->withHeaders(['X-API-KEY' => self::API_KEY])
             ->post("/api/v1/tasks/trends/{$slug}", [
                 'payload' => json_encode([
@@ -384,22 +431,43 @@ class TrendCupLiftFlowTest extends TestCase
                 return false;
             }
 
-            $payloadPart = collect($request->data())->firstWhere('name', 'payload');
-            $payload = json_decode((string) ($payloadPart['contents'] ?? ''), true);
+            $parts = collect($request->data());
+            $payloadPart = $parts->firstWhere('name', 'payload');
+            $filePart = $parts->firstWhere('name', 'file');
+            $payload = json_decode((string) ($payloadPart['contents'] ?? ''));
+            $payloadKeys = is_object($payload) ? array_keys(get_object_vars($payload)) : [];
 
             return ($request->header('x-internal-api-key')[0] ?? null) === self::INTERNAL_KEY
                 && str_starts_with(strtolower($request->header('Content-Type')[0] ?? ''), 'multipart/form-data')
+                && $parts->pluck('name')->sort()->values()->all() === ['file', 'payload']
                 && $request->hasFile('file')
-                && is_array($payload)
-                && (int) ($payload['sub_tool_id'] ?? 0) === $subtoolId
-                && ($payload['user_message'] ?? null) !== null;
+                && ($filePart['filename'] ?? null) === 'portrait.png'
+                && ($filePart['headers']['Content-Type'] ?? null) === 'image/png'
+                && is_object($payload)
+                && $payloadKeys === [
+                    'user_id',
+                    'sub_tool_id',
+                    'selected_model_id',
+                    'conversation_uuid',
+                    'user_message',
+                    'state',
+                    'debug',
+                ]
+                && (int) ($payload->user_id ?? 0) > 0
+                && (int) ($payload->sub_tool_id ?? 0) === $subtoolId
+                && (int) ($payload->selected_model_id ?? 0) === 46
+                && is_string($payload->conversation_uuid ?? null)
+                && property_exists($payload, 'user_message')
+                && is_object($payload->state ?? null)
+                && is_object($payload->state->parameters ?? null)
+                && get_object_vars($payload->state->parameters) === []
+                && ($payload->debug ?? null) === true;
         });
     }
 
     private function assertSecureDownloadRequest(): void
     {
-        Http::assertSent(fn (Request $request): bool =>
-            $request->method() === 'GET'
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
             && $request->url() === self::AI_BASE_URL.'/tasks/generated-files/download/trend-file-1'
             && ($request->header('x-internal-api-key')[0] ?? null) === self::INTERNAL_KEY
         );
