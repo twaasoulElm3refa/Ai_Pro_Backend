@@ -95,7 +95,7 @@
         "textToSpeech": "Text to Speech",
         "textToSpeechDescription": "Convert written text into natural speech",
         "textToAudio": "Text → Audio",
-        "badge": "Free AI Model",
+        "badge": "AI Model",
         "back": "Back",
         "loadingModel": "Loading model...",
         "loadErrorTitle": "Model unavailable",

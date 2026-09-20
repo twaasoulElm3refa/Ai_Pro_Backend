@@ -95,7 +95,7 @@
         "textToSpeech": "Texte en audio",
         "textToSpeechDescription": "Convertissez le texte écrit en voix naturelle",
         "textToAudio": "Texte → Audio",
-        "badge": "Modèle IA gratuit",
+        "badge": "Modèle IA",
         "back": "Retour",
         "loadingModel": "Chargement du modèle...",
         "loadErrorTitle": "Modèle indisponible",
