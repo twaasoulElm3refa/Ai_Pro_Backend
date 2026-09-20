@@ -16,7 +16,7 @@
                         <i v-else class="bi bi-stars"></i>
                     </span>
                     <span class="tool-copy">
-                        <small>{{ t("freeAiModels.mainTool") }}</small>
+                        <!-- <small>{{ t("freeAiModels.mainTool") }}</small> -->
                         <strong>{{ mainTool.name || readableSlug }}</strong>
                     </span>
                 </div>
