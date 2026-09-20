@@ -2,9 +2,9 @@
     <section class="ai-tools-page" :dir="isArabic ? 'rtl' : 'ltr'">
         <div class="ai-tools-shell">
             <header class="ai-tools-header">
-                <span class="ai-tools-badge">{{ isArabic ? "أدوات مجانية" : "Free AI Tools" }}</span>
-                <h1>{{ isArabic ? "اختر أداة الذكاء الاصطناعي" : "Choose Your AI Tool" }}</h1>
-                <p>{{ isArabic ? "ابدأ من الأداة المناسبة ثم اختر النموذج والإعدادات." : "Browse available tools, then open the right workspace." }}</p>
+                <span class="ai-tools-badge">{{ t("aiTools.badge") }}</span>
+                <h1>{{ t("aiTools.title") }}</h1>
+                <p>{{ t("aiTools.subtitle") }}</p>
             </header>
 
             <div v-if="loading" class="ai-tools-grid" aria-live="polite">
@@ -20,18 +20,18 @@
 
             <div v-else-if="error" class="tools-state error-state" role="alert">
                 <i class="bi bi-exclamation-triangle"></i>
-                <h2>{{ isArabic ? "تعذر تحميل الأدوات" : "Could not load tools" }}</h2>
-                <p>{{ isArabic ? "حدث خطأ أثناء جلب أدوات الذكاء الاصطناعي." : "Something went wrong while fetching the AI tools." }}</p>
+                <h2>{{ t("aiTools.loadErrorTitle") }}</h2>
+                <p>{{ t("aiTools.loadErrorDescription") }}</p>
                 <button type="button" class="state-button" @click="fetchTools">
                     <i class="bi bi-arrow-clockwise"></i>
-                    {{ isArabic ? "إعادة المحاولة" : "Retry" }}
+                    {{ t("aiTools.retry") }}
                 </button>
             </div>
 
             <div v-else-if="!tools.length" class="tools-state empty-state">
                 <i class="bi bi-grid-3x3-gap"></i>
-                <h2>{{ isArabic ? "لا توجد أدوات حالياً" : "No tools available" }}</h2>
-                <p>{{ isArabic ? "ستظهر الأدوات هنا عند إضافتها." : "Tools will appear here when they are available." }}</p>
+                <h2>{{ t("aiTools.emptyTitle") }}</h2>
+                <p>{{ t("aiTools.emptyDescription") }}</p>
             </div>
 
             <div v-else class="ai-tools-grid">
@@ -67,7 +67,6 @@
     </section>
 </template>
 
-
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -78,11 +77,14 @@ import useSeoMeta from "@/composables/useSeoMeta";
 
 const route = useRoute();
 const router = useRouter();
-const { locale } = useI18n();
+const { t, locale } = useI18n();
 
 const loading = ref(true);
 const error = ref(false);
 const tools = ref([]);
+const loadedLocale = ref(null);
+let pendingFetch = null;
+let pendingLocale = null;
 
 const FEATURED_TOOL_SLUGS = Object.freeze([
     "chat-writing",
@@ -94,15 +96,11 @@ const FEATURED_TOOL_SLUGS = Object.freeze([
 
 const defaultToolImage = "/images/default_tool.webp";
 const isArabic = computed(() => String(locale.value || homeService.getLang()).toLowerCase() === "ar");
-const emptyDescription = computed(() => (isArabic.value ? "لا يوجد وصف متاح لهذه الأداة حالياً." : "No description is available for this tool yet."));
+const emptyDescription = computed(() => t("aiTools.noDescription"));
 
 useSeoMeta({
-    title: computed(() => (isArabic.value ? "أدوات الذكاء الاصطناعي | Ai Pro" : "AI Tools | Ai Pro")),
-    description: computed(() =>
-        isArabic.value
-            ? "استعرض أدوات الذكاء الاصطناعي المجانية المتاحة في Ai Pro."
-            : "Browse the free AI tools available in Ai Pro."
-    ),
+    title: computed(() => t("aiTools.seo.title")),
+    description: computed(() => t("aiTools.seo.description")),
 });
 
 const normalizeTool = (tool = {}) => {
@@ -111,7 +109,7 @@ const normalizeTool = (tool = {}) => {
     return {
         id: tool.id,
         slug: tool.slug,
-        name: translation.name || tool.name || "AI Tool",
+        name: translation.name || tool.name || t("aiTools.fallbackName"),
         description: translation.description || tool.description || "",
         imageUrl: resolveToolImage(tool.image_url || tool.image),
     };
@@ -154,19 +152,40 @@ const selectFeaturedTools = (items) => {
 };
 
 const fetchTools = async () => {
-    locale.value = homeService.getLang();
+    const requestedLocale = homeService.getLang();
+    locale.value = requestedLocale;
+
+    if (pendingFetch && pendingLocale === requestedLocale) {
+        return pendingFetch;
+    }
+
+    if (loadedLocale.value === requestedLocale) {
+        return;
+    }
+
     loading.value = true;
     error.value = false;
+    pendingLocale = requestedLocale;
 
-    try {
-        const response = await toolServices.getAiTools();
-        tools.value = selectFeaturedTools(resolveToolsData(response));
-    } catch {
-        tools.value = [];
-        error.value = true;
-    } finally {
-        loading.value = false;
-    }
+    const request = toolServices.getAiTools()
+        .then((response) => {
+            tools.value = selectFeaturedTools(resolveToolsData(response));
+            loadedLocale.value = requestedLocale;
+        })
+        .catch(() => {
+            tools.value = [];
+            error.value = true;
+        })
+        .finally(() => {
+            if (pendingFetch === request) {
+                pendingFetch = null;
+                pendingLocale = null;
+                loading.value = false;
+            }
+        });
+
+    pendingFetch = request;
+    return request;
 };
 
 const openTool = async (tool) => {

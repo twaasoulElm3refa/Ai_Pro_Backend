@@ -12,6 +12,22 @@
         "title": "AI Tools",
         "description": "Choose the tool you need"
     },
+    "aiTools": {
+        "badge": "AI Models",
+        "title": "Choose Your AI Tool",
+        "subtitle": "Browse available tools, then open the right workspace.",
+        "loadErrorTitle": "Could not load tools",
+        "loadErrorDescription": "Something went wrong while fetching the AI tools.",
+        "retry": "Retry",
+        "emptyTitle": "No tools available",
+        "emptyDescription": "Tools will appear here when they are available.",
+        "noDescription": "No description is available for this tool yet.",
+        "fallbackName": "AI Tool",
+        "seo": {
+            "title": "AI Models & Tools | Ai Pro",
+            "description": "Browse AI models and tools available in Ai Pro and open the right workspace quickly."
+        }
+    },
   "freeAiModels": {
     "mediaToolType": "Media Tool Type",
     "mediaSettings": "Media settings",

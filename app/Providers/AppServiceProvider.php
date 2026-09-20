@@ -79,6 +79,15 @@ class AppServiceProvider extends ServiceProvider
             max(1, (int) config('free_ai_chat.conversation_create_rate_per_minute'))
         )->by('free-ai-conversation:'.(string) $request->user()->getAuthIdentifier()));
 
+        RateLimiter::for('ai-models-page', function (Request $request): Limit {
+            $userId = $request->user()?->getAuthIdentifier();
+            $key = $userId !== null
+                ? 'ai-models:user:'.$userId
+                : 'ai-models:ip:'.$request->ip();
+
+            return Limit::perMinute(60)->by($key);
+        });
+
         RateLimiter::for('trend-image-generation', function (Request $request): array {
             $subToolId = match ($request->route()?->getName()) {
                 'trends.cup-lift', 'trends.cup-lifting-moment' => 28,

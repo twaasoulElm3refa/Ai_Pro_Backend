@@ -12,6 +12,22 @@
         "title": "Outils IA",
         "description": "Choisissez l'outil dont vous avez besoin"
     },
+    "aiTools": {
+        "badge": "Modèles d’intelligence artificielle",
+        "title": "Choisissez votre outil d’intelligence artificielle",
+        "subtitle": "Parcourez les outils disponibles, puis ouvrez l’espace de travail adapté.",
+        "loadErrorTitle": "Impossible de charger les outils",
+        "loadErrorDescription": "Une erreur est survenue lors du chargement des outils d’intelligence artificielle.",
+        "retry": "Réessayer",
+        "emptyTitle": "Aucun outil disponible",
+        "emptyDescription": "Les outils apparaîtront ici dès qu’ils seront disponibles.",
+        "noDescription": "Aucune description n’est disponible pour cet outil pour le moment.",
+        "fallbackName": "Outil d’intelligence artificielle",
+        "seo": {
+            "title": "Modèles et outils d’intelligence artificielle | Ai Pro",
+            "description": "Parcourez les modèles et outils d’intelligence artificielle disponibles dans Ai Pro et ouvrez rapidement l’espace de travail adapté."
+        }
+    },
   "freeAiModels": {
     "mediaToolType": "Type d’outil multimédia",
     "mediaSettings": "Paramètres multimédias",

@@ -12,6 +12,22 @@
         "title": "AI 工具",
         "description": "选择您需要的工具"
     },
+    "aiTools": {
+        "badge": "人工智能模型",
+        "title": "选择您的人工智能工具",
+        "subtitle": "浏览可用工具，然后进入合适的工作区。",
+        "loadErrorTitle": "无法加载工具",
+        "loadErrorDescription": "获取人工智能工具时出现错误。",
+        "retry": "重试",
+        "emptyTitle": "暂无可用工具",
+        "emptyDescription": "工具可用后会显示在这里。",
+        "noDescription": "此工具目前暂无描述。",
+        "fallbackName": "人工智能工具",
+        "seo": {
+            "title": "人工智能模型与工具 | Ai Pro",
+            "description": "浏览 Ai Pro 中可用的人工智能模型与工具，并快速进入合适的工作区。"
+        }
+    },
   "freeAiModels": {
     "mediaToolType": "媒体工具类型",
     "mediaSettings": "媒体设置",
