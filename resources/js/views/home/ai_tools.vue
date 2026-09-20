@@ -43,7 +43,12 @@
                     @click="openTool(tool)"
                 >
                     <span class="tool-image-wrap">
-                        <img :src="defaultToolImage" :alt="tool.name" loading="lazy" />
+                        <img
+                            :src="tool.imageUrl"
+                            :alt="tool.name"
+                            loading="lazy"
+                            @error="useDefaultToolImage"
+                        />
                         <span class="tool-icon" aria-hidden="true">
                             <i class="bi bi-stars"></i>
                         </span>
@@ -98,9 +103,26 @@ const normalizeTool = (tool = {}) => {
     return {
         id: tool.id,
         slug: tool.slug,
-        name: translation.name || "AI Tool",
-        description: translation.description || "",
+        name: translation.name || tool.name || "AI Tool",
+        description: translation.description || tool.description || "",
+        imageUrl: resolveToolImage(tool.image_url || tool.image),
     };
+};
+
+const resolveToolImage = (image) => {
+    const path = String(image || "").trim();
+    if (!path) return defaultToolImage;
+    if (/^(https?:)?\/\//i.test(path) || path.startsWith("/")) return path;
+
+    return `/storage/${path.replace(/^storage\//i, "")}`;
+};
+
+const useDefaultToolImage = (event) => {
+    const image = event.currentTarget;
+    if (image.dataset.fallbackApplied) return;
+
+    image.dataset.fallbackApplied = "true";
+    image.src = defaultToolImage;
 };
 
 const resolveToolsData = (payload) => {
@@ -211,13 +233,35 @@ watch(
 }
 
 .ai-tools-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
     gap: 16px;
+    padding: 4px 3px 18px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-behavior: smooth;
+    scroll-snap-type: inline proximity;
+    scrollbar-color: rgba(43, 166, 222, 0.55) var(--theme-surface-secondary);
+    scrollbar-width: thin;
+}
+
+.ai-tools-grid::-webkit-scrollbar {
+    height: 8px;
+}
+
+.ai-tools-grid::-webkit-scrollbar-track {
+    border-radius: 999px;
+    background: var(--theme-surface-secondary);
+}
+
+.ai-tools-grid::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(43, 166, 222, 0.55);
 }
 
 .ai-tool-card {
-    min-width: 0;
+    flex: 1 0 220px;
+    min-width: 220px;
+    max-width: 310px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -229,13 +273,15 @@ watch(
     box-shadow: 0 18px 44px var(--theme-shadow);
     text-align: start;
     cursor: pointer;
+    scroll-snap-align: start;
     transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .ai-tool-card:hover,
 .ai-tool-card:focus-visible {
     border-color: rgba(43, 166, 222, 0.42);
-    outline: 0;
+    outline: 3px solid rgba(43, 166, 222, 0.18);
+    outline-offset: 2px;
     transform: translateY(-3px);
     box-shadow: 0 24px 56px rgba(21, 70, 119, 0.14);
 }
@@ -435,19 +481,9 @@ html[data-theme="dark"] .skeleton-line::after {
     }
 }
 
-@media (max-width: 1180px) {
-    .ai-tools-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
 @media (max-width: 900px) {
     .ai-tools-page {
         padding-top: 108px;
-    }
-
-    .ai-tools-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -461,8 +497,14 @@ html[data-theme="dark"] .skeleton-line::after {
     }
 
     .ai-tools-grid {
-        grid-template-columns: 1fr;
         gap: 12px;
+        margin-inline: -3px;
+        padding-inline: 3px;
+    }
+
+    .ai-tool-card {
+        flex-basis: min(82vw, 290px);
+        min-width: min(82vw, 290px);
     }
 
     .tool-content {

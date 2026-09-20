@@ -58,6 +58,34 @@
                     </div>
                 </section>
 
+                <!-- TREND TOOLS FEATURE -->
+                <router-link
+                    v-if="!loading && trendTool"
+                    class="trend-tool-feature"
+                    :to="trendToolsRoute"
+                    :aria-label="t('user.home.openAria', { name: trendTool.title || trendTool.slug })"
+                >
+                    <span class="trend-tool-visual" aria-hidden="true">
+                        <img
+                            v-if="trendTool.imageUrl"
+                            :src="trendTool.imageUrl"
+                            :alt="trendTool.title"
+                            @error="hideBrokenImage"
+                        />
+                        <i v-else class="bi bi-graph-up-arrow"></i>
+                    </span>
+
+                    <span class="trend-tool-copy">
+                        <span class="trend-tool-title">{{ trendTool.title }}</span>
+                        <span class="trend-tool-description">{{ trendTool.description }}</span>
+                    </span>
+
+                    <span class="trend-tool-cta">
+                        {{ t("user.home.showButton") }}
+                        <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
+                    </span>
+                </router-link>
+
                 <!-- LOADING -->
                 <div v-if="loading" class="tools-layout">
                     <div v-for="item in skeletonCount" :key="item" class="tool-card tool-skeleton">
@@ -185,12 +213,18 @@ const { t, locale } = useI18n();
 
 const loading = ref(true);
 const tools = ref([]);
+const trendTool = ref(null);
 const skeletonCount = 4;
 const subToolsLoading = ref(true);
 const randomSubTools = ref([]);
 const subToolsSkeletonCount = 6;
 
 const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
+const currentLang = computed(() => String(route.params.lang || homeService.getLang()));
+const trendToolsRoute = computed(() => ({
+    name: "ai-models",
+    params: { lang: currentLang.value },
+}));
 
 const isArabic = computed(() =>
     String(locale.value || homeService.getLang() || "ar").toLowerCase() === "ar"
@@ -231,9 +265,22 @@ const normalizeTool = (tool) => {
         slug: tool.slug,
         is_active: tool.is_active,
         sort_order: tool.sort_order,
-        title: translation?.name,
-        description: translation?.description,
+        title: translation?.name || tool.name,
+        description: translation?.description || tool.description || "",
+        imageUrl: resolveToolImage(tool.image),
     };
+};
+
+const resolveToolImage = (image) => {
+    const path = String(image || "").trim();
+    if (!path) return "";
+    if (/^(https?:)?\/\//i.test(path) || path.startsWith("/")) return path;
+
+    return `/storage/${path.replace(/^storage\//i, "")}`;
+};
+
+const hideBrokenImage = () => {
+    if (trendTool.value) trendTool.value.imageUrl = "";
 };
 
 const subToolFallbackIcons = [
@@ -308,9 +355,12 @@ const fetchTools = async () => {
         const res = await homeService.fetchTools();
         const data = res?.data || [];
 
-        tools.value = data.map(normalizeTool);
+        const normalizedTools = data.map(normalizeTool);
+        trendTool.value = normalizedTools.find((tool) => Number(tool.id) === 7) || null;
+        tools.value = normalizedTools.filter((tool) => Number(tool.id) !== 7);
     } catch (e) {
         tools.value = [];
+        trendTool.value = null;
     } finally {
         loading.value = false;
     }
@@ -962,6 +1012,109 @@ const toggleFaq = (index) => {
     margin: 0;
 }
 
+.trend-tool-feature {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 108px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 24px;
+    width: min(980px, 100%);
+    min-height: 154px;
+    margin: 0 auto 32px;
+    padding: 22px 24px;
+    overflow: hidden;
+    border: 1px solid rgba(43, 166, 222, 0.3);
+    border-radius: 28px;
+    color: #154677;
+    background:
+        radial-gradient(circle at 90% 10%, rgba(98, 200, 240, 0.2), transparent 32%),
+        linear-gradient(135deg, #ffffff, #f3faff);
+    box-shadow: 0 18px 42px rgba(21, 70, 119, 0.1);
+    text-decoration: none;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.trend-tool-feature:hover,
+.trend-tool-feature:focus-visible {
+    color: #154677;
+    border-color: #2ba6de;
+    outline: 3px solid rgba(43, 166, 222, 0.16);
+    outline-offset: 3px;
+    transform: translateY(-4px);
+    box-shadow: 0 24px 52px rgba(21, 70, 119, 0.15);
+}
+
+.trend-tool-visual {
+    position: relative;
+    display: grid;
+    width: 108px;
+    height: 108px;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 26px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    box-shadow: 0 16px 30px rgba(21, 70, 119, 0.2);
+    font-size: 38px;
+}
+
+.trend-tool-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.trend-tool-copy {
+    min-width: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.trend-tool-title {
+    color: #154677;
+    font-size: clamp(22px, 2.4vw, 30px);
+    font-weight: 950;
+    line-height: 1.25;
+}
+
+.trend-tool-description {
+    max-width: 650px;
+    color: #5b6f84;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.75;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.trend-tool-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 10px 18px;
+    border-radius: 14px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #154677, #2ba6de);
+    box-shadow: 0 11px 24px rgba(21, 70, 119, 0.2);
+    font-size: 13px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.trend-tool-cta i {
+    font-size: 20px;
+}
+
+[dir="rtl"] .trend-tool-cta i {
+    transform: rotate(180deg);
+}
+
 .tools-layout {
     position: relative;
     z-index: 2;
@@ -1284,6 +1437,19 @@ const toggleFaq = (index) => {
     .tools-layout {
         grid-template-columns: 1fr;
     }
+
+    .trend-tool-feature {
+        grid-template-columns: 88px minmax(0, 1fr) auto;
+        gap: 18px;
+        min-height: 134px;
+        padding: 18px;
+    }
+
+    .trend-tool-visual {
+        width: 88px;
+        height: 88px;
+        border-radius: 22px;
+    }
 }
 
 @media (max-width: 640px) {
@@ -1362,6 +1528,35 @@ const toggleFaq = (index) => {
     .popular-subtool-card {
         flex: 0 0 138px;
         scroll-snap-align: start;
+    }
+
+    .trend-tool-feature {
+        grid-template-columns: 72px minmax(0, 1fr);
+        gap: 14px;
+        margin-bottom: 24px;
+        padding: 16px;
+        border-radius: 22px;
+    }
+
+    .trend-tool-visual {
+        width: 72px;
+        height: 72px;
+        border-radius: 19px;
+        font-size: 28px;
+    }
+
+    .trend-tool-title {
+        font-size: 20px;
+    }
+
+    .trend-tool-description {
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .trend-tool-cta {
+        grid-column: 1 / -1;
+        width: 100%;
     }
 
     .tools-title {
@@ -1885,6 +2080,7 @@ html[data-theme="dark"] .tool-status.active {
 html[data-theme="dark"] .ai-info-card,
 html[data-theme="dark"] .ai-feature-chip,
 html[data-theme="dark"] .popular-subtool-card,
+html[data-theme="dark"] .trend-tool-feature,
 html[data-theme="dark"] .tool-card,
 html[data-theme="dark"] .faq-item,
 html[data-theme="dark"] .empty-state {
@@ -1896,6 +2092,21 @@ html[data-theme="dark"] .empty-state {
 html[data-theme="dark"] .popular-subtools-section {
     background: rgba(43, 166, 222, 0.055);
     border-color: var(--theme-border);
+}
+
+html[data-theme="dark"] .trend-tool-feature {
+    color: var(--theme-text-primary);
+    background:
+        radial-gradient(circle at 90% 10%, rgba(43, 166, 222, 0.12), transparent 34%),
+        var(--theme-surface-secondary);
+}
+
+html[data-theme="dark"] .trend-tool-title {
+    color: var(--theme-text-primary);
+}
+
+html[data-theme="dark"] .trend-tool-description {
+    color: var(--theme-text-secondary);
 }
 
 html[data-theme="dark"] .popular-subtool-card:hover,

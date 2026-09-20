@@ -54,6 +54,7 @@ const routes = [
     },
     {
         path: "/:lang/ai-models",
+        name: "ai-models",
         component: ai_tools,
         meta: { hideNavbar: false, hideFooter: false },
     },
