@@ -153,6 +153,45 @@ class TrendCupLiftFlowTest extends TestCase
         $this->assertSecureDownloadRequest();
     }
 
+    public function test_paparazzi_uses_subtool_31_and_restores_input_and_output_images(): void
+    {
+        [$user, $conversation] = $this->makeContext(31, 'paparazzi');
+        $conversation->subTool()->update(['endpoint' => null]);
+        $this->assertSame(
+            'tasks/trends/paparazzi',
+            app(DynamicToolConfigService::class)->endpointFor($conversation->subTool()->firstOrFail())
+        );
+        $taskId = (string) Str::uuid();
+        $this->fakeSuccessfulGeneration('paparazzi', $taskId);
+        Sanctum::actingAs($user);
+
+        $response = $this->sendTrend($conversation, 'paparazzi', (string) Str::uuid(), '');
+
+        $response->assertOk()
+            ->assertJsonPath('data.success', true)
+            ->assertJsonPath('data.tool', 'trend_paparazzi')
+            ->assertJsonPath('data.selected_model_id', 46)
+            ->assertJsonPath('data.sub_tool_id', 31)
+            ->assertJsonPath('data.trend', 'paparazzi')
+            ->assertJsonPath('data.operation', 'image_edit')
+            ->assertJsonPath('data.metadata.sub_tool_id', 31)
+            ->assertJsonPath('data.files.0.content_type', 'image/png');
+
+        $this->assertSuccessfulPersistence($user, $conversation, 31, $taskId);
+
+        $this->withHeaders(['X-API-KEY' => self::API_KEY])
+            ->getJson('/api/v1/conversation/'.$conversation->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.message.0.role', 'user')
+            ->assertJsonPath('data.message.0.content', '')
+            ->assertJsonPath('data.message.0.input_image.content_type', 'image/png')
+            ->assertJsonPath('data.message.1.role', 'assistant')
+            ->assertJsonPath('data.message.1.files.0.content_type', 'image/png');
+
+        $this->assertProviderRequest('paparazzi', 31);
+        $this->assertSecureDownloadRequest();
+    }
+
     public function test_same_idempotency_key_returns_existing_result_without_second_charge(): void
     {
         [$user, $conversation] = $this->makeContext(28, 'cup-lifting-moment');
@@ -304,6 +343,7 @@ class TrendCupLiftFlowTest extends TestCase
                 'cup-lifting-moment' => 'Cup Lift Moment',
                 'locker-room' => 'Locker Room',
                 'players-tunnel' => 'Players Tunnel',
+                'paparazzi' => 'Paparazzi',
             },
             'slug' => $slug,
             'endpoint' => $slug === 'cup-lifting-moment'

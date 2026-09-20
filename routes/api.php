@@ -158,6 +158,9 @@ Route::prefix('v1')->group(function () {
     Route::post('/tasks/trends/players-tunnel', [TrendTaskController::class, 'playersTunnel'])
         ->name('trends.players-tunnel')
         ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
+    Route::post('/tasks/trends/paparazzi', [TrendTaskController::class, 'paparazzi'])
+        ->name('trends.paparazzi')
+        ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
 
     Route::get('/message/resume-output/{filename}', [MessageController::class, 'downloadResumeOutput'])
         ->name('resume-builder.download')

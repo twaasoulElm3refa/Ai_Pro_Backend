@@ -84,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
                 'trends.cup-lift', 'trends.cup-lifting-moment' => 28,
                 'trends.locker-room' => 29,
                 'trends.players-tunnel' => 30,
+                'trends.paparazzi' => 31,
                 default => null,
             };
             $userId = $request->user()?->getAuthIdentifier();

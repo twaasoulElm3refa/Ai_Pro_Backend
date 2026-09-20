@@ -34,5 +34,13 @@ return [
             'tool_key' => 'trend_players-tunnel',
             'result_message' => 'Your Players Tunnel image is ready.',
         ],
+        'paparazzi' => [
+            'sub_tool_id' => 31,
+            'slugs' => ['paparazzi'],
+            'endpoint' => 'tasks/trends/paparazzi',
+            'selected_model_id' => 46,
+            'tool_key' => 'trend_paparazzi',
+            'result_message' => 'Your Paparazzi image is ready.',
+        ],
     ],
 ];

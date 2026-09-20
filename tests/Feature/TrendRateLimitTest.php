@@ -18,6 +18,7 @@ class TrendRateLimitTest extends TestCase
             'trends.cup-lifting-moment',
             'trends.locker-room',
             'trends.players-tunnel',
+            'trends.paparazzi',
         ] as $routeName) {
             $route = RouteFacade::getRoutes()->getByName($routeName);
 
@@ -27,7 +28,7 @@ class TrendRateLimitTest extends TestCase
         }
 
         $this->assertSame(
-            [28, 29, 30],
+            [28, 29, 30, 31],
             array_values(array_column(config('trends.tools'), 'sub_tool_id'))
         );
     }
@@ -35,9 +36,9 @@ class TrendRateLimitTest extends TestCase
     public function test_trend_limiter_is_per_user_with_minute_and_short_burst_limits(): void
     {
         $user = new User(['id' => 123]);
-        $request = Request::create('/api/v1/tasks/trends/players-tunnel', 'POST');
+        $request = Request::create('/api/v1/tasks/trends/paparazzi', 'POST');
         $request->setUserResolver(fn (): User => $user);
-        $route = RouteFacade::getRoutes()->getByName('trends.players-tunnel');
+        $route = RouteFacade::getRoutes()->getByName('trends.paparazzi');
         $request->setRouteResolver(fn (): Route => $route);
 
         $limits = RateLimiter::limiter('trend-image-generation')($request);

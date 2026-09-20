@@ -18,6 +18,8 @@ class TrendsChatSeeder extends Seeder
             $this->ensureSubtool(29, 'locker-room', 'Locker Room', 'غرفة الملابس', 20);
             $this->ensureSubtool(30, 'players-tunnel', 'Players Tunnel', 'ممر اللاعبين', 30);
 
+            $this->ensureSubtool(31, 'paparazzi', 'Paparazzi', 'باباراتزي', 40);
+
             $translations = [
                 28 => [
                     'en' => ['Cup Lift', 'Turn your photo into a realistic championship cup-lift celebration.'],
@@ -40,6 +42,14 @@ class TrendsChatSeeder extends Seeder
                     'ru' => ['Тоннель игроков', 'Поместите себя в реалистичную кинематографичную сцену в тоннеле игроков.'],
                     'zh' => ['球员通道', '将自己置于逼真的电影级职业球员通道场景中。'],
                 ],
+            ];
+
+            $translations[31] = [
+                'en' => ['Paparazzi', 'Place yourself in a cinematic paparazzi photo scene.'],
+                'ar' => ['باباراتزي', 'ضع صورتك في مشهد سينمائي واقعي وسط عدسات الباباراتزي.'],
+                'fr' => ['Paparazzi', 'Placez-vous dans une scène photo cinématographique avec des paparazzis.'],
+                'ru' => ['Папарацци', 'Поместите себя в реалистичную кинематографическую сцену с папарацци.'],
+                'zh' => ['狗仔队', '将自己置于逼真的电影级狗仔队拍摄场景中。'],
             ];
 
             foreach ($translations as $subtoolId => $locales) {
@@ -137,6 +147,7 @@ class TrendsChatSeeder extends Seeder
                     'cup-lifting-moment' => 'Create a realistic championship cup-lift celebration.',
                     'locker-room' => 'Create a realistic professional locker-room scene.',
                     'players-tunnel' => 'Create a cinematic professional players-tunnel scene.',
+                    'paparazzi' => 'Create a cinematic paparazzi photo scene.',
                     default => 'Create a cinematic trend image.',
                 },
                 'endpoint' => $slug === 'cup-lifting-moment'

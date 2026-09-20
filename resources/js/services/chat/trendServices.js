@@ -21,6 +21,12 @@ const trends = Object.freeze({
         endpoint: "/tasks/trends/players-tunnel",
         selectedModelId: 46,
     }),
+    31: Object.freeze({
+        subtoolId: 31,
+        slugs: Object.freeze(["paparazzi"]),
+        endpoint: "/tasks/trends/paparazzi",
+        selectedModelId: 46,
+    }),
 });
 
 const resolveTrend = (subtool) => {
