@@ -14,7 +14,7 @@
     },
     "aiTools": {
         "badge": "Modèles d’intelligence artificielle",
-        "title": "Choisissez votre outil d’intelligence artificielle",
+        "title": "Choisissez la tâche qui vous convient",
         "subtitle": "Parcourez les outils disponibles, puis ouvrez l’espace de travail adapté.",
         "loadErrorTitle": "Impossible de charger les outils",
         "loadErrorDescription": "Une erreur est survenue lors du chargement des outils d’intelligence artificielle.",
