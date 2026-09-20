@@ -15,7 +15,7 @@
     "aiTools": {
         "badge": "人工智能模型",
         "title": "选择适合您的任务",
-        "subtitle": "浏览可用工具，然后进入合适的工作区。",
+        "subtitle": "从适合您的模型开始，然后选择符合您需求的设置。",
         "loadErrorTitle": "无法加载工具",
         "loadErrorDescription": "获取人工智能工具时出现错误。",
         "retry": "重试",

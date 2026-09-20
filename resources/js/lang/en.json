@@ -15,7 +15,7 @@
     "aiTools": {
         "badge": "AI Models",
         "title": "Choose the right task for you",
-        "subtitle": "Browse available tools, then open the right workspace.",
+        "subtitle": "Start with the model that suits you, then choose the settings that fit your needs.",
         "loadErrorTitle": "Could not load tools",
         "loadErrorDescription": "Something went wrong while fetching the AI tools.",
         "retry": "Retry",
