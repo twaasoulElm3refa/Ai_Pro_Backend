@@ -30,6 +30,62 @@
                     </div>
                 </div>
 
+                <!-- DYNAMIC TREND TOOLS CAROUSEL -->
+                <section v-if="trendToolsLoading || trendTools.length" class="home-trends-section"
+                    :aria-busy="trendToolsLoading">
+                    <div class="home-trends-header">
+                        <div>
+                            <span class="home-trends-eyebrow">
+                                <i class="bi bi-stars" aria-hidden="true"></i>
+                                {{ trendMainTool?.name || (isArabic ? "الترندات" : "Trends") }}
+                            </span>
+                            <h3>{{ trendToolsTitle }}</h3>
+                        </div>
+
+                        <div v-if="!trendToolsLoading && trendPageCount > 1" class="home-trends-arrows">
+                            <button type="button" :disabled="trendCurrentPage === 0"
+                                :aria-label="isArabic ? 'السابق' : 'Previous'" @click="moveTrendPage(-1)">
+                                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                            </button>
+                            <button type="button" :disabled="trendCurrentPage === trendPageCount - 1"
+                                :aria-label="isArabic ? 'التالي' : 'Next'" @click="moveTrendPage(1)">
+                                <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div ref="trendCarousel" class="home-trends-viewport" dir="ltr" @scroll.passive="syncTrendPage">
+                        <div class="home-trends-track">
+                            <article v-if="trendToolsLoading" v-for="item in 3" :key="`trend-skeleton-${item}`"
+                                class="home-trend-card home-trend-skeleton" aria-hidden="true">
+                                <span class="home-trend-skeleton-line"></span>
+                            </article>
+
+                            <button v-else v-for="tool in trendTools" :key="tool.id" type="button"
+                                class="home-trend-card" :dir="isArabic ? 'rtl' : 'ltr'"
+                                :aria-label="t('user.home.openAria', { name: tool.name || tool.slug })"
+                                @click="goToTrendTool(tool)">
+                                <img v-if="tool.imageUrl" :src="tool.imageUrl" :alt="tool.name" loading="lazy"
+                                    @error="tool.imageUrl = ''" />
+                                <span v-else class="home-trend-fallback" aria-hidden="true">
+                                    <i class="bi bi-image"></i>
+                                </span>
+                                <span class="home-trend-overlay" aria-hidden="true"></span>
+                                <span class="home-trend-name">{{ tool.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="!trendToolsLoading && trendPageCount > 1" class="home-trends-dots"
+                        :aria-label="isArabic ? 'صفحات أدوات الترند' : 'Trend tool pages'">
+                        <button v-for="page in trendPageCount" :key="page" type="button"
+                            :class="{ active: trendCurrentPage === page - 1 }"
+                            :aria-label="`${isArabic ? 'الصفحة' : 'Page'} ${page}`"
+                            :aria-current="trendCurrentPage === page - 1 ? 'true' : undefined"
+                            @click="goToTrendPage(page - 1)"></button>
+                    </div>
+                </section>
+
                 <!-- POPULAR SUBTOOLS -->
                 <section v-if="subToolsLoading || randomSubTools.length" class="popular-subtools-section"
                     :aria-busy="subToolsLoading">
@@ -219,6 +275,13 @@ const skeletonCount = 4;
 const subToolsLoading = ref(true);
 const randomSubTools = ref([]);
 const subToolsSkeletonCount = 6;
+const trendToolsLoading = ref(true);
+const trendMainTool = ref(null);
+const trendTools = ref([]);
+const trendCarousel = ref(null);
+const trendCurrentPage = ref(0);
+const trendCardsPerView = ref(3);
+let trendScrollFrame = 0;
 
 const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
 const currentLang = computed(() => String(route.params.lang || homeService.getLang()));
@@ -240,6 +303,15 @@ const popularSubToolsDescription = computed(() =>
         ? "اكتشف أدوات فرعية تساعدك على إنجاز مهامك بسرعة."
         : "Discover focused tools that help you complete tasks faster."
 );
+
+const trendToolsTitle = computed(() =>
+    isArabic.value ? "أحدث إبداعات أدوات الترند" : "Latest Trend Tool Creations"
+);
+
+const trendPageCount = computed(() => Math.max(
+    1,
+    Math.ceil(trendTools.value.length / trendCardsPerView.value)
+));
 
 const seoTitle = computed(() =>
     isArabic.value
@@ -394,6 +466,72 @@ const fetchRandomSubTools = async () => {
     }
 };
 
+const normalizeHomeTrendTool = (tool = {}) => ({
+    id: Number(tool.id),
+    name: tool.name || tool.slug || "",
+    slug: tool.slug || "",
+    imageUrl: resolveToolImage(tool.image),
+    endpoint: tool.endpoint || "",
+});
+
+const fetchHomeTrendTools = async () => {
+    trendToolsLoading.value = true;
+
+    try {
+        const response = await homeService.fetchHomeTrendTools();
+        const data = response?.data || {};
+        trendMainTool.value = data.main_tool || null;
+        trendTools.value = Array.isArray(data.tools)
+            ? data.tools.map(normalizeHomeTrendTool).filter((tool) => tool.id && tool.slug)
+            : [];
+        trendCurrentPage.value = 0;
+    } catch {
+        trendMainTool.value = null;
+        trendTools.value = [];
+    } finally {
+        trendToolsLoading.value = false;
+    }
+};
+
+const updateTrendCardsPerView = () => {
+    const width = window.innerWidth;
+    trendCardsPerView.value = width < 640 ? 1 : width < 900 ? 2 : 3;
+    trendCurrentPage.value = Math.min(trendCurrentPage.value, trendPageCount.value - 1);
+    goToTrendPage(trendCurrentPage.value, "auto");
+};
+
+const goToTrendPage = (page, behavior = "smooth") => {
+    const viewport = trendCarousel.value;
+    const lastPage = Math.max(0, trendPageCount.value - 1);
+    const nextPage = Math.min(Math.max(Number(page) || 0, 0), lastPage);
+    trendCurrentPage.value = nextPage;
+
+    if (!viewport) return;
+
+    const maxScroll = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    const left = lastPage === 0 ? 0 : (nextPage / lastPage) * maxScroll;
+    viewport.scrollTo({ left, behavior });
+};
+
+const moveTrendPage = (direction) => {
+    goToTrendPage(trendCurrentPage.value + direction);
+};
+
+const syncTrendPage = () => {
+    cancelAnimationFrame(trendScrollFrame);
+    trendScrollFrame = requestAnimationFrame(() => {
+        const viewport = trendCarousel.value;
+        const lastPage = Math.max(0, trendPageCount.value - 1);
+        if (!viewport || lastPage === 0) return;
+
+        const maxScroll = Math.max(1, viewport.scrollWidth - viewport.clientWidth);
+        trendCurrentPage.value = Math.min(
+            lastPage,
+            Math.max(0, Math.round((viewport.scrollLeft / maxScroll) * lastPage))
+        );
+    });
+};
+
 const goToTool = (slug) => {
     router.push(`/${homeService.getLang()}/tool/${slug}`);
 };
@@ -418,18 +556,27 @@ const goToSubTool = (subTool) => {
     return router.push(url);
 };
 
+const goToTrendTool = (tool) => {
+    if (!tool?.slug) return;
+    return router.push(`/${homeService.getLang()}/subtool/${tool.slug}/chat7`);
+};
+
 const handleLangChanged = async () => {
     locale.value = homeService.getLang();
-    await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools()]);
+    await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools(), fetchHomeTrendTools()]);
 };
 
 onMounted(async () => {
-    await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools()]);
+    await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools(), fetchHomeTrendTools()]);
+    updateTrendCardsPerView();
     window.addEventListener("lang-changed", handleLangChanged);
+    window.addEventListener("resize", updateTrendCardsPerView);
 });
 
 onUnmounted(() => {
+    cancelAnimationFrame(trendScrollFrame);
     window.removeEventListener("lang-changed", handleLangChanged);
+    window.removeEventListener("resize", updateTrendCardsPerView);
 });
 
 watch(
@@ -437,7 +584,7 @@ watch(
     async (nextLang, prevLang) => {
         if (!nextLang || nextLang === prevLang) return;
         locale.value = String(nextLang);
-        await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools()]);
+        await Promise.all([fetchTools(), fetchAiMainModel(), fetchRandomSubTools(), fetchHomeTrendTools()]);
     }
 );
 
@@ -2152,5 +2299,265 @@ html[data-theme="dark"] .skeleton-icon,
 html[data-theme="dark"] .skeleton-line,
 html[data-theme="dark"] .skeleton-popular-icon {
     background: var(--theme-surface-elevated);
+}
+
+/* =========================
+   HOME TREND TOOLS CAROUSEL
+========================= */
+.home-trends-section {
+    position: relative;
+    z-index: 2;
+    margin-bottom: 32px;
+    padding: 26px 24px 22px;
+    overflow: hidden;
+    border: 1px solid rgba(21, 70, 119, 0.1);
+    border-radius: 26px;
+    background:
+        radial-gradient(circle at 92% 8%, rgba(43, 166, 222, 0.15), transparent 32%),
+        linear-gradient(135deg, rgba(21, 70, 119, 0.035), rgba(43, 166, 222, 0.075));
+}
+
+.home-trends-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.home-trends-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 7px;
+    color: #2ba6de;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+}
+
+.home-trends-header h3 {
+    margin: 0;
+    color: #154677;
+    font-size: clamp(22px, 2.2vw, 30px);
+    font-weight: 950;
+    line-height: 1.3;
+}
+
+.home-trends-arrows {
+    display: flex;
+    gap: 9px;
+    direction: ltr;
+}
+
+.home-trends-arrows button {
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(21, 70, 119, 0.14);
+    border-radius: 14px;
+    background: #fff;
+    color: #154677;
+    box-shadow: 0 8px 20px rgba(21, 70, 119, 0.08);
+    transition: transform 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.home-trends-arrows button:not(:disabled):hover,
+.home-trends-arrows button:not(:disabled):focus-visible {
+    color: #2ba6de;
+    border-color: #2ba6de;
+    outline: none;
+    transform: translateY(-2px);
+}
+
+.home-trends-arrows button:disabled {
+    cursor: not-allowed;
+    opacity: 0.38;
+}
+
+.home-trends-viewport {
+    width: 100%;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+}
+
+.home-trends-viewport::-webkit-scrollbar {
+    display: none;
+}
+
+.home-trends-track {
+    display: flex;
+    gap: 16px;
+}
+
+.home-trend-card {
+    position: relative;
+    flex: 0 0 calc((100% - 32px) / 3);
+    min-width: 0;
+    height: 250px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 23px;
+    background: linear-gradient(145deg, #154677, #2ba6de);
+    box-shadow: 0 16px 34px rgba(21, 70, 119, 0.14);
+    color: #fff;
+    cursor: pointer;
+    scroll-snap-align: start;
+    isolation: isolate;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.home-trend-card:not(.home-trend-skeleton):hover,
+.home-trend-card:not(.home-trend-skeleton):focus-visible {
+    transform: translateY(-5px);
+    box-shadow: 0 22px 42px rgba(21, 70, 119, 0.22);
+    outline: 3px solid rgba(43, 166, 222, 0.25);
+    outline-offset: 3px;
+}
+
+.home-trend-card img,
+.home-trend-fallback,
+.home-trend-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.home-trend-card img {
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.home-trend-card:hover img,
+.home-trend-card:focus-visible img {
+    transform: scale(1.055);
+}
+
+.home-trend-fallback {
+    display: grid;
+    place-items: center;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 48px;
+    background:
+        radial-gradient(circle at 25% 20%, rgba(255, 255, 255, 0.18), transparent 35%),
+        linear-gradient(145deg, #154677, #2ba6de);
+}
+
+.home-trend-overlay {
+    z-index: 1;
+    background: linear-gradient(180deg, rgba(7, 25, 45, 0.06) 28%, rgba(7, 25, 45, 0.83) 100%);
+}
+
+.home-trend-name {
+    position: absolute;
+    z-index: 2;
+    inset-inline: 20px;
+    bottom: 19px;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 950;
+    line-height: 1.4;
+    text-align: start;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.home-trend-skeleton {
+    cursor: default;
+    background: linear-gradient(100deg, #e5edf4 20%, #f5f8fb 40%, #e5edf4 60%);
+    background-size: 220% 100%;
+    animation: trendSkeleton 1.25s ease-in-out infinite;
+}
+
+.home-trend-skeleton-line {
+    position: absolute;
+    inset-inline: 20px;
+    bottom: 22px;
+    width: 58%;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.home-trends-dots {
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 18px;
+    direction: ltr;
+}
+
+.home-trends-dots button {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(21, 70, 119, 0.22);
+    transition: width 0.25s ease, background 0.25s ease;
+}
+
+.home-trends-dots button.active {
+    width: 25px;
+    background: #2ba6de;
+}
+
+@keyframes trendSkeleton {
+    to {
+        background-position: -220% 0;
+    }
+}
+
+@media (max-width: 900px) {
+    .home-trend-card {
+        flex-basis: calc((100% - 16px) / 2);
+        height: 230px;
+    }
+}
+
+@media (max-width: 639px) {
+    .home-trends-section {
+        margin-inline: -4px;
+        padding: 22px 16px 19px;
+        border-radius: 22px;
+    }
+
+    .home-trends-header {
+        align-items: center;
+    }
+
+    .home-trends-arrows button {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+    }
+
+    .home-trend-card {
+        flex-basis: 100%;
+        height: 225px;
+    }
+
+    .home-trend-name {
+        font-size: 19px;
+    }
+}
+
+html[data-theme="dark"] .home-trends-section {
+    border-color: var(--theme-border);
+    background:
+        radial-gradient(circle at 92% 8%, rgba(43, 166, 222, 0.12), transparent 32%),
+        var(--theme-surface-secondary);
+}
+
+html[data-theme="dark"] .home-trends-header h3 {
+    color: var(--theme-text-primary);
+}
+
+html[data-theme="dark"] .home-trends-arrows button {
+    color: var(--theme-text-primary);
+    background: var(--theme-surface-elevated);
+    border-color: var(--theme-border);
 }
 </style>

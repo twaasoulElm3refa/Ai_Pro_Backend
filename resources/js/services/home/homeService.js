@@ -155,6 +155,13 @@ const homeService = {
         });
     },
 
+    async fetchHomeTrendTools() {
+        return cached(buildKey("home:trend-tools"), async () => {
+            const response = await api.get("/home/trend-tools");
+            return unwrap(response);
+        });
+    },
+
     async fetchAiMainModel() {
         return cached(buildKey("home:ai-main-model"), async () => {
             const response = await api.get("/ai-main-model");

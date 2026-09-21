@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\MainTools;
+use App\Models\SubTools;
 use Tests\TestCase;
 
 class TrendMainToolApiTest extends TestCase
@@ -18,7 +19,10 @@ class TrendMainToolApiTest extends TestCase
         $this->artisan('migrate', [
             '--path' => [
                 'database/migrations/2026_04_18_131903_create_main_tools_table.php',
+                'database/migrations/2026_04_18_132047_create_sub_tools_table.php',
                 'database/migrations/2026_04_18_135455_create_main_tool_tranlations_table.php',
+                'database/migrations/2026_04_18_135743_create_sub_tool_tranlations_table.php',
+                'database/migrations/2026_05_13_091135_add_endpoint_table.php',
             ],
         ])->assertExitCode(0);
     }
@@ -81,6 +85,47 @@ class TrendMainToolApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', 1);
+    }
+
+    public function test_home_endpoint_returns_six_translated_subtools_from_main_tool_seven(): void
+    {
+        $trendTool = $this->createTrendTool();
+        $trendTool->translations()->create([
+            'locale' => 'ar',
+            'name' => 'الترندات',
+            'description' => 'أدوات الترند',
+        ]);
+
+        foreach (range(1, 7) as $index) {
+            $subTool = SubTools::create([
+                'id' => 20 + $index,
+                'main_tool_id' => 7,
+                'name' => "Trend {$index}",
+                'slug' => "trend-{$index}",
+                'image' => "trends/trend-{$index}.webp",
+                'endpoint' => "tasks/trends/trend-{$index}",
+                'is_active' => true,
+                'sort_order' => $index,
+            ]);
+            $subTool->translations()->create([
+                'locale' => 'ar',
+                'name' => "أداة ترند {$index}",
+                'description' => "وصف أداة ترند {$index}",
+            ]);
+        }
+
+        $this->apiRequest('ar')->get('/api/v1/home/trend-tools')
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.main_tool.id', 7)
+            ->assertJsonPath('data.main_tool.name', 'الترندات')
+            ->assertJsonCount(6, 'data.tools')
+            ->assertJsonPath('data.tools.0.id', 21)
+            ->assertJsonPath('data.tools.0.name', 'أداة ترند 1')
+            ->assertJsonPath('data.tools.0.slug', 'trend-1')
+            ->assertJsonPath('data.tools.0.image', 'trends/trend-1.webp')
+            ->assertJsonPath('data.tools.0.endpoint', 'tasks/trends/trend-1')
+            ->assertJsonMissingPath('data.tools.6');
     }
 
     private function createTrendTool(): MainTools

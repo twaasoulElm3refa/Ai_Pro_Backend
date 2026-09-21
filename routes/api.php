@@ -98,6 +98,9 @@ Route::prefix('v1')->group(function () {
     Route::get('main-tools/trend-tools', [TrendMainToolController::class, 'show'])
         ->middleware('throttle:30,1');
 
+    Route::get('home/trend-tools', [TrendMainToolController::class, 'home'])
+        ->middleware('throttle:30,1');
+
     Route::get('ai-main-model', [AiMainModelController::class, 'show'])
         ->middleware('throttle:30,1');
 
