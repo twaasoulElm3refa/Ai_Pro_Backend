@@ -27,6 +27,11 @@ test("shared Trends chat maps every configured subtool to its dedicated endpoint
     assert.doesNotMatch(chat, /if \(!text\)[\s\S]{0,120}promptRequired/);
     assert.match(chat, /sub_tool_id:\s*trend\.subtoolId/);
     assert.match(chat, /result\?\.success\s*!==\s*true[\s\S]*result\?\.type\s*!==\s*"result"[\s\S]*result\.files\[0\]\?\.download_url/);
+    assert.match(chat, /TREND_SUB_TOOL_IDS\s*=\s*new Set\(\[28,\s*29,\s*30,\s*31,\s*32,\s*33\]\)/);
+    assert.match(chat, /const showConversationStart = computed\(\(\) => isManagedTrendTool\.value && !hasActiveConversation\.value\)/);
+    assert.match(chat, /const showComposer = computed\(\(\) => !isManagedTrendTool\.value \|\| hasActiveConversation\.value\)/);
+    assert.match(chat, /<footer v-if="showComposer" class="composer">/);
+    assert.match(chat, /v-if="showConversationStart"[\s\S]*@click="startNewChat"/);
     assert.doesNotMatch(chat, /EventSource|conversation\/.*\/stream/);
     assert.match(router, /subtool\/:slug\/chat7\/.*uuid/);
     assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29,\s*30,\s*31,\s*32,\s*33\]/);

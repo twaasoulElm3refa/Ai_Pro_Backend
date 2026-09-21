@@ -48,6 +48,12 @@
                         @mouseleave="startTrendAutoplay" @focusin="stopTrendAutoplay"
                         @focusout="startTrendAutoplay" @touchstart.passive="stopTrendAutoplay"
                         @touchend.passive="startTrendAutoplay">
+                        <button v-if="!trendToolsLoading && trendPageCount > 1" type="button"
+                            class="home-trends-arrow is-previous" :aria-label="isArabic ? 'السابق' : 'Previous'"
+                            @click="moveTrendPage(-1)">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                        </button>
+
                         <div ref="trendCarousel" class="home-trends-viewport" dir="rtl"
                             @scroll.passive="syncTrendPage">
                             <div class="home-trends-track">
@@ -59,7 +65,8 @@
                                 </template>
 
                                 <template v-else>
-                                    <button v-for="tool in trendTools" :key="tool.id" type="button"
+                                    <button v-for="(tool, index) in trendCarouselTools"
+                                        :key="`${tool.id}-${index}`" type="button"
                                         class="home-trend-card" :dir="isArabic ? 'rtl' : 'ltr'"
                                         :aria-label="t('user.home.openAria', { name: tool.name || tool.slug })"
                                         @click="goToTrendTool(tool)">
@@ -73,8 +80,8 @@
                         </div>
 
                         <button v-if="!trendToolsLoading && trendPageCount > 1" type="button"
-                            class="home-trends-arrow is-next" :disabled="trendCurrentPage >= trendPageCount - 1"
-                            :aria-label="isArabic ? 'التالي' : 'Next'" @click="moveTrendPage">
+                            class="home-trends-arrow is-next" :aria-label="isArabic ? 'التالي' : 'Next'"
+                            @click="moveTrendPage(1)">
                             <i class="bi bi-chevron-right" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -83,7 +90,6 @@
                         :aria-label="isArabic ? 'صفحات أدوات الترند' : 'Trend tool pages'">
                         <button v-for="page in trendPageCount" :key="page" type="button"
                             :class="{ active: trendCurrentPage === page - 1 }"
-                            :disabled="page - 1 <= trendCurrentPage"
                             :aria-label="`${isArabic ? 'الصفحة' : 'Page'} ${page}`"
                             :aria-current="trendCurrentPage === page - 1 ? 'true' : undefined"
                             @click="selectTrendPage(page - 1)"></button>
@@ -288,6 +294,7 @@ const trendCurrentPage = ref(0);
 const trendCardsPerView = ref(2);
 let trendScrollFrame = 0;
 let trendAutoplayTimer = 0;
+let trendLoopResetTimer = 0;
 const trendObjectUrls = new Set();
 
 const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
@@ -319,6 +326,11 @@ const trendPageCount = computed(() => Math.max(
     1,
     Math.ceil(trendTools.value.length / trendCardsPerView.value)
 ));
+const trendCarouselTools = computed(() => trendPageCount.value > 1
+    ? [...trendTools.value, ...trendTools.value.slice(0, trendCardsPerView.value)]
+    : trendTools.value
+);
+const trendPhysicalPageCount = computed(() => trendPageCount.value + (trendPageCount.value > 1 ? 1 : 0));
 
 const seoTitle = computed(() =>
     isArabic.value
@@ -538,15 +550,10 @@ const stopTrendAutoplay = () => {
 
 const startTrendAutoplay = () => {
     stopTrendAutoplay();
-    if (
-        trendTools.value.length <= trendCardsPerView.value ||
-        trendCurrentPage.value >= trendPageCount.value - 1
-    ) return;
+    if (trendTools.value.length <= trendCardsPerView.value) return;
 
     trendAutoplayTimer = window.setInterval(() => {
-        const nextPage = trendCurrentPage.value + 1;
-        goToTrendPage(nextPage);
-        if (nextPage >= trendPageCount.value - 1) stopTrendAutoplay();
+        advanceTrendPage();
     }, 6000);
 };
 
@@ -557,32 +564,61 @@ const updateTrendCardsPerView = () => {
 };
 
 const goToTrendPage = (page, behavior = "smooth") => {
-    const viewport = trendCarousel.value;
     const lastPage = Math.max(0, trendPageCount.value - 1);
     const nextPage = Math.min(Math.max(Number(page) || 0, 0), lastPage);
     trendCurrentPage.value = nextPage;
+    scrollToTrendPhysicalPage(nextPage, behavior);
+};
+
+const scrollToTrendPhysicalPage = (page, behavior = "smooth") => {
+    const viewport = trendCarousel.value;
 
     if (!viewport) return;
 
+    const lastPhysicalPage = Math.max(0, trendPhysicalPageCount.value - 1);
+    const physicalPage = Math.min(Math.max(Number(page) || 0, 0), lastPhysicalPage);
     const maxScroll = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
-    const left = lastPage === 0 ? 0 : -((nextPage / lastPage) * maxScroll);
+    const left = lastPhysicalPage === 0 ? 0 : -((physicalPage / lastPhysicalPage) * maxScroll);
     viewport.scrollTo({ left, behavior });
 };
 
-const moveTrendPage = () => {
+const scheduleTrendLoopReset = () => {
+    if (trendLoopResetTimer) window.clearTimeout(trendLoopResetTimer);
+    trendLoopResetTimer = window.setTimeout(() => {
+        scrollToTrendPhysicalPage(0, "auto");
+        trendLoopResetTimer = 0;
+    }, 650);
+};
+
+const advanceTrendPage = () => {
     const lastPage = Math.max(0, trendPageCount.value - 1);
     if (trendCurrentPage.value >= lastPage) {
-        stopTrendAutoplay();
+        trendCurrentPage.value = 0;
+        scrollToTrendPhysicalPage(trendPageCount.value);
+        scheduleTrendLoopReset();
         return;
     }
 
-    const nextPage = trendCurrentPage.value + 1;
-    goToTrendPage(nextPage);
+    goToTrendPage(trendCurrentPage.value + 1);
+};
+
+const moveTrendPage = (direction) => {
+    const pageCount = trendPageCount.value;
+    if (pageCount <= 1) return;
+
+    if (direction > 0) {
+        advanceTrendPage();
+    } else {
+        const previousPage = trendCurrentPage.value === 0
+            ? pageCount - 1
+            : trendCurrentPage.value - 1;
+        goToTrendPage(previousPage);
+    }
+
     startTrendAutoplay();
 };
 
 const selectTrendPage = (page) => {
-    if (page <= trendCurrentPage.value) return;
     goToTrendPage(page);
     startTrendAutoplay();
 };
@@ -591,22 +627,22 @@ const syncTrendPage = () => {
     cancelAnimationFrame(trendScrollFrame);
     trendScrollFrame = requestAnimationFrame(() => {
         const viewport = trendCarousel.value;
-        const lastPage = Math.max(0, trendPageCount.value - 1);
-        if (!viewport || lastPage === 0) return;
+        const lastPhysicalPage = Math.max(0, trendPhysicalPageCount.value - 1);
+        if (!viewport || lastPhysicalPage === 0) return;
 
         const maxScroll = Math.max(1, viewport.scrollWidth - viewport.clientWidth);
-        const detectedPage = Math.min(
-            lastPage,
-            Math.max(0, Math.round((Math.abs(viewport.scrollLeft) / maxScroll) * lastPage))
+        const detectedPhysicalPage = Math.min(
+            lastPhysicalPage,
+            Math.max(0, Math.round((Math.abs(viewport.scrollLeft) / maxScroll) * lastPhysicalPage))
         );
 
-        if (detectedPage < trendCurrentPage.value) {
-            goToTrendPage(trendCurrentPage.value);
+        if (detectedPhysicalPage >= trendPageCount.value) {
+            trendCurrentPage.value = 0;
+            scheduleTrendLoopReset();
             return;
         }
 
-        trendCurrentPage.value = detectedPage;
-        if (detectedPage >= lastPage) stopTrendAutoplay();
+        trendCurrentPage.value = detectedPhysicalPage;
     });
 };
 
@@ -654,6 +690,7 @@ onMounted(async () => {
 onUnmounted(() => {
     cancelAnimationFrame(trendScrollFrame);
     stopTrendAutoplay();
+    if (trendLoopResetTimer) window.clearTimeout(trendLoopResetTimer);
     clearTrendObjectUrls();
     window.removeEventListener("lang-changed", handleLangChanged);
     window.removeEventListener("resize", updateTrendCardsPerView);
@@ -2450,6 +2487,10 @@ html[data-theme="dark"] .skeleton-popular-icon {
     right: 12px;
 }
 
+.home-trends-arrow.is-previous {
+    left: 12px;
+}
+
 .home-trends-arrow:not(:disabled):hover,
 .home-trends-arrow:not(:disabled):focus-visible {
     color: #2ba6de;
@@ -2609,6 +2650,10 @@ html[data-theme="dark"] .skeleton-popular-icon {
 
     .home-trends-arrow.is-next {
         right: 8px;
+    }
+
+    .home-trends-arrow.is-previous {
+        left: 8px;
     }
 
     .home-trends-track {

@@ -67,6 +67,12 @@
                     <div class="empty-icon"><i class="bi bi-trophy"></i></div>
                     <h2>{{ labels.emptyTitle }}</h2>
                     <p>{{ labels.emptyBody }}</p>
+                    <button v-if="showConversationStart" type="button" class="new-chat empty-new-chat"
+                        :disabled="creatingConversation || submitting" @click="startNewChat">
+                        <span v-if="creatingConversation" class="spinner" aria-hidden="true"></span>
+                        <i v-else class="bi bi-chat-square-text-fill" aria-hidden="true"></i>
+                        {{ creatingConversation ? labels.creating : createConversationLabel }}
+                    </button>
                 </div>
 
                 <article
@@ -120,7 +126,7 @@
                 </article>
             </div>
 
-            <footer class="composer">
+            <footer v-if="showComposer" class="composer">
                 <div v-if="errorMessage" class="error-banner" role="alert">
                     <i class="bi bi-exclamation-circle"></i>
                     <span>{{ errorMessage }}</span>
@@ -171,6 +177,11 @@ import homeService from "@/services/home/homeService";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const TREND_SUB_TOOL_IDS = new Set([28, 29, 30, 31, 32, 33]);
+const TREND_TOOL_SLUGS = new Set([
+    "cup-lifting-moment", "cup-lift", "locker-room", "players-tunnel", "paparazzi",
+    "80s-photo", "the-eighties", "meet-past-self", "interview-your-past-self",
+]);
 
 const route = useRoute();
 const router = useRouter();
@@ -208,6 +219,15 @@ const submitting = ref(false);
 const deletingUuid = ref("");
 const errorMessage = ref("");
 const objectUrls = new Set();
+
+const isManagedTrendTool = computed(() => {
+    const slug = String(subtool.value.slug || route.params.slug || "").trim().toLowerCase();
+    return TREND_SUB_TOOL_IDS.has(Number(subtool.value.id)) || TREND_TOOL_SLUGS.has(slug);
+});
+const hasActiveConversation = computed(() => Boolean(activeConversation.value?.uuid || route.params.uuid));
+const showConversationStart = computed(() => isManagedTrendTool.value && !hasActiveConversation.value);
+const showComposer = computed(() => !isManagedTrendTool.value || hasActiveConversation.value);
+const createConversationLabel = computed(() => isArabic.value ? "إنشاء محادثة جديدة" : labels.value.newChat);
 
 const filteredConversations = computed(() => conversations.value.filter((item) =>
     !subtool.value.id || Number(item.sub_tool_id) === Number(subtool.value.id)
@@ -602,6 +622,7 @@ button { border: 0; }
 .empty-icon { width: 72px; height: 72px; border-radius: 22px; font-size: 30px; margin-bottom: 7px; }
 .empty-state h2 { margin: 0; color: var(--theme-text-primary); font-size: 22px; }
 .empty-state p { max-width: 430px; margin: 0; line-height: 1.7; }
+.empty-new-chat { min-width: 210px; margin-top: 14px; }
 .message { display: flex; align-items: flex-start; gap: 11px; max-width: 850px; margin: 0 auto 20px; }
 .message.user { flex-direction: row-reverse; }
 [dir="rtl"] .message.user { flex-direction: row-reverse; }
