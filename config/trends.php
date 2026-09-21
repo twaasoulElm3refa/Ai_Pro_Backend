@@ -44,12 +44,15 @@ return [
         ],
         '80s-photo' => [
             'sub_tool_id' => 32,
-            'slugs' => ['80s-photo'],
+            'slugs' => ['80s-photo', 'the-eighties'],
             'endpoint' => 'tasks/trends/80s-photo',
             'selected_model_id' => 46,
+            'provider' => 'runware',
+            'operation' => 'image_edit',
             'tool_key' => 'trend_80s-photo',
             'result_message' => 'Your 80s Photo is ready.',
             'strict_result_response' => true,
+            'send_trend_parameter' => true,
         ],
         'meet-past-self' => [
             'sub_tool_id' => 33,

@@ -29,7 +29,7 @@ const trends = Object.freeze({
     }),
     32: Object.freeze({
         subtoolId: 32,
-        slugs: Object.freeze(["80s-photo"]),
+        slugs: Object.freeze(["80s-photo", "the-eighties"]),
         endpoint: "/tasks/trends/80s-photo",
         selectedModelId: 46,
     }),
@@ -43,7 +43,7 @@ const trends = Object.freeze({
 
 const resolveTrend = (subtool) => {
     const trend = trends[Number(subtool?.id)];
-    const slug = String(subtool?.slug || "").toLowerCase();
+    const slug = String(subtool?.slug || "").trim().toLowerCase();
 
     if (!trend || !trend.slugs.includes(slug)) {
         throw new Error("Unsupported Trends subtool.");

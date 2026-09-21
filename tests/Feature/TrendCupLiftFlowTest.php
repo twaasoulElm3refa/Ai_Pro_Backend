@@ -216,7 +216,7 @@ class TrendCupLiftFlowTest extends TestCase
             ->assertJsonPath('data.files.0.content_type', 'image/png');
 
         $this->assertSuccessfulPersistence($user, $conversation, 32, $taskId);
-        $this->assertProviderRequest('80s-photo', 32);
+        $this->assertProviderRequest('80s-photo', 32, true);
         $this->assertSecureDownloadRequest();
     }
 
@@ -595,7 +595,7 @@ class TrendCupLiftFlowTest extends TestCase
                 && is_object($payload->state->parameters ?? null)
                 && get_object_vars($payload->state->parameters) === []
                 && ($payload->debug ?? null) === true
-                && (! $expectsTrend || ($payload->trend ?? null) === 'meet-past-self');
+                && (! $expectsTrend || ($payload->trend ?? null) === $slug);
         });
     }
 

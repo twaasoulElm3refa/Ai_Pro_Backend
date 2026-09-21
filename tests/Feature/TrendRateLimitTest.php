@@ -33,6 +33,8 @@ class TrendRateLimitTest extends TestCase
             [28, 29, 30, 31, 32, 33],
             array_values(array_column(config('trends.tools'), 'sub_tool_id'))
         );
+        $this->assertSame('image_edit', config('trends.tools.80s-photo.operation'));
+        $this->assertTrue(config('trends.tools.80s-photo.send_trend_parameter'));
     }
 
     public function test_trend_limiter_is_per_user_with_minute_and_short_burst_limits(): void
