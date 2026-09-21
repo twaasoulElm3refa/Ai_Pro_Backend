@@ -19,7 +19,7 @@ class TrendsChatSeeder extends Seeder
             $this->ensureSubtool(30, 'players-tunnel', 'Players Tunnel', 'ممر اللاعبين', 30);
 
             $this->ensureSubtool(31, 'paparazzi', 'Paparazzi', 'باباراتزي', 40);
-            $this->ensureSubtool(33, 'meet-past-self', 'Meet Your Past Self', 'مقابلة نفسك في الماضي', 50);
+            $this->requireExistingSubtool(33);
 
             $translations = [
                 28 => [
@@ -63,6 +63,19 @@ class TrendsChatSeeder extends Seeder
 
             foreach ($translations as $subtoolId => $locales) {
                 foreach ($locales as $locale => [$name, $description]) {
+                    if ($subtoolId === 33) {
+                        DB::table('sub_tool_tranlations')->insertOrIgnore([
+                            'sub_tool_id' => $subtoolId,
+                            'locale' => $locale,
+                            'name' => $name,
+                            'description' => $description,
+                            'updated_at' => now(),
+                            'created_at' => now(),
+                        ]);
+
+                        continue;
+                    }
+
                     DB::table('sub_tool_tranlations')->updateOrInsert(
                         ['sub_tool_id' => $subtoolId, 'locale' => $locale],
                         [
@@ -159,7 +172,6 @@ class TrendsChatSeeder extends Seeder
                 'locker-room' => 'Create a realistic professional locker-room scene.',
                 'players-tunnel' => 'Create a cinematic professional players-tunnel scene.',
                 'paparazzi' => 'Create a cinematic paparazzi photo scene.',
-                'meet-past-self' => 'Create a realistic cinematic image of your present self meeting your past self using AI.',
                 default => 'Create a cinematic trend image.',
             },
             'endpoint' => $slug === 'cup-lifting-moment'
@@ -183,21 +195,18 @@ class TrendsChatSeeder extends Seeder
             'created_at' => now(),
         ];
 
-        if ($slug === 'meet-past-self') {
-            $attributes['prompt_template'] = "Create a realistic cinematic image showing the user's current self meeting their younger past self. Preserve the exact identity, face features, hairstyle, and natural appearance of the uploaded person. Show both versions together in one realistic scene with emotional storytelling, cinematic lighting, realistic skin texture, and high-quality photography style. Do not change the person's identity.";
-            $attributes['config'] = json_encode([
-                'provider' => 'runware',
-                'model' => 'bfl:5@1',
-                'operation' => 'image_edit',
-                'selected_model_id' => 46,
-                'category' => 'AI Image Tools',
-                'task' => 'تحرير الصور وإنشاء صور بالذكاء الاصطناعي.',
-            ], JSON_THROW_ON_ERROR);
-        }
-
         DB::table('sub_tools')->updateOrInsert(
             ['id' => $id],
             $attributes
         );
+    }
+
+    private function requireExistingSubtool(int $id): void
+    {
+        if (! DB::table('sub_tools')->where('id', $id)->exists()) {
+            throw new RuntimeException(
+                "Meet Your Past Self subtool (ID {$id}) does not exist in the sub_tools table."
+            );
+        }
     }
 }

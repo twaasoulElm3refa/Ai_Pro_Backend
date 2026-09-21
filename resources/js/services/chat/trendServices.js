@@ -29,7 +29,7 @@ const trends = Object.freeze({
     }),
     33: Object.freeze({
         subtoolId: 33,
-        slugs: Object.freeze(["meet-past-self"]),
+        slugs: Object.freeze(["interview-your-past-self", "meet-past-self"]),
         endpoint: "/tasks/trends/meet-past-self",
         selectedModelId: 46,
     }),

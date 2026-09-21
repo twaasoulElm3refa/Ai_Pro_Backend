@@ -2,51 +2,95 @@
 
 namespace Tests\Feature;
 
-use App\Models\SubTools;
-use Database\Seeders\TrendsChatSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Tests\TestCase;
 
 class MeetPastSelfSeederTest extends TestCase
 {
-    use RefreshDatabase;
-
-    public function test_seeder_registers_meet_past_self_without_duplicates(): void
+    protected function setUp(): void
     {
-        $this->seed(TrendsChatSeeder::class);
-        $this->seed(TrendsChatSeeder::class);
+        parent::setUp();
 
-        $tool = SubTools::query()->findOrFail(33);
+        Schema::create('sub_tools', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('main_tool_id');
+            $table->string('slug')->unique();
+            $table->text('prompt_template')->nullable();
+            $table->string('endpoint')->nullable();
+            $table->json('config')->nullable();
+            $table->json('allowed_model_ids')->nullable();
+            $table->json('input_schema')->nullable();
+            $table->json('output_schema')->nullable();
+            $table->timestamps();
+        });
 
-        $this->assertSame(7, (int) $tool->main_tool_id);
-        $this->assertSame('meet-past-self', $tool->slug);
-        $this->assertSame('tasks/trends/meet-past-self', $tool->endpoint);
-        $this->assertSame([46], $tool->allowed_model_ids);
-        $this->assertSame('runware', $tool->config['provider']);
-        $this->assertSame('bfl:5@1', $tool->config['model']);
-        $this->assertSame('image_edit', $tool->config['operation']);
-        $this->assertSame('AI Image Tools', $tool->config['category']);
-        $this->assertSame('تحرير الصور وإنشاء صور بالذكاء الاصطناعي.', $tool->config['task']);
-        $this->assertSame(
-            "Create a realistic cinematic image showing the user's current self meeting their younger past self. Preserve the exact identity, face features, hairstyle, and natural appearance of the uploaded person. Show both versions together in one realistic scene with emotional storytelling, cinematic lighting, realistic skin texture, and high-quality photography style. Do not change the person's identity.",
-            $tool->prompt_template
+        Schema::create('sub_tool_tranlations', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('sub_tool_id');
+            $table->string('locale');
+            $table->string('name')->nullable();
+            $table->text('description')->nullable();
+            $table->timestamps();
+            $table->unique(['sub_tool_id', 'locale']);
+        });
+    }
+
+    protected function tearDown(): void
+    {
+        Schema::dropIfExists('sub_tool_tranlations');
+        Schema::dropIfExists('sub_tools');
+
+        parent::tearDown();
+    }
+
+    public function test_migration_configures_existing_subtool_without_creating_or_renaming_it(): void
+    {
+        DB::table('sub_tools')->insert([
+            'id' => 33,
+            'main_tool_id' => 7,
+            'slug' => 'interview-your-past-self',
+            'config' => json_encode(['existing_setting' => true], JSON_THROW_ON_ERROR),
+            'allowed_model_ids' => json_encode([12], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $migration = require database_path(
+            'migrations/2026_09_21_000000_add_meet_past_self_trend.php'
         );
 
-        $this->assertDatabaseCount('sub_tools', 5);
-        $this->assertDatabaseCount('sub_tool_tranlations', 25);
+        $migration->up();
+        $migration->up();
 
-        foreach ([
-            'ar' => 'مقابلة نفسك في الماضي',
-            'en' => 'Meet Your Past Self',
-            'fr' => 'Rencontrez votre vous du passé',
-            'es' => 'Conoce a tu yo del pasado',
-            'de' => 'Triff dein vergangenes Ich',
-        ] as $locale => $name) {
-            $this->assertDatabaseHas('sub_tool_tranlations', [
-                'sub_tool_id' => 33,
-                'locale' => $locale,
-                'name' => $name,
-            ]);
-        }
+        $tool = DB::table('sub_tools')->where('id', 33)->first();
+        $config = json_decode($tool->config, true, flags: JSON_THROW_ON_ERROR);
+        $allowedModelIds = json_decode($tool->allowed_model_ids, true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(1, DB::table('sub_tools')->count());
+        $this->assertSame(33, (int) $tool->id);
+        $this->assertSame(7, (int) $tool->main_tool_id);
+        $this->assertSame('interview-your-past-self', $tool->slug);
+        $this->assertTrue($config['existing_setting']);
+        $this->assertSame(46, $config['selected_model_id']);
+        $this->assertSame('image_edit', $config['operation']);
+        $this->assertSame([12, 46], $allowedModelIds);
+        $this->assertSame(5, DB::table('sub_tool_tranlations')->count());
+    }
+
+    public function test_migration_fails_clearly_when_subtool_33_does_not_exist(): void
+    {
+        $migration = require database_path(
+            'migrations/2026_09_21_000000_add_meet_past_self_trend.php'
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            'Meet Your Past Self subtool (ID 33) does not exist in the sub_tools table.'
+        );
+
+        $migration->up();
     }
 }

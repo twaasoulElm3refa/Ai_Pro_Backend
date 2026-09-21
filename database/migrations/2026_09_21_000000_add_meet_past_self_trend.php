@@ -8,64 +8,62 @@ return new class extends Migration
 {
     private const SUB_TOOL_ID = 33;
 
-    private const SLUG = 'meet-past-self';
-
     private const PROMPT = "Create a realistic cinematic image showing the user's current self meeting their younger past self. Preserve the exact identity, face features, hairstyle, and natural appearance of the uploaded person. Show both versions together in one realistic scene with emotional storytelling, cinematic lighting, realistic skin texture, and high-quality photography style. Do not change the person's identity.";
 
     public function up(): void
     {
-        if (! DB::table('main_tools')->where('id', 7)->exists()) {
-            return;
-        }
-
         DB::transaction(function (): void {
-            $idOwner = DB::table('sub_tools')->where('id', self::SUB_TOOL_ID)->first();
-            if ($idOwner && ($idOwner->slug !== self::SLUG || (int) $idOwner->main_tool_id !== 7)) {
-                throw new \RuntimeException('Subtool ID 33 is already assigned to a different tool.');
+            $subTool = DB::table('sub_tools')
+                ->where('id', self::SUB_TOOL_ID)
+                ->first();
+
+            if (! $subTool) {
+                throw new \RuntimeException(
+                    'Meet Your Past Self subtool (ID 33) does not exist in the sub_tools table.'
+                );
             }
 
-            $slugOwner = DB::table('sub_tools')->where('slug', self::SLUG)->first();
-            if ($slugOwner && (int) $slugOwner->id !== self::SUB_TOOL_ID) {
-                throw new \RuntimeException('The meet-past-self slug is already assigned to a different subtool.');
+            $config = array_replace($this->decodeArray($subTool->config ?? null), [
+                'provider' => 'runware',
+                'model' => 'bfl:5@1',
+                'operation' => 'image_edit',
+                'selected_model_id' => 46,
+                'category' => 'AI Image Tools',
+                'task' => 'تحرير الصور وإنشاء صور بالذكاء الاصطناعي.',
+            ]);
+
+            $allowedModelIds = array_values(array_unique(array_map(
+                'intval',
+                [...$this->decodeArray($subTool->allowed_model_ids ?? null), 46]
+            )));
+
+            $updates = [
+                'prompt_template' => self::PROMPT,
+                'endpoint' => 'tasks/trends/meet-past-self',
+                'config' => json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                'allowed_model_ids' => json_encode($allowedModelIds, JSON_THROW_ON_ERROR),
+                'updated_at' => now(),
+            ];
+
+            if ($this->decodeArray($subTool->input_schema ?? null) === []) {
+                $updates['input_schema'] = json_encode([
+                    'file' => [
+                        'required' => true,
+                        'accept' => ['image/png', 'image/jpeg', 'image/webp'],
+                    ],
+                ], JSON_THROW_ON_ERROR);
             }
 
-            DB::table('sub_tools')->updateOrInsert(
-                ['id' => self::SUB_TOOL_ID],
-                [
-                    'main_tool_id' => 7,
-                    'name' => 'Meet Your Past Self',
-                    'name_en' => 'Meet Your Past Self',
-                    'name_ar' => 'مقابلة نفسك في الماضي',
-                    'slug' => self::SLUG,
-                    'description' => 'Create a realistic cinematic image of your present self meeting your past self using AI.',
-                    'prompt_template' => self::PROMPT,
-                    'endpoint' => 'tasks/trends/meet-past-self',
-                    'config' => json_encode([
-                        'provider' => 'runware',
-                        'model' => 'bfl:5@1',
-                        'operation' => 'image_edit',
-                        'selected_model_id' => 46,
-                        'category' => 'AI Image Tools',
-                        'task' => 'تحرير الصور وإنشاء صور بالذكاء الاصطناعي.',
-                    ], JSON_THROW_ON_ERROR),
-                    'allowed_model_ids' => json_encode([46], JSON_THROW_ON_ERROR),
-                    'input_schema' => json_encode([
-                        'file' => [
-                            'required' => true,
-                            'accept' => ['image/png', 'image/jpeg', 'image/webp'],
-                        ],
-                    ], JSON_THROW_ON_ERROR),
-                    'output_schema' => json_encode([
-                        'type' => 'image',
-                        'recommended_aspect_ratio' => '4:5',
-                    ], JSON_THROW_ON_ERROR),
-                    'is_active' => true,
-                    'sort_order' => 50,
-                    'deleted_at' => null,
-                    'updated_at' => now(),
-                    'created_at' => now(),
-                ]
-            );
+            if ($this->decodeArray($subTool->output_schema ?? null) === []) {
+                $updates['output_schema'] = json_encode([
+                    'type' => 'image',
+                    'recommended_aspect_ratio' => '4:5',
+                ], JSON_THROW_ON_ERROR);
+            }
+
+            DB::table('sub_tools')
+                ->where('id', self::SUB_TOOL_ID)
+                ->update($updates);
 
             $translations = [
                 'ar' => ['مقابلة نفسك في الماضي', 'أنشئ صورة تجمع بينك الآن ونسختك في الماضي باستخدام الذكاء الاصطناعي بأسلوب واقعي وسينمائي.'],
@@ -75,16 +73,17 @@ return new class extends Migration
                 'de' => ['Triff dein vergangenes Ich', 'Erstelle mit KI ein realistisches, filmisches Bild, auf dem dein heutiges Ich deinem früheren Ich begegnet.'],
             ];
 
+            $timestamp = now();
+
             foreach ($translations as $locale => [$name, $description]) {
-                DB::table('sub_tool_tranlations')->updateOrInsert(
-                    ['sub_tool_id' => self::SUB_TOOL_ID, 'locale' => $locale],
-                    [
-                        'name' => $name,
-                        'description' => $description,
-                        'updated_at' => now(),
-                        'created_at' => now(),
-                    ]
-                );
+                DB::table('sub_tool_tranlations')->insertOrIgnore([
+                    'sub_tool_id' => self::SUB_TOOL_ID,
+                    'locale' => $locale,
+                    'name' => $name,
+                    'description' => $description,
+                    'created_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ]);
             }
         });
 
@@ -93,21 +92,22 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::transaction(function (): void {
-            $isExpectedTool = DB::table('sub_tools')
-                ->where('id', self::SUB_TOOL_ID)
-                ->where('slug', self::SLUG)
-                ->exists();
+        // Intentionally non-destructive: tool 33 and its translations predate this migration.
+    }
 
-            if (! $isExpectedTool) {
-                return;
-            }
+    private function decodeArray(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
 
-            DB::table('sub_tool_tranlations')->where('sub_tool_id', self::SUB_TOOL_ID)->delete();
-            DB::table('sub_tools')->where('id', self::SUB_TOOL_ID)->delete();
-        });
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
 
-        $this->flushCaches();
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     private function flushCaches(): void
@@ -117,7 +117,7 @@ return new class extends Migration
                 Cache::tags(['tools', 'subtools', 'trends'])->flush();
             }
         } catch (\Throwable) {
-            // Cache availability must not roll back or invalidate tool registration.
+            // Cache availability must not block configuration of the existing tool.
         }
     }
 };

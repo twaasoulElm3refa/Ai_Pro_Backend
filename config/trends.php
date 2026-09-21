@@ -44,7 +44,7 @@ return [
         ],
         'meet-past-self' => [
             'sub_tool_id' => 33,
-            'slugs' => ['meet-past-self'],
+            'slugs' => ['interview-your-past-self', 'meet-past-self'],
             'endpoint' => 'tasks/trends/meet-past-self',
             'selected_model_id' => 46,
             'provider' => 'runware',
