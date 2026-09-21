@@ -8,6 +8,7 @@ use App\Http\Resources\HomeTrendToolsResource;
 use App\Http\Resources\TrendMainToolResource;
 use App\Services\TrendMainToolService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class TrendMainToolController extends Controller
 {
@@ -29,9 +30,10 @@ class TrendMainToolController extends Controller
         );
     }
 
-    public function home(): JsonResponse
+    public function home(Request $request): JsonResponse
     {
-        $tool = $this->trendMainTool->getForHome();
+        $user = $request->user('sanctum');
+        $tool = $this->trendMainTool->getForHome($user ? (int) $user->id : null);
 
         if (! $tool) {
             return $this->notFound('Trend main tool not found.');

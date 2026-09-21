@@ -2,8 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Conversation;
+use App\Models\GeneratedImage;
 use App\Models\MainTools;
+use App\Models\Message;
 use App\Models\SubTools;
+use App\Models\User;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class TrendMainToolApiTest extends TestCase
@@ -18,11 +24,15 @@ class TrendMainToolApiTest extends TestCase
 
         $this->artisan('migrate', [
             '--path' => [
+                'database/migrations/0001_01_01_000000_create_users_table.php',
                 'database/migrations/2026_04_18_131903_create_main_tools_table.php',
                 'database/migrations/2026_04_18_132047_create_sub_tools_table.php',
+                'database/migrations/2026_04_18_132509_create_conversations_table.php',
+                'database/migrations/2026_04_18_133026_create_messages_table.php',
                 'database/migrations/2026_04_18_135455_create_main_tool_tranlations_table.php',
                 'database/migrations/2026_04_18_135743_create_sub_tool_tranlations_table.php',
                 'database/migrations/2026_05_13_091135_add_endpoint_table.php',
+                'database/migrations/2026_07_30_000000_create_generated_images_table.php',
             ],
         ])->assertExitCode(0);
     }
@@ -114,6 +124,38 @@ class TrendMainToolApiTest extends TestCase
             ]);
         }
 
+        $user = User::factory()->create();
+        $conversation = Conversation::create([
+            'user_id' => $user->id,
+            'sub_tool_id' => 21,
+            'uuid' => (string) Str::uuid(),
+        ]);
+        $message = Message::create([
+            'conversation_id' => $conversation->id,
+            'content' => 'Generated trend result',
+            'role' => 'assistant',
+            'is_error' => false,
+        ]);
+        $publicId = (string) Str::uuid();
+        GeneratedImage::create([
+            'public_id' => $publicId,
+            'user_id' => $user->id,
+            'conversation_id' => $conversation->id,
+            'message_id' => $message->id,
+            'sub_tool_id' => 21,
+            'filename' => 'trend-result.webp',
+            'path' => "generated-images/{$user->id}/{$publicId}.webp",
+            'disk' => 'local',
+            'content_type' => 'image/webp',
+            'size_bytes' => 1024,
+        ]);
+
+        $this->apiRequest('ar')->get('/api/v1/home/trend-tools')
+            ->assertOk()
+            ->assertJsonPath('data.tools.0.image', null);
+
+        Sanctum::actingAs($user, [], 'sanctum');
+
         $this->apiRequest('ar')->get('/api/v1/home/trend-tools')
             ->assertOk()
             ->assertJsonPath('status', 'success')
@@ -123,7 +165,9 @@ class TrendMainToolApiTest extends TestCase
             ->assertJsonPath('data.tools.0.id', 21)
             ->assertJsonPath('data.tools.0.name', 'أداة ترند 1')
             ->assertJsonPath('data.tools.0.slug', 'trend-1')
-            ->assertJsonPath('data.tools.0.image', 'trends/trend-1.webp')
+            ->assertJsonPath('data.tools.0.image.id', $publicId)
+            ->assertJsonPath('data.tools.0.image.content_type', 'image/webp')
+            ->assertJsonPath('data.tools.1.image', null)
             ->assertJsonPath('data.tools.0.endpoint', 'tasks/trends/trend-1')
             ->assertJsonMissingPath('data.tools.6');
     }

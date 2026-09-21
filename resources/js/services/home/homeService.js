@@ -156,10 +156,8 @@ const homeService = {
     },
 
     async fetchHomeTrendTools() {
-        return cached(buildKey("home:trend-tools"), async () => {
-            const response = await api.get("/home/trend-tools");
-            return unwrap(response);
-        });
+        const response = await api.get("/home/trend-tools");
+        return unwrap(response);
     },
 
     async fetchAiMainModel() {

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\GeneratedImage;
 use App\Models\MainTools;
 
 class TrendMainToolService
@@ -38,7 +39,7 @@ class TrendMainToolService
         return $tool;
     }
 
-    public function getForHome(): ?MainTools
+    public function getForHome(?int $userId = null): ?MainTools
     {
         $tool = MainTools::query()
             ->with('translation')
@@ -63,6 +64,28 @@ class TrendMainToolService
                 'image',
                 'endpoint',
             ]);
+
+        $latestImages = collect();
+
+        if ($userId !== null && $subTools->isNotEmpty()) {
+            $latestImages = GeneratedImage::query()
+                ->where('user_id', $userId)
+                ->whereIn('sub_tool_id', $subTools->pluck('id'))
+                ->whereHas('message', fn ($query) => $query
+                    ->where('role', 'assistant')
+                    ->where('is_error', false))
+                ->latest('id')
+                ->get()
+                ->unique('sub_tool_id')
+                ->keyBy('sub_tool_id');
+        }
+
+        $subTools->each(function ($subTool) use ($latestImages): void {
+            $subTool->setRelation(
+                'latestGeneratedImage',
+                $latestImages->get($subTool->id)
+            );
+        });
 
         $tool->setRelation('subTools', $subTools);
 

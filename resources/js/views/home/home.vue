@@ -42,38 +42,47 @@
                             <h3>{{ trendToolsTitle }}</h3>
                         </div>
 
-                        <div v-if="!trendToolsLoading && trendPageCount > 1" class="home-trends-arrows">
-                            <button type="button" :disabled="trendCurrentPage === 0"
-                                :aria-label="isArabic ? 'السابق' : 'Previous'" @click="moveTrendPage(-1)">
-                                <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                            </button>
-                            <button type="button" :disabled="trendCurrentPage === trendPageCount - 1"
-                                :aria-label="isArabic ? 'التالي' : 'Next'" @click="moveTrendPage(1)">
-                                <i class="bi bi-arrow-right" aria-hidden="true"></i>
-                            </button>
-                        </div>
                     </div>
 
-                    <div ref="trendCarousel" class="home-trends-viewport" dir="ltr" @scroll.passive="syncTrendPage">
-                        <div class="home-trends-track">
-                            <article v-if="trendToolsLoading" v-for="item in 3" :key="`trend-skeleton-${item}`"
-                                class="home-trend-card home-trend-skeleton" aria-hidden="true">
-                                <span class="home-trend-skeleton-line"></span>
-                            </article>
+                    <div class="home-trends-slider" @mouseenter="stopTrendAutoplay"
+                        @mouseleave="startTrendAutoplay" @focusin="stopTrendAutoplay"
+                        @focusout="startTrendAutoplay" @touchstart.passive="stopTrendAutoplay"
+                        @touchend.passive="startTrendAutoplay">
+                        <button v-if="!trendToolsLoading && trendPageCount > 1" type="button"
+                            class="home-trends-arrow is-previous" :aria-label="isArabic ? 'السابق' : 'Previous'"
+                            @click="moveTrendPage(-1)">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                        </button>
 
-                            <button v-else v-for="tool in trendTools" :key="tool.id" type="button"
-                                class="home-trend-card" :dir="isArabic ? 'rtl' : 'ltr'"
-                                :aria-label="t('user.home.openAria', { name: tool.name || tool.slug })"
-                                @click="goToTrendTool(tool)">
-                                <img v-if="tool.imageUrl" :src="tool.imageUrl" :alt="tool.name" loading="lazy"
-                                    @error="tool.imageUrl = ''" />
-                                <span v-else class="home-trend-fallback" aria-hidden="true">
-                                    <i class="bi bi-image"></i>
-                                </span>
-                                <span class="home-trend-overlay" aria-hidden="true"></span>
-                                <span class="home-trend-name">{{ tool.name }}</span>
-                            </button>
+                        <div ref="trendCarousel" class="home-trends-viewport" dir="ltr"
+                            @scroll.passive="syncTrendPage">
+                            <div class="home-trends-track">
+                                <template v-if="trendToolsLoading">
+                                    <article v-for="item in 3" :key="`trend-skeleton-${item}`"
+                                        class="home-trend-card home-trend-skeleton" aria-hidden="true">
+                                        <span class="home-trend-skeleton-line"></span>
+                                    </article>
+                                </template>
+
+                                <template v-else>
+                                    <button v-for="tool in trendTools" :key="tool.id" type="button"
+                                        class="home-trend-card" :dir="isArabic ? 'rtl' : 'ltr'"
+                                        :aria-label="t('user.home.openAria', { name: tool.name || tool.slug })"
+                                        @click="goToTrendTool(tool)">
+                                        <img :src="tool.imageUrl" :alt="tool.name" loading="lazy"
+                                            @error="removeBrokenTrendTool(tool.id)" />
+                                        <span class="home-trend-overlay" aria-hidden="true"></span>
+                                        <span class="home-trend-name">{{ tool.name }}</span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
+
+                        <button v-if="!trendToolsLoading && trendPageCount > 1" type="button"
+                            class="home-trends-arrow is-next" :aria-label="isArabic ? 'التالي' : 'Next'"
+                            @click="moveTrendPage(1)">
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </button>
                     </div>
 
                     <div v-if="!trendToolsLoading && trendPageCount > 1" class="home-trends-dots"
@@ -82,7 +91,7 @@
                             :class="{ active: trendCurrentPage === page - 1 }"
                             :aria-label="`${isArabic ? 'الصفحة' : 'Page'} ${page}`"
                             :aria-current="trendCurrentPage === page - 1 ? 'true' : undefined"
-                            @click="goToTrendPage(page - 1)"></button>
+                            @click="selectTrendPage(page - 1)"></button>
                     </div>
                 </section>
 
@@ -261,6 +270,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
+import trendServices from "@/services/chat/trendServices";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
@@ -282,6 +292,8 @@ const trendCarousel = ref(null);
 const trendCurrentPage = ref(0);
 const trendCardsPerView = ref(3);
 let trendScrollFrame = 0;
+let trendAutoplayTimer = 0;
+const trendObjectUrls = new Set();
 
 const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
 const currentLang = computed(() => String(route.params.lang || homeService.getLang()));
@@ -470,27 +482,75 @@ const normalizeHomeTrendTool = (tool = {}) => ({
     id: Number(tool.id),
     name: tool.name || tool.slug || "",
     slug: tool.slug || "",
-    imageUrl: resolveToolImage(tool.image),
+    previewUrl: tool.image?.preview_url || "",
+    imageUrl: "",
     endpoint: tool.endpoint || "",
 });
 
+const clearTrendObjectUrls = () => {
+    trendObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    trendObjectUrls.clear();
+};
+
 const fetchHomeTrendTools = async () => {
     trendToolsLoading.value = true;
+    stopTrendAutoplay();
+    clearTrendObjectUrls();
 
     try {
         const response = await homeService.fetchHomeTrendTools();
         const data = response?.data || {};
         trendMainTool.value = data.main_tool || null;
-        trendTools.value = Array.isArray(data.tools)
-            ? data.tools.map(normalizeHomeTrendTool).filter((tool) => tool.id && tool.slug)
+        const tools = Array.isArray(data.tools)
+            ? data.tools.map(normalizeHomeTrendTool).filter((tool) => tool.id && tool.slug && tool.previewUrl)
             : [];
+        const hydratedTools = await Promise.all(tools.map(async (tool) => {
+            try {
+                const blob = await trendServices.fetchProtectedImage(tool.previewUrl);
+                const imageUrl = URL.createObjectURL(blob);
+                trendObjectUrls.add(imageUrl);
+                return { ...tool, imageUrl };
+            } catch {
+                return null;
+            }
+        }));
+
+        trendTools.value = hydratedTools.filter(Boolean);
         trendCurrentPage.value = 0;
     } catch {
         trendMainTool.value = null;
         trendTools.value = [];
     } finally {
         trendToolsLoading.value = false;
+        startTrendAutoplay();
     }
+};
+
+const removeBrokenTrendTool = (toolId) => {
+    const tool = trendTools.value.find((item) => item.id === toolId);
+    if (tool?.imageUrl) {
+        URL.revokeObjectURL(tool.imageUrl);
+        trendObjectUrls.delete(tool.imageUrl);
+    }
+    trendTools.value = trendTools.value.filter((item) => item.id !== toolId);
+    trendCurrentPage.value = Math.min(trendCurrentPage.value, trendPageCount.value - 1);
+};
+
+const stopTrendAutoplay = () => {
+    if (trendAutoplayTimer) window.clearInterval(trendAutoplayTimer);
+    trendAutoplayTimer = 0;
+};
+
+const startTrendAutoplay = () => {
+    stopTrendAutoplay();
+    if (trendTools.value.length <= trendCardsPerView.value) return;
+
+    trendAutoplayTimer = window.setInterval(() => {
+        const nextPage = trendCurrentPage.value >= trendPageCount.value - 1
+            ? 0
+            : trendCurrentPage.value + 1;
+        goToTrendPage(nextPage);
+    }, 6000);
 };
 
 const updateTrendCardsPerView = () => {
@@ -514,7 +574,19 @@ const goToTrendPage = (page, behavior = "smooth") => {
 };
 
 const moveTrendPage = (direction) => {
-    goToTrendPage(trendCurrentPage.value + direction);
+    const lastPage = Math.max(0, trendPageCount.value - 1);
+    const nextPage = direction > 0 && trendCurrentPage.value >= lastPage
+        ? 0
+        : direction < 0 && trendCurrentPage.value === 0
+            ? lastPage
+            : trendCurrentPage.value + direction;
+    goToTrendPage(nextPage);
+    startTrendAutoplay();
+};
+
+const selectTrendPage = (page) => {
+    goToTrendPage(page);
+    startTrendAutoplay();
 };
 
 const syncTrendPage = () => {
@@ -575,6 +647,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
     cancelAnimationFrame(trendScrollFrame);
+    stopTrendAutoplay();
+    clearTrendObjectUrls();
     window.removeEventListener("lang-changed", handleLangChanged);
     window.removeEventListener("resize", updateTrendCardsPerView);
 });
@@ -2344,34 +2418,42 @@ html[data-theme="dark"] .skeleton-popular-icon {
     line-height: 1.3;
 }
 
-.home-trends-arrows {
-    display: flex;
-    gap: 9px;
-    direction: ltr;
+.home-trends-slider {
+    position: relative;
 }
 
-.home-trends-arrows button {
-    width: 42px;
-    height: 42px;
-    border: 1px solid rgba(21, 70, 119, 0.14);
-    border-radius: 14px;
-    background: #fff;
+.home-trends-arrow {
+    position: absolute;
+    z-index: 5;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
     color: #154677;
-    box-shadow: 0 8px 20px rgba(21, 70, 119, 0.08);
-    transition: transform 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 10px 28px rgba(7, 25, 45, 0.2);
+    transform: translateY(-50%);
+    transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
-.home-trends-arrows button:not(:disabled):hover,
-.home-trends-arrows button:not(:disabled):focus-visible {
+.home-trends-arrow.is-previous {
+    left: 12px;
+}
+
+.home-trends-arrow.is-next {
+    right: 12px;
+}
+
+.home-trends-arrow:hover,
+.home-trends-arrow:focus-visible {
     color: #2ba6de;
     border-color: #2ba6de;
     outline: none;
-    transform: translateY(-2px);
-}
-
-.home-trends-arrows button:disabled {
-    cursor: not-allowed;
-    opacity: 0.38;
+    transform: translateY(-50%) scale(1.07);
 }
 
 .home-trends-viewport {
@@ -2380,6 +2462,8 @@ html[data-theme="dark"] .skeleton-popular-icon {
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
 }
 
 .home-trends-viewport::-webkit-scrollbar {
@@ -2418,7 +2502,6 @@ html[data-theme="dark"] .skeleton-popular-icon {
 }
 
 .home-trend-card img,
-.home-trend-fallback,
 .home-trend-overlay {
     position: absolute;
     inset: 0;
@@ -2434,16 +2517,6 @@ html[data-theme="dark"] .skeleton-popular-icon {
 .home-trend-card:hover img,
 .home-trend-card:focus-visible img {
     transform: scale(1.055);
-}
-
-.home-trend-fallback {
-    display: grid;
-    place-items: center;
-    color: rgba(255, 255, 255, 0.62);
-    font-size: 48px;
-    background:
-        radial-gradient(circle at 25% 20%, rgba(255, 255, 255, 0.18), transparent 35%),
-        linear-gradient(145deg, #154677, #2ba6de);
 }
 
 .home-trend-overlay {
@@ -2528,10 +2601,17 @@ html[data-theme="dark"] .skeleton-popular-icon {
         align-items: center;
     }
 
-    .home-trends-arrows button {
-        width: 38px;
-        height: 38px;
-        border-radius: 12px;
+    .home-trends-arrow {
+        width: 40px;
+        height: 40px;
+    }
+
+    .home-trends-arrow.is-previous {
+        left: 8px;
+    }
+
+    .home-trends-arrow.is-next {
+        right: 8px;
     }
 
     .home-trend-card {
@@ -2555,7 +2635,7 @@ html[data-theme="dark"] .home-trends-header h3 {
     color: var(--theme-text-primary);
 }
 
-html[data-theme="dark"] .home-trends-arrows button {
+html[data-theme="dark"] .home-trends-arrow {
     color: var(--theme-text-primary);
     background: var(--theme-surface-elevated);
     border-color: var(--theme-border);

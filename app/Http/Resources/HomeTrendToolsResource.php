@@ -23,12 +23,19 @@ class HomeTrendToolsResource extends JsonResource
                 $translation = $tool->relationLoaded('translation')
                     ? $tool->translation
                     : null;
+                $latestImage = $tool->relationLoaded('latestGeneratedImage')
+                    ? $tool->latestGeneratedImage
+                    : null;
 
                 return [
                     'id' => (int) $tool->id,
                     'name' => $translation?->name ?: $tool->name,
                     'slug' => $tool->slug,
-                    'image' => $tool->image,
+                    'image' => $latestImage ? [
+                        'id' => $latestImage->public_id,
+                        'preview_url' => route('generated-images.preview', ['image' => $latestImage]),
+                        'content_type' => $latestImage->content_type,
+                    ] : null,
                     'endpoint' => $tool->endpoint,
                 ];
             })->values()->all(),
