@@ -50,7 +50,7 @@ return [
             'provider' => 'runware',
             'model' => 'bfl:5@1',
             'operation' => 'image_edit',
-            'category' => 'Image Generation / Image Editing',
+            'category' => 'AI Image Tools',
             'task' => 'تحرير الصور وإنشاء صور بالذكاء الاصطناعي.',
             'tool_key' => 'trend_meet-past-self',
             'result_message' => 'Your Meet Your Past Self image is ready.',

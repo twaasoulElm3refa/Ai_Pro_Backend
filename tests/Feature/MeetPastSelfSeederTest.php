@@ -25,10 +25,10 @@ class MeetPastSelfSeederTest extends TestCase
         $this->assertSame('runware', $tool->config['provider']);
         $this->assertSame('bfl:5@1', $tool->config['model']);
         $this->assertSame('image_edit', $tool->config['operation']);
-        $this->assertSame('Image Generation / Image Editing', $tool->config['category']);
+        $this->assertSame('AI Image Tools', $tool->config['category']);
         $this->assertSame('تحرير الصور وإنشاء صور بالذكاء الاصطناعي.', $tool->config['task']);
         $this->assertSame(
-            "Create a realistic cinematic image showing the user's present self meeting their younger past self. Preserve the exact identity, facial features, hairstyle, and natural appearance of the uploaded person. Show both versions of the same person interacting naturally in one realistic scene. Use cinematic lighting, realistic skin texture, emotional storytelling, high-quality photography style, natural environment, and authentic details. Avoid changing identity or creating a different person.",
+            "Create a realistic cinematic image showing the user's current self meeting their younger past self. Preserve the exact identity, face features, hairstyle, and natural appearance of the uploaded person. Show both versions together in one realistic scene with emotional storytelling, cinematic lighting, realistic skin texture, and high-quality photography style. Do not change the person's identity.",
             $tool->prompt_template
         );
 

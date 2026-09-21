@@ -10,7 +10,7 @@ return new class extends Migration
 
     private const SLUG = 'meet-past-self';
 
-    private const PROMPT = "Create a realistic cinematic image showing the user's present self meeting their younger past self. Preserve the exact identity, facial features, hairstyle, and natural appearance of the uploaded person. Show both versions of the same person interacting naturally in one realistic scene. Use cinematic lighting, realistic skin texture, emotional storytelling, high-quality photography style, natural environment, and authentic details. Avoid changing identity or creating a different person.";
+    private const PROMPT = "Create a realistic cinematic image showing the user's current self meeting their younger past self. Preserve the exact identity, face features, hairstyle, and natural appearance of the uploaded person. Show both versions together in one realistic scene with emotional storytelling, cinematic lighting, realistic skin texture, and high-quality photography style. Do not change the person's identity.";
 
     public function up(): void
     {
@@ -45,7 +45,7 @@ return new class extends Migration
                         'model' => 'bfl:5@1',
                         'operation' => 'image_edit',
                         'selected_model_id' => 46,
-                        'category' => 'Image Generation / Image Editing',
+                        'category' => 'AI Image Tools',
                         'task' => 'تحرير الصور وإنشاء صور بالذكاء الاصطناعي.',
                     ], JSON_THROW_ON_ERROR),
                     'allowed_model_ids' => json_encode([46], JSON_THROW_ON_ERROR),
@@ -112,8 +112,12 @@ return new class extends Migration
 
     private function flushCaches(): void
     {
-        if (Cache::supportsTags()) {
-            Cache::tags(['tools', 'subtools', 'trends'])->flush();
+        try {
+            if (Cache::supportsTags()) {
+                Cache::tags(['tools', 'subtools', 'trends'])->flush();
+            }
+        } catch (\Throwable) {
+            // Cache availability must not roll back or invalidate tool registration.
         }
     }
 };
