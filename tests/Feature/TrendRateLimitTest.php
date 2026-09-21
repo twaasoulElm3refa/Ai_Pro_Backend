@@ -19,6 +19,7 @@ class TrendRateLimitTest extends TestCase
             'trends.locker-room',
             'trends.players-tunnel',
             'trends.paparazzi',
+            'trends.80s-photo',
             'trends.meet-past-self',
         ] as $routeName) {
             $route = RouteFacade::getRoutes()->getByName($routeName);
@@ -29,7 +30,7 @@ class TrendRateLimitTest extends TestCase
         }
 
         $this->assertSame(
-            [28, 29, 30, 31, 33],
+            [28, 29, 30, 31, 32, 33],
             array_values(array_column(config('trends.tools'), 'sub_tool_id'))
         );
     }

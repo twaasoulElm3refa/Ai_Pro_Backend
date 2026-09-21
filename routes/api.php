@@ -171,6 +171,9 @@ Route::prefix('v1')->group(function () {
     Route::post('/tasks/trends/paparazzi', [TrendTaskController::class, 'paparazzi'])
         ->name('trends.paparazzi')
         ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
+    Route::post('/tasks/trends/80s-photo', [TrendTaskController::class, 'eightiesPhoto'])
+        ->name('trends.80s-photo')
+        ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);
     Route::post('/tasks/trends/meet-past-self', [TrendTaskController::class, 'meetPastSelf'])
         ->name('trends.meet-past-self')
         ->middleware(['auth:sanctum', 'throttle:trend-image-generation']);

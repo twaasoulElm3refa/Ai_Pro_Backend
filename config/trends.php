@@ -42,6 +42,15 @@ return [
             'tool_key' => 'trend_paparazzi',
             'result_message' => 'Your Paparazzi image is ready.',
         ],
+        '80s-photo' => [
+            'sub_tool_id' => 32,
+            'slugs' => ['80s-photo'],
+            'endpoint' => 'tasks/trends/80s-photo',
+            'selected_model_id' => 46,
+            'tool_key' => 'trend_80s-photo',
+            'result_message' => 'Your 80s Photo is ready.',
+            'strict_result_response' => true,
+        ],
         'meet-past-self' => [
             'sub_tool_id' => 33,
             'slugs' => ['interview-your-past-self', 'meet-past-self'],

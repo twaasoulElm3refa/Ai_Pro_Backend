@@ -16,6 +16,7 @@ test("shared Trends chat maps every configured subtool to its dedicated endpoint
     assert.match(service, /29:[\s\S]*"locker-room"[\s\S]*endpoint:\s*"\/tasks\/trends\/locker-room"/);
     assert.match(service, /30:[\s\S]*"players-tunnel"[\s\S]*endpoint:\s*"\/tasks\/trends\/players-tunnel"/);
     assert.match(service, /31:[\s\S]*"paparazzi"[\s\S]*endpoint:\s*"\/tasks\/trends\/paparazzi"/);
+    assert.match(service, /32:[\s\S]*"80s-photo"[\s\S]*endpoint:\s*"\/tasks\/trends\/80s-photo"/);
     assert.match(service, /33:[\s\S]*"meet-past-self"[\s\S]*endpoint:\s*"\/tasks\/trends\/meet-past-self"/);
     assert.match(service, /api\.post\(trend\.endpoint/);
     assert.match(service, /formData\.append\("payload",\s*JSON\.stringify\(payload\)\)/);
@@ -28,7 +29,7 @@ test("shared Trends chat maps every configured subtool to its dedicated endpoint
     assert.match(chat, /result\?\.success\s*!==\s*true[\s\S]*result\?\.type\s*!==\s*"result"[\s\S]*result\.files\[0\]\?\.download_url/);
     assert.doesNotMatch(chat, /EventSource|conversation\/.*\/stream/);
     assert.match(router, /subtool\/:slug\/chat7\/.*uuid/);
-    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29,\s*30,\s*31,\s*33\]/);
+    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29,\s*30,\s*31,\s*32,\s*33\]/);
 });
 
 test("every supported locale contains the complete Trends chat dictionary", async () => {

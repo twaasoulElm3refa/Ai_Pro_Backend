@@ -27,6 +27,12 @@ const trends = Object.freeze({
         endpoint: "/tasks/trends/paparazzi",
         selectedModelId: 46,
     }),
+    32: Object.freeze({
+        subtoolId: 32,
+        slugs: Object.freeze(["80s-photo"]),
+        endpoint: "/tasks/trends/80s-photo",
+        selectedModelId: 46,
+    }),
     33: Object.freeze({
         subtoolId: 33,
         slugs: Object.freeze(["interview-your-past-self", "meet-past-self"]),

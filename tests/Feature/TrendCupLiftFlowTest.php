@@ -192,6 +192,34 @@ class TrendCupLiftFlowTest extends TestCase
         $this->assertSecureDownloadRequest();
     }
 
+    public function test_80s_photo_uses_existing_subtool_32_and_requires_a_result_response(): void
+    {
+        [$user, $conversation] = $this->makeContext(32, '80s-photo');
+        $conversation->subTool()->update(['endpoint' => null]);
+        $this->assertSame(
+            'tasks/trends/80s-photo',
+            app(DynamicToolConfigService::class)->endpointFor($conversation->subTool()->firstOrFail())
+        );
+        $taskId = (string) Str::uuid();
+        $this->fakeSuccessfulGeneration('80s-photo', $taskId);
+        Sanctum::actingAs($user);
+
+        $response = $this->sendTrend($conversation, '80s-photo', (string) Str::uuid(), '');
+
+        $response->assertOk()
+            ->assertJsonPath('data.success', true)
+            ->assertJsonPath('data.type', 'result')
+            ->assertJsonPath('data.tool', 'trend_80s-photo')
+            ->assertJsonPath('data.selected_model_id', 46)
+            ->assertJsonPath('data.sub_tool_id', 32)
+            ->assertJsonPath('data.trend', '80s-photo')
+            ->assertJsonPath('data.files.0.content_type', 'image/png');
+
+        $this->assertSuccessfulPersistence($user, $conversation, 32, $taskId);
+        $this->assertProviderRequest('80s-photo', 32);
+        $this->assertSecureDownloadRequest();
+    }
+
     public function test_meet_past_self_uses_subtool_33_and_requires_a_successful_result_response(): void
     {
         [$user, $conversation] = $this->makeContext(33, 'meet-past-self');
@@ -395,6 +423,7 @@ class TrendCupLiftFlowTest extends TestCase
                 'locker-room' => 'Locker Room',
                 'players-tunnel' => 'Players Tunnel',
                 'paparazzi' => 'Paparazzi',
+                '80s-photo' => '80s Photo',
                 'meet-past-self' => 'Meet Your Past Self',
             },
             'slug' => $slug,
