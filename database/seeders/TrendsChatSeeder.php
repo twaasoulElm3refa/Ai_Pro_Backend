@@ -19,6 +19,7 @@ class TrendsChatSeeder extends Seeder
             $this->ensureSubtool(30, 'players-tunnel', 'Players Tunnel', 'ممر اللاعبين', 30);
 
             $this->ensureSubtool(31, 'paparazzi', 'Paparazzi', 'باباراتزي', 40);
+            $this->ensureSubtool(33, 'meet-past-self', 'Meet Your Past Self', 'مقابلة نفسك في الماضي', 50);
 
             $translations = [
                 28 => [
@@ -50,6 +51,14 @@ class TrendsChatSeeder extends Seeder
                 'fr' => ['Paparazzi', 'Placez-vous dans une scène photo cinématographique avec des paparazzis.'],
                 'ru' => ['Папарацци', 'Поместите себя в реалистичную кинематографическую сцену с папарацци.'],
                 'zh' => ['狗仔队', '将自己置于逼真的电影级狗仔队拍摄场景中。'],
+            ];
+
+            $translations[33] = [
+                'ar' => ['مقابلة نفسك في الماضي', 'أنشئ صورة تجمع بينك الآن ونسختك في الماضي باستخدام الذكاء الاصطناعي بأسلوب واقعي وسينمائي.'],
+                'en' => ['Meet Your Past Self', 'Create a realistic cinematic image of your present self meeting your past self using AI.'],
+                'fr' => ['Rencontrez votre vous du passé', 'Créez une image cinématographique réaliste de votre moi actuel rencontrant votre moi passé grâce à l’IA.'],
+                'es' => ['Conoce a tu yo del pasado', 'Crea con IA una imagen cinematográfica realista de tu yo actual encontrándose con tu yo del pasado.'],
+                'de' => ['Triff dein vergangenes Ich', 'Erstelle mit KI ein realistisches, filmisches Bild, auf dem dein heutiges Ich deinem früheren Ich begegnet.'],
             ];
 
             foreach ($translations as $subtoolId => $locales) {
@@ -135,41 +144,56 @@ class TrendsChatSeeder extends Seeder
             throw new RuntimeException("The {$slug} slug is assigned to subtool ID {$slugOwner->id}.");
         }
 
+        $attributes = [
+            'main_tool_id' => 7,
+            'name' => $nameEn,
+            'name_en' => $nameEn,
+            'name_ar' => $nameAr,
+            'slug' => $slug,
+            'description' => match ($slug) {
+                'cup-lifting-moment' => 'Create a realistic championship cup-lift celebration.',
+                'locker-room' => 'Create a realistic professional locker-room scene.',
+                'players-tunnel' => 'Create a cinematic professional players-tunnel scene.',
+                'paparazzi' => 'Create a cinematic paparazzi photo scene.',
+                'meet-past-self' => 'Create a realistic cinematic image of your present self meeting your past self using AI.',
+                default => 'Create a cinematic trend image.',
+            },
+            'endpoint' => $slug === 'cup-lifting-moment'
+                ? 'tasks/trends/cup-lift'
+                : "tasks/trends/{$slug}",
+            'allowed_model_ids' => json_encode([46], JSON_THROW_ON_ERROR),
+            'input_schema' => json_encode([
+                'file' => [
+                    'required' => true,
+                    'accept' => ['image/png', 'image/jpeg', 'image/webp'],
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'output_schema' => json_encode([
+                'type' => 'image',
+                'recommended_aspect_ratio' => '4:5',
+            ], JSON_THROW_ON_ERROR),
+            'is_active' => true,
+            'sort_order' => $sortOrder,
+            'deleted_at' => null,
+            'updated_at' => now(),
+            'created_at' => now(),
+        ];
+
+        if ($slug === 'meet-past-self') {
+            $attributes['prompt_template'] = "Create a realistic cinematic image showing the user's present self meeting their younger past self. Preserve the exact identity, facial features, hairstyle, and natural appearance of the uploaded person. Show both versions of the same person interacting naturally in one realistic scene. Use cinematic lighting, realistic skin texture, emotional storytelling, high-quality photography style, natural environment, and authentic details. Avoid changing identity or creating a different person.";
+            $attributes['config'] = json_encode([
+                'provider' => 'runware',
+                'model' => 'bfl:5@1',
+                'operation' => 'image_edit',
+                'selected_model_id' => 46,
+                'category' => 'Image Generation / Image Editing',
+                'task' => 'تحرير الصور وإنشاء صور بالذكاء الاصطناعي.',
+            ], JSON_THROW_ON_ERROR);
+        }
+
         DB::table('sub_tools')->updateOrInsert(
             ['id' => $id],
-            [
-                'main_tool_id' => 7,
-                'name' => $nameEn,
-                'name_en' => $nameEn,
-                'name_ar' => $nameAr,
-                'slug' => $slug,
-                'description' => match ($slug) {
-                    'cup-lifting-moment' => 'Create a realistic championship cup-lift celebration.',
-                    'locker-room' => 'Create a realistic professional locker-room scene.',
-                    'players-tunnel' => 'Create a cinematic professional players-tunnel scene.',
-                    'paparazzi' => 'Create a cinematic paparazzi photo scene.',
-                    default => 'Create a cinematic trend image.',
-                },
-                'endpoint' => $slug === 'cup-lifting-moment'
-                    ? 'tasks/trends/cup-lift'
-                    : "tasks/trends/{$slug}",
-                'allowed_model_ids' => json_encode([46], JSON_THROW_ON_ERROR),
-                'input_schema' => json_encode([
-                    'file' => [
-                        'required' => true,
-                        'accept' => ['image/png', 'image/jpeg', 'image/webp'],
-                    ],
-                ], JSON_THROW_ON_ERROR),
-                'output_schema' => json_encode([
-                    'type' => 'image',
-                    'recommended_aspect_ratio' => '4:5',
-                ], JSON_THROW_ON_ERROR),
-                'is_active' => true,
-                'sort_order' => $sortOrder,
-                'deleted_at' => null,
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]
+            $attributes
         );
     }
 }

@@ -492,7 +492,7 @@ const submit = async () => {
             idempotency_key: idempotencyKey,
         }, file);
 
-        if (!result?.success || !Array.isArray(result.files) || !result.files[0]?.download_url) {
+        if (result?.success !== true || result?.type !== "result" || !Array.isArray(result.files) || !result.files[0]?.download_url) {
             throw new Error(labels.value.genericError);
         }
 

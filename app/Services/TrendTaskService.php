@@ -184,7 +184,7 @@ class TrendTaskService
                 $userId,
                 $debug
             );
-            $generation = $this->validateProviderResult($providerResult, $selectedModelId);
+            $generation = $this->validateProviderResult($providerResult, $selectedModelId, $trend);
             $localFile = $this->generatedImageService->downloadGeneratedFile(
                 $generation['file'],
                 $userId,
@@ -402,6 +402,9 @@ class TrendTaskService
             'state' => $this->providerState($state),
             'debug' => $debug,
         ];
+        if ((bool) ($trend['send_trend_parameter'] ?? false)) {
+            $payload['trend'] = (string) ($trend['slugs'][0] ?? '');
+        }
         $encodedPayload = json_encode(
             $payload,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
@@ -508,14 +511,19 @@ class TrendTaskService
         return Str::limit($value, $limit, '...[truncated]');
     }
 
-    private function validateProviderResult(array $result, int $selectedModelId): array
+    private function validateProviderResult(array $result, int $selectedModelId, array $trend): array
     {
         $payload = is_array($result['data'] ?? null) ? $result['data'] : $result;
         $success = $payload['success'] ?? $result['success'] ?? true;
+        $type = strtolower(trim((string) ($payload['type'] ?? $result['type'] ?? '')));
         $status = strtolower(trim((string) ($payload['status'] ?? $result['status'] ?? '')));
 
         if ($success === false || in_array($status, ['error', 'failed', 'cancelled'], true)) {
             throw new RuntimeException('The image provider reported a failed generation.');
+        }
+
+        if ((bool) ($trend['strict_result_response'] ?? false) && ($success !== true || $type !== 'result')) {
+            throw new RuntimeException('The image provider did not return a successful result.');
         }
 
         $returnedModelId = $payload['selected_model_id'] ?? $result['selected_model_id'] ?? null;
@@ -534,10 +542,14 @@ class TrendTaskService
             ?? data_get($payload, 'metadata.provider_response')
             ?? $result['provider_response']
             ?? data_get($result, 'metadata.provider_response');
+        $providerMetadata = $payload['metadata'] ?? $result['metadata'] ?? [];
         $files = $this->normalizeProviderFiles($payload, $result);
 
         if (! is_array($providerResponse)) {
             $providerResponse = $payload;
+        }
+        if (! is_array($providerMetadata)) {
+            $providerMetadata = [];
         }
 
         if ($provider === '' || $model === '') {
@@ -580,6 +592,7 @@ class TrendTaskService
             'selected_model_id' => $selectedModelId,
             'provider_request_id' => $providerRequestId,
             'provider_response' => $providerResponse,
+            'metadata' => $providerMetadata,
             'file' => $file,
             'message' => trim((string) ($payload['message'] ?? $result['message'] ?? '')),
         ];
@@ -723,7 +736,10 @@ class TrendTaskService
                     'files' => [$publicFile],
                     'images' => [$publicFile],
                     'count' => 1,
-                    'generation' => ['provider_response' => $generation['provider_response']],
+                    'generation' => [
+                        'provider_response' => $generation['provider_response'],
+                        'provider_metadata' => $generation['metadata'],
+                    ],
                     'cost' => [
                         'total_cost' => (string) $generation['provider_response']['cost'],
                         'currency' => 'USD',

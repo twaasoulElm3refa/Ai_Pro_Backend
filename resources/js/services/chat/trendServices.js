@@ -27,6 +27,12 @@ const trends = Object.freeze({
         endpoint: "/tasks/trends/paparazzi",
         selectedModelId: 46,
     }),
+    33: Object.freeze({
+        subtoolId: 33,
+        slugs: Object.freeze(["meet-past-self"]),
+        endpoint: "/tasks/trends/meet-past-self",
+        selectedModelId: 46,
+    }),
 });
 
 const resolveTrend = (subtool) => {

@@ -94,6 +94,7 @@ class AppServiceProvider extends ServiceProvider
                 'trends.locker-room' => 29,
                 'trends.players-tunnel' => 30,
                 'trends.paparazzi' => 31,
+                'trends.meet-past-self' => 33,
                 default => null,
             };
             $userId = $request->user()?->getAuthIdentifier();

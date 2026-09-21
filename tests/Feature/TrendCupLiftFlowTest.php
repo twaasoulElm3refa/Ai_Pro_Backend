@@ -192,6 +192,57 @@ class TrendCupLiftFlowTest extends TestCase
         $this->assertSecureDownloadRequest();
     }
 
+    public function test_meet_past_self_uses_subtool_33_and_requires_a_successful_result_response(): void
+    {
+        [$user, $conversation] = $this->makeContext(33, 'meet-past-self');
+        $conversation->subTool()->update(['endpoint' => null]);
+        $this->assertSame(
+            'tasks/trends/meet-past-self',
+            app(DynamicToolConfigService::class)->endpointFor($conversation->subTool()->firstOrFail())
+        );
+        $taskId = (string) Str::uuid();
+        $this->fakeSuccessfulGeneration('meet-past-self', $taskId);
+        Sanctum::actingAs($user);
+
+        $response = $this->sendTrend($conversation, 'meet-past-self', (string) Str::uuid(), '');
+
+        $response->assertOk()
+            ->assertJsonPath('data.success', true)
+            ->assertJsonPath('data.type', 'result')
+            ->assertJsonPath('data.tool', 'trend_meet-past-self')
+            ->assertJsonPath('data.selected_model_id', 46)
+            ->assertJsonPath('data.sub_tool_id', 33)
+            ->assertJsonPath('data.trend', 'meet-past-self')
+            ->assertJsonPath('data.operation', 'image_edit')
+            ->assertJsonPath('data.metadata.sub_tool_id', 33)
+            ->assertJsonPath('data.files.0.content_type', 'image/png');
+
+        $this->assertSuccessfulPersistence($user, $conversation, 33, $taskId);
+        $assistantMetadata = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('role', 'assistant')
+            ->firstOrFail()
+            ->metadata;
+        $this->assertSame('meet-past-self', data_get($assistantMetadata, 'generation.provider_metadata.trend'));
+        $this->assertSame(46, data_get($assistantMetadata, 'generation.provider_metadata.selected_model_id'));
+        $this->assertProviderRequest('meet-past-self', 33, true);
+        $this->assertSecureDownloadRequest();
+    }
+
+    public function test_meet_past_self_rejects_a_non_result_provider_response(): void
+    {
+        [$user, $conversation] = $this->makeContext(33, 'meet-past-self');
+        $this->fakeSuccessfulGeneration('meet-past-self', (string) Str::uuid(), true, false, 'processing');
+        Sanctum::actingAs($user);
+
+        $this->sendTrend($conversation, 'meet-past-self', (string) Str::uuid())
+            ->assertStatus(502)
+            ->assertJsonPath('message', 'Trend image generation failed: The image provider did not return a successful result.');
+
+        $this->assertSame(100_000, Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertDatabaseCount('generated_images', 1);
+    }
+
     public function test_same_idempotency_key_returns_existing_result_without_second_charge(): void
     {
         [$user, $conversation] = $this->makeContext(28, 'cup-lifting-moment');
@@ -344,6 +395,7 @@ class TrendCupLiftFlowTest extends TestCase
                 'locker-room' => 'Locker Room',
                 'players-tunnel' => 'Players Tunnel',
                 'paparazzi' => 'Paparazzi',
+                'meet-past-self' => 'Meet Your Past Self',
             },
             'slug' => $slug,
             'endpoint' => $slug === 'cup-lifting-moment'
@@ -396,7 +448,8 @@ class TrendCupLiftFlowTest extends TestCase
         string $slug,
         string $taskId,
         bool $includeCost = true,
-        bool $nestedProviderResponse = false
+        bool $nestedProviderResponse = false,
+        string $type = 'result'
     ): void {
         $providerResponse = [
             'taskType' => 'imageInference',
@@ -409,10 +462,16 @@ class TrendCupLiftFlowTest extends TestCase
 
         $response = [
             'success' => true,
+            'type' => $type,
             'provider' => 'runware',
             'model' => 'bfl:5@1',
             'selected_model_id' => 46,
             'operation' => 'image_edit',
+            'metadata' => [
+                'trend' => $slug,
+                'selected_model_id' => 46,
+                'operation' => 'image_edit',
+            ],
             'files' => [[
                 'file_id' => 'trend-file-1',
                 'filename' => 'general-media-image_edit.webp',
@@ -464,9 +523,9 @@ class TrendCupLiftFlowTest extends TestCase
         }
     }
 
-    private function assertProviderRequest(string $slug, int $subtoolId): void
+    private function assertProviderRequest(string $slug, int $subtoolId, bool $expectsTrend = false): void
     {
-        Http::assertSent(function (Request $request) use ($slug, $subtoolId): bool {
+        Http::assertSent(function (Request $request) use ($slug, $subtoolId, $expectsTrend): bool {
             if ($request->method() !== 'POST' || $request->url() !== self::AI_BASE_URL."/tasks/trends/{$slug}") {
                 return false;
             }
@@ -477,6 +536,19 @@ class TrendCupLiftFlowTest extends TestCase
             $payload = json_decode((string) ($payloadPart['contents'] ?? ''));
             $payloadKeys = is_object($payload) ? array_keys(get_object_vars($payload)) : [];
 
+            $expectedPayloadKeys = [
+                'user_id',
+                'sub_tool_id',
+                'selected_model_id',
+                'conversation_uuid',
+                'user_message',
+                'state',
+                'debug',
+            ];
+            if ($expectsTrend) {
+                $expectedPayloadKeys[] = 'trend';
+            }
+
             return ($request->header('x-internal-api-key')[0] ?? null) === self::INTERNAL_KEY
                 && str_starts_with(strtolower($request->header('Content-Type')[0] ?? ''), 'multipart/form-data')
                 && $parts->pluck('name')->sort()->values()->all() === ['file', 'payload']
@@ -484,15 +556,7 @@ class TrendCupLiftFlowTest extends TestCase
                 && ($filePart['filename'] ?? null) === 'portrait.png'
                 && ($filePart['headers']['Content-Type'] ?? null) === 'image/png'
                 && is_object($payload)
-                && $payloadKeys === [
-                    'user_id',
-                    'sub_tool_id',
-                    'selected_model_id',
-                    'conversation_uuid',
-                    'user_message',
-                    'state',
-                    'debug',
-                ]
+                && $payloadKeys === $expectedPayloadKeys
                 && (int) ($payload->user_id ?? 0) > 0
                 && (int) ($payload->sub_tool_id ?? 0) === $subtoolId
                 && (int) ($payload->selected_model_id ?? 0) === 46
@@ -501,7 +565,8 @@ class TrendCupLiftFlowTest extends TestCase
                 && is_object($payload->state ?? null)
                 && is_object($payload->state->parameters ?? null)
                 && get_object_vars($payload->state->parameters) === []
-                && ($payload->debug ?? null) === true;
+                && ($payload->debug ?? null) === true
+                && (! $expectsTrend || ($payload->trend ?? null) === 'meet-past-self');
         });
     }
 

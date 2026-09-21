@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-test("shared Trends chat maps subtools 28 through 31 to their dedicated endpoints", async () => {
+test("shared Trends chat maps every configured subtool to its dedicated endpoint", async () => {
     const [service, chat, router, toolPage] = await Promise.all([
         read("resources/js/services/chat/trendServices.js"),
         read("resources/js/views/home/chat7.vue"),
@@ -16,6 +16,7 @@ test("shared Trends chat maps subtools 28 through 31 to their dedicated endpoint
     assert.match(service, /29:[\s\S]*"locker-room"[\s\S]*endpoint:\s*"\/tasks\/trends\/locker-room"/);
     assert.match(service, /30:[\s\S]*"players-tunnel"[\s\S]*endpoint:\s*"\/tasks\/trends\/players-tunnel"/);
     assert.match(service, /31:[\s\S]*"paparazzi"[\s\S]*endpoint:\s*"\/tasks\/trends\/paparazzi"/);
+    assert.match(service, /33:[\s\S]*"meet-past-self"[\s\S]*endpoint:\s*"\/tasks\/trends\/meet-past-self"/);
     assert.match(service, /api\.post\(trend\.endpoint/);
     assert.match(service, /formData\.append\("payload",\s*JSON\.stringify\(payload\)\)/);
     assert.match(service, /formData\.append\("file",\s*image\)/);
@@ -24,9 +25,10 @@ test("shared Trends chat maps subtools 28 through 31 to their dedicated endpoint
     assert.match(chat, /const canSubmit = computed\(\(\) => !submitting\.value && selectedFile\.value !== null\)/);
     assert.doesNotMatch(chat, /if \(!text\)[\s\S]{0,120}promptRequired/);
     assert.match(chat, /sub_tool_id:\s*trend\.subtoolId/);
+    assert.match(chat, /result\?\.success\s*!==\s*true[\s\S]*result\?\.type\s*!==\s*"result"[\s\S]*result\.files\[0\]\?\.download_url/);
     assert.doesNotMatch(chat, /EventSource|conversation\/.*\/stream/);
     assert.match(router, /subtool\/:slug\/chat7\/.*uuid/);
-    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29,\s*30,\s*31\]/);
+    assert.match(toolPage, /TREND_CHAT_SUB_TOOL_IDS\s*=\s*\[28,\s*29,\s*30,\s*31,\s*33\]/);
 });
 
 test("every supported locale contains the complete Trends chat dictionary", async () => {

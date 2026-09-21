@@ -43,6 +43,11 @@ class TrendTaskController extends Controller
         return $this->generate($request, 'paparazzi');
     }
 
+    public function meetPastSelf(TrendImageRequest $request): JsonResponse
+    {
+        return $this->generate($request, 'meet-past-self');
+    }
+
     private function generate(TrendImageRequest $request, string $trendSlug): JsonResponse
     {
         try {
