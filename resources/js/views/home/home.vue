@@ -76,8 +76,9 @@
                                         :tabindex="page.isClone ? -1 : 0"
                                         :aria-label="t('user.home.openAria', { name: tool.name || tool.slug })"
                                         @click="goToTrendTool(tool)">
-                                        <img :src="tool.imageUrl" :alt="tool.name" loading="lazy"
-                                            @error="removeBrokenTrendTool(tool.id)" />
+                                        <img :src="tool.imageUrl" :alt="tool.name" loading="lazy" decoding="async"
+                                            :fetchpriority="pageIndex === 0 && !page.isClone ? 'auto' : 'low'"
+                                            @error="hideBrokenTrendImage" />
                                         <span class="home-trend-overlay" aria-hidden="true"></span>
                                         <span class="home-trend-name">{{ tool.name }}</span>
                                     </button>
@@ -277,7 +278,6 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
-import trendServices from "@/services/chat/trendServices";
 import useSeoMeta from "@/composables/useSeoMeta";
 
 const router = useRouter();
@@ -304,7 +304,6 @@ let trendScrollFrame = 0;
 let trendResizeFrame = 0;
 let trendAutoplayTimer = 0;
 let trendLoopResetTimer = 0;
-const trendObjectUrls = new Set();
 
 const listKey = computed(() => `${homeService.getLang()}-${tools.value.length}`);
 const currentLang = computed(() => String(route.params.lang || homeService.getLang()));
@@ -519,39 +518,21 @@ const normalizeHomeTrendTool = (tool = {}) => ({
     name: tool.name || tool.slug || "",
     slug: tool.slug || "",
     previewUrl: tool.image?.preview_url || "",
-    imageUrl: "",
+    imageUrl: tool.image?.preview_url || "",
     endpoint: tool.endpoint || "",
 });
-
-const clearTrendObjectUrls = () => {
-    trendObjectUrls.forEach((url) => URL.revokeObjectURL(url));
-    trendObjectUrls.clear();
-};
 
 const fetchHomeTrendTools = async () => {
     trendToolsLoading.value = true;
     stopTrendAutoplay();
-    clearTrendObjectUrls();
 
     try {
         const response = await homeService.fetchHomeTrendTools();
         const data = response?.data || {};
         trendMainTool.value = data.main_tool || null;
-        const tools = Array.isArray(data.tools)
+        trendTools.value = Array.isArray(data.tools)
             ? data.tools.map(normalizeHomeTrendTool).filter((tool) => tool.id && tool.slug && tool.previewUrl)
             : [];
-        const hydratedTools = await Promise.all(tools.map(async (tool) => {
-            try {
-                const blob = await trendServices.fetchProtectedImage(tool.previewUrl);
-                const imageUrl = URL.createObjectURL(blob);
-                trendObjectUrls.add(imageUrl);
-                return { ...tool, imageUrl };
-            } catch {
-                return null;
-            }
-        }));
-
-        trendTools.value = hydratedTools.filter(Boolean);
         trendCurrentPage.value = 0;
     } catch {
         trendMainTool.value = null;
@@ -562,14 +543,10 @@ const fetchHomeTrendTools = async () => {
     }
 };
 
-const removeBrokenTrendTool = (toolId) => {
-    const tool = trendTools.value.find((item) => item.id === toolId);
-    if (tool?.imageUrl) {
-        URL.revokeObjectURL(tool.imageUrl);
-        trendObjectUrls.delete(tool.imageUrl);
-    }
-    trendTools.value = trendTools.value.filter((item) => item.id !== toolId);
-    trendCurrentPage.value = Math.min(trendCurrentPage.value, trendPageCount.value - 1);
+const hideBrokenTrendImage = (event) => {
+    const image = event?.currentTarget;
+
+    if (image) image.hidden = true;
 };
 
 const stopTrendAutoplay = () => {
@@ -735,7 +712,6 @@ onUnmounted(() => {
     cancelAnimationFrame(trendResizeFrame);
     stopTrendAutoplay();
     if (trendLoopResetTimer) window.clearTimeout(trendLoopResetTimer);
-    clearTrendObjectUrls();
     window.removeEventListener("lang-changed", handleLangChanged);
     window.removeEventListener("resize", updateTrendCardsPerView);
 });

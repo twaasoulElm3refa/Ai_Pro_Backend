@@ -21,6 +21,24 @@ class HomeController extends Controller
     private $AiModelsRepository;
     private $trendsRepository;
 
+    private function remember(array $tags, string $key, callable $resolver): mixed
+    {
+        try {
+            if (Cache::supportsTags()) {
+                return Cache::tags($tags)->remember($key, now()->addHour(), $resolver);
+            }
+
+            return Cache::remember($key, now()->addHour(), $resolver);
+        } catch (\Throwable $exception) {
+            Log::warning('Home cache unavailable; using repository fallback.', [
+                'key' => $key,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return $resolver();
+        }
+    }
+
     public function __construct(MainToolInterface $toolRepository ,SubToolInterface $subToolRepository, AiModelsInterface $AiModelsRepository , TrendInterface $trendsRepository)
     {
         $this->toolRepository = $toolRepository;
@@ -50,11 +68,7 @@ class HomeController extends Controller
         try {
             $locale = app()->getLocale();
             $cacheKey = "tools:index:{$locale}";
-            $tools = Cache::tags(['tools'])->remember(
-                $cacheKey,
-                now()->addHour(),
-                fn () => $this->toolRepository->index()
-            );
+            $tools = $this->remember(['tools'], $cacheKey, fn () => $this->toolRepository->index());
             return $this->success($tools, 'Tools fetched successfully.');
         } catch (\Throwable $th) {
             Log::error('Tool Index Error', [
@@ -69,9 +83,9 @@ class HomeController extends Controller
         try {
             $locale = app()->getLocale();
 
-            $tool = Cache::tags(['tools'])->remember(
+            $tool = $this->remember(
+                ['tools'],
                 "tools:show:{$slug}:{$locale}",
-                now()->addHour(),
                 fn () => $this->toolRepository->showBySlug($slug)
             );
             return $this->success($tool, 'Tool fetched successfully.');
@@ -89,9 +103,9 @@ class HomeController extends Controller
         try {
             $locale = app()->getLocale();
 
-            $tool = Cache::tags(['subtools'])->remember(
+            $tool = $this->remember(
+                ['subtools'],
                 "subtools:show:{$slug}:{$locale}",
-                now()->addHour(),
                 fn () => $this->subToolRepository->showBySlug($slug)
             );
 
@@ -109,9 +123,9 @@ class HomeController extends Controller
     {
         try {
             $locale = app()->getLocale();
-            $tools = Cache::tags(['subtools'])->remember(
+            $tools = $this->remember(
+                ['subtools'],
                 "subtools:random:{$locale}",
-                now()->addHour(),
                 fn () => $this->subToolRepository->randomSubTools()
             );
             return $this->success($tools, 'Tools fetched successfully.');
@@ -127,9 +141,9 @@ class HomeController extends Controller
     {
         try {
             $locale = app()->getLocale();
-            $tools = Cache::tags(['AiModels'])->remember(
+            $tools = $this->remember(
+                ['AiModels'],
                 "AiModels:{$locale}",
-                now()->addHour(),
                 fn () => $this->AiModelsRepository->AiModels()
             );
             return $this->success($tools, 'Tools fetched successfully.');
@@ -145,9 +159,9 @@ class HomeController extends Controller
     {
          try {
             $locale = app()->getLocale();
-            $tools = Cache::tags(['trends'])->remember(
+            $tools = $this->remember(
+                ['trends'],
                 "trends:{$locale}",
-                now()->addHour(),
                 fn () => $this->trendsRepository->index()
             );
             return $this->success($tools, 'Tools fetched successfully.');

@@ -9,6 +9,7 @@ use App\Models\Message;
 use App\Models\SubTools;
 use App\Models\User;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -137,7 +138,8 @@ class TrendMainToolApiTest extends TestCase
             'is_error' => false,
         ]);
         $publicId = (string) Str::uuid();
-        GeneratedImage::create([
+        Storage::fake('local');
+        $generatedImage = GeneratedImage::create([
             'public_id' => $publicId,
             'user_id' => $user->id,
             'conversation_id' => $conversation->id,
@@ -149,14 +151,19 @@ class TrendMainToolApiTest extends TestCase
             'content_type' => 'image/webp',
             'size_bytes' => 1024,
         ]);
+        Storage::disk('local')->put($generatedImage->path, 'fake-webp-content');
 
-        $this->apiRequest('ar')->get('/api/v1/home/trend-tools')
+        $response = $this->apiRequest('ar')->get('/api/v1/home/trend-tools');
+
+        $response
             ->assertOk()
             ->assertJsonPath('data.tools.0.image', null);
 
         Sanctum::actingAs($user, [], 'sanctum');
 
-        $this->apiRequest('ar')->get('/api/v1/home/trend-tools')
+        $response = $this->apiRequest('ar')->get('/api/v1/home/trend-tools');
+
+        $response
             ->assertOk()
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('data.main_tool.id', 7)
@@ -170,6 +177,17 @@ class TrendMainToolApiTest extends TestCase
             ->assertJsonPath('data.tools.1.image', null)
             ->assertJsonPath('data.tools.0.endpoint', 'tasks/trends/trend-1')
             ->assertJsonMissingPath('data.tools.6');
+
+        $previewUrl = $response->json('data.tools.0.image.preview_url');
+        $this->assertStringStartsWith(
+            "/api/v1/generated-images/{$publicId}/home-preview?",
+            $previewUrl
+        );
+        $this->get($previewUrl)
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/webp')
+            ->assertHeader('Cache-Control', 'immutable, max-age=18000, private');
+        $this->get(strtok($previewUrl, '?'))->assertForbidden();
     }
 
     private function createTrendTool(): MainTools

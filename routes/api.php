@@ -119,6 +119,11 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:30,1')
         ->withoutMiddleware(ApiKeyMiddleware::class);
 
+    Route::get('generated-images/{image}/home-preview', [GeneratedImageController::class, 'homePreview'])
+        ->name('generated-images.home-preview')
+        ->middleware(['signed:relative', 'throttle:120,1'])
+        ->withoutMiddleware(ApiKeyMiddleware::class);
+
     Route::prefix('conversation')->middleware(['auth:sanctum', 'throttle:45,1'])->group(function () {
         Route::get('/', [ConversationController::class, 'conversation']);
         Route::get('/{uuid}', [ConversationController::class, 'conversationDetails']);

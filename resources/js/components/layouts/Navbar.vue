@@ -2,14 +2,22 @@
     <header class="nb-hero" :class="{ 'nb-hero-compact': hideHeader }" :dir="currentDir">
         <!-- SEO / LAZY HERO MEDIA -->
         <template v-if="!hideHeader">
-            <div class="nb-hero-media" ref="heroVideoCardRef" aria-hidden="true">
-                <video v-if="shouldLoadHeroVideo" ref="heroVideoRef" class="nb-hero-video"
-                    :class="{ 'is-ready': heroVideoReady }" :src="heroVideo" autoplay muted loop playsinline
-                    webkit-playsinline preload="auto" @loadeddata="attemptHeroVideoPlayback"
-                    @canplay="attemptHeroVideoPlayback" @canplaythrough="attemptHeroVideoPlayback"
-                    @playing="markHeroVideoReady" @error="markHeroVideoFailed"></video>
+            <div class="nb-hero-media" aria-hidden="true">
+                <img class="nb-hero-poster" :src="heroVideoPoster" alt="" width="1600" height="900"
+                    fetchpriority="high" decoding="async" />
 
-                <div class="nb-hero-loader" :class="{ 'is-hidden': heroVideoReady, 'is-error': heroVideoFailed }">
+                <video v-if="shouldLoadHeroVideo" ref="heroVideoRef" class="nb-hero-video"
+                    :class="{ 'is-ready': heroVideoReady }" :poster="heroVideoPoster" autoplay muted loop playsinline
+                    webkit-playsinline preload="metadata" @loadedmetadata="attemptHeroVideoPlayback"
+                    @loadeddata="attemptHeroVideoPlayback"
+                    @canplay="attemptHeroVideoPlayback" @canplaythrough="attemptHeroVideoPlayback"
+                    @playing="markHeroVideoReady" @error="markHeroVideoFailed">
+                    <source :src="heroVideoMobile" media="(max-width: 767px)" type="video/mp4" />
+                    <source :src="heroVideoDesktop" type="video/mp4" />
+                </video>
+
+                <div class="nb-hero-loader"
+                    :class="{ 'is-hidden': heroVideoReady || heroVideoFailed, 'is-error': heroVideoFailed }">
                     <div class="nb-loader-orbit">
                         <span></span>
                         <span></span>
@@ -266,7 +274,9 @@ const props = defineProps({
 const { t, locale } = useI18n();
 const router = useRouter();
 
-const heroVideo = "/video/Ai_Pro_Video.mp4";
+const heroVideoDesktop = "/video/ai-pro-hero.91d4bdc1.mp4";
+const heroVideoMobile = "/video/ai-pro-hero-mobile.3dafc02a.mp4";
+const heroVideoPoster = "/images/ai-pro-hero.7d4c3ca1.webp";
 const whatsappUrl = "https://wa.me/";
 const originalNewsUrl = "https://aiarabic.com";
 const twitterUrl = "https://x.com/";
@@ -279,14 +289,13 @@ const navLinksOpen = ref(false);
 const THEME_STORAGE_KEY = "theme";
 const currentTheme = ref("light");
 
-const heroVideoCardRef = ref(null);
 const heroVideoRef = ref(null);
 const shouldLoadHeroVideo = ref(false);
 const heroVideoReady = ref(false);
 const heroVideoFailed = ref(false);
 
-let heroVideoObserver = null;
-let heroVideoTimer = null;
+let heroVideoFrame = 0;
+let heroWindowLoadPending = false;
 
 const PROFILE_CACHE_PREFIX = "navbar_profile_cache_v1";
 const WALLET_CACHE_PREFIX = "navbar_wallet_cache_v1";
@@ -564,8 +573,10 @@ const attemptHeroVideoPlayback = async () => {
             .then(() => {
                 markHeroVideoReady();
             })
-            .catch(() => {
-                heroVideoFailed.value = true;
+            .catch((error) => {
+                if (error?.name === "NotAllowedError") {
+                    heroVideoFailed.value = true;
+                }
             });
         return;
     }
@@ -576,18 +587,12 @@ const attemptHeroVideoPlayback = async () => {
 };
 
 const loadHeroVideo = () => {
-    if (shouldLoadHeroVideo.value) return;
-
     heroVideoFailed.value = false;
-    shouldLoadHeroVideo.value = true;
+    if (!shouldLoadHeroVideo.value) shouldLoadHeroVideo.value = true;
+
     nextTick(() => {
         attemptHeroVideoPlayback();
     });
-
-    if (heroVideoObserver) {
-        heroVideoObserver.disconnect();
-        heroVideoObserver = null;
-    }
 };
 
 const markHeroVideoReady = () => {
@@ -601,60 +606,74 @@ const markHeroVideoFailed = () => {
     heroVideoFailed.value = true;
 };
 
-const startHeroVideoLazyLoad = () => {
-    if (props.hideHeader || shouldLoadHeroVideo.value) return;
-
-    const target = heroVideoCardRef.value;
-
-    if (!target) {
-        heroVideoTimer = window.setTimeout(startHeroVideoLazyLoad, 300);
-        return;
-    }
-
-    if ("IntersectionObserver" in window) {
-        heroVideoObserver = new IntersectionObserver(
-            (entries) => {
-                const isVisible = entries.some((entry) => entry.isIntersecting);
-
-                if (isVisible) {
-                    loadHeroVideo();
-                }
-            },
-            {
-                root: null,
-                rootMargin: "160px 0px",
-                threshold: 0.05,
-            }
-        );
-
-        heroVideoObserver.observe(target);
-        return;
-    }
-
-    loadHeroVideo();
-};
-
-const scheduleHeroVideoLazyLoad = () => {
+const scheduleHeroVideoLoad = () => {
     if (props.hideHeader) return;
 
-    deferToIdle(() => {
-        heroVideoTimer = window.setTimeout(() => {
-            startHeroVideoLazyLoad();
-        }, 1800);
+    cancelAnimationFrame(heroVideoFrame);
+    nextTick(() => {
+        heroVideoFrame = requestAnimationFrame(() => {
+            loadHeroVideo();
+            heroVideoFrame = 0;
+        });
     });
 };
 
-const cleanupHeroVideoLazyLoad = () => {
-    if (heroVideoTimer) {
-        window.clearTimeout(heroVideoTimer);
-        heroVideoTimer = null;
+const handleHeroWindowLoad = () => {
+    heroWindowLoadPending = false;
+    scheduleHeroVideoLoad();
+};
+
+const queueHeroVideoLoad = () => {
+    if (props.hideHeader) return;
+
+    if (document.readyState === "complete") {
+        scheduleHeroVideoLoad();
+        return;
     }
 
-    if (heroVideoObserver) {
-        heroVideoObserver.disconnect();
-        heroVideoObserver = null;
+    if (!heroWindowLoadPending) {
+        heroWindowLoadPending = true;
+        window.addEventListener("load", handleHeroWindowLoad, { once: true });
     }
 };
+
+const cleanupHeroVideoLoad = () => {
+    cancelAnimationFrame(heroVideoFrame);
+    heroVideoFrame = 0;
+
+    if (heroWindowLoadPending) {
+        window.removeEventListener("load", handleHeroWindowLoad);
+        heroWindowLoadPending = false;
+    }
+};
+
+const retryHeroVideoPlayback = () => {
+    const video = heroVideoRef.value;
+
+    if (!props.hideHeader && video?.paused && !video.error) {
+        heroVideoFailed.value = false;
+        attemptHeroVideoPlayback();
+    }
+};
+
+const handleHeroVisibilityChange = () => {
+    if (document.visibilityState === "visible") retryHeroVideoPlayback();
+};
+
+watch(
+    () => props.hideHeader,
+    (isHidden) => {
+        if (isHidden) {
+            cleanupHeroVideoLoad();
+            heroVideoRef.value?.pause();
+            heroVideoReady.value = false;
+            heroVideoFailed.value = false;
+            return;
+        }
+
+        queueHeroVideoLoad();
+    }
+);
 
 const fetchWallet = async () => {
     if (!localStorage.getItem("auth_token")) return;
@@ -798,24 +817,32 @@ onMounted(() => {
     syncHtmlDirection();
 
     refreshUserState();
-    scheduleHeroVideoLazyLoad();
+    queueHeroVideoLoad();
 
     window.addEventListener("storage", handleThemeStorageChange);
     window.addEventListener("storage", handleWalletStorageChange);
     window.addEventListener("wallet-updated", handleWalletUpdated);
     window.addEventListener("login", refreshUserState);
     window.addEventListener("lang-changed", handleLangChanged);
+    window.addEventListener("pageshow", retryHeroVideoPlayback);
+    document.addEventListener("visibilitychange", handleHeroVisibilityChange);
+    document.addEventListener("pointerdown", retryHeroVideoPlayback, { passive: true });
+    document.addEventListener("touchstart", retryHeroVideoPlayback, { passive: true });
     document.addEventListener("click", handleDocumentClick);
 });
 
 onBeforeUnmount(() => {
-    cleanupHeroVideoLazyLoad();
+    cleanupHeroVideoLoad();
 
     window.removeEventListener("storage", handleThemeStorageChange);
     window.removeEventListener("storage", handleWalletStorageChange);
     window.removeEventListener("wallet-updated", handleWalletUpdated);
     window.removeEventListener("login", refreshUserState);
     window.removeEventListener("lang-changed", handleLangChanged);
+    window.removeEventListener("pageshow", retryHeroVideoPlayback);
+    document.removeEventListener("visibilitychange", handleHeroVisibilityChange);
+    document.removeEventListener("pointerdown", retryHeroVideoPlayback);
+    document.removeEventListener("touchstart", retryHeroVideoPlayback);
     document.removeEventListener("click", handleDocumentClick);
 });
 </script>
@@ -862,8 +889,8 @@ onBeforeUnmount(() => {
     overflow: hidden;
     pointer-events: none;
     background:
-        radial-gradient(circle at 50% 46%, rgba(43, 166, 222, 0.16), transparent 24%),
-        radial-gradient(circle at 50% 50%, rgba(21, 70, 119, 0.12), transparent 44%),
+        radial-gradient(circle at 50% 46%, rgba(43, 166, 222, 0.12), transparent 24%),
+        radial-gradient(circle at 50% 50%, rgba(21, 70, 119, 0.1), transparent 44%),
         linear-gradient(135deg, rgba(247, 252, 255, 0.98), rgba(226, 244, 255, 0.96));
 }
 
@@ -876,6 +903,17 @@ onBeforeUnmount(() => {
     object-position: center;
     display: block;
     pointer-events: none;
+}
+
+.nb-hero-poster {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
 }
 
 .nb-hero-video {
