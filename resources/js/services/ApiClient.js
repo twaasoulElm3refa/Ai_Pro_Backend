@@ -3,9 +3,9 @@ import toastr from "toastr";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { toApiRequestUrl } from "@/utils/apiUrl";
 
-const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || "/api/v1").trim();
+const configuredApiBaseUrl = String("/api/v1" || "/api/v1").trim();
 const API_BASE_URL = configuredApiBaseUrl.replace(/\/+$/, "") || "/api/v1";
-const PUBLIC_API_KEY = String(import.meta.env.VITE_API_KEY || "").trim();
+const PUBLIC_API_KEY = String("L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy" || "L5W9R2Qx1T7p4Z8Vn6Hj3KcDmBaDsEUy").trim();
 
 let fingerprintPromise = null;
 

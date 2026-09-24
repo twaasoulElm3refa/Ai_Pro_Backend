@@ -3,8 +3,11 @@
         <!-- SEO / LAZY HERO MEDIA -->
         <template v-if="!hideHeader">
             <div class="nb-hero-media" aria-hidden="true">
-                <img class="nb-hero-poster" :src="heroVideoPoster" alt="" width="1600" height="900"
-                    fetchpriority="high" decoding="async" />
+                <picture class="nb-hero-poster">
+                    <source :srcset="heroVideoPoster" type="image/webp" />
+                    <img src="/images/hero.png" alt="" width="1600" height="900" fetchpriority="high"
+                        decoding="async" />
+                </picture>
 
                 <video v-if="shouldLoadHeroVideo" ref="heroVideoRef" class="nb-hero-video"
                     :class="{ 'is-ready': heroVideoReady }" :poster="heroVideoPoster" autoplay muted loop playsinline
@@ -909,6 +912,12 @@ onBeforeUnmount(() => {
     position: absolute;
     inset: 0;
     z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.nb-hero-poster img {
     display: block;
     width: 100%;
     height: 100%;
