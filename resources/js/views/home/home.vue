@@ -54,20 +54,26 @@
                             <i class="bi bi-chevron-left" aria-hidden="true"></i>
                         </button>
 
-                        <div ref="trendCarousel" class="home-trends-viewport" dir="rtl"
+                        <div ref="trendCarousel" class="home-trends-viewport" :dir="isArabic ? 'rtl' : 'ltr'"
                             @scroll.passive="syncTrendPage">
                             <div class="home-trends-track">
-                                <template v-if="trendToolsLoading">
-                                    <article v-for="item in 2" :key="`trend-skeleton-${item}`"
+                                <div v-if="trendToolsLoading" class="home-trends-page"
+                                    :style="{ '--trend-columns': trendCardsPerView }">
+                                    <article v-for="item in trendCardsPerView" :key="`trend-skeleton-${item}`"
                                         class="home-trend-card home-trend-skeleton" aria-hidden="true">
                                         <span class="home-trend-skeleton-line"></span>
                                     </article>
-                                </template>
+                                </div>
 
-                                <template v-else>
-                                    <button v-for="(tool, index) in trendCarouselTools"
-                                        :key="`${tool.id}-${index}`" type="button"
+                                <div v-for="(page, pageIndex) in trendCarouselPages" v-else
+                                    :key="`trend-page-${pageIndex}`" class="home-trends-page"
+                                    :class="{ 'is-clone': page.isClone }"
+                                    :style="{ '--trend-columns': trendCardsPerView }"
+                                    :aria-hidden="page.isClone ? 'true' : undefined">
+                                    <button v-for="(tool, index) in page.items"
+                                        :key="`${tool.id}-${pageIndex}-${index}`" type="button"
                                         class="home-trend-card" :dir="isArabic ? 'rtl' : 'ltr'"
+                                        :tabindex="page.isClone ? -1 : 0"
                                         :aria-label="t('user.home.openAria', { name: tool.name || tool.slug })"
                                         @click="goToTrendTool(tool)">
                                         <img :src="tool.imageUrl" :alt="tool.name" loading="lazy"
@@ -75,7 +81,7 @@
                                         <span class="home-trend-overlay" aria-hidden="true"></span>
                                         <span class="home-trend-name">{{ tool.name }}</span>
                                     </button>
-                                </template>
+                                </div>
                             </div>
                         </div>
 
@@ -267,7 +273,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import homeService from "@/services/home/homeService";
@@ -291,8 +297,11 @@ const trendMainTool = ref(null);
 const trendTools = ref([]);
 const trendCarousel = ref(null);
 const trendCurrentPage = ref(0);
-const trendCardsPerView = ref(2);
+const trendCardsPerView = ref(
+    typeof window !== "undefined" && window.innerWidth < 768 ? 1 : 2
+);
 let trendScrollFrame = 0;
+let trendResizeFrame = 0;
 let trendAutoplayTimer = 0;
 let trendLoopResetTimer = 0;
 const trendObjectUrls = new Set();
@@ -326,10 +335,30 @@ const trendPageCount = computed(() => Math.max(
     1,
     Math.ceil(trendTools.value.length / trendCardsPerView.value)
 ));
-const trendCarouselTools = computed(() => trendPageCount.value > 1
-    ? [...trendTools.value, ...trendTools.value.slice(0, trendCardsPerView.value)]
-    : trendTools.value
-);
+const trendPages = computed(() => {
+    const pages = [];
+
+    for (let index = 0; index < trendTools.value.length; index += trendCardsPerView.value) {
+        pages.push(trendTools.value.slice(index, index + trendCardsPerView.value));
+    }
+
+    const lastPage = pages.at(-1);
+    if (pages.length > 1 && lastPage?.length < trendCardsPerView.value) {
+        const missingCards = trendCardsPerView.value - lastPage.length;
+        lastPage.push(...trendTools.value.slice(0, missingCards));
+    }
+
+    return pages;
+});
+const trendCarouselPages = computed(() => {
+    const pages = trendPages.value.map((items) => ({ items, isClone: false }));
+
+    if (pages.length > 1) {
+        pages.push({ items: [...pages[0].items], isClone: true });
+    }
+
+    return pages;
+});
 const trendPhysicalPageCount = computed(() => trendPageCount.value + (trendPageCount.value > 1 ? 1 : 0));
 
 const seoTitle = computed(() =>
@@ -558,9 +587,22 @@ const startTrendAutoplay = () => {
 };
 
 const updateTrendCardsPerView = () => {
-    trendCardsPerView.value = 2;
-    trendCurrentPage.value = Math.min(trendCurrentPage.value, trendPageCount.value - 1);
-    goToTrendPage(trendCurrentPage.value, "auto");
+    cancelAnimationFrame(trendResizeFrame);
+    trendResizeFrame = requestAnimationFrame(async () => {
+        const previousCardsPerView = trendCardsPerView.value;
+        const firstVisibleCard = trendCurrentPage.value * previousCardsPerView;
+        const nextCardsPerView = window.innerWidth < 768 ? 1 : 2;
+
+        trendCardsPerView.value = nextCardsPerView;
+        trendCurrentPage.value = Math.min(
+            Math.floor(firstVisibleCard / nextCardsPerView),
+            trendPageCount.value - 1
+        );
+
+        await nextTick();
+        goToTrendPage(trendCurrentPage.value, "auto");
+        startTrendAutoplay();
+    });
 };
 
 const goToTrendPage = (page, behavior = "smooth") => {
@@ -578,7 +620,8 @@ const scrollToTrendPhysicalPage = (page, behavior = "smooth") => {
     const lastPhysicalPage = Math.max(0, trendPhysicalPageCount.value - 1);
     const physicalPage = Math.min(Math.max(Number(page) || 0, 0), lastPhysicalPage);
     const maxScroll = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
-    const left = lastPhysicalPage === 0 ? 0 : -((physicalPage / lastPhysicalPage) * maxScroll);
+    const distance = lastPhysicalPage === 0 ? 0 : (physicalPage / lastPhysicalPage) * maxScroll;
+    const left = isArabic.value ? -distance : distance;
     viewport.scrollTo({ left, behavior });
 };
 
@@ -689,6 +732,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
     cancelAnimationFrame(trendScrollFrame);
+    cancelAnimationFrame(trendResizeFrame);
     stopTrendAutoplay();
     if (trendLoopResetTimer) window.clearTimeout(trendLoopResetTimer);
     clearTrendObjectUrls();
@@ -2425,7 +2469,9 @@ html[data-theme="dark"] .skeleton-popular-icon {
     position: relative;
     z-index: 2;
     margin-bottom: 32px;
-    padding: 26px 24px 22px;
+    min-width: 0;
+    max-width: 100%;
+    padding: clamp(22px, 2vw, 26px) clamp(16px, 2vw, 24px) clamp(19px, 1.8vw, 22px);
     overflow: hidden;
     border: 1px solid rgba(21, 70, 119, 0.1);
     border-radius: 26px;
@@ -2463,6 +2509,8 @@ html[data-theme="dark"] .skeleton-popular-icon {
 
 .home-trends-slider {
     position: relative;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .home-trends-arrow {
@@ -2471,8 +2519,8 @@ html[data-theme="dark"] .skeleton-popular-icon {
     top: 50%;
     display: grid;
     place-items: center;
-    width: 46px;
-    height: 46px;
+    width: clamp(38px, 3.2vw, 46px);
+    height: clamp(38px, 3.2vw, 46px);
     padding: 0;
     border: 1px solid rgba(255, 255, 255, 0.72);
     border-radius: 50%;
@@ -2484,11 +2532,15 @@ html[data-theme="dark"] .skeleton-popular-icon {
 }
 
 .home-trends-arrow.is-next {
-    right: 12px;
+    inset-inline-end: clamp(7px, 1vw, 12px);
 }
 
 .home-trends-arrow.is-previous {
-    left: 12px;
+    inset-inline-start: clamp(7px, 1vw, 12px);
+}
+
+.home-tools-page[dir="rtl"] .home-trends-arrow i {
+    transform: rotate(180deg);
 }
 
 .home-trends-arrow:not(:disabled):hover,
@@ -2507,7 +2559,12 @@ html[data-theme="dark"] .skeleton-popular-icon {
 
 .home-trends-viewport {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 6px 8px;
+    margin-block: -6px -8px;
     overflow-x: auto;
+    overflow-y: hidden;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
@@ -2521,14 +2578,28 @@ html[data-theme="dark"] .skeleton-popular-icon {
 
 .home-trends-track {
     display: flex;
-    gap: 16px;
+    align-items: stretch;
+    gap: clamp(12px, 1.2vw, 16px);
+    min-width: 100%;
+}
+
+.home-trends-page {
+    display: grid;
+    flex: 0 0 100%;
+    grid-template-columns: repeat(var(--trend-columns, 2), minmax(0, 1fr));
+    gap: clamp(12px, 1.2vw, 16px);
+    min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
 }
 
 .home-trend-card {
     position: relative;
-    flex: 0 0 calc((100% - 16px) / 2);
+    display: block;
+    width: 100%;
     min-width: 0;
-    height: 250px;
+    height: auto;
+    aspect-ratio: 16 / 9;
     padding: 0;
     overflow: hidden;
     border: 0;
@@ -2537,7 +2608,6 @@ html[data-theme="dark"] .skeleton-popular-icon {
     box-shadow: 0 16px 34px rgba(21, 70, 119, 0.14);
     color: #fff;
     cursor: pointer;
-    scroll-snap-align: start;
     isolation: isolate;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -2559,6 +2629,8 @@ html[data-theme="dark"] .skeleton-popular-icon {
 }
 
 .home-trend-card img {
+    display: block;
+    max-width: 100%;
     object-fit: cover;
     transition: transform 0.5s ease;
 }
@@ -2576,10 +2648,10 @@ html[data-theme="dark"] .skeleton-popular-icon {
 .home-trend-name {
     position: absolute;
     z-index: 2;
-    inset-inline: 20px;
-    bottom: 19px;
+    inset-inline: clamp(15px, 2vw, 20px);
+    bottom: clamp(14px, 1.6vw, 19px);
     color: #fff;
-    font-size: 20px;
+    font-size: clamp(16px, 1.5vw, 20px);
     font-weight: 950;
     line-height: 1.4;
     text-align: start;
@@ -2632,7 +2704,7 @@ html[data-theme="dark"] .skeleton-popular-icon {
     }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 767px) {
     .home-trends-section {
         margin-inline: -4px;
         padding: 22px 16px 19px;
@@ -2643,30 +2715,16 @@ html[data-theme="dark"] .skeleton-popular-icon {
         align-items: center;
     }
 
-    .home-trends-arrow {
-        width: 40px;
-        height: 40px;
-    }
-
-    .home-trends-arrow.is-next {
-        right: 8px;
-    }
-
-    .home-trends-arrow.is-previous {
-        left: 8px;
-    }
-
-    .home-trends-track {
-        gap: 12px;
-    }
-
-    .home-trend-card {
-        flex-basis: calc((100% - 12px) / 2);
-        height: 225px;
+    .home-trends-header h3 {
+        font-size: clamp(19px, 6vw, 24px);
     }
 
     .home-trend-name {
-        font-size: 19px;
+        padding-inline: 42px;
+        font-size: clamp(16px, 5vw, 19px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 
