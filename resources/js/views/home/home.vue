@@ -513,14 +513,20 @@ const fetchRandomSubTools = async () => {
     }
 };
 
-const normalizeHomeTrendTool = (tool = {}) => ({
-    id: Number(tool.id),
-    name: tool.name || tool.slug || "",
-    slug: tool.slug || "",
-    previewUrl: tool.image?.preview_url || "",
-    imageUrl: tool.image?.preview_url || "",
-    endpoint: tool.endpoint || "",
-});
+const normalizeHomeTrendTool = (tool = {}) => {
+    const rawPreview = tool.image?.preview_url || "";
+    // Provide a fallback so valid tools aren't aggressively filtered out if the DB lacks an image
+    const finalPreview = rawPreview ? rawPreview : "/images/ai-hero-bg.webp"; 
+    
+    return {
+        id: Number(tool.id),
+        name: tool.name || tool.slug || "",
+        slug: tool.slug || "",
+        previewUrl: finalPreview,
+        imageUrl: finalPreview,
+        endpoint: tool.endpoint || "",
+    };
+};
 
 const fetchHomeTrendTools = async () => {
     trendToolsLoading.value = true;
