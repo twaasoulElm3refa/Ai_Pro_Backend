@@ -56,6 +56,16 @@ class SubTools extends Model
         return $this->hasOne(GeneratedImage::class, 'sub_tool_id')->latestOfMany();
     }
 
+    public function firstGeneratedImage()
+    {
+        return $this->hasOne(GeneratedImage::class, 'sub_tool_id')
+            ->ofMany('id', 'min')
+            ->whereHas('message', function ($query) {
+                $query->where('role', 'assistant')
+                      ->where('is_error', false);
+            });
+    }
+
     public function cost()
     {
         return $this->hasMany(CostLogger::class, 'sub_tool_id');

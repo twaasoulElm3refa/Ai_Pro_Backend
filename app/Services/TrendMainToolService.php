@@ -65,25 +65,31 @@ class TrendMainToolService
                 'endpoint',
             ]);
 
-        $latestImages = collect();
+        $firstImages = collect();
 
-        if ($userId !== null && $subTools->isNotEmpty()) {
-            $latestImages = GeneratedImage::query()
-                ->where('user_id', $userId)
+        if ($subTools->isNotEmpty()) {
+            // Get the ID of the first generated image for each sub_tool
+            $firstImageIds = GeneratedImage::query()
+                ->selectRaw('MIN(id) as id')
                 ->whereIn('sub_tool_id', $subTools->pluck('id'))
                 ->whereHas('message', fn ($query) => $query
                     ->where('role', 'assistant')
                     ->where('is_error', false))
-                ->latest('id')
-                ->get()
-                ->unique('sub_tool_id')
-                ->keyBy('sub_tool_id');
+                ->groupBy('sub_tool_id')
+                ->pluck('id');
+
+            if ($firstImageIds->isNotEmpty()) {
+                $firstImages = GeneratedImage::query()
+                    ->whereIn('id', $firstImageIds)
+                    ->get()
+                    ->keyBy('sub_tool_id');
+            }
         }
 
-        $subTools->each(function ($subTool) use ($latestImages): void {
+        $subTools->each(function ($subTool) use ($firstImages): void {
             $subTool->setRelation(
-                'latestGeneratedImage',
-                $latestImages->get($subTool->id)
+                'firstGeneratedImage',
+                $firstImages->get($subTool->id)
             );
         });
 

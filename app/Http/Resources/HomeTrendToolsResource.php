@@ -25,8 +25,8 @@ class HomeTrendToolsResource extends JsonResource
                 $translation = $tool->relationLoaded('translation')
                     ? $tool->translation
                     : null;
-                $latestImage = $tool->relationLoaded('latestGeneratedImage')
-                    ? $tool->latestGeneratedImage
+                $firstImage = $tool->relationLoaded('firstGeneratedImage')
+                    ? $tool->firstGeneratedImage
                     : null;
 
                 return [
@@ -34,16 +34,16 @@ class HomeTrendToolsResource extends JsonResource
                     'name' => $translation?->name ?: $tool->name,
                     'slug' => $tool->slug,
                     'image' => [
-                        'id' => $latestImage?->public_id,
-                        'preview_url' => $latestImage
+                        'id' => $firstImage?->public_id,
+                        'preview_url' => $firstImage
                             ? URL::temporarySignedRoute(
                                 'generated-images.home-preview',
                                 $previewExpiresAt,
-                                ['image' => $latestImage],
+                                ['image' => $firstImage],
                                 absolute: false
                             )
                             : ($tool->image ? (preg_match('/^(https?:)?\/\//i', $tool->image) ? $tool->image : asset('storage/' . preg_replace('/^storage\//i', '', $tool->image))) : null),
-                        'content_type' => $latestImage?->content_type,
+                        'content_type' => $firstImage?->content_type,
                     ],
                     'endpoint' => $tool->endpoint,
                 ];
