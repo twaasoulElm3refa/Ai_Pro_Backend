@@ -2720,4 +2720,18 @@ html[data-theme="dark"] .home-trends-arrow {
     background: var(--theme-surface-elevated);
     border-color: var(--theme-border);
 }
+.home-trends-section {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.home-trends-page {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.home-trend-card {
+    display: block !important;
+    visibility: visible !important;
+}
 </style>
