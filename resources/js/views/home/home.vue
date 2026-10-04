@@ -516,7 +516,7 @@ const fetchRandomSubTools = async () => {
 const normalizeHomeTrendTool = (tool = {}) => {
     const rawPreview = tool.image?.preview_url || "";
     // Provide a fallback so valid tools aren't aggressively filtered out if the DB lacks an image
-    const finalPreview = rawPreview ? rawPreview : "/images/ai-hero-bg.webp"; 
+    const finalPreview = rawPreview ? rawPreview : "/images/default_tool.webp"; 
     
     return {
         id: Number(tool.id),
