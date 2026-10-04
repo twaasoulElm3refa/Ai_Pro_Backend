@@ -33,16 +33,18 @@ class HomeTrendToolsResource extends JsonResource
                     'id' => (int) $tool->id,
                     'name' => $translation?->name ?: $tool->name,
                     'slug' => $tool->slug,
-                    'image' => $latestImage ? [
-                        'id' => $latestImage->public_id,
-                        'preview_url' => URL::temporarySignedRoute(
-                            'generated-images.home-preview',
-                            $previewExpiresAt,
-                            ['image' => $latestImage],
-                            absolute: false
-                        ),
-                        'content_type' => $latestImage->content_type,
-                    ] : null,
+                    'image' => [
+                        'id' => $latestImage?->public_id,
+                        'preview_url' => $latestImage
+                            ? URL::temporarySignedRoute(
+                                'generated-images.home-preview',
+                                $previewExpiresAt,
+                                ['image' => $latestImage],
+                                absolute: false
+                            )
+                            : ($tool->image ? (preg_match('/^(https?:)?\/\//i', $tool->image) ? $tool->image : asset('storage/' . preg_replace('/^storage\//i', '', $tool->image))) : null),
+                        'content_type' => $latestImage?->content_type,
+                    ],
                     'endpoint' => $tool->endpoint,
                 ];
             })->values()->all(),
