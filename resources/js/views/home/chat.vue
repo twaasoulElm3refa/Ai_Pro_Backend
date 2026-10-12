@@ -730,6 +730,7 @@ import DOMPurify from "dompurify";
 import homeService from "@/services/home/homeService";
 import chatServices from "@/services/chat/chatServices";
 import useSeoMeta from "@/composables/useSeoMeta";
+import { normalizeInsufficientCredits, publishInsufficientCredits } from "@/utils/insufficientCredits";
 
 const route = useRoute();
 const router = useRouter();
@@ -781,6 +782,11 @@ const hasActiveConversation = computed(() =>
     Boolean(activeConversation.value?.uuid || route.params.uuid)
 );
 const userInput = ref("");
+const restoreCreditDraft = (error, text) => {
+    if (!normalizeInsufficientCredits(error)) return false;
+    if (!userInput.value) userInput.value = String(text || "");
+    return true;
+};
 const searchEnabled = ref(false);
 const inputFocused = ref(false);
 const sidebarOpen = ref(false);
@@ -1220,6 +1226,13 @@ const openAssistantStream = async (conversation, afterId) => {
         }
 
         if (payload.type === "error") {
+            const creditError = publishInsufficientCredits(payload);
+            if (creditError) {
+                if (!userInput.value) userInput.value = String(messages.value[index - 1]?.content || "");
+                messages.value.splice(index, 1);
+                closeAssistantStream();
+                return;
+            }
             const errorContent = payload.content || t("user.chat.genericError");
 
             messages.value[index].content = errorContent;
@@ -3775,6 +3788,7 @@ const sendTextSummarizerRequest = async (payload, options = {}) => {
         console.error("[TextSummarizer] send failed:", error);
         console.error("[TextSummarizer] validation response:", error?.response?.data);
         removeAssistantTypingMessage(typingId);
+        if (restoreCreditDraft(error, body)) return false;
         await addAssistantLocalMessage(error?.response?.data?.message || "حدث خطأ أثناء إرسال طلب الأداة. راجع البيانات المطلوبة.", {
             plainText: true,
             is_error: true,
@@ -6314,6 +6328,7 @@ const handleSocialPostGeneratorSubmit = async (text, options = {}) => {
         await focusChatInput();
     } catch (error) {
         removeAssistantTypingMessage(typingId);
+        if (restoreCreditDraft(error, inputText)) return;
         console.error("[SocialPostGenerator] frontend send error:", error);
         await addAssistantLocalMessage(
             "حصل خطأ أثناء توليد منشور السوشيال. جرّب مرة أخرى.",
@@ -6546,6 +6561,7 @@ const handleEmailWriterSubmit = async (text, options = {}) => {
         await focusChatInput();
     } catch (error) {
         removeAssistantTypingMessage(typingId);
+        if (restoreCreditDraft(error, inputText)) return;
         console.error("[EmailWriter] frontend send error:", error);
         await addAssistantLocalMessage("حدث خطأ أثناء كتابة الإيميل.", {
             plainText: true,
@@ -6717,6 +6733,7 @@ const handleScriptGeneratorSubmit = async (text) => {
         await focusChatInput();
     } catch (error) {
         removeAssistantTypingMessage(typingId);
+        if (restoreCreditDraft(error, inputText)) return;
         console.error("[ScriptGenerator] frontend send error:", error);
         await addAssistantLocalMessage("حدث خطأ أثناء توليد السكريبت.", {
             plainText: true,
@@ -6893,6 +6910,7 @@ const handleProductDescriptionSubmit = async (text, options = {}) => {
         await focusChatInput();
     } catch (error) {
         removeAssistantTypingMessage(typingId);
+        if (restoreCreditDraft(error, inputText)) return;
         await addAssistantLocalMessage(
             error?.response?.data?.message || (
                 isArabic.value

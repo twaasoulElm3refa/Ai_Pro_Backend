@@ -160,6 +160,9 @@ class SpeechToTextService
                 $userId
             );
         } catch (Throwable $exception) {
+            if ($exception instanceof \App\Exceptions\InsufficientCreditsException) {
+                throw $exception;
+            }
             Log::warning('Speech-to-text request failed.', [
                 'user_id' => $userId,
                 'conversation_id' => $conversation->id,
@@ -216,6 +219,9 @@ class SpeechToTextService
 
         $result = $response->json();
         if (! $response->successful() || ! is_array($result)) {
+            if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($result, $response->status())) {
+                throw $creditError;
+            }
             throw new RuntimeException('Speech-to-text provider did not complete the request.');
         }
 

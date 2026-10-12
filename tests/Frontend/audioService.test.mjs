@@ -4,9 +4,12 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 const source = await readFile("resources/js/services/audioService.js", "utf8");
+const normalizerSource = await readFile("resources/js/utils/insufficientCredits.js", "utf8");
 
 async function serviceWithKey(key) {
-    const moduleSource = source.replace("import.meta.env.VITE_INTERNAL_API_KEY", JSON.stringify(key));
+    const moduleSource = source
+        .replace('from "@/utils/insufficientCredits"', `from "data:text/javascript,${encodeURIComponent(normalizerSource)}"`)
+        .replace(/const key = String\([^;]+\)\.trim\(\);/, `const key = String(${JSON.stringify(key)}).trim();`);
     return import(`data:text/javascript,${encodeURIComponent(moduleSource)}`);
 }
 
@@ -93,6 +96,19 @@ test("speech failures distinguish authorization, missing files, invalid response
     }
 });
 
+test("speech generation preserves a structured FastAPI credit rejection", async () => {
+    const service = await serviceWithKey("test-internal-key");
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({
+        detail: { code: "INSUFFICIENT_CREDITS", available_credits: 9676, required_credits: 22000, shortfall_credits: 12324 },
+    }), { status: 422, headers: { "Content-Type": "application/json" } });
+    try {
+        await assert.rejects(service.generateSpeech(request), { code: "INSUFFICIENT_CREDITS" });
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 test("a missing client key fails before sending a request", async () => {
     const service = await serviceWithKey("");
     const originalFetch = globalThis.fetch;
@@ -128,6 +144,7 @@ test("the TTS chat sends its selected IDs and adds a playable assistant attachme
         wasRecentlySent: () => false,
         rememberSentRequest() {},
         generateSpeech: async (input) => { calls.push(input); return file; },
+        normalizeInsufficientCredits: () => null,
         downloadAudioFile: async (downloadFile) => {
             downloads.push(downloadFile);
             if (failDownload) throw { code: "download_failed" };

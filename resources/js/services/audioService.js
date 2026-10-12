@@ -1,3 +1,5 @@
+import { publishInsufficientCredits } from "@/utils/insufficientCredits";
+
 const AUDIO_API_ORIGIN = "https://api.aiarabic.com";
 const DOWNLOAD_PATH = /^\/tasks\/generated-files\/download\/[A-Za-z0-9-]+$/;
 
@@ -15,7 +17,13 @@ function apiKey() {
     return key;
 }
 
-function checkResponse(response, failureCode) {
+async function checkResponse(response, failureCode) {
+    if (!response.ok) {
+        const payload = await response.clone().json().catch(() => null);
+        if (publishInsufficientCredits(payload)) {
+            throw new AudioServiceError("INSUFFICIENT_CREDITS");
+        }
+    }
     if (response.status === 401 || response.status === 403) {
         throw new AudioServiceError("unauthorized");
     }
@@ -46,7 +54,7 @@ export async function generateSpeech({ userId, modelId, selectedModelId, convers
         if (error instanceof AudioServiceError) throw error;
         throw new AudioServiceError("generation_failed");
     }
-    checkResponse(response, "generation_failed");
+    await checkResponse(response, "generation_failed");
 
     let result;
     try {
@@ -55,6 +63,7 @@ export async function generateSpeech({ userId, modelId, selectedModelId, convers
         throw new AudioServiceError("invalid_response");
     }
     if (!result || typeof result !== "object" || result.success !== true) {
+        if (publishInsufficientCredits(result)) throw new AudioServiceError("INSUFFICIENT_CREDITS");
         throw new AudioServiceError("generation_failed");
     }
     if (result.type !== "result" || result.tool !== "general_audio" || !Array.isArray(result.files)) {
@@ -84,7 +93,7 @@ export async function downloadAudioFile(file) {
         if (error instanceof AudioServiceError) throw error;
         throw new AudioServiceError("download_failed");
     }
-    checkResponse(response, "download_failed");
+    await checkResponse(response, "download_failed");
     let blob;
     try {
         blob = await response.blob();

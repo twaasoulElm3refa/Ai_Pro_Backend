@@ -490,6 +490,15 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
             ]);
 
             $this->clearProfileCache($conversation->user_id);
+        } catch (\App\Exceptions\InsufficientCreditsException $exception) {
+            if (isset($userMessage) && $userMessage instanceof Message) {
+                $this->createAssistantErrorMessage(
+                    $userMessage,
+                    $exception->getMessage(),
+                    $messageCache,
+                    $exception->payload()
+                );
+            }
         } finally {
             Cache::forget(self::dispatchMarkerKey($this->userMessageId));
             $lock->release();
@@ -499,7 +508,8 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
     protected function createAssistantErrorMessage(
         Message $userMessage,
         string $content,
-        ConversationMessageCacheService $messageCache
+        ConversationMessageCacheService $messageCache,
+        array $metadata = []
     ): void {
         $conversation = $userMessage->conversation;
 
@@ -516,6 +526,7 @@ class GenerateAssistantReplyJob implements ShouldBeUnique, ShouldQueue
                 'content' => $content,
                 'role' => 'assistant',
                 'is_error' => true,
+                'metadata' => $metadata,
             ]
         );
 

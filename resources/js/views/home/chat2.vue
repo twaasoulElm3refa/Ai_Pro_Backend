@@ -264,6 +264,7 @@ import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
 import { cleanPromptEnhancerText } from "@/utils/promptEnhancerResults";
+import { normalizeInsufficientCredits, publishInsufficientCredits } from "@/utils/insufficientCredits";
 import {
     createIdeaGeneratorState,
     extractIdeaGeneratorResults,
@@ -1644,6 +1645,12 @@ const openAssistantStream = async (conversation, afterId, toolContext = {}) => {
         }
 
         if (payload.type === "error" && index >= 0) {
+            if (publishInsufficientCredits(payload)) {
+                if (!userMessage.value) userMessage.value = String(messages.value[index - 1]?.content || "");
+                messages.value.splice(index, 1);
+                closeStream();
+                return;
+            }
             messages.value[index].typing = false;
             messages.value[index].is_error = true;
             messages.value[index].content = payload.content || copy.value.genericError;
@@ -1907,6 +1914,12 @@ const sendMessage = async (request = {}) => {
         });
         closeSendDebugGroup();
     } catch (error) {
+        if (normalizeInsufficientCredits(error)) {
+            if (!userMessage.value) userMessage.value = text;
+            errorMessage.value = "";
+            closeSendDebugGroup();
+            return;
+        }
         console.groupCollapsed("SEND MESSAGE ERROR DEBUG");
         console.error("Caught error:", error);
         console.error("error.response:", error?.response);

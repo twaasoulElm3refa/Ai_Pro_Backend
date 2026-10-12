@@ -177,6 +177,9 @@ class GeneratedImageService
 
             return $this->responseFromAssistant($assistantMessage, $conversation, $userId);
         } catch (Throwable $exception) {
+            if ($exception instanceof \App\Exceptions\InsufficientCreditsException) {
+                throw $exception;
+            }
             Log::warning('Image generation failed.', [
                 'user_id' => $userId,
                 'conversation_id' => $conversation->id,

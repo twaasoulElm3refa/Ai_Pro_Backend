@@ -197,6 +197,9 @@ class FreeAiChatService
         $payload = $response->json();
         if (! $response->successful() || ! is_array($payload) || ($payload['success'] ?? false) !== true) {
             $this->updateMessageStatus($userMessage, 'failed', 'provider');
+            if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($payload, $response->status())) {
+                throw $creditError;
+            }
             throw new FreeAiChatException(
                 'تعذر تحويل الملف الصوتي إلى نص.',
                 $response->status() === 429 ? 429 : 502,
@@ -446,6 +449,9 @@ class FreeAiChatService
         $payload = $response->json();
         if (! $response->successful() || ! is_array($payload) || ($payload['success'] ?? false) !== true) {
             $this->updateMessageStatus($userMessage, 'failed', 'provider');
+            if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($payload, $response->status())) {
+                throw $creditError;
+            }
             Log::warning('Free AI model provider failed.', [
                 'tool_type' => $source,
                 'user_id' => $conversation->user_id,

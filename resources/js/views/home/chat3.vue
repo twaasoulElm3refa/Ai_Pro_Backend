@@ -231,6 +231,7 @@ import DOMPurify from "dompurify";
 import chatServices from "@/services/chat/chatServices";
 import homeService from "@/services/home/homeService";
 import useSeoMeta from "@/composables/useSeoMeta";
+import { normalizeInsufficientCredits, publishInsufficientCredits } from "@/utils/insufficientCredits";
 
 const KEYWORD_GENERATOR_SUB_TOOL_ID = 13;
 const KEYWORD_GENERATOR_TOOL_KEY = "ai_keyword_generator";
@@ -1403,6 +1404,12 @@ const openAssistantStream = async (conversation, afterId) => {
         }
 
         if (payload.type === "error") {
+            if (publishInsufficientCredits(payload)) {
+                if (!userMessage.value) userMessage.value = String(messages.value.at(-1)?.content || "");
+                isAssistantTyping.value = false;
+                closeStream();
+                return;
+            }
             isAssistantTyping.value = false;
             messages.value.push(mapMessage({
                 localKey: createLocalKey(),
@@ -1592,6 +1599,11 @@ const submitKeywordRequest = async (text, options = {}) => {
         await openAssistantStream(conversation, response?.data?.message_id || directPayload.message_id);
     } catch (error) {
         isAssistantTyping.value = false;
+        if (normalizeInsufficientCredits(error)) {
+            if (!userMessage.value) userMessage.value = cleanText;
+            errorMessage.value = "";
+            return;
+        }
         errorMessage.value =
             error?.response?.data?.message
             || error?.response?.data?.detail

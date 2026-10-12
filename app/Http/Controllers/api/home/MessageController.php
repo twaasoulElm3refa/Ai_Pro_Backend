@@ -441,6 +441,8 @@ class MessageController extends Controller
             }
 
             return $this->handleDefaultFlow($conversation, $data, $content, $userId);
+        } catch (\App\Exceptions\InsufficientCreditsException $th) {
+            throw $th;
         } catch (AiServiceException $th) {
             return $this->aiProviderErrorResponse($th);
         } catch (ValidationException $th) {
@@ -780,6 +782,9 @@ class MessageController extends Controller
         } catch (ValidationException $th) {
             return $this->validationError($th->errors(), 'Invalid SEO tool payload.');
         } catch (Throwable $th) {
+            if ($th instanceof \App\Exceptions\InsufficientCreditsException) {
+                throw $th;
+            }
             Log::warning('Summarizer first attempt failed', [
                 'message' => $th->getMessage(),
                 'state' => $state,
@@ -795,6 +800,9 @@ class MessageController extends Controller
                 $providerPayload['system_prompt'] .= "\nReturn a clean plain-text summary only. Avoid markdown tables.";
                 $providerResponse = $writerService->generateReplyWithUsage($providerPayload, $endpoint);
             } catch (Throwable $retryThrowable) {
+                if ($retryThrowable instanceof \App\Exceptions\InsufficientCreditsException) {
+                    throw $retryThrowable;
+                }
                 Log::error('Summarizer retry failed', [
                     'message' => $retryThrowable->getMessage(),
                     'state' => $state,
@@ -1691,6 +1699,8 @@ PROMPT;
                 $payload,
                 self::SOCIAL_POST_GENERATOR_ENDPOINT
             );
+        } catch (\App\Exceptions\InsufficientCreditsException $th) {
+            throw $th;
         } catch (Throwable $th) {
             $providerError = $th;
 

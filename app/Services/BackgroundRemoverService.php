@@ -153,6 +153,9 @@ class BackgroundRemoverService
 
             return $this->responseFromAssistant($assistantMessage, $conversation, $userId);
         } catch (Throwable $exception) {
+            if ($exception instanceof \App\Exceptions\InsufficientCreditsException) {
+                throw $exception;
+            }
             foreach ($localFiles as $localFile) {
                 if (is_array($localFile) && ! empty($localFile['path'])) {
                     Storage::disk((string) ($localFile['disk'] ?? 'public'))->delete($localFile['path']);
@@ -238,6 +241,9 @@ class BackgroundRemoverService
 
         $result = $response->json();
         if (! $response->successful() || ! is_array($result)) {
+            if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($result, $response->status())) {
+                throw $creditError;
+            }
             throw new RuntimeException('خدمة إزالة الخلفية لم تُكمل الطلب.');
         }
 

@@ -181,6 +181,9 @@ class TextToSpeechService
                 $userId
             );
         } catch (Throwable $exception) {
+            if ($exception instanceof \App\Exceptions\InsufficientCreditsException) {
+                throw $exception;
+            }
             Log::warning('Text-to-speech request failed.', [
                 'user_id' => $userId,
                 'conversation_id' => $conversation->id,

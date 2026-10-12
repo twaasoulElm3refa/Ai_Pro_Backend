@@ -1717,6 +1717,16 @@ async function sendMessage(options = {}) {
         await scrollToBottom();
 
     } catch (error) {
+        if (error?.response?.data?.code === "INSUFFICIENT_CREDITS") {
+            messages.value = messages.value.filter((item) => item.localKey !== optimisticKey);
+            errorMessage.value = "";
+            lastFailedRequest.value = {
+                prompt: rawPrompt,
+                requestState: cleanRequestState(requestState, false, activeSubToolId.value),
+                regenerate: false,
+            };
+            return;
+        }
 
         if (import.meta.env.DEV) {
 

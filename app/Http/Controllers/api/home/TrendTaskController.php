@@ -69,6 +69,8 @@ class TrendTaskController extends Controller
                 $exception->getMessage() ?: 'The request could not be completed.',
                 $exception->getStatusCode()
             );
+        } catch (\App\Exceptions\InsufficientCreditsException $exception) {
+            throw $exception;
         } catch (RuntimeException $exception) {
             Log::warning('Trend image generation request failed.', [
                 'trend' => $trendSlug,

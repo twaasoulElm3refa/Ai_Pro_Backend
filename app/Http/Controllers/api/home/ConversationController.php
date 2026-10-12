@@ -129,6 +129,18 @@ class ConversationController extends Controller
                 return;
             }
 
+            $creditMetadata = is_array($assistantMessage->metadata ?? null)
+                ? $assistantMessage->metadata : [];
+            if (($creditMetadata['code'] ?? null) === 'INSUFFICIENT_CREDITS') {
+                $this->sendSseEvent([
+                    'type' => 'error',
+                    'message_id' => $assistantMessage->id,
+                    ...$creditMetadata,
+                ]);
+
+                return;
+            }
+
             foreach ($this->chunkText($assistantMessage->content) as $chunk) {
                 $this->sendSseEvent([
                     'type' => 'token',

@@ -491,11 +491,12 @@ const submit = async () => {
     const file = selectedFile.value;
     const inputPreview = selectedPreview.value;
     let conversation = activeConversation.value;
+    let localUserMessage;
 
     try {
         if (!conversation?.uuid) conversation = await createConversation();
         const idempotencyKey = resolveIdempotencyKey(conversation.uuid, text, file);
-        const localUserMessage = mapMessage({ role: "user", content: text, inputPreview });
+        localUserMessage = mapMessage({ role: "user", content: text, inputPreview });
         messages.value.push(localUserMessage);
         selectedFile.value = null;
         selectedPreview.value = "";
@@ -522,6 +523,15 @@ const submit = async () => {
         clearPendingRequest(conversation.uuid);
         await loadConversations();
     } catch (error) {
+        if (error.response?.data?.code === "INSUFFICIENT_CREDITS") {
+            prompt.value = text;
+            selectedFile.value = file;
+            selectedPreview.value = inputPreview;
+            messages.value = messages.value.filter((item) => item !== localUserMessage);
+            errorMessage.value = "";
+            if (conversation?.uuid) clearPendingRequest(conversation.uuid);
+            return;
+        }
         const status = error.response?.status;
         if (status && conversation?.uuid) clearPendingRequest(conversation.uuid);
         errorMessage.value = status === 402

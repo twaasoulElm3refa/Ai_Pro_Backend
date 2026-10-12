@@ -64,6 +64,7 @@ async function chatHarness(
             },
             messageRequestSignature, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent,
             recentChatRequests,
+            normalizeInsufficientCredits: () => null,
             PROGRAMMING_LANGUAGES, PROGRAMMING_FRAMEWORKS, programmingLanguageValue,
             MarkdownIt, DOMPurify: { sanitize: (html) => html },
             MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS: 30000,

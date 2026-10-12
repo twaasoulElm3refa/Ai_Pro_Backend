@@ -2410,6 +2410,11 @@ const sendMessage = async () => {
     } catch (error) {
         isAssistantTyping.value = false;
 
+        if (error?.response?.data?.code === "INSUFFICIENT_CREDITS") {
+            messages.value = messages.value.filter((item) => item.localKey !== optimisticUserKey);
+            return;
+        }
+
         if (isResumeBuilder.value) {
             markResumeBuilderAttemptFailed(optimisticUserKey);
         }

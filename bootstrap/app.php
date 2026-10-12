@@ -3,6 +3,7 @@
 use App\Console\Commands\ReconcileMoyasarWalletPayments;
 use App\Console\Commands\ReconcilePayPalWalletPayments;
 use App\Exceptions\AiServiceException;
+use App\Exceptions\InsufficientCreditsException;
 use App\Http\Middleware\AcceptLanguage;
 use App\Http\Middleware\ApiKeyMiddleware;
 use App\Http\Middleware\Utf8JsonResponse;
@@ -29,6 +30,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(Utf8JsonResponse::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->render(function (InsufficientCreditsException $e, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                ...$e->payload(),
+            ], $e->httpStatus);
+        });
+
         $exceptions->render(function (AiServiceException $e, Request $request) {
             Log::error('AI service exception captured by global handler.', [
                 'message' => $e->getMessage(),

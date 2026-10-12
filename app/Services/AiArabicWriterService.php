@@ -167,6 +167,10 @@ class AiArabicWriterService
             ]);
         }
 
+        if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($responsePayload, $response->status())) {
+            throw $creditError;
+        }
+
         if (! $response->successful()) {
             $status = $response->status();
             $body = $response->body();
@@ -404,6 +408,10 @@ class AiArabicWriterService
                 'status' => $response->status(),
                 'error_message' => $jsonThrowable->getMessage(),
             ]);
+        }
+
+        if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($responsePayload, $response->status())) {
+            throw $creditError;
         }
 
         if (! $response->successful()) {

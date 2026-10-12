@@ -206,6 +206,9 @@ class TrendTaskService
 
             return $this->responseFromAssistant($assistantMessage, $conversation, $userId);
         } catch (Throwable $exception) {
+            if ($exception instanceof \App\Exceptions\InsufficientCreditsException) {
+                throw $exception;
+            }
             if (is_array($localFile) && ! empty($localFile['path'])) {
                 Storage::disk((string) $localFile['disk'])->delete($localFile['path']);
             }
@@ -429,6 +432,9 @@ class TrendTaskService
 
         $result = $response->json();
         if (! $response->successful() || ! is_array($result)) {
+            if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($result, $response->status())) {
+                throw $creditError;
+            }
             $upstreamResponse = is_array($result)
                 ? $this->sanitizeUpstreamValue($result)
                 : $this->sanitizeUpstreamText($response->body());

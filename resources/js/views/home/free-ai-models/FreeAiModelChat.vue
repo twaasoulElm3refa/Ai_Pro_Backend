@@ -412,6 +412,7 @@ import homeService from "@/services/home/homeService";
 import freeAiModelService from "@/services/freeAiModels/freeAiModelService";
 import freeAiMediaService from "@/services/freeAiModels/freeAiMediaService";
 import { generateSpeech, downloadAudioFile } from "@/services/audioService";
+import { normalizeInsufficientCredits } from "@/utils/insufficientCredits";
 import { clearAudioChatHistory, readAudioChatHistory, saveAudioChatHistory } from "@/services/audioChatStorage";
 import { MEDIA_MESSAGE_COOLDOWN_MS, MESSAGE_COOLDOWN_MS, RATE_LIMIT_FALLBACK_MS, messageRequestSignature, recentChatRequests, rememberSentRequest, retryAfterMilliseconds, wasRecentlySent } from "@/services/freeAiModels/freeAiChatRateControl";
 import { getFreeAiCatalogSource } from "@/services/freeAiModels/freeAiCatalogSources";
@@ -1052,12 +1053,17 @@ async function sendMessage() {
         upsertConversationSummary(conversation.value);
         await scrollToBottom();
     } catch (error) {
+        if (normalizeInsufficientCredits(error)) {
+            messageDraft.value = message;
+            recentChatRequests.delete(signature);
+            messages.value = messages.value.filter((item) => !String(item.id || "").startsWith("pending-"));
+        }
         const status = error?.response?.status;
         if (status === 429) {
             startCooldown(Math.max(1000, retryAfterMilliseconds(error.response?.headers) ?? RATE_LIMIT_FALLBACK_MS));
         }
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
-        sendError.value = status === 402 ? t(translationRequest ? "freeAiModels.translationInsufficientBalance" : "freeAiModels.insufficientBalance")
+        sendError.value = normalizeInsufficientCredits(error) ? "" : status === 402 ? t(translationRequest ? "freeAiModels.translationInsufficientBalance" : "freeAiModels.insufficientBalance")
             : status === 429 ? t("freeAiModels.rateLimited")
                 : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.chatTimeout")
                     : t("freeAiModels.chatFailed");
@@ -1150,12 +1156,17 @@ async function sendMediaMessage() {
         startCooldown(MEDIA_MESSAGE_COOLDOWN_MS);
         await scrollToBottom();
     } catch (error) {
+        if (normalizeInsufficientCredits(error)) {
+            messageDraft.value = message;
+            recentChatRequests.delete(signature);
+            messages.value = messages.value.filter((item) => !String(item.id || "").startsWith("pending-"));
+        }
         const status = error?.response?.status;
         if (status === 429) {
             startCooldown(Math.max(1000, retryAfterMilliseconds(error.response?.headers) ?? RATE_LIMIT_FALLBACK_MS));
         }
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
-        sendError.value = status === 402 ? t("freeAiModels.insufficientBalance")
+        sendError.value = normalizeInsufficientCredits(error) ? "" : status === 402 ? t("freeAiModels.insufficientBalance")
             : status === 413 ? t("freeAiModels.mediaFileTooLarge")
                 : status === 429 ? t("freeAiModels.rateLimited")
                     : status === 504 || error?.code === "ECONNABORTED" ? t("freeAiModels.mediaTimeout")
@@ -1242,6 +1253,12 @@ async function sendTranscriptionMessage() {
         startCooldown(MESSAGE_COOLDOWN_MS);
         await scrollToBottom();
     } catch (error) {
+        if (normalizeInsufficientCredits(error)) {
+            recentChatRequests.delete(signature);
+            messages.value = messages.value.filter((item) => !String(item.id || "").startsWith("pending-"));
+            sendError.value = "";
+            return;
+        }
         const status = error?.response?.status;
         if (status === 429) {
             startCooldown(Math.max(1000, retryAfterMilliseconds(error.response?.headers) ?? RATE_LIMIT_FALLBACK_MS));
@@ -1327,6 +1344,13 @@ async function sendSpeechMessage() {
         await scrollToBottom();
     } catch (error) {
         if (slug !== pageSlug.value || uuid !== activeUuid.value) return;
+        if (error?.code === "INSUFFICIENT_CREDITS") {
+            messageDraft.value = message;
+            recentChatRequests.delete(signature);
+            messages.value = messages.value.filter((item) => item.id !== `user-${requestId}`);
+            persistSpeechMessages(uuid);
+            return;
+        }
         messages.value.push({ id: `error-${requestId}`, type: "error", role: "assistant", content: audioErrorMessage(error) });
         persistSpeechMessages(uuid);
         await scrollToBottom();

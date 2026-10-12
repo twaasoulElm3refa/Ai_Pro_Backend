@@ -214,6 +214,9 @@ class FreeAiMediaService
         $payload = $response->json();
         if (! $response->successful() || ! is_array($payload) || ($payload['success'] ?? false) !== true) {
             $this->updateMessageStatus($userMessage, 'failed', 'provider');
+            if ($creditError = \App\Exceptions\InsufficientCreditsException::fromPayload($payload, $response->status())) {
+                throw $creditError;
+            }
             throw new FreeAiChatException(
                 'The media service could not complete the request.',
                 $response->status() === 429 ? 429 : 502,

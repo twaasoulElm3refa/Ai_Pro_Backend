@@ -1,4 +1,5 @@
 {
+    "errors": { "insufficientCredits": { "title": "Insufficient credits", "description": "You don't have enough credits to complete this operation. Recharge your wallet, then try again.", "available": "Available credits", "required": "Required credits", "shortfall": "Missing credits", "recharge": "Recharge wallet", "close": "Close credit notice" } },
     "navbar": {
         "home": "Home",
         "wallet": "Wallet",

@@ -113,6 +113,9 @@ PROMPT;
                 self::ENDPOINT
             );
         } catch (Throwable $th) {
+            if ($th instanceof \App\Exceptions\InsufficientCreditsException) {
+                throw $th;
+            }
             $providerError = $th;
 
             Log::error('ScriptGenerator failed', [

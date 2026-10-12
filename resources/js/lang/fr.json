@@ -1,4 +1,5 @@
 {
+    "errors": { "insufficientCredits": { "title": "Crédits insuffisants", "description": "Vous n'avez pas assez de crédits pour terminer cette opération. Rechargez votre portefeuille, puis réessayez.", "available": "Crédits disponibles", "required": "Crédits nécessaires", "shortfall": "Crédits manquants", "recharge": "Recharger le portefeuille", "close": "Fermer l'avis de crédits" } },
     "navbar": {
         "home": "Accueil",
         "wallet": "Portefeuille",

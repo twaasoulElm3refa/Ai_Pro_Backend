@@ -2,6 +2,7 @@ import axios from "axios";
 import toastr from "toastr";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { toApiRequestUrl } from "@/utils/apiUrl";
+import { publishInsufficientCredits } from "@/utils/insufficientCredits";
 
 const configuredApiBaseUrl = String("/api/v1" || "/api/v1").trim();
 const API_BASE_URL = configuredApiBaseUrl.replace(/\/+$/, "") || "/api/v1";
@@ -119,6 +120,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        if (publishInsufficientCredits(error)) return Promise.reject(error);
         const status = error.response?.status;
         const requestUrl = String(error.config?.url || "");
 
