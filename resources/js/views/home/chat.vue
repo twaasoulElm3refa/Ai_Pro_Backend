@@ -695,9 +695,11 @@
                     <div class="input-actions">
                         <span class="char-count">{{ userInput.length }}</span>
 
-                        <button v-if="hideSearchToggle" type="button" class="search-toggle-btn"
+                        <button v-if="isTextWriterTool" type="button" class="search-toggle-btn"
                             :class="{ active: searchEnabled }"
-                            :aria-label="searchEnabled ? 'Disable web search' : 'Enable web search'"
+                            :title="searchEnabled ? 'إيقاف البحث' : 'تفعيل البحث'"
+                            :aria-label="searchEnabled ? 'إيقاف البحث' : 'تفعيل البحث'"
+                            :aria-pressed="searchEnabled"
                             :disabled="chatSendDisabled" @click="searchEnabled = !searchEnabled">
                             <i class="bi bi-search"></i>
                         </button>
@@ -1275,8 +1277,6 @@ const openAssistantStream = async (conversation, afterId) => {
     };
 };
 
-const hideSearchToggle = computed(() => false);
-
 const TEXT_EDITOR_SUB_TOOL_ID = 1;
 const TEXT_EDITOR_TOOL_KEY = "ai_text_editor";
 const TEXT_SUMMARIZER_SUB_TOOL_ID = 2;
@@ -1849,6 +1849,10 @@ const isHeadlineGeneratorTool = computed(() =>
 );
 
 const isTextEditorTool = computed(() =>
+    Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
+);
+
+const isTextWriterTool = computed(() =>
     Number(subtool.value?.id) === TEXT_EDITOR_SUB_TOOL_ID
 );
 
@@ -7269,23 +7273,15 @@ const submitMessage = async (text = userInput.value, options = {}) => {
                     debug: true,
                 }
                 : {}),
-            task_options: isTextEditorSubmission
+            task_options: isTextWriterTool.value
                 ? {
-                    search_mode: "off",
+                    search_mode: searchEnabled.value ? "on" : "off",
                 }
-                : searchEnabled.value
-                    ? {
-                        search_mode: "on",
-                        web_search_max_results: 3,
-                        web_search_total_results: 5,
-                        max_tokens: 2500,
-                        temperature: 0.45,
-                    }
-                    : {
-                        search_mode: "off",
-                        max_tokens: 2500,
-                        temperature: 0.45,
-                    },
+                : {
+                    search_mode: "off",
+                    max_tokens: 2500,
+                    temperature: 0.45,
+                },
         };
 
         console.log("Chat payload before send:", JSON.stringify(payload, null, 2));
